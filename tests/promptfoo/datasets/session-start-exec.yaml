@@ -227,3 +227,10 @@
       value: "Active pipeline: ship-sdlc on feat/worktree-resolve-error"
     - type: icontains
       value: "Active execution: execute-plan-sdlc on feat/worktree-resolve-error"
+
+- description: "session-start: CRLF SKILL.md frontmatter still counts user-invocable skills"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-session-start-crlf.js"
+  assert:
+    - type: regex
+      value: '\(([1-9]\d*) skills loaded\)'

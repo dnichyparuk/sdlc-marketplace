@@ -147,7 +147,7 @@ function parseDocTables(root) {
   if (!fs.existsSync(docPath)) {
     throw new Error(`docs/cost-tiers.md not found at ${docPath}`);
   }
-  const lines = fs.readFileSync(docPath, 'utf8').split('\n');
+  const lines = fs.readFileSync(docPath, 'utf8').split(/\r?\n/);
 
   function findTableAfter(headingRegex) {
     const headingIdx = lines.findIndex(l => headingRegex.test(l));

@@ -146,6 +146,80 @@ triggers:
 
 When `model:` is absent, the orchestrator falls back to `manifest.subagent_model` (default: `sonnet`).
 
+> For guidance on writing effective `triggers` and `skip-when` patterns, see [Dimension scoping best practices](#dimension-scoping-best-practices) below.
+
+---
+
+### Dimension scoping best practices
+
+Narrow `triggers` keep reviewer subagents focused on the files they are qualified to evaluate. Broad globs hand every changed file to every dimension — cost scales roughly with `dimensions × changed_files`. A 40-file PR reviewed by 5 dimensions with `triggers: ["**/*"]` sends ~200 file-reads to subagents; the same PR with each dimension scoped to its real surface sends ~40 (~5× reduction). Token savings compound on large PRs where most changed files are irrelevant to most dimensions.
+
+#### How matching works
+
+`scripts/skill/review.js::matchFiles` (around L176–L188) intersects the `triggers` glob list against the changed-file set, then subtracts any files matched by `skip-when`. The resulting per-dimension `matched_files` array is the only context the reviewer subagent sees — it does not receive the full diff unless `requires-full-diff: true` is set. There is no implicit fallback: an empty `triggers` list matches zero files and the dimension is reported `SKIPPED`. When a dimension matches more than 80% of changed files, the plan-critique step flags it as `over_broad_dimensions` (around `review.js:291` in `critiquePlan`) — the existing automated signal for this anti-pattern.
+
+#### Glob → dimension examples
+
+| `triggers` | Dimension | Why scoped this way |
+|---|---|---|
+| `**/*.test.{ts,js}` | `test-quality` | Assertions, isolation, coverage — only meaningful on test files |
+| `scripts/**` | `script-conventions` | Exit codes, error handling, Node patterns — irrelevant for app code |
+| `**/*.{yaml,yml}` | `config-schema` | Required fields, type correctness, env references |
+| `plugins/**/SKILL.md` | `skill-authoring` | Skill format, required sections — only valid on SKILL.md files |
+
+Use `skip-when` to carve out sub-paths you do not want reviewed by a broad trigger:
+
+```yaml
+triggers:
+  - "src/**/*.ts"
+skip-when:
+  - "**/*.test.ts"
+  - "**/__generated__/**"
+```
+
+This sends only non-test, non-generated TypeScript files to the dimension — a meaningful reduction on projects that co-locate tests and source.
+
+#### Anti-pattern: the catch-all dimension
+
+Do not author a "general code review" dimension with `triggers: ["**/*"]` and no `skip-when`. Every changed file — config, docs, generated code, test fixtures — is dispatched to that subagent on every review. The cost is `files × dimensions`; the signal is low because the reviewer wastes attention on files unrelated to its stated purpose. The `plan_critique.over_broad_dimensions` warning is the automated detection for this pattern.
+
+#### Migrating from a broad dimension
+
+1. Run `/review-sdlc --dry-run` on a recent PR and inspect which files the broad dimension matched. Look for natural clusters (auth code, migration files, config, tests).
+2. Author one focused dimension per cluster with explicit `triggers`, adding `skip-when` to exclude tests or generated artifacts where appropriate.
+
+Avoid relying on `max-files` truncation as a substitute for scoping — truncation silently drops the tail of the match list, so some files are never reviewed rather than being reviewed by a qualified dimension.
+
+For canonical `triggers:` blocks and complete dimension examples, see [`EXAMPLES.md`](../../plugins/sdlc-utilities/skills/review-sdlc/EXAMPLES.md).
+
+---
+
+## Common Prompt
+
+Place a `_common.md` file in `.sdlc/review-dimensions/` to share instructions across all review dimensions. The file is plain markdown (no YAML frontmatter).
+
+Its content is automatically prepended to every dimension's review instructions under a `## Common Review Instructions` heading. When the file is absent, behavior is unchanged.
+
+### How it works
+
+The common prompt text is injected into each dimension's instructions after the severity section but before the dimension-specific checklist. This allows you to define shared guidance (verification principles, naming conventions, severity overrides) that applies to every reviewer subagent without duplicating text across all dimension files.
+
+### Copilot mirrors
+
+For Copilot, common text is baked into every per-dimension `.instructions.md` mirror at generation time. This means each mirror file contains the full common prompt plus dimension-specific instructions as a single self-contained document.
+
+### After creating or editing
+
+After creating or editing `_common.md`, run `/setup-sdlc --dimensions` to regenerate all Copilot mirrors, then commit both `_common.md` and the updated mirror files:
+
+```bash
+/setup-sdlc --dimensions
+git add .sdlc/review-dimensions/
+git commit -m "docs: update common review instructions"
+```
+
+Omit this step if you are using the skill in Claude Code only (no Copilot) — the common prompt takes effect immediately at review time.
+
 ---
 
 ## Consolidated Comment Format
@@ -155,7 +229,7 @@ The command posts a single PR comment:
 ```markdown
 ## Code Review — 3 dimension(s), 7 finding(s)
 
-> Automated review by `sdlc:sdlc-reviewing-changes` · 2026-02-25
+> Automated review by `review-sdlc` v0.20.7 · 2026-02-25
 
 ### Summary
 
@@ -183,6 +257,8 @@ User-supplied `command` parameter is passed directly to `child_process.exec()` w
 
 </details>
 ```
+
+The attribution line includes the sdlc-utilities plugin version (e.g., `v0.20.7`) so reviewers can correlate findings with the skill version that produced them. The version is resolved by the prepare script and embedded in the comment footer — it does not change between runs of the same plugin version.
 
 ---
 

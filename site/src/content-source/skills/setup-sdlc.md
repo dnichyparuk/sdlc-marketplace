@@ -2,7 +2,7 @@
 
 ## Overview
 
-Configures the SDLC plugin for a project. On invocation, `/setup-sdlc` shows a single multi-select menu listing every section it manages — version tracking, ship pipeline preferences, Jira, review scope, commit/PR patterns, review dimensions, PR template, plan and execution guardrails, and openspec enrichment. Each row shows a state badge (`set`, `not set`, or `legacy`), and only the sections you tick get configured. For every selected section, the skill prints a verbose header before any prompt — purpose, files modified, consuming skills, and a per-option description block — so you know exactly what each toggle controls before you answer.
+Configures the SDLC plugin for a project. On invocation, `/setup-sdlc` shows a numbered list of sections printed directly to chat — version tracking, ship pipeline preferences, Jira, review scope, commit/PR patterns, review dimensions, PR template, plan and execution guardrails, and openspec enrichment. Each row shows a state badge (`set`, `not-set`, or `legacy`). Reply with the numbers to configure (or `all` / `not-set` / `none`) to select which sections to configure. For every selected section, the skill prints a verbose header before any prompt — purpose, files modified, consuming skills, and a per-option description block — so you know exactly what each toggle controls before you answer.
 
 Creates `.sdlc/config.json` (project-level config), `.sdlc/local.json` (user-local preferences), and content artifacts (`.sdlc/review-dimensions/*.yaml`, `.sdlc/pr-template.md`, `openspec/config.yaml` managed block).
 
@@ -20,7 +20,7 @@ Renders the selective-section menu. All sections are pre-checked by default; `le
 /setup-sdlc --only jira,review
 ```
 
-Skip the menu, configure only `jira` and `review`. Useful for scripted runs or follow-up tweaks. Valid ids: `version`, `ship`, `jira`, `review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`.
+Skip the menu, configure only `jira` and `review`. Useful for scripted runs or follow-up tweaks. Valid ids: `version`, `ship`, `jira`, `review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`, `workspace`.
 
 ```text
 /setup-sdlc --force
@@ -38,15 +38,18 @@ Pre-check every row in the menu and skip the per-field `keep` prompt — all con
 | `--skip <section>` | Skip a config section during setup (version, ship, jira, review, commit, pr) | — |
 | `--force` | Skip the per-field `keep` prompt for every field — all values are reconfirmed rather than accepted with one keystroke. Does not change which rows are pre-checked (all rows are pre-checked by default). | — |
 | `--unset-only` | Pre-check only sections in `not-set` state. Legacy fast-path before #235 — the default flow now pre-checks all rows. | — |
-| `--only <ids>` | Comma-separated section ids to configure non-interactively (skips the menu). Valid: `version`, `ship`, `jira`, `review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block` | — |
+| `--only <ids>` | Comma-separated section ids to configure non-interactively (skips the menu). Valid: `version`, `ship`, `jira`, `review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`, `workspace` | — |
 | `--dimensions` | Jump directly to review dimensions sub-flow (alias for `--only review-dimensions`) | — |
 | `--pr-template` | Jump directly to PR template sub-flow (skip config builder) | — |
+| `--plan-template` | Jump directly to plan template sub-flow (skip config builder). Scaffolds the project-owned `.sdlc/plan-template.md` override consumed by `/plan-sdlc` and by `validate-plan-format.js` PF10. | — |
 | `--guardrails` | Jump directly to plan guardrails sub-flow (skip config builder) | — |
 | `--execution-guardrails` | Jump directly to execution guardrails sub-flow (skip config builder) | — |
 | `--openspec-enrich` | Jump directly to openspec config enrichment sub-flow | — |
 | `--remove-openspec` | Remove the managed block from `openspec/config.yaml` (with `--openspec-enrich`) | — |
 | `--add` | Expansion mode with `--dimensions` or `--guardrails` (propose only new items) | — |
 | `--no-copilot` | Skip GitHub Copilot instructions with `--dimensions` | — |
+
+> **Outdated CI scripts:** When setup-sdlc runs, it checks whether the project's installed pipeline-script files (managed by `scaffold-ci.js`) are at-or-above the version shipped by the running plugin. When any file is outdated, setup prints a warning listing the affected files and instructs you to run `/setup-sdlc --migrate` or `/version-sdlc --init` to update them. No auto-fix is applied — setup only reports state. (Implements #424 / R-SCRIPT-VERSIONS.)
 
 ---
 
@@ -128,6 +131,51 @@ Jump directly to PR template creation, skipping the config builder. Analyzes pro
 
 Jump directly to plan guardrails configuration, skipping the config builder. Configures custom rules evaluated by `/plan-sdlc` during critique phases.
 
+### Configure worktree location (layout: sibling)
+
+```text
+/setup-sdlc --only workspace
+```
+
+Opens the worktree layout wizard. Selecting `sibling` places future worktrees next to the repo directory (e.g., `/path/to/myapp-feat-login`). Example prompts:
+
+```
+Where should sdlc create git worktrees?
+  1. inside    /path/to/myapp/.claude/worktrees/example-feature
+  2. sibling   /path/to/myapp-example-feature       ← selected
+  3. central   ~/.sdlc/worktrees/myapp/example-feature
+  4. template  Custom path with placeholders (advanced)
+
+→ Next worktree will land at: /path/to/myapp-<branch-slug>
+Write to .sdlc/local.json? [Y/n]
+```
+
+Resulting `.sdlc/local.json` entry:
+```json
+{ "workspace": { "worktree": { "layout": "sibling" } } }
+```
+
+### Configure worktree location (layout: template)
+
+```text
+/setup-sdlc --only workspace
+```
+
+Selecting `template` with `~/dev/wt/{repo}/{slug}`:
+
+```
+Template: ~/dev/wt/{repo}/{slug}
+Live preview with your input:
+  ~/dev/wt/myapp/example-feature  → /Users/you/dev/wt/myapp/example-feature
+
+Write to .sdlc/local.json? [Y/n]
+```
+
+Resulting `.sdlc/local.json` entry:
+```json
+{ "workspace": { "worktree": { "layout": "template", "template": "~/dev/wt/{repo}/{slug}" } } }
+```
+
 ### Expand guardrails
 
 ```text
@@ -156,10 +204,11 @@ Every section the menu can configure. The label, purpose, files modified, and co
 | `jira` | Default Jira project key used by `/jira-sdlc`, `/commit-sdlc`, and `/pr-sdlc` when extracting or assigning ticket IDs. | `.sdlc/config.json` | `/jira-sdlc`, `/commit-sdlc`, `/pr-sdlc` |
 | `review` | Default scope for `/review-sdlc` (committed/staged/working/worktree/all). Local to each developer. | `.sdlc/local.json` | `/review-sdlc` |
 | `commit` | Commit message validation rules used by `/commit-sdlc` (subject regex, allowed types/scopes, required trailers). | `.sdlc/config.json` | `/commit-sdlc` |
-| `pr` | PR title validation rules used by `/pr-sdlc` (title regex, allowed types/scopes, required trailers). | `.sdlc/config.json` | `/pr-sdlc` |
+| `pr` | PR title validation rules used by `/pr-sdlc` (title regex, allowed types/scopes, required trailers) plus `defaultBranch` — the target merge branch, auto-detected from the remote default and overridable for `develop`/`release/*` repos (issue #339). | `.sdlc/config.json` | `/pr-sdlc` |
 | `pr-labels` | PR label assignment policy under `pr.labels`. Mode `off` (default) adds no automatic labels — `--label` overrides still work. Mode `rules` evaluates user-defined deterministic rules (branch prefix, commit type, path glob, JIRA type, diff size). Mode `llm` opts into the legacy fuzzy match. Configured via `--only pr-labels`. | `.sdlc/config.json` | `/pr-sdlc` |
 | `review-dimensions` | Review dimensions installed under `.sdlc/review-dimensions/*.yaml`. Each dimension is a focused check set used by `/review-sdlc`. | `.sdlc/review-dimensions/*.yaml` | `/review-sdlc` |
 | `pr-template` | PR description template at `.sdlc/pr-template.md`, used by `/pr-sdlc` when drafting PRs. | `.sdlc/pr-template.md` | `/pr-sdlc` |
+| `plan-template` | Project-owned plan template at `.sdlc/plan-template.md`, used by `/plan-sdlc` to build the plan skeleton (Required Sections, Discovery Questions, Verification Patterns) and by `validate-plan-format.js` PF10 to check required-section presence. Without it, `/plan-sdlc` falls back to the shipped default template. | `.sdlc/plan-template.md` | `/plan-sdlc` |
 | `plan-guardrails` | Custom rules at `.sdlc/config.json#plan.guardrails` evaluated by `/plan-sdlc` during critique phases. | `.sdlc/config.json` | `/plan-sdlc` |
 | `execution-guardrails` | Runtime guardrails at `.sdlc/config.json#execute.guardrails` evaluated by `/execute-plan-sdlc` and `/ship-sdlc` before/after each wave. | `.sdlc/config.json` | `/execute-plan-sdlc`, `/ship-sdlc` |
 | `openspec-block` | Managed block in `openspec/config.yaml` providing sdlc-utilities workflow guidance to OpenSpec-aware skills. Idempotent across plugin versions. | `openspec/config.yaml` | `/plan-sdlc`, `/execute-plan-sdlc`, `/ship-sdlc` |
@@ -178,7 +227,7 @@ For each non-delegated section, these are the fields the verbose header reveals 
 | `tagPrefix` | `v` | Prefix prepended to the version when `/version-sdlc` creates a release tag (e.g., prefix `v` produces `v1.2.3`). Empty string is allowed. |
 | `changelog` | `false` | When true, `/version-sdlc` and `/ship-sdlc` append a release entry to `changelogFile` on every bump. |
 | `changelogFile` | `CHANGELOG.md` | Path to the changelog file appended by `/version-sdlc` when changelog is enabled. |
-| `preRelease` | (empty) | When set (e.g., `rc`, `beta`), `/version-sdlc` and `/ship-sdlc` default to a pre-release bump on every default invocation until an explicit `major\|minor\|patch` graduates the release. Must match `^[a-z][a-z0-9]*$`. |
+| `preRelease` | (empty) | When set (e.g., `rc`, `beta`), `/version-sdlc` and `/ship-sdlc` default to a pre-release bump on every default invocation until an explicit `major\|minor\|patch` graduates the release. Must match `^[a-z][a-z0-9]*$`. When set, setup-sdlc validates compatibility with the configured `fileType` before writing: `pubspec.yaml` blocks with a clear/proceed prompt; `pyproject.toml` and `version-file` require explicit confirmation; other types proceed silently. |
 
 #### `jira`
 
@@ -194,7 +243,17 @@ For each non-delegated section, these are the fields the verbose header reveals 
 
 #### `ship`
 
-The seven `ship` fields are imported verbatim from `scripts/lib/ship-fields.js` (single source of truth for both `/ship-sdlc` and `/setup-sdlc`). Run `/setup-sdlc --only ship` to see each field's default and description in the verbose header before answering.
+The 15 `ship` fields are imported verbatim from `scripts/lib/ship-fields.js` (single source of truth for both `/ship-sdlc` and `/setup-sdlc`). Eight of the 15 are R57 tunables (`verifyPipelineTimeout`, `verifyPipelineInterval`, `verifyPipelineMaxIterations`, `awaitRemoteReviewTimeout`, `awaitRemoteReviewInterval`, `awaitRemoteReviewers`, `executeWaveTimeout`, `executeWaveInterval`) prompted only when the gating step (`verify-pipeline`, `await-remote-review`, or `execute`) is in the selected `ship.steps[]` — the prepare script applies these `when.stepInActiveSteps` gates per issue #292 / R15. The `executeWaveTimeout` ceiling is `3600` seconds, restating `MAX_WAVE_TIMEOUT_SECONDS` in `scripts/lib/ship-fields.js` — the single enforcement point (`Monitor.timeout_ms` caps at 3600000 ms). Run `/setup-sdlc --only ship` to see each field's default and description in the verbose header before answering.
+
+#### `workspace`
+
+| Field | Default | Description |
+|---|---|---|
+| `worktree.layout` | `inside` | Worktree placement strategy. `inside` creates under `.claude/worktrees/` (standard Claude Code convention). `sibling` creates next to the repo directory. `central` creates under `~/.sdlc/worktrees/<repoName>/`. `template` uses a custom path template with placeholders. |
+| `worktree.base` | (layout default) | Override base directory for `inside`/`sibling`/`central` layouts. Accepts absolute paths and `~/paths`. Relative paths and `..` traversal are rejected. |
+| `worktree.template` | (required for `template` layout) | Path template string. Must contain at least one of `{slug}` or `{branch}`. Available placeholders: `{repo}` (repo dirname), `{slug}` (branch slugified), `{branch}` (raw branch, `/` → `-`). |
+| `worktree.ensureGitignore` | `true` | Auto-add `.claude/worktrees/` to root `.gitignore` managed block. Only effective for `inside` layout. |
+| `worktree.nameTemplate` | `{slug}` | Final directory-name pattern (separate from placement). Placeholders: `{slug}`, `{branch}`, `{date}` (YYYY-MM-DD local tz), `{issue}` (first digit-run in branch; throws if branch has no digits). |
 
 ---
 
@@ -268,6 +327,13 @@ Analyzes project conventions (existing GitHub PR templates, recent PR patterns, 
 
 Scans the project's codebase structure, dependencies, and architecture to propose and configure plan guardrails in `.sdlc/config.json`. Each guardrail defines a constraint that `/plan-sdlc` evaluates during its critique phases.
 
+Proposals are displayed with their `[category]` tag (e.g. `[framework]`, `[scope]`, `[planning-discipline]`) so you can see at a glance which signal triggered each rule. Framework-specific proposals (Svelte/Astro island pattern, Prisma migration enforcement) are emitted automatically when the corresponding signal is detected (issue #336).
+
+Selection is a two-stage flow:
+
+- **Stage A** — Standard catalog: choose `all`, `select <numbers>`, or `cancel`. The `custom` option has moved to Stage B.
+- **Stage B** (always-on unless Stage A cancelled) — "Add custom project-specific guardrails?" Entering `yes` opens a per-guardrail ID/description/severity loop; `no` proceeds directly to write.
+
 **Direct entry:** `/setup-sdlc --guardrails` or `/setup-sdlc --guardrails --add` (expansion mode)
 
 #### OpenSpec Enrichment
@@ -285,6 +351,7 @@ Before writing any config files, `/setup-sdlc` renders a diff preview comparing 
 ```
 | path                  | before    | after       |
 |-----------------------|-----------|-------------|
+| pr.defaultBranch      | (unset)   | develop     |
 | pr.expectedAccount    | (unset)   | rnagrodzki  |
 | version.tagPrefix     | v         | release/    |
 ```
@@ -312,8 +379,8 @@ Plan guardrails    — [N configured via guardrails sub-flow | skipped]
 
 | File | Purpose |
 |------|---------|
-| `.sdlc/config.json` | Unified project config with `version`, `jira`, `commit`, `pr` sections, and optional `plan.guardrails`. Carries top-level `schemaVersion: 3` (issue #232). The `version` section may include an optional `preRelease` field (lowercase label matching `^[a-z][a-z0-9]*$`) — when set, `version-sdlc` and `ship-sdlc` produce a pre-release version (e.g. `1.2.4-rc.1`) on every default bump until an explicit `major\|minor\|patch` graduates the release. Configured interactively via the customize path of Step 3a (version section). |
-| `.sdlc/local.json` | User-local config with `review` scope preferences and `ship` settings. Carries top-level `schemaVersion: 3`. Gitignored (selective `.sdlc/.gitignore` block). |
+| `.sdlc/config.json` | Unified project config with `version`, `jira`, `commit`, `pr` sections, and optional `plan.guardrails`. Carries top-level `schemaVersion: 3` (issue #232). The `version` section may include an optional `preRelease` field (lowercase label matching `^[a-z][a-z0-9]*$`) — when set, `version-sdlc` and `ship-sdlc` produce a pre-release version (e.g. `1.2.4-rc.1`) on every default bump until an explicit `major\|minor\|patch` graduates the release. Configured interactively via the customize path of Step 3a (version section). The `version.preRelease` field is gated by a fileType-compatibility check at setup time (see spec R-version-prerelease-compat). |
+| `.sdlc/local.json` | User-local config with `review` scope preferences, `ship` settings, and (when configured) `workspace.worktree` layout. Carries top-level `schemaVersion: 3`. Gitignored (selective `.sdlc/.gitignore` block). |
 | `.sdlc/.gitignore` | Selective managed block (issue #231) — committed: `config.json`, `review-dimensions/`. Ignored: `local.json`, `cache/`, `*.bak.*`, `.migration.lock`. Replaces the historical blanket `*\n` content. |
 | `.sdlc/review-dimensions/*.yaml` | Review dimensions created during dimensions sub-flow (via `--dimensions`). Committed to the repo. |
 | `.sdlc/pr-template.md` | PR template created during PR template sub-flow (via `--pr-template`). Legacy `.claude/pr-template.md` is read as a fallback during the deprecation window — issue #260. |

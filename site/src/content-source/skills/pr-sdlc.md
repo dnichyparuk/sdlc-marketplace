@@ -25,6 +25,7 @@ The diff stat and diff content used by the description reflect only the branch's
 | `--base <branch>` | Target branch for the PR | repo default |
 | `--auto` | Skip interactive approval — create/update the PR immediately after generation | — |
 | `--label <name>` | Force a label onto the PR (repeatable). Created automatically if it doesn't exist in the repo | — |
+| `--expected-branch <name>` | **Internal — set by ship-sdlc.** Validates that the current branch matches `<name>` before any `gh pr create` / `gh pr edit` invocation. Exits non-zero if the branches differ. Cross-link: see [ship-sdlc branch-verification guard](ship-sdlc.md#branch-verification-guard). | inactive |
 
 ---
 
@@ -289,25 +290,51 @@ PR title validation is configured in `.sdlc/config.json` under the `pr` key. All
 | `titlePatternError` | string | Human-readable error message displayed when `titlePattern` validation fails. |
 | `allowedTypes` | array of strings | Allowed PR title type prefixes (e.g., `feat`, `fix`, `breaking`). Absence allows any type. Used for title generation hints only; validation uses `titlePattern`. |
 | `allowedScopes` | array of strings | Allowed PR title scopes (the parenthetical in `feat(scope)`). Absence allows any scope. Used for title generation hints only; validation uses `titlePattern`. |
-| `expectedAccount` | string | Expected GitHub login that should be active when `/pr-sdlc` runs (issue #234). When set, the prepare script halts hard if the active `gh` account differs, preventing wrong-account PRs in multi-account setups. Cascades to the `origin` remote owner when unset. |
+| `defaultBranch` | string | Target branch PRs are merged into (issue #339). When set, `/pr-sdlc` uses this value without runtime git detection. Override for repos using `develop`, `release/*`, etc. Configured by `/setup-sdlc` pr section (auto-detected default). |
+| `expectedAccount` | string | Expected GitHub login that should be active when `/pr-sdlc` runs (issue #234). When set, the prepare script halts hard if the active `gh` account differs, preventing wrong-account PRs in multi-account setups. When **unset**, the script probes repo access instead — see Preflight below (fixes #380). |
 
-### Preflight (issue #234)
+### Base Branch Resolution (issue #339)
+
+`skill/pr.js` resolves the target base branch via a three-step cascade:
+
+1. **`--base <branch>` CLI flag** — explicit override, highest priority. Verified against `origin/<branch>`; errors if not found on the remote.
+2. **`config.pr.defaultBranch`** — value from `.sdlc/config.json` under `pr.defaultBranch`. Verified against `origin/<value>`; surfaces a precise error naming the config path if the branch does not exist on the remote.
+3. **Git auto-detection** — falls back to `git symbolic-ref refs/remotes/origin/HEAD` → `main` → `master` (the existing `detectBaseBranch` behavior).
+
+Configure `pr.defaultBranch` via `/setup-sdlc` (pr section) for repos where the default branch is `develop`, `release/*`, or any non-standard name — this prevents the git auto-detect from resolving to the wrong base on every PR.
+
+### Preflight (issue #234, fixes #380)
 
 Before any GitHub API call, `skill/pr.js` runs a gh-auth + active-account preflight:
 
 1. Verifies `gh auth status --hostname github.com` succeeds — halts on no-auth or expired token.
-2. Resolves `expectedAccount` via cascade: `pr.expectedAccount` → `git config user.email` mapping → `origin` remote owner.
-3. Compares the resolved `expectedAccount` against `gh api user --jq .login` and halts on mismatch with the canonical 3-line message:
+2. Resolves the account gate via **two modes**:
+   - **Identity mode** (`pr.expectedAccount` is set): compare the configured value against `gh api user --jq .login`. Mismatch halts with the canonical 3-line message (see below). This is the opt-in gate for teams that want strict login enforcement.
+   - **Access mode** (`pr.expectedAccount` is unset): call `lib/git.js::probeRepoAccess({ owner, repo, host })` against the origin remote. A `200` response clears the gate. A `404` or `403` response halts with `formatAccessDenied` — naming the active account and listing local `gh` accounts to switch to. A network failure warns and proceeds (non-blocking). When the origin remote is absent, skip the probe and proceed with a warning.
 
-   ```text
-   Expected gh account: <expected>
-   Active gh account:   <actual>
-   Run: gh auth switch --user <expected>
-   ```
+**Identity-mode halt message** (canonical 3-line block):
 
-The shared probe `lib/git.js::probeGhAuth` is also consumed by `ship-sdlc`'s pipeline preflight — both gates produce byte-identical halt messages via `formatAccountMismatch`. When `expectedAccount` cannot be resolved at all (no config, no email mapping, no origin), the script emits a warning and proceeds — best-effort cascade.
+```text
+Expected gh account: <expected>
+Active gh account:   <actual>
+Run: gh auth switch --user <expected>
+```
+
+**Access-mode halt message** (`formatAccessDenied`, emitted when probe returns 404/403):
+
+```text
+Active gh account: <active>
+Cannot access: <owner>/<repo>
+Try: gh auth switch --user <candidate>   (one line per local account)
+```
+
+The shared probe `lib/git.js::probeGhAuth` is also consumed by `ship-sdlc`'s pipeline preflight — both gates produce byte-identical halt messages via the same `lib/git.js` helpers. The access probe (`probeRepoAccess`) is also shared with `ship.js` for identical behavior.
 
 The post-creation reactive recovery (issue #184, `gh pr create` permission failure → automatic switch + retry) remains as a fallback for cases the preflight cannot anticipate.
+
+#### Migration Note
+
+If you ran `/setup-sdlc` before this fix and accepted the default that stored the origin remote owner in `pr.expectedAccount`, clear that value from `.sdlc/config.json` unless you actually want strict identity enforcement. With it set to an org name (e.g. `"Cleeng"`), the identity check can never pass — no personal login equals an org slug. Remove or leave the field unset to let the access probe handle authorization automatically.
 
 ### Note on Type/Scope Flags
 

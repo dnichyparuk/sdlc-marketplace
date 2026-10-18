@@ -266,7 +266,7 @@ function hasVerbatimGuard(text) {
 // marker of a dispatch-bearing orchestrator. Leaf drafters (`tools: Read`) do not
 // dispatch subagents and are excluded from the await-barrier rule (#487).
 function frontmatterToolsIncludesAgent(content) {
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   const frontmatter = fmMatch ? fmMatch[1] : '';
   const toolsLine = frontmatter.split('\n').find(l => /^\s*tools:/i.test(l));
   return toolsLine ? /\bAgent\b/.test(toolsLine) : false;
@@ -517,7 +517,7 @@ function checkUserInvocableFlag(skills, findings) {
     if (!content) continue;
 
     // Extract frontmatter block (between first --- and second ---)
-    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
     const frontmatter = fmMatch ? fmMatch[1] : '';
 
     if (!frontmatter.includes('user-invocable: true')) {

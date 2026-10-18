@@ -25,6 +25,7 @@ Provide review feedback in one of three ways:
 |------|-------------|---------|
 | `--pr <number>` | PR number to fetch review threads from. Enables thread-aware mode: pre-computes thread resolution state, filters to outstanding comments only on re-run. | Auto-detected from current branch |
 | `--auto` | Skip consent gates at Step 10 and Step 12. Auto-implement all "will fix" items (subject to `alwaysFixSeverities`, see Configuration below) and auto-post in-thread replies (resolving only "agree, will fix" threads matching the severity allowlist). Critique gates still run. "Disagree" and "won't fix" items are displayed but not auto-implemented; their threads are replied to but left open. | Off |
+| `--always-harden-from-review` | Mirror of `.sdlc/local.json` `receivedReview.alwaysHardenFromReview`. When `true`, skip the Step 11.6 consent gate and auto-dispatch `harden-sdlc` per cluster (subject to `flags.auto` matrix R25). | Off (`false`) |
 
 ---
 
@@ -72,6 +73,70 @@ R18 — others are replied to but left open.
 **Correlation with `ship.reviewThreshold`:** `alwaysFixSeverities` only takes effect when `received-review-sdlc` is actually invoked. In the ship pipeline, the dispatch gate is `ship.reviewThreshold` — if a finding's severity is below that threshold, `received-review-sdlc` never runs and `alwaysFixSeverities` is never evaluated. Keep `reviewThreshold` ≤ the lowest severity in `alwaysFixSeverities`. Example: `alwaysFixSeverities: ["critical","high","medium","low"]` requires `reviewThreshold: "low"`.
 
 To configure interactively, run `/setup-sdlc --only received-review`.
+
+### `receivedReview.alwaysHardenFromReview` (issue #429)
+
+Per-user flag controlling whether Step 11.6 (META-ANALYZE) auto-dispatches `harden-sdlc` per
+cluster without asking for consent — see spec requirements R24 and R25.
+
+| Aspect | Value |
+|---|---|
+| Location | `.sdlc/local.json` under `receivedReview.alwaysHardenFromReview` (gitignored, per-user) |
+| Type | `boolean` |
+| Default | `false` (each cluster requires consent unless `--auto` is also set) |
+| Scope | Applies uniformly to all Step 11.6 cluster dispatches |
+
+**Local-only contract (R24):** This field MUST NEVER be set in `.sdlc/config.json`. The prepare
+script emits a stderr warning and ignores the value if encountered there.
+
+**Auto-mode matrix (R25 — authoritative):**
+
+| `--auto` | `alwaysHardenFromReview` | Step 11.6 behavior |
+|---|---|---|
+| off | `false` | Present consent gate per cluster → dispatch approved clusters only. |
+| off | `true`  | Skip consent gate → dispatch every cluster (up to `hardenClusterCap`). |
+| on  | `false` | Skip consent gate AND skip dispatch entirely → write deferred-action entry to `.sdlc/learnings/log.md`. |
+| on  | `true`  | Skip consent gate → dispatch every cluster (capped), propagating `--auto` to each dispatch. |
+
+**Harden dispatch failure:** A non-zero exit from `harden-sdlc` is logged and ignored — it never
+aborts Step 11.7 (LINK VERIFICATION) or Step 12 (REPLY & RESOLVE).
+
+**Deferred-action log format (R26 — applies when `--auto` is on and `alwaysHardenFromReview=false`):**
+```
+## YYYY-MM-DD — received-review-sdlc: deferred meta-analysis clusters
+PR: <pr.number>
+Clusters (<count>):
+- surface=<surface> targetFile=<targetFile> findings=<count> verdict-mix=<csv> failure-text-preview="<first 100 chars>"
+```
+A follow-up interactive run replays deferred clusters by reading these lines.
+
+**Example (`.sdlc/local.json`):**
+
+```json
+{
+  "receivedReview": {
+    "alwaysHardenFromReview": true,
+    "hardenClusterCap": 5
+  }
+}
+```
+
+**Cross-link:** Dispatched `harden-sdlc` runs surface their own learning-log entries per
+[`/harden-sdlc`](harden-sdlc.md) R18.
+
+### `receivedReview.hardenClusterCap` (issue #429)
+
+Maximum number of harden-sdlc clusters dispatched per Step 11.6 run.
+
+| Aspect | Value |
+|---|---|
+| Location | `.sdlc/local.json` under `receivedReview.hardenClusterCap` |
+| Type | `integer` |
+| Default | `5` |
+| Range | `[1, 50]` — clamped silently |
+
+Excess clusters beyond the cap are suppressed and logged as `suppressed: N additional clusters`
+in the deferred-action entry or per-dispatch learning-log record.
 
 ---
 
@@ -199,12 +264,52 @@ Selecting "yes" posts in-thread replies and resolves addressed threads automatic
 | Source code changes | Edits implementing accepted review feedback, in priority order |
 | Resolved review threads | Threads for addressed comments are resolved via GraphQL mutation |
 
+## Reply Version Footer (issue #363)
+
+Every reply posted by this skill ends with a version footer on its own line:
+
+```
+_via `received-review-sdlc` v0.20.7_
+```
+
+The footer is composed by the prepare script (`skill/received-review.js`) from `manifest.plugin_version` and emitted as `manifest.reply_footer`. The skill appends it verbatim to every reply body — no modification. This lets reviewers correlate responses with the skill version that produced them. Falls back to `'unknown'` when the plugin version cannot be read.
+
 ## Link Verification (issue #198)
 
-Before any `gh api` reply is posted (Step 12), the skill pipes the concatenated reply bodies through `scripts/lib/links.js` as a hard gate (Step 11.5). The validator auto-derives `expectedRepo` from `git remote origin` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill never constructs the validator context. URL classes checked: GitHub issues/PRs (owner/repo identity + existence), Atlassian `*.atlassian.net/browse/<KEY>` (host match), and any other `http(s)://` URL (HEAD reachability, 5s timeout). Hosts in the built-in skip list (`linkedin.com`, `x.com`, `twitter.com`, `medium.com`) are reported as `skipped`, not violations. Set `SDLC_LINKS_OFFLINE=1` to skip generic reachability while keeping context-aware checks. On non-zero exit, no replies are posted and the violation list is surfaced verbatim. No flag toggles this gate — it is hard.
+Before any `gh api` reply is posted (Step 12), the skill pipes the concatenated reply bodies through `scripts/lib/links.js` as a hard gate (Step 11.7). The validator auto-derives `expectedRepo` from `git remote origin` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill never constructs the validator context. URL classes checked: GitHub issues/PRs (owner/repo identity + existence), Atlassian `*.atlassian.net/browse/<KEY>` (host match), and any other `http(s)://` URL (HEAD reachability, 5s timeout). Hosts in the built-in skip list (`linkedin.com`, `x.com`, `twitter.com`, `medium.com`) are reported as `skipped`, not violations. Set `SDLC_LINKS_OFFLINE=1` to skip generic reachability while keeping context-aware checks. On non-zero exit, no replies are posted and the violation list is surfaced verbatim. No flag toggles this gate — it is hard.
+
+### Process review feedback with auto-harden enabled
+
+When `alwaysHardenFromReview=true` in `.sdlc/local.json` and `--auto` is passed (e.g., from `/ship-sdlc`):
+
+```text
+/received-review-sdlc --pr 42 --auto
+```
+
+After Step 11 (IMPLEMENT) completes, Step 11.6 (META-ANALYZE) clusters the evaluated findings:
+
+```text
+Step 11.6 — meta-analyze-findings: started | clusterCount=2 surfaces=[review-dimensions, plan-guardrails]
+Step 11.6 — meta-analyze-findings: completed | dispatched=2 deferred=0 suppressed=0
+```
+
+Two `harden-sdlc` dispatches run automatically (with `--auto` propagated). Each writes its own
+learning-log entry. Step 11.7 (LINK VERIFICATION) then runs, followed by Step 12 (REPLY & RESOLVE).
+
+When `flags.auto=true` and `alwaysHardenFromReview=false` (the default), dispatch is deferred instead:
+
+```text
+Step 11.6 — meta-analyze-findings: completed | dispatched=0 deferred=2 suppressed=0
+```
+
+A deferred-action entry is written to `.sdlc/learnings/log.md`. A follow-up interactive run
+replays the deferred clusters by reading the `surface=` lines from that entry.
+
+---
 
 ## Related Skills
 
 - [`/review-sdlc`](review-sdlc.md) — source of findings this skill responds to
 - [`/commit-sdlc`](commit-sdlc.md) — commit the fixes after implementing review feedback
 - [`/pr-sdlc`](pr-sdlc.md) — the PR being reviewed
+- [`/harden-sdlc`](harden-sdlc.md) — dispatched by Step 11.6 to strengthen guardrails and review dimensions

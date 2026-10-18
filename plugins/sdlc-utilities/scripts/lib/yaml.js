@@ -21,7 +21,7 @@
  * Returns null if no valid frontmatter block found.
  */
 function extractFrontmatter(content) {
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   return match ? match[1] : null;
 }
 
@@ -29,7 +29,7 @@ function extractFrontmatter(content) {
  * Extract body content (everything after the closing ---).
  */
 function extractBody(content) {
-  const match = content.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/);
+  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?([\s\S]*)$/);
   return match ? match[1].trim() : '';
 }
 
@@ -39,7 +39,7 @@ function extractBody(content) {
  */
 function parseSimpleYaml(yamlStr) {
   const result = {};
-  const lines = yamlStr.split('\n');
+  const lines = yamlStr.split(/\r?\n/);
   let i = 0;
 
   while (i < lines.length) {

@@ -29,3 +29,14 @@
       value: "frontmatter=opus"
     - type: icontains
       value: "doc=sonnet"
+
+- description: "validate-cost-tiers: CRLF copy of clean fixture exits 0 under --strict"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-cost-tiers-crlf.js"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        return data.exitCode === 0;
+    - type: not-icontains
+      value: "INHERITED:"

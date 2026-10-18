@@ -72,7 +72,7 @@ try {
     try {
       const content = fs.readFileSync(skillPath, 'utf8');
       // Extract frontmatter between first and second ---
-      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
       if (fmMatch && /user-invocable:\s*true/.test(fmMatch[1])) {
         skillCount++;
       }

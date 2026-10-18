@@ -34,7 +34,7 @@ sdlc-marketplace/
 │           ├── state/                 # State persistence CLIs
 │           │   ├── execute.js, ship.js
 │           ├── util/                  # Action utilities
-│           │   ├── ship-init.js, worktree-create.js
+│           │   ├── ship-init.js
 │           └── lib/                   # Shared modules (git, config, state, ...)
 └── docs/                         # Documentation
 ```
@@ -136,6 +136,8 @@ Hooks are defined in `plugins/<plugin>/hooks/hooks.json`. Available hook points:
 | `PostToolUse` | After a tool completes                                                |
 
 See [adding-hooks.md](adding-hooks.md) for the complete list of hook events.
+
+> **Note (#378, #379):** The former `pre-tool-agent-isolation-guard.js` PreToolUse hook has been removed (along with all PreToolUse guards). The Agent-SDK `isolation: "worktree"` anti-pattern is still avoided, but it is now documented as skill-prose guidance in the per-task and wave-runner templates rather than enforced by a harness hook. SDLC no longer creates git worktrees — workspace is auto-detected (`branch`/`continue`).
 
 ### Cost Tiers
 
