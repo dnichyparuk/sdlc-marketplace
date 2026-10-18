@@ -15,17 +15,14 @@
  *                                 orchestrator agent templates (agents/*.md) must
  *                                 contain NO plugin-script resolver at all — they run
  *                                 without the injected plugin-root context.
- *   2. skill-runs-script        — skills paired with prepare scripts must contain
- *                                 the find+node resolution pattern themselves
- *                                 Pairings: review-prepare.js → review-sdlc,
- *                                           pr-prepare.js     → pr-sdlc,
- *                                           version-prepare.js → version-sdlc
- *   3. skill-uses-mktemp        — skills that run prepare scripts must write output
- *                                 to a mktemp file (not pipe directly)
- *   4. skill-checks-exit-code   — skills that run prepare scripts must capture
- *                                 EXIT_CODE=$? and handle non-zero exit codes
- *   5. skill-passes-arguments   — skills that run prepare scripts must use $ARGUMENTS
- *                                 in the node "$SCRIPT" $ARGUMENTS call
+ *   2. skill-runs-script        — a skill listed in SKILL_TO_SCRIPT whose script exists must
+ *                                 invoke it in a bash fence as
+ *                                 node "<PLUGIN_ROOT>/scripts/skill/<script>.js"
+ *   3. skill-uses-output-file   — the invoking SKILL.md must pass --output-file
+ *   4. skill-checks-exit-code   — the invoking SKILL.md must capture and handle EXIT_CODE
+ *   5. skill-passes-arguments   — the invoking SKILL.md must forward $ARGUMENTS (warning;
+ *                                 error-report-sdlc, harden-sdlc, plan-sdlc pass explicit
+ *                                 flags and are exempt)
  *   6. frontmatter-field-names  — all skills must use user-invocable (not user-invokable)
  *   7. user-invocable-flag      — the 6 user-facing skills must have user-invocable: true
  *   8. docs-skill-existence     — every skill directory must have a matching docs/skills/<name>.md
@@ -33,8 +30,11 @@
  *                                 site/src/data/skills-meta.ts
  *  10. readme-skills-table      — every user-invocable skill must appear in README.md's
  *                                 skills table (warning)
- *  11. temp-file-cleanup        — skills that use mktemp must also contain a cleanup
- *                                 reference (rm -f / rm -rf / clean) (warning)
+ *  11. no-exit-trap             — no `trap … EXIT` line inside a fenced block of any
+ *                                 plugins/sdlc-utilities/skills/**\/*.md: each Bash call is its
+ *                                 own shell, so the trap would delete the prepare manifest
+ *                                 before a later call reads it (manifests persist under
+ *                                 .sdlc/execution/out/, W1.9)
  *  12. invocation-verbatim      — dispatch-bearing templates (orchestrator agents +
  *                                 subagent prompt templates) that show an inline
  *                                 dispatch example built from a precomputed field
@@ -123,8 +123,8 @@ function discoverSkills(root) {
 }
 
 function discoverScripts(root) {
-  const dir = path.join(root, 'plugins/sdlc-utilities/scripts');
-  return listDir(dir).filter(f => f.endsWith('.js') && !listDir(path.join(dir, f)).length);
+  const dir = path.join(root, 'plugins/sdlc-utilities/scripts/skill');
+  return listDir(dir).filter(f => f.endsWith('.js') && isFile(path.join(dir, f)));
 }
 
 // Recursively collect files under dir whose name matches suffix (e.g. '-prompt.md').
@@ -159,16 +159,25 @@ function discoverOrchestratorTemplates(root) {
 // Skill–script pairings (skills-primary architecture)
 // ---------------------------------------------------------------------------
 
-// Maps prepare script filename → skill directory name
-const SCRIPT_TO_SKILL = {
-  'review-prepare.js':           'review-sdlc',
-  'pr-prepare.js':               'pr-sdlc',
-  'version-prepare.js':          'version-sdlc',
-  'jira-prepare.js':             'jira-sdlc',
-  'received-review-prepare.js':  'received-review-sdlc',
-  'commit-prepare.js':           'commit-sdlc',
-  'ship-prepare.js':             'ship-sdlc',
+// Maps skill directory name → prepare script path (relative to plugins/sdlc-utilities/scripts/).
+// A skill whose script is absent from scripts/skill/ is skipped (execute-plan-sdlc until W5.2).
+const SKILL_TO_SCRIPT = {
+  'commit-sdlc':          'skill/commit.js',
+  'pr-sdlc':              'skill/pr.js',
+  'version-sdlc':         'skill/version.js',
+  'review-sdlc':          'skill/review.js',
+  'received-review-sdlc': 'skill/received-review.js',
+  'jira-sdlc':            'skill/jira.js',
+  'ship-sdlc':            'skill/ship.js',
+  'plan-sdlc':            'skill/plan.js',
+  'setup-sdlc':           'skill/setup.js',
+  'error-report-sdlc':    'skill/error-report-prepare.js',
+  'harden-sdlc':          'skill/harden-prepare.js',
+  'execute-plan-sdlc':    'skill/execute.js',
 };
+
+// Skills that pass explicit flags to their prepare script instead of $ARGUMENTS.
+const EXPLICIT_FLAG_SKILLS = ['error-report-sdlc', 'harden-sdlc', 'plan-sdlc'];
 
 // All 10 skills that must declare user-invocable: true
 // (review-init-sdlc, pr-customize-sdlc, guardrails-init-sdlc absorbed into setup-sdlc)
@@ -212,14 +221,20 @@ function detectCwdFirstResolution(content) {
   return findings;
 }
 
-// Detect if content contains a find pattern referencing a specific script name
-function containsPrepareScriptExecution(content, scriptName) {
-  return content.includes(`-name "${scriptName}"`) || content.includes(`-name '${scriptName}'`);
-}
-
-// Detect if content contains node "$SCRIPT" (or 'node $SCRIPT') call
-function containsNodeScriptCall(content) {
-  return /node\s+["']?\$SCRIPT["']?/.test(content);
+// Detect a bash fence that invokes the prepare script via the injected plugin root:
+// node "<PLUGIN_ROOT>/scripts/<rel>"
+function containsPrepareScriptExecution(content, rel) {
+  const call = `node "<PLUGIN_ROOT>/scripts/${rel}"`;
+  let inBash = false;
+  for (const line of content.split(/\r?\n/)) {
+    const fence = line.match(/^\s*```(\w*)/);
+    if (fence) {
+      inBash = !inBash && fence[1] === 'bash';
+      continue;
+    }
+    if (inBash && line.includes(call)) return true;
+  }
+  return false;
 }
 
 // Detect the old buggy resolver: a `find ~/.claude/plugins ...` line locating a
@@ -366,21 +381,26 @@ function checkScriptResolutionVersionSelector(skills, projectRoot, findings) {
   }
 }
 
+// Yields { skillName, rel, skill } for every mapped skill whose script exists.
+function* mappedSkills(skills, scriptNames) {
+  for (const [skillName, rel] of Object.entries(SKILL_TO_SCRIPT)) {
+    if (!scriptNames.includes(path.basename(rel))) continue; // script not present — skip
+    yield { skillName, rel, skill: skills.find(s => s.name === skillName) };
+  }
+}
+
 /**
  * Rule 2 — skill-runs-script
- * Skills paired with a prepare script must contain the find+node resolution pattern.
+ * A skill paired with a prepare script must invoke it as node "<PLUGIN_ROOT>/scripts/<rel>" in a bash fence.
  */
 function checkSkillRunsScript(skills, scriptNames, findings) {
-  for (const [scriptName, skillName] of Object.entries(SCRIPT_TO_SKILL)) {
-    if (!scriptNames.includes(scriptName)) continue; // script not present in repo — skip
-
-    const skill = skills.find(s => s.name === skillName);
+  for (const { skillName, rel, skill } of mappedSkills(skills, scriptNames)) {
     if (!skill) {
       findings.push({
         rule: 'skill-runs-script',
         severity: 'error',
         file: `plugins/sdlc-utilities/skills/${skillName}/SKILL.md`,
-        message: `Skill directory '${skillName}' not found. Expected skill paired with ${scriptName}.`,
+        message: `Skill directory '${skillName}' not found. Expected skill paired with ${rel}.`,
       });
       continue;
     }
@@ -388,14 +408,24 @@ function checkSkillRunsScript(skills, scriptNames, findings) {
     const content = readFile(skill.file);
     if (!content) continue;
 
-    if (!containsPrepareScriptExecution(content, scriptName) || !containsNodeScriptCall(content)) {
+    if (!containsPrepareScriptExecution(content, rel)) {
       findings.push({
         rule: 'skill-runs-script',
         severity: 'error',
         file: path.relative(process.cwd(), skill.file),
-        message: `Skill '${skillName}' is paired with ${scriptName} but does not contain the find+node resolution pattern. Skills must run their own prepare scripts.`,
+        message: `Skill '${skillName}' is paired with ${rel} but does not invoke it as node "<PLUGIN_ROOT>/scripts/${rel}" in a bash block. Skills must run their own prepare scripts.`,
       });
     }
+  }
+}
+
+// Content of every mapped skill that invokes its script (rules 3–5 only check invokers).
+function* invokingSkills(skills, scriptNames) {
+  for (const { skillName, rel, skill } of mappedSkills(skills, scriptNames)) {
+    if (!skill) continue; // already reported in rule 2
+    const content = readFile(skill.file);
+    if (!content || !containsPrepareScriptExecution(content, rel)) continue;
+    yield { skillName, rel, skill, content };
   }
 }
 
@@ -403,22 +433,14 @@ function checkSkillRunsScript(skills, scriptNames, findings) {
  * Rule 3 — skill-uses-output-file
  * Skills that run prepare scripts must use --output-file to capture output.
  */
-function checkSkillUsesMktemp(skills, scriptNames, findings) {
-  for (const [scriptName, skillName] of Object.entries(SCRIPT_TO_SKILL)) {
-    if (!scriptNames.includes(scriptName)) continue;
-
-    const skill = skills.find(s => s.name === skillName);
-    if (!skill) continue; // already reported in rule 2
-
-    const content = readFile(skill.file);
-    if (!content || !containsPrepareScriptExecution(content, scriptName)) continue;
-
+function checkSkillUsesOutputFile(skills, scriptNames, findings) {
+  for (const { skillName, rel, skill, content } of invokingSkills(skills, scriptNames)) {
     if (!content.includes('--output-file')) {
       findings.push({
         rule: 'skill-uses-output-file',
         severity: 'error',
         file: path.relative(process.cwd(), skill.file),
-        message: `Skill '${skillName}' runs ${scriptName} but does not use --output-file. Scripts write JSON to a crypto-random temp file via --output-file — never use mktemp in the bash block.`,
+        message: `Skill '${skillName}' runs ${rel} but does not use --output-file. Scripts write JSON to a manifest file via --output-file — never use mktemp in the bash block.`,
       });
     }
   }
@@ -426,24 +448,16 @@ function checkSkillUsesMktemp(skills, scriptNames, findings) {
 
 /**
  * Rule 4 — skill-checks-exit-code
- * Skills that run prepare scripts must capture EXIT_CODE=$? and handle non-zero exits.
+ * Skills that run prepare scripts must capture EXIT_CODE=$? and handle non-zero exit codes.
  */
 function checkSkillChecksExitCode(skills, scriptNames, findings) {
-  for (const [scriptName, skillName] of Object.entries(SCRIPT_TO_SKILL)) {
-    if (!scriptNames.includes(scriptName)) continue;
-
-    const skill = skills.find(s => s.name === skillName);
-    if (!skill) continue;
-
-    const content = readFile(skill.file);
-    if (!content || !containsPrepareScriptExecution(content, scriptName)) continue;
-
+  for (const { skillName, rel, skill, content } of invokingSkills(skills, scriptNames)) {
     if (!content.includes('EXIT_CODE')) {
       findings.push({
         rule: 'skill-checks-exit-code',
         severity: 'error',
         file: path.relative(process.cwd(), skill.file),
-        message: `Skill '${skillName}' runs ${scriptName} but does not capture or check EXIT_CODE. Add: EXIT_CODE=$? and handle non-zero exit codes.`,
+        message: `Skill '${skillName}' runs ${rel} but does not capture or check EXIT_CODE. Add: EXIT_CODE=$? and handle non-zero exit codes.`,
       });
     }
   }
@@ -451,24 +465,17 @@ function checkSkillChecksExitCode(skills, scriptNames, findings) {
 
 /**
  * Rule 5 — skill-passes-arguments
- * Skills that run prepare scripts must use $ARGUMENTS in the node "$SCRIPT" $ARGUMENTS call.
+ * Skills that run prepare scripts must forward $ARGUMENTS (except EXPLICIT_FLAG_SKILLS).
  */
 function checkSkillPassesArguments(skills, scriptNames, findings) {
-  for (const [scriptName, skillName] of Object.entries(SCRIPT_TO_SKILL)) {
-    if (!scriptNames.includes(scriptName)) continue;
-
-    const skill = skills.find(s => s.name === skillName);
-    if (!skill) continue;
-
-    const content = readFile(skill.file);
-    if (!content || !containsPrepareScriptExecution(content, scriptName)) continue;
-
+  for (const { skillName, rel, skill, content } of invokingSkills(skills, scriptNames)) {
+    if (EXPLICIT_FLAG_SKILLS.includes(skillName)) continue;
     if (!content.includes('$ARGUMENTS')) {
       findings.push({
         rule: 'skill-passes-arguments',
         severity: 'warning',
         file: path.relative(process.cwd(), skill.file),
-        message: `Skill '${skillName}' runs ${scriptName} but does not use $ARGUMENTS. Use: node "$SCRIPT" $ARGUMENTS`,
+        message: `Skill '${skillName}' runs ${rel} but does not use $ARGUMENTS. Forward the user's arguments to the script.`,
       });
     }
   }
@@ -620,29 +627,29 @@ function checkReadmeSkillsTable(projectRoot, findings) {
 }
 
 /**
- * Rule 11 — temp-file-cleanup
- * Skills that use --output-file must also contain a cleanup reference (rm -f, rm -rf, or clean).
+ * Rule 11 — no-exit-trap
+ * Prepare manifests persist under .sdlc/execution/out/ (W1.9). Each Bash tool call is its
+ * own shell, so a `trap … EXIT` fires at the end of the declaring call — before a later
+ * call can read the manifest. No fenced block under skills/ may declare one.
  */
-function checkTempFileCleanup(skills, scriptNames, findings) {
-  for (const [scriptName, skillName] of Object.entries(SCRIPT_TO_SKILL)) {
-    if (!scriptNames.includes(scriptName)) continue;
-
-    const skill = skills.find(s => s.name === skillName);
-    if (!skill) continue;
-
-    const content = readFile(skill.file);
+function checkNoExitTrap(projectRoot, findings) {
+  const skillsDir = path.join(projectRoot, 'plugins/sdlc-utilities/skills');
+  for (const file of walkForSuffix(skillsDir, '.md', [])) {
+    const content = readFile(file);
     if (!content) continue;
-
-    if (!content.includes('--output-file')) continue;
-
-    const hasCleanup = /rm\s+-[rf]f?/.test(content) || /clean/i.test(content);
-    if (!hasCleanup) {
-      findings.push({
-        rule: 'temp-file-cleanup',
-        severity: 'warning',
-        file: path.relative(process.cwd(), skill.file),
-        message: `Skill '${skillName}' uses --output-file but has no cleanup reference (rm -f, rm -rf, or clean). Temp files should be cleaned up after use.`,
-      });
+    let inFence = false;
+    const lines = content.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      if (/^\s*```/.test(lines[i])) { inFence = !inFence; continue; }
+      if (inFence && /^\s*trap\s.*\bEXIT\b/.test(lines[i])) {
+        findings.push({
+          rule: 'no-exit-trap',
+          severity: 'error',
+          file: path.relative(process.cwd(), file),
+          line: i + 1,
+          message: `'trap … EXIT' in a fenced block fires when the declaring Bash call ends, before a later call can read the manifest. Prepare manifests persist under .sdlc/execution/out/ — remove the trap.`,
+        });
+      }
     }
   }
 }
@@ -777,7 +784,7 @@ function main() {
   checkScriptResolutionOrder(skills, findings);
   checkScriptResolutionVersionSelector(skills, projectRoot, findings);
   checkSkillRunsScript(skills, scriptNames, findings);
-  checkSkillUsesMktemp(skills, scriptNames, findings);
+  checkSkillUsesOutputFile(skills, scriptNames, findings);
   checkSkillChecksExitCode(skills, scriptNames, findings);
   checkSkillPassesArguments(skills, scriptNames, findings);
   checkFrontmatterFieldNames(skills, findings);
@@ -785,7 +792,7 @@ function main() {
   checkDocsSkillExistence(skills, projectRoot, findings);
   checkSkillsMetaExistence(projectRoot, findings);
   checkReadmeSkillsTable(projectRoot, findings);
-  checkTempFileCleanup(skills, scriptNames, findings);
+  checkNoExitTrap(projectRoot, findings);
   checkInvocationVerbatim(projectRoot, findings);
   checkOrchestratorAwaitBarrier(skills, projectRoot, findings);
 
