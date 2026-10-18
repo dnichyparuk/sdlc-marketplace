@@ -128,7 +128,7 @@ counts and is insufficient.
    - Do NOT skip the Read step even if the orchestrator summary appears
      "complete" — the summary is metadata only
 
-Do NOT delete the manifest file here — cleanup happens in Step 6 on every terminal branch.
+Do NOT delete the manifest file here.
 
 ---
 

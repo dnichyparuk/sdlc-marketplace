@@ -166,8 +166,7 @@ failure after the retry, report the error per 6c.
 ### Step 7 — Cleanup and Return (main context)
 
 Return to the calling skill's normal error handling per REFERENCE.md
-section 7. The cleanup runs on every exit path (success, failure, cancel, edit
-loop exit).
+section 7.
 
 ## DO NOT
 
