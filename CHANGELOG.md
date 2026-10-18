@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-18
+
+### Added
+- ship-sdlc, execute-plan-sdlc: usage accounting recorded in ship and execute state, enabled with the new `--usage` flag (#2)
+
+### Fixed
+- ship-sdlc: addressed review findings in `--usage` accounting (#2)
+
 ## [0.21.29] - 2026-09-05
 
 ### Added
