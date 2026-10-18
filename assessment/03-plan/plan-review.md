@@ -417,3 +417,117 @@ Checks after applying:
 - Link check: 251 resolved, 0 unresolved.
 
 The brief mentioned "23" trap sites. HEAD has 14 `trap` commands, plus 35 comment and prose lines that promise trap cleanup. W1.9 lists all 49 lines.
+
+### 7.1 Applied — open-question pass (2026-10-18)
+
+The maintainer resolved the remaining open questions. Applied to [`consolidated-plan.md`](consolidated-plan.md); every existing ID is unchanged. The plan now has **68 items**, the new one being **W1.11**.
+
+| Question | Items changed |
+|---|---|
+| Q2 | **W1.5** Change 1 lists the PR validator set. On an LF export of HEAD, `validate-dimensions`, `validate-guardrails` and `validate-pr-template` exit 0 with `--project-root .`. `validate-discovery` exits 1 (a PD12 false positive) and `validate-plan-format` requires `--file`, so neither is in CI. The brief said these two "stay in lefthook", but `lefthook.yml` runs only the two exec configs, so they remain local tools. The verification step lists the validators |
+| Q3 | **W4.5** Files: repo-root `schemas/review-summary.schema.json` |
+| Q4 | **W3.2** Must-not-touch and **W4.4** Change 7: W4.4 carries the five-file amendment and W3.2 leaves the requirement verbatim |
+| Q5 | **W4.3** Change 5 rewritten as the target state. **W4.2** transition map gains the consent-target note. **S1** mitigation rewritten |
+| Q6 | **W6c.1** (title, Files, Changes 1, 4, 6 and 7, Verification, Done-when, Guardrails): `model: inherit` in the four frontmatters; no validator change or new fixtures |
+| Q7 | **W1.1** Change 8: precedence rule plus a guard in `completeStepCore`/`cmdFail`/`cmdWaveDone`, and one new exec case |
+| Q8 | **W7.4** new Change 5 (`--quality` presets; the old Change 5 becomes 6), new exec cases and a guardrail; the W7 scope note is updated. Ship does not dispatch plan-sdlc, so nothing is forwarded today |
+| Q10 | **W2.2** new Change 5 (matcher `"Bash"` after a one-line tool-list check; Sweep becomes Change 6) and Files |
+| Q12 | **New W1.11** (M1): file six issues. These are the five Q12 items, each with an owning item and §8's recommendation, plus a sixth (PD12 false positive) found while resolving Q2 |
+| Housekeeping | §6 now says "None" and links to the new **Appendix A — Closed questions** (Q1–Q14, each with its implementing item). The drafting block "Open questions for the consolidated §6" in W7 is deleted. §4.5 is added. The §2 count (68, W1.1–W1.11) and the M1 row (W1.11) are updated. The package `README.md` says 68 items |
+
+Checks after this pass:
+- 68 items, and every W reference resolves.
+- S1–S12 and Q1–Q14 are all defined; the Q ids now live in Appendix A.
+- No code fence is left open, and every table row has the right cell count.
+- The link check is in §8's closing line.
+
+## 8. Q12 inconsistencies — analysis and proposed resolutions
+
+For each inconsistency: evidence at HEAD `0c0cdcc`, the root cause from `git log -S`, the options with a recommendation, and the plan change. W1.11 files one issue per row and points here. The "spec-first" column applies the repository's `spec-first` guardrail (`.sdlc/config.json:74`): a behaviour change needs a spec task before the SKILL.md task.
+
+### (a) execute-plan R41 acceptance cites tests that do not exist
+
+- **Evidence.**
+  - `docs/specs/execute-plan-sdlc.md:74` (R41 Acceptance) names four cases in `tests/promptfoo/datasets/execute-plan-sdlc.yaml`. Only `:546` ("… halts before Step 1 LOAD with what/how/why remediation text") and `:570` ("… does not prompt or fall back to conversation-context plan text") exist.
+  - These two named cases are missing: "`--resume` with a state file whose planPath is non-null does not halt and sources the plan from planPath" and "`--resume` with a state file whose planPath is null halts with the same remediation text".
+  - The resume exemption itself is prose at `execute-plan-sdlc/SKILL.md:30-46` and `:97`.
+  - The only test touching `planPath` is the exec case "state/execute.js init (R40): records the real resolved planPath" (`execute-plan-sdlc-overflow-exec.yaml:266`). It covers R40, not the R41 exemption.
+- **Root cause.** Commit `80e2804` (fix #505) wrote the spec acceptance with four names but added only two cases to `execute-plan-sdlc.yaml`. The resume half was never tested.
+- **Options.**
+  1. Add the two behavioral cases as named. This is LLM-graded in simulation mode and stays prose-only.
+  2. **Recommended.** Make the exemption deterministic in W5.2's `skill/execute.js`, which already returns `resume.found`/`planPath` and the `missingPlanFile` error. Add two exec cases to `execute-prepare-exec.yaml`:
+     - `execute-prepare: --resume with state planPath non-null does not report missingPlanFile`
+     - `execute-prepare: --resume with state planPath null reports missingPlanFile`
+
+     Then rewrite R41's Acceptance to cite those two exec cases plus the two existing behavioral cases.
+- **Plan change.** Fold into **W5.2** (two exec cases with a state-file fixture and `planPath` set or null; the R41 Acceptance edit in the same commit). W3.3 keeps today's names and reports the drift, as it already says.
+- **Spec-first.** Not a behaviour change: the acceptance criteria move to tests that exist; R41's rule text is unchanged.
+
+### (b) plan-sdlc spec header says sonnet; SKILL.md pins opus
+
+- **Evidence.** `docs/specs/plan-sdlc.md:6` reads `**Model:** sonnet`. `plan-sdlc/SKILL.md:6` reads `model: opus`, and `docs/cost-tiers.md:30` reads `| plan-sdlc | opus | Plan decomposition needs stronger reasoning; user-directed |`.
+- **Root cause.** The header was written with the spec in `4bcc16a` (#133). `a2c2c4e` (#229) later added `model:` frontmatter and the cost-tier table but left spec headers alone, consistent with `docs/cost-tiers.md` §6 ("frontmatter changes do not require spec updates"). The ship and execute specs drift the same way (`**Model:** opus` vs frontmatter `sonnet`).
+- **Options.**
+  1. **Recommended.** Delete the header as part of the contract restructure: tuning values leave the spec under D4, and `docs/cost-tiers.md` is the single source. W3.4 Change 1 already deletes `:6` (likewise W3.2/W3.3 for ship and execute).
+  2. Change the header to `opus` now. Not recommended: it would drift again at the next retune.
+- **Plan change.** None beyond **W3.4** (already in the plan). The W1.11 issue for this row is documentation-only and closes with W3.4.
+- **Spec-first.** Not a behaviour change: it removes a tuning value from the spec.
+
+### (c) jira `assign` (and `bulk`) have no critique or approval step
+
+- **Evidence.**
+  - `skills/jira-sdlc/SKILL.md:332` lists `assign` and `bulk` as write classes that run the Step 2.5 critique, and Step 2.6 (approval, R17) applies to every write class.
+  - `operations-reference.md:224-241` (Assign Operation) goes from account lookup straight to `mcp__atlassian__editJiraIssue({ … assignee … })`, with no "critique and approval" step. The Bulk Operation section (`:280+`) is the same.
+  - Spec R17 (`docs/specs/jira-sdlc.md:35`) keys the gate on MCP tools: "Before `createJiraIssue`, `editJiraIssue`, `transitionJiraIssue`, …". Assign calls `editJiraIssue` and bulk calls `createJiraIssue`, so **R17 already covers both**. The earlier note "spec R17 omits assign" was inaccurate.
+- **Root cause.** The Assign section predates the write-op guardrails (`386bf1a`, #40). `cefc98a` (#178) added the canonical steps 5–6 to the other write sections but not to Assign or Bulk.
+- **Options.**
+  1. **Recommended.** Add the canonical line to both sections: "5-6. Critique and approval — canonical steps 5–6 in `write-ops.md`" for Assign (before the `editJiraIssue` call), and for Bulk one batch approval listing every payload before the first create.
+  2. Exempt `assign` from the write pipeline. This contradicts R17 and would need a spec change; not recommended.
+- **Plan change.** Fold into **W6a.3**, which already rewrites the per-op "canonical steps 5–6" lines and moves the procedure to `write-ops.md`: one line for Assign and one batch-approval line for Bulk. Remove the "keep the list as is and report it" note in W6a.3 Must-not-touch and the "Flag it" note in W6a.4 for Bulk.
+- **Spec-first.** Not a behaviour change against the spec: R17 already requires the gate. It is a fix, so W1.11 labels it `bug`.
+
+### (d) `placeholder-detect.js` and `template-fingerprint.js` have only test consumers
+
+- **Evidence.**
+  - `skills/jira-sdlc/lib/placeholder-detect.js` implements R19/C13: brace and bracket placeholder forms, ADF traversal, and the `summary` carve-out (#365).
+  - `template-fingerprint.js` resolves the override or shipped template and fingerprints its `## ` headings for R18 ("sections may be removed but never invented").
+  - `grep -rln "placeholder-detect\|template-fingerprint" plugins tests docs` finds only `tests/promptfoo/scripts/jira-write-guard-test.js` and `jira-sdlc-guardrail-exec.yaml`.
+  - Spec R19 (`docs/specs/jira-sdlc.md:39`) still says the skill MUST detect placeholders with the C13 regex, traversing ADF `text` nodes. C13 (`:137`) gives the exact regex. G11 (`:97`) depends on it.
+- **Root cause.** `cefc98a` (#178) built both libraries for the PreToolUse hook `pre-tool-jira-write-guard.js`. `4013a96` (#452) removed the hook and moved R17–R21 to "LLM-prose validation" (R21), leaving the libraries orphaned. A precise regex with ADF traversal is exactly the deterministic work the audit says belongs in scripts.
+- **Options.**
+  1. **Recommended.** Wire both libraries into a new `jira.js --check-payload --type <IssueType>` subcommand: stdin payload in, `{ placeholders: [{field, marker, form}], unknownHeadings: [...] }` out through `writeOutput`, exit 0 clean, 1 on findings, 2 on error.
+     - Step 2.5 (the critique in `write-ops.md`) runs it once per write payload. The model only resolves the reported markers (R19 `AskUserQuestion` for low confidence).
+     - Exec cases reuse the existing `helper-placeholder`/`helper-template` fixtures from `jira-write-guard-test.js`.
+  2. Delete both libraries and their test ops. This leaves R19/C13 enforced only by the model reading a regex.
+- **Plan change.** Fold into **W6a.5**, which already adds a `jira.js` subcommand and edits `jira-sdlc-exec.yaml`: add `--check-payload` with two exec cases (`jira-prepare: --check-payload flags a {placeholder} and an invented ## heading`, and a clean payload). W6a.3's `write-ops.md` Step 2.5 calls it. W6a.1's Must-not-touch already keeps both libraries; its Open point 3 is answered.
+- **Spec-first.** The rule (R18/R19/C13) is unchanged; only the mechanism moves to a script. The spec gets one additive P-line for `--check-payload` in the same item (as W6a.5 already does for `--assemble`).
+
+### (e) `pr.js` `jiraType` label rules can never match
+
+- **Evidence.**
+  - `scripts/skill/pr.js:495` accepts `jiraType` as a rules-mode signal.
+  - `schemas/sdlc-config.schema.json:178-181` and spec R8a (`docs/specs/pr-sdlc.md:27`, "`jiraType: string[]`") define it, and `docs/skills/pr-sdlc.md:188` documents it as "Detected JIRA ticket type is in the list".
+  - But `detectJiraTicket` (`pr.js:125-136`) returns only the key string (for example `PROJ-123`) or `null`, so the `jiraTicket.type` that `pr-sdlc/SKILL.md:289` reads never exists.
+  - `pr.js` is an offline prepare script and cannot query Jira.
+- **Root cause.** `05ba7b5` (#197, configurable label modes) added the signal to the schema, spec and docs without a source for the issue type.
+- **Options.**
+  1. **Recommended.** Implement the resolution that R8a already promises, in two steps:
+     - W6c.4's `matchLabelRules(rules, ctx)` takes `ctx.jiraType` (string or null). `pr.js` passes `null` and, when a `jiraType` rule exists and a ticket key was found, emits `prConfig.labels.pendingJiraType: "<KEY>"`.
+     - SKILL.md then does one thing: if `pendingJiraType` is set and the Atlassian MCP tool `getJiraIssue` is available, fetch `fields.issuetype.name` and run `node "<PLUGIN_ROOT>/scripts/lib/pr-labels.js" --input <ctx with jiraType>`. Otherwise keep the warning "jiraType rules are not evaluated: no Jira access".
+
+     The code catches up with the spec, and existing configs stay valid.
+  2. Remove the signal: drop it from the schema, spec R8a, docs and SKILL.md, and add a `config-migrations.js` step that strips `jiraType` rules with a warning. This is a behaviour change and breaks configs that use the signal.
+- **Plan change.** Fold into **W6c.4**:
+  - Change 2's `jiraType` bullet becomes "matches when `ctx.jiraType` is in the list; when `ctx.jiraType` is null it never matches and adds the warning".
+  - Change 3 emits `pendingJiraType`.
+  - Change 7 adds the one-step fetch at the Rules-mode section.
+  - Two `pr-labels-exec.yaml` cases cover `jiraType` set and null.
+  - Spec: one additive P-field for `prConfig.labels.pendingJiraType`.
+- **Spec-first.** Option 1 implements existing spec text (R8a), so there is no behaviour change in the spec; only the P-field is added. Option 2 would be a behaviour change needing an R8a edit first. W1.11 labels the issue `bug`, as the maintainer asked.
+
+### (f) Found while resolving Q2: `validate-discovery.js` PD12 false positive
+
+- **Evidence.** On an LF export of HEAD, `node plugins/sdlc-utilities/scripts/ci/validate-discovery.js --project-root .` exits 1 with one finding: `PD12 skill-supporting-files-exist: sdlc/skills/setup-sdlc/SKILL.md: references AGENTS.md but the file does not exist in the skill directory`. Here `AGENTS.md` means the consumer project's file, not a skill companion.
+- **Recommendation.** PD12 should consider only `./`-relative references, or ignore a known project-file list (`AGENTS.md`, `CLAUDE.md`, `README.md`). This is a small follow-up outside this plan; until it is fixed, `validate-discovery.js` stays out of PR CI (W1.5). It is not a behaviour change to any skill.
+
+Link check after writing this section: 257 resolved, 0 unresolved (including the two links to this section from W1.11 and Appendix A).
