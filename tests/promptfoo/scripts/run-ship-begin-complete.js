@@ -18,13 +18,15 @@
  *   --state-rel <path>      State file path relative to project-root
  *   --step <name>           Step name to operate on
  *   --scenario <name>       One of: begin | begin-twice | begin-then-complete |
- *                           begin-unknown | complete-unknown | complete-pending
+ *                           begin-unknown | complete-unknown | complete-pending |
+ *                           complete-with-usage | complete-bad-usage |
+ *                           complete-usage-guard
  *
  * Output JSON:
  *   {
  *     scenario, exitCodes: number[], lastStdout: string, lastStderr: string,
  *     finalStatus: string|null, finalStepFound: boolean,
- *     todosCount: number|null
+ *     todosCount: number|null, finalUsage: object|null
  *   }
  */
 
@@ -106,6 +108,21 @@ switch (scenario) {
     // is added later) exits non-zero. Either way, assert no corruption.
     record(run(['complete-step', '--step', step, '--state-file', stateFile, '--result', 'x']));
     break;
+  case 'complete-with-usage':
+    record(run(['complete-step', '--step', step, '--state-file', stateFile, '--result', 'done',
+      '--usage', '{"inputTokens":10,"outputTokens":5,"model":"sonnet","effort":"medium"}']));
+    break;
+  case 'complete-bad-usage':
+    record(run(['complete-step', '--step', step, '--state-file', stateFile, '--result', 'done',
+      '--usage', 'not-json']));
+    break;
+  case 'complete-usage-guard':
+    // A hook-written subagent-stop value, then a self-report for the same step.
+    record(run(['complete-step', '--step', step, '--state-file', stateFile, '--result', 'done',
+      '--usage', '{"inputTokens":99,"source":"subagent-stop"}']));
+    record(run(['complete-step', '--step', step, '--state-file', stateFile, '--result', 'done',
+      '--usage', '{"inputTokens":1,"source":"self-report"}']));
+    break;
   default:
     console.log(JSON.stringify({ error: `unknown scenario: ${scenario}` }));
     process.exit(0);
@@ -114,10 +131,11 @@ switch (scenario) {
 // Read final persisted status of the target step.
 let finalStatus = null;
 let finalStepFound = false;
+let finalUsage = null;
 try {
   const data = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
   const s = Array.isArray(data.steps) ? data.steps.find((x) => x.name === step) : null;
-  if (s) { finalStepFound = true; finalStatus = s.status; }
+  if (s) { finalStepFound = true; finalStatus = s.status; finalUsage = s.usage ?? null; }
 } catch (_) { /* state unreadable */ }
 
 // Parse todos count from the last stdout (begin/complete print { todos, marker }).
@@ -135,4 +153,5 @@ console.log(JSON.stringify({
   finalStatus,
   finalStepFound,
   todosCount,
+  finalUsage,
 }));

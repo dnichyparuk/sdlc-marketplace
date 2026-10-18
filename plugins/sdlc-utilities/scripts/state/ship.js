@@ -9,9 +9,9 @@
  *   node ship-state.js start              --step <name>
  *   node ship-state.js complete           --step <name> --result <text>
  *   node ship-state.js begin-step         --step <name> [--state-file <path>]          # mark in_progress + print todos JSON (R69)
- *   node ship-state.js complete-step      --step <name> [--state-file <path>] [--result <text>]  # mark completed + print todos JSON (R69)
+ *   node ship-state.js complete-step      --step <name> [--state-file <path>] [--result <text>] [--usage <json>]  # mark completed + print todos JSON (R69)
  *   node ship-state.js skip               --step <name> --reason <text>
- *   node ship-state.js fail               --step <name> --error <text>
+ *   node ship-state.js fail               --step <name> --error <text> [--usage <json>]
  *   node ship-state.js decide             --step <name> --text <text>
  *   node ship-state.js defer              --severity <s> --file <f> [--line <n>] --title <t>
  *   node ship-state.js read               [--branch <b>]
@@ -39,6 +39,7 @@ const {
   listBranches, readTtlDaysFromConfig,
 } = require(path.join(LIB, 'state'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
+const { parseUsage, resolveUsage } = require(path.join(LIB, 'usage'));
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -80,6 +81,8 @@ function parseArgs(argv) {
       const val = parseInt(args[++i], 10);
       if (isNaN(val)) { process.stderr.write(`Error: --ttl-days requires a number, got "${args[i]}"\n`); process.exit(2); }
       result.ttlDays = val;
+    } else if (a === '--usage' && args[i + 1]) {
+      result.usage = args[++i];
     } else if (a === '--dry-run') {
       result.dryRun = true;
     } else if (a === '--force') {
@@ -183,10 +186,23 @@ function startStepCore(data, stepName) {
 }
 
 /**
+ * Validate a raw `--usage` value before any state I/O; exits 2 on error.
+ * @returns {object} the parsed usage object
+ */
+function usageOrExit(raw) {
+  const res = parseUsage(raw);
+  if (!res.ok) {
+    process.stderr.write(`Error: --usage is not valid: ${res.error}\n`);
+    process.exit(2);
+  }
+  return res.value;
+}
+
+/**
  * Mark `stepName` completed in the given state data (mutates in place).
  * @returns {{ ok: true, step } | { ok: false, error: string }}
  */
-function completeStepCore(data, stepName, result, outcome) {
+function completeStepCore(data, stepName, result, outcome, usage) {
   const step = data.steps.find(s => s.name === stepName);
   if (!step) return { ok: false, error: `step "${stepName}" not found` };
   // R-b2 (docs/specs/ship-sdlc.md): outcome-verified completion. A `failure`
@@ -195,11 +211,13 @@ function completeStepCore(data, stepName, result, outcome) {
   if (outcome === 'failure') {
     step.status = 'failed';
     if (result !== undefined) step.error = result;
+    if (usage !== undefined) step.usage = resolveUsage(step.usage, usage);
     return { ok: true, step };
   }
   step.status = 'completed';
   step.completedAt = new Date().toISOString();
   if (result !== undefined) step.result = result;
+  if (usage !== undefined) step.usage = resolveUsage(step.usage, usage);
   return { ok: true, step };
 }
 
@@ -354,10 +372,11 @@ function cmdCompleteStep(opts) {
     process.stderr.write(`Error: --outcome must be "success" or "failure", got "${opts.outcome}"\n`);
     process.exit(2);
   }
+  const usage = opts.usage === undefined ? undefined : usageOrExit(opts.usage);
   const { markCompleted, renderTodos } = require(path.join(LIB, 'ship-todos'));
   const { data, filePath } = loadShipStateOrExit(opts);
 
-  const res = completeStepCore(data, opts.step, opts.result, outcome);
+  const res = completeStepCore(data, opts.step, opts.result, outcome, usage);
   if (!res.ok) {
     process.stderr.write(`Error: ${res.error}\n`);
     process.exit(1);
@@ -407,6 +426,7 @@ function cmdFail(opts) {
     process.stderr.write('Error: --step is required\n');
     process.exit(2);
   }
+  const usage = opts.usage === undefined ? undefined : usageOrExit(opts.usage);
 
   const branch = resolveBranchOrExit(opts.branch);
   const slug = slugifyBranch(branch);
@@ -425,6 +445,7 @@ function cmdFail(opts) {
 
   step.status = 'failed';
   if (opts.error !== undefined) step.error = opts.error;
+  if (usage !== undefined) step.usage = resolveUsage(step.usage, usage);
 
   writeState(filePath, data);
   process.exit(0);

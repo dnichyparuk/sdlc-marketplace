@@ -69,6 +69,7 @@
             "type": "boolean",
             "description": "Set by `wave-done --timed-out` (R-WAVE-DEADLINE, #506). Read on resume to skip re-waiting."
           },
+          "usage": {"type":"object","properties":{"inputTokens":{"type":"integer","minimum":0},"outputTokens":{"type":"integer","minimum":0},"cacheReadTokens":{"type":"integer","minimum":0},"cacheWriteTokens":{"type":"integer","minimum":0},"model":{"type":"string"},"effort":{"type":"string","enum":["low","medium","high","xhigh","max"]},"source":{"type":"string"}},"additionalProperties":false},
           "tasks": {
             "type": "array",
             "items": {
