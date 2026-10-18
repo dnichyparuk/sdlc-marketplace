@@ -190,7 +190,7 @@
 
 # --- wave-done --usage accounting (W1.1) -----------------------------------
 
-- description: "execute-plan-sdlc/liveness/wave-done: a non-JSON --usage is rejected before any state write"
+- description: "execute-plan-sdlc/liveness/wave-done: a non-JSON --usage is rejected with an error"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
     script_args: "wave-done --wave 1 --branch fix/live-flags --usage not-json"

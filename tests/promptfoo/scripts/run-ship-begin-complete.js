@@ -20,7 +20,7 @@
  *   --scenario <name>       One of: begin | begin-twice | begin-then-complete |
  *                           begin-unknown | complete-unknown | complete-pending |
  *                           complete-with-usage | complete-bad-usage |
- *                           complete-usage-guard
+ *                           complete-usage-guard | complete-usage-guard-reverse
  *
  * Output JSON:
  *   {
@@ -122,6 +122,13 @@ switch (scenario) {
       '--usage', '{"inputTokens":99,"source":"subagent-stop"}']));
     record(run(['complete-step', '--step', step, '--state-file', stateFile, '--result', 'done',
       '--usage', '{"inputTokens":1,"source":"self-report"}']));
+    break;
+  case 'complete-usage-guard-reverse':
+    // A self-report first, then a hook-written subagent-stop value: the hook value wins.
+    record(run(['complete-step', '--step', step, '--state-file', stateFile, '--result', 'done',
+      '--usage', '{"inputTokens":1,"source":"self-report"}']));
+    record(run(['complete-step', '--step', step, '--state-file', stateFile, '--result', 'done',
+      '--usage', '{"inputTokens":99,"source":"subagent-stop"}']));
     break;
   default:
     console.log(JSON.stringify({ error: `unknown scenario: ${scenario}` }));

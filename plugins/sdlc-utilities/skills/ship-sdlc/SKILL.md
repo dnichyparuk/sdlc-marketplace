@@ -410,9 +410,10 @@ Completion status is recorded via `--outcome` (R-b2/R-b3, docs/specs/ship-sdlc.m
 
 **Per-step failure (called when `state/ship.js fail` records a failure):**
 
-1. Run: `node "$SHIP_TODOS" --state-file "$STATE_FILE" --event step --current-step <stepName> --fail-step <stepName>`.
-2. Parse JSON, call `TodoWrite`, echo `marker`.
-3. No todo lingers in_progress (helper enforces — AC4).
+1. For a dispatched agent step, forward the Agent return's usage to the failure record: `state/ship.js fail --step <stepName> --error "<text>" --usage '<json>'` (or `--usage '{"source":"unavailable"}'` when the harness exposes none; never estimate).
+2. Run: `node "$SHIP_TODOS" --state-file "$STATE_FILE" --event step --current-step <stepName> --fail-step <stepName>`.
+3. Parse JSON, call `TodoWrite`, echo `marker`.
+4. No todo lingers in_progress (helper enforces — AC4).
 
 **Resume reconstruction (called inside the existing implicit-resume banner block, BEFORE the pipeline table prints, when `flags.resume === true`):**
 

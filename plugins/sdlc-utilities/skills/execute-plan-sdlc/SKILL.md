@@ -631,7 +631,7 @@ After each task (sourced from `WAVE_SUMMARY.tasks[]`): `node "$STATE_SCRIPT" tas
 After each wave: branch on `WAVE_SUMMARY.status`:
 - `"partial"` (timeout) → already handled above in the TIMEOUT handling block (`wave-done --status partial --timed-out`) — do not call `wave-done` again here.
 - `"failed"` → `node "$STATE_SCRIPT" wave-fail --wave <N>`
-- otherwise (`"completed"`) → `node "$STATE_SCRIPT" wave-done --wave <N> [--decisions '<json>'] [--usage '<json>']`. Pass `--usage '<json>'` with the token counts the Agent returns report for the wave's workers, summed per field (`{"inputTokens":N,"outputTokens":N,"cacheReadTokens":N,"cacheWriteTokens":N,"model":"…","effort":"…"}`; `model` = the most-used model). If the harness does not expose usage in the Agent return, pass `--usage '{"source":"unavailable"}'`. Never estimate token counts: an unmeasured figure makes every before/after comparison misleading.
+- otherwise (`"completed"`) → `node "$STATE_SCRIPT" wave-done --wave <N> [--decisions '<json>'] [--usage '<json>']`. Pass `--usage '<json>'` with the token counts reported in the Agent returns for the wave's workers, summed per field (`{"inputTokens":N,"outputTokens":N,"cacheReadTokens":N,"cacheWriteTokens":N,"model":"…","effort":"…"}`; `model` = the model used by the most workers in the wave; ties broken by output tokens). If the harness does not expose usage in the Agent return, pass `--usage '{"source":"unavailable"}'`. Never estimate token counts: an unmeasured figure makes every before/after comparison misleading.
 
 **Producer-chain flag sources (R-WAVE-CONTEXT-PRODUCER, #506).** Every flag below is filled from a named `WAVE_SUMMARY` field — never from git, never from inference:
 

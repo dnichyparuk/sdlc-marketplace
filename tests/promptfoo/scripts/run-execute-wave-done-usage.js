@@ -50,6 +50,11 @@ if (!repoRoot) {
   process.exit(0);
 }
 
+if (!branch) {
+  console.log(JSON.stringify({ error: '--branch is required' }));
+  process.exit(0);
+}
+
 const executeScript = path.join(repoRoot, 'plugins', 'sdlc-utilities', 'scripts', 'state', 'execute.js');
 const stateDir = path.join(projectRoot, '.sdlc', 'execution');
 
@@ -63,10 +68,17 @@ function run(subArgs) {
 }
 
 const exitCodes = [];
+const stderrs = [];
+function record(r) {
+  exitCodes.push(r.status ?? -1);
+  stderrs.push(((r.stderr || '') + (r.error ? ` spawn error: ${r.error.message}` : '')).trim());
+}
 let last = run(['wave-start', '--wave', wave, '--branch', branch]);
-exitCodes.push(last.status ?? -1);
-last = run(['wave-done', '--wave', wave, '--branch', branch, ...(usage ? ['--usage', usage] : [])]);
-exitCodes.push(last.status ?? -1);
+record(last);
+if (exitCodes[0] === 0) {
+  last = run(['wave-done', '--wave', wave, '--branch', branch, ...(usage ? ['--usage', usage] : [])]);
+  record(last);
+}
 
 let persisted = null;
 try {
@@ -77,6 +89,7 @@ try {
 
 console.log(JSON.stringify({
   exitCodes,
-  lastStderr: (last.stderr || '').trim(),
+  lastStderr: stderrs.filter(Boolean).join(' | '),
+  stderrs,
   wave: persisted,
 }));

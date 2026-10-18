@@ -1686,6 +1686,7 @@
       value: |
         const o = JSON.parse(output);
         if (o.exitCodes[0] !== 0) return `FAIL: exit ${o.exitCodes[0]}`;
+        if (o.finalStatus !== 'completed') return `FAIL: step status ${o.finalStatus}`;
         if (!o.finalUsage || o.finalUsage.inputTokens !== 10) return `FAIL: finalUsage ${JSON.stringify(o.finalUsage)}`;
         if (o.finalUsage.model !== 'sonnet' || o.finalUsage.effort !== 'medium') return 'FAIL: model/effort not persisted';
         return true;
@@ -1709,6 +1710,20 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-usage-guard"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes.some(c => c !== 0)) return `FAIL: exitCodes ${o.exitCodes}`;
+        if (!o.finalUsage || o.finalUsage.source !== 'subagent-stop' || o.finalUsage.inputTokens !== 99) return `FAIL: finalUsage ${JSON.stringify(o.finalUsage)}`;
+        return true;
+
+- description: "ship complete-step (usage): a subagent-stop value replaces an earlier self-report"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-usage-guard-reverse"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-state-begin-complete"
   assert:
