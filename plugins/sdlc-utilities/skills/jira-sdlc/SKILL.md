@@ -82,11 +82,9 @@ When `--check` is run without `--site` and the home-cache contains entries for t
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 JIRA_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/jira.js" --output-file $ARGUMENTS --check)
 EXIT_CODE=$?
-# Single canonical cleanup: trap fires unconditionally on EXIT/INT/TERM.
-trap 'rm -f "$JIRA_CONTEXT_FILE"' EXIT INT TERM
 ```
 
-Read and parse `JIRA_CONTEXT_FILE`. The `trap` above guarantees cleanup on any exit path — do not add scattered `rm -f` calls.
+Read and parse `JIRA_CONTEXT_FILE`.
 
 **On non-zero `EXIT_CODE`:**
 
@@ -118,10 +116,6 @@ If `--init-templates` flag is present:
 1. Run the init-templates script:
    ```bash
    INIT_RESULT=$(node "<PLUGIN_ROOT>/scripts/skill/jira.js" --output-file --project "$PROJECT_KEY" --init-templates)
-   # Append cleanup to the existing trap. Note: the JIRA_CONTEXT_FILE trap from
-   # the entry section is still in effect; we extend it here so both files are
-   # removed on EXIT/INT/TERM.
-   trap 'rm -f "$JIRA_CONTEXT_FILE" "$INIT_RESULT"' EXIT INT TERM
    ```
 
 2. Read and parse the output. Report: "N templates initialized (exact match), N skipped (already exist)."
@@ -145,9 +139,7 @@ If `--init-templates` flag is present:
      ```
    - Report final results: "N additional templates created from user selections."
 
-4. Cleanup is automatic — the `trap` declared at step 1 removes `$INIT_RESULT` (and `$JIRA_CONTEXT_FILE`) on shell exit.
-
-5. Stop. Do not proceed with any Jira operation.
+4. Stop. Do not proceed with any Jira operation.
 
 ---
 

@@ -43,6 +43,7 @@ tests:
   - file://datasets/jira-sdlc-guardrail-exec.yaml
   - file://datasets/context-advisory-exec.yaml
   - file://datasets/state-gc-migrate-exec.yaml
+  - file://datasets/manifest-persist-exec.yaml
   - file://datasets/plan-state-cleanup-exec.yaml
   - file://datasets/compact-recovery-sweep-exec.yaml
   - file://datasets/links-lib-exec.yaml

@@ -1,0 +1,33 @@
+# Script execution tests for persistent prepare manifests (W1.9).
+# writeOutput writes to <state dir>/out/ inside a git repo so the manifest
+# survives the Bash call that produced it; outside git it falls back to os.tmpdir().
+
+- description: "manifest-persist: manifest path survives the producing process and lives under .sdlc/execution/out/"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-manifest-cross-process.js"
+    script_args: "--mode cross-process"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.exists === true && d.parses === true && d.inVersionContext === true;
+
+- description: "manifest-persist: same-branch manifest older than 1h is pruned on the next write"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-manifest-cross-process.js"
+    script_args: "--mode prune"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.firstGone === true && d.secondExists === true && d.files === 1;
+
+- description: "manifest-persist: non-git directory falls back to os.tmpdir()"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-manifest-cross-process.js"
+    script_args: "--mode nongit"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.underTmpdir === true && d.notInSdlcOut === true && d.exists === true;

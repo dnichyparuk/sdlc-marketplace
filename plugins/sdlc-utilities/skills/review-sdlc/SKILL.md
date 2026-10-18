@@ -25,9 +25,6 @@ MANIFEST_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/review.js" --output-file $ARGU
 EXIT_CODE=$?
 echo "MANIFEST_FILE=$MANIFEST_FILE"
 echo "EXIT_CODE=$EXIT_CODE"
-# Single canonical cleanup: trap fires unconditionally on EXIT/INT/TERM, so
-# the manifest is removed even if dispatch errors or the agent crashes.
-trap 'rm -f "$MANIFEST_FILE"' EXIT INT TERM
 ```
 
 **On non-zero `EXIT_CODE`:**
@@ -66,7 +63,7 @@ Plan critique:
 To execute the full review, run /review-sdlc (without --dry-run).
 ```
 
-Stop here. The `trap` declared at Step 1 cleans up `$MANIFEST_FILE` automatically on shell exit.
+Stop here.
 
 ---
 
@@ -234,7 +231,7 @@ If verdict is **APPROVED**: skip — nothing to fix.
 
 ## Step 6 — Cleanup
 
-The `$MANIFEST_FILE` is removed by the `trap` declared at Step 1 on every exit path. The diff directory is removed here because it is not covered by the trap:
+The diff directory is removed here:
 
 ```bash
 rm -rf "{diff_dir}"

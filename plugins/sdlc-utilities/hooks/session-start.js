@@ -265,6 +265,13 @@ try {
     console.error('[sdlc/session-start] stale compact-recovery sweep error:', sweepErr.message);
   }
 
+  // Sweep persisted prepare manifests (`.sdlc/execution/out/`) older than 24h.
+  try {
+    require('../scripts/lib/state').gcOutputDir({ ttlHours: 24 });
+  } catch (sweepErr) {
+    console.error('[sdlc/session-start] manifest out/ sweep error:', sweepErr.message);
+  }
+
   // Legacy `.compact-recovery.json` (no branch suffix, pre-#256 layout).
   // Unlink ONLY when older than the freshness gate to avoid destroying a
   // fresh file written by an even-older plugin version on a concurrent

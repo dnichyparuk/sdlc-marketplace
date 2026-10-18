@@ -77,7 +77,6 @@ PREPARE_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/ship.js" --output-file -
 EXIT_CODE=$?
 echo "PREPARE_OUTPUT_FILE=$PREPARE_OUTPUT_FILE"
 echo "EXIT_CODE=$EXIT_CODE"
-trap 'rm -f "$PREPARE_OUTPUT_FILE"' EXIT INT TERM
 ```
 
 **`EXIT_CODE` gate:** `skill/ship.js` uses exit code 2 for an uncaught crash (top-level `try/catch` around `main()`) — on that path `writeOutput()` never runs, so `$PREPARE_OUTPUT_FILE` is empty/unset and there is no JSON to parse; print the `ship-prepare.js error: ...` text already on stderr and STOP without attempting to read the file. Exit code 1 means `writeOutput()` ran with a populated `errors[]` — proceed to parse the file; the render-and-stop rule below applies. Exit code 0 means success — proceed normally to 1d.

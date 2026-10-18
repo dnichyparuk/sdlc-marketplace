@@ -340,3 +340,17 @@
   assert:
     - type: icontains
       value: 'expected "completed"'
+
+# ---------------------------------------------------------------------------
+# skill/ship.js --gc: sweeps persisted prepare manifests in .sdlc/execution/out/ (W1.9)
+# ---------------------------------------------------------------------------
+
+- description: "skill/ship.js --gc report carries out.deleted for a 9-day-old manifest (W1.9)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-manifest-cross-process.js"
+    script_args: "--mode gc"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.out.deleted.length === 1 && d.staleGone === true && d.freshKept === true;

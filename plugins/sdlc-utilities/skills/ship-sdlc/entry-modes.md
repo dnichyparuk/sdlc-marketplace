@@ -19,8 +19,6 @@ INIT_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/ship-init.js" --output-file 
 EXIT_CODE=$?
 echo "INIT_OUTPUT_FILE=$INIT_OUTPUT_FILE"
 echo "EXIT_CODE=$EXIT_CODE"
-# Single canonical cleanup: trap fires unconditionally on EXIT/INT/TERM.
-trap 'rm -f "$INIT_OUTPUT_FILE"' EXIT INT TERM
 ```
 3. Check `EXIT_CODE` first, then parse the output JSON from `$INIT_OUTPUT_FILE`:
    - If `EXIT_CODE` is non-zero: exit code 1 → display the `errors` array from the JSON and stop; exit code 2 → show the script error message (stderr) and stop. Do not proceed to confirmation.
@@ -35,7 +33,6 @@ If `--gc` (with optional `--ttl-days <N>`) was passed, run `skill/ship.js --gc` 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
 PREPARE_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/ship.js" --output-file --gc)  # add --ttl-days <N> when provided
-trap 'rm -f "$PREPARE_OUTPUT_FILE"' EXIT INT TERM
 ```
 
 Read the prepare output. The top-level `action` field will be `"gc"`; the `report` field contains `{ttlDays, ship: {deleted, kept}, execute: {deleted, kept}}`.

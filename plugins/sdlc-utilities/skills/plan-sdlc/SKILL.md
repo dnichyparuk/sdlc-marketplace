@@ -91,9 +91,6 @@ PLAN_OUTPUT_FILE=$(node "$SCRIPT" --output-file)
 EXIT_CODE=$?
 echo "PLAN_OUTPUT_FILE=$PLAN_OUTPUT_FILE"
 echo "EXIT_CODE=$EXIT_CODE"
-# Single canonical cleanup: trap fires unconditionally on EXIT/INT/TERM,
-# so the manifest is removed even if plan generation is cancelled or errors out.
-trap 'rm -f "$PLAN_OUTPUT_FILE"' EXIT INT TERM
 ```
 
 If `--from-openspec <name>` was passed to plan-sdlc, include it in the node command: `node "$SCRIPT" --output-file --from-openspec <name>`.
@@ -187,14 +184,7 @@ Replace `<resolved-plan-path>` with the actual absolute path: in plan mode it is
 
 After the `fromOpenspecDirect` enrichment block, determine which exploration path to take.
 
-**Cleanup trap (install unconditionally before branching, with null guard):** The prepare script always creates a per-invocation tempdir on success — including for lightweight scopes — so cleanup MUST run regardless of which exploration path is taken. The null guard prevents `rm -rf "$(dirname "")"` (which resolves to `rm -rf .`) when `manifestPath` is null.
-
-```bash
-MANIFEST_FILE="<explorePack.manifestPath>"
-if [ -n "$MANIFEST_FILE" ]; then
-  trap 'rm -rf "$(dirname "$MANIFEST_FILE")"' EXIT INT TERM
-fi
-```
+The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()`) is swept by `ship.js --gc` (`gcTempdirs`, prefix `sdlc-explore-`).
 
 - **Full pipeline** (`explorePack.manifestPath` is non-null AND scope is 4+ files / unclear scope):
 
@@ -216,7 +206,7 @@ fi
   - When the brief contains a `## Best-Practice Synthesis` section: Key Decisions MUST explicitly ADOPT / REJECT-with-rationale / mark NOT-APPLICABLE each web finding by its `F-<DIM>-<n>` ID (implements R27)
 
 - **Lightweight scope** (`explorePack.scopeHintCount` ≤ 3 OR `explorePack.manifestPath` is null due to lightweight scope):
-  - Skip orchestrator. Use inline exploration below. No brief. (Tempdir cleanup is already installed by the unconditional trap above when `manifestPath` is non-null.)
+  - Skip orchestrator. Use inline exploration below. No brief.
   - Issue all Glob/Grep/Read calls for inline exploration in a SINGLE message (parallel dispatch). (implements R37, Fixes #418)
 
 - **Error fallback** (`explorePack.error` is non-null, the orchestrator returned non-zero, or brief validation found zero `F-<DIM>-<n>` IDs):

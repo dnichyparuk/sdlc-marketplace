@@ -76,10 +76,6 @@ ERROR_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/error-report-prepare.js" 
   --suggested-investigation "$SUGGESTED_INVESTIGATION" \
   --output-file)
 EXIT_CODE=$?
-# Single canonical cleanup: trap fires unconditionally on EXIT/INT/TERM, so
-# the manifest is removed even if the caller cancels or errors out before
-# reaching the explicit cleanup branches.
-trap 'rm -f "$ERROR_CONTEXT_FILE"' EXIT INT TERM
 ```
 
 Substitute the shell variables with the values supplied by the calling skill. Optional
@@ -130,7 +126,7 @@ manifest fields are empty, and returns ONLY a JSON object:
 
 The orchestrator does not call `gh`, does not call `git`, does not write any file.
 
-Capture the returned object as `PROPOSAL = { title, body }`. If the parse fails, stop. The `trap` declared at Step 1 cleans up `$ERROR_CONTEXT_FILE` automatically on shell exit.
+Capture the returned object as `PROPOSAL = { title, body }`. If the parse fails, stop.
 
 ### Step 5 — Consent Gate 2: Review (main context)
 
@@ -144,8 +140,7 @@ calling skill's name) and the priority. Use `AskUserQuestion` for the
 small edits) and re-present.
 
 **On `cancel`:** Return to the calling skill's normal error handling. Do not
-create anything. The `trap` declared at Step 1 cleans up `$ERROR_CONTEXT_FILE`
-automatically on shell exit.
+create anything.
 
 **On `yes`:** Continue to Step 6.
 
@@ -169,8 +164,6 @@ REFERENCE.md section 6a. On success, report the issue number and URL per 6b. On
 failure after the retry, report the error per 6c.
 
 ### Step 7 — Cleanup and Return (main context)
-
-The `$ERROR_CONTEXT_FILE` is removed automatically by the `trap` declared at Step 1 on every exit path — no explicit cleanup is needed here.
 
 Return to the calling skill's normal error handling per REFERENCE.md
 section 7. The cleanup runs on every exit path (success, failure, cancel, edit

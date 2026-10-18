@@ -43,12 +43,9 @@ If the system context contains "Plan mode is active":
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 VERSION_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/version.js" --output-file $ARGUMENTS)
 EXIT_CODE=$?
-# Single canonical cleanup: trap fires unconditionally on EXIT/INT/TERM, so
-# the manifest is removed even if the release is cancelled or errors out.
-trap 'rm -f "$VERSION_CONTEXT_FILE"' EXIT INT TERM
 ```
 
-Read and parse `VERSION_CONTEXT_FILE` as `VERSION_CONTEXT_JSON`. The `trap` above guarantees cleanup on any exit path — do not add scattered `rm -f` calls in success/cancel branches.
+Read and parse `VERSION_CONTEXT_FILE` as `VERSION_CONTEXT_JSON`.
 
 **On non-zero `EXIT_CODE`:**
 
