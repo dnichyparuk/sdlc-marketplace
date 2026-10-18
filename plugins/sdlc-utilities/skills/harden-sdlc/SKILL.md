@@ -53,9 +53,7 @@ Pass `--from-issue "$ISSUE_NUM"` to the prepare script invocation in Step 1.
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-SCRIPT="<PLUGIN_ROOT>/scripts/skill/harden-prepare.js"
-
-MANIFEST_FILE=$(node "$SCRIPT" \
+MANIFEST_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/harden-prepare.js" \
   ${FAILURE_TEXT:+--failure-text "$FAILURE_TEXT"} \
   ${FROM_ISSUE:+--from-issue "$FROM_ISSUE"} \
   --skill "$SKILL_NAME" \
