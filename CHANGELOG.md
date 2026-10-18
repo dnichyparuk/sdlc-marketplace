@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-10-18
+
+### Fixed
+- prepare scripts: manifests are now written to `.sdlc/execution/out/` (falling back to the system temp dir outside git) and pruned on write, so the Step 0 hand-off works across Bash calls; every `trap … EXIT` cleanup is removed from the skills (#4)
+- validators: frontmatter parsing, `validate-cost-tiers.js` and `session-start.js` now accept CRLF line endings; `docs/cost-tiers.md` is reconciled with agent and skill frontmatter (#4)
+- validate-plugin-consistency: rules 2-5 now check the real prepare-script contract and rule 11 (`no-exit-trap`) forbids `trap … EXIT` in skill bash blocks (#4)
+- harden-sdlc: invokes `harden-prepare.js` inline (#4)
+
 ## [0.22.0] - 2026-10-18
 
 ### Added
