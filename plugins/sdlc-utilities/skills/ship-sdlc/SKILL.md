@@ -405,7 +405,7 @@ Completion status is recorded via `--outcome` (R-b2/R-b3, docs/specs/ship-sdlc.m
      # complete-step routes version to `failed` and never `completed`.
      ```
    - **Extension point (pr / commit):** the same `verify-side-effect` pattern applies to other steps with objective side-effects (`pr` → PR URL, `commit` → HEAD commit), but only `version` has a defined side-effect in `ship.js` (`STEP_SIDE_EFFECTS`) today — not wired.
-2. Run: `node "$STATE_SCRIPT" complete-step --step <stepName> --state-file "$STATE_FILE" --result "<summary>"` — append `--outcome "$OUTCOME"` for dispatched agent steps.
+2. Run: `node "$STATE_SCRIPT" complete-step --step <stepName> --state-file "$STATE_FILE" --result "<summary>"` — append `--outcome "$OUTCOME"` for dispatched agent steps. For dispatched agent steps also pass `--usage '<json>'` with the token counts the Agent return reports for that dispatch (`{"inputTokens":N,"outputTokens":N,"cacheReadTokens":N,"cacheWriteTokens":N,"model":"…","effort":"…"}`). If the harness does not expose usage in the Agent return, pass `--usage '{"source":"unavailable"}'`. Never estimate token counts: an unmeasured figure makes every before/after comparison misleading.
 3. Parse JSON from stdout → call `TodoWrite` with the `todos` array, echo `marker`.
 
 **Per-step failure (called when `state/ship.js fail` records a failure):**

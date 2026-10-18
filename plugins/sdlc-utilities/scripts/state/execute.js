@@ -7,7 +7,7 @@
  * Usage:
  *   node execute-state.js init        --branch <b> --quality <X> --total-tasks <n> [--planned-task-ids <json>] [--plan-path <p>] [--plan-hash <h>]
  *   node execute-state.js wave-start  --wave <n> [--tasks-json <json>] [--run-id <id>]
- *   node execute-state.js wave-done   --wave <n> [--decisions <json>] [--status <completed|partial>] [--timed-out]
+ *   node execute-state.js wave-done   --wave <n> [--decisions <json>] [--status <completed|partial>] [--timed-out] [--usage <json>]
  *   node execute-state.js wave-fail   --wave <n>
  *   node execute-state.js wave-committed --branch <b> --wave <n> --sha <sha>
  *   node execute-state.js task-done   --wave <n> --task <id> --name <name> --complexity <c> --risk <r> --files-changed <json> [--files-added <json>] [--verify-token <json>]
@@ -45,6 +45,7 @@ const { writeTaskFactSheet, taskFactSheetPath } = require(path.join(LIB, 'task-f
 const { splitWave, MaxSplitDepthExceededError } = require(path.join(LIB, 'wave-split'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { writeProgress, readProgress } = require(path.join(LIB, 'wave-progress'));
+const { parseUsage, resolveUsage } = require(path.join(LIB, 'usage'));
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -101,6 +102,8 @@ function parseArgs(argv) {
       result.status = args[++i];
     } else if (a === '--timed-out') {
       result.timedOut = true;
+    } else if (a === '--usage' && args[i + 1]) {
+      result.usage = args[++i];
     } else if (a === '--error' && args[i + 1]) {
       result.error = args[++i];
     } else if (a === '--data' && args[i + 1]) {
@@ -365,6 +368,16 @@ function cmdWaveDone(opts) {
     }
   }
 
+  let usage;
+  if (opts.usage !== undefined) {
+    const parsed = parseUsage(opts.usage);
+    if (!parsed.ok) {
+      process.stderr.write(`Error: --usage is not valid: ${parsed.error}\n`);
+      process.exit(2);
+    }
+    usage = parsed.value;
+  }
+
   const branch = resolveBranchOrExit(opts.branch);
   const slug = slugifyBranch(branch);
   const found = readState('execute', slug);
@@ -386,6 +399,7 @@ function cmdWaveDone(opts) {
   wave.status = status;
   if (opts.timedOut) wave.timedOut = true;   // R-WAVE-DEADLINE resume short-circuit (#506)
   wave.completedAt = new Date().toISOString();
+  if (usage !== undefined) wave.usage = resolveUsage(wave.usage, usage);
 
   // Append decisions to the prior-wave context. Idempotent by value: re-running
   // wave-done with the same --decisions leaves the array length unchanged.

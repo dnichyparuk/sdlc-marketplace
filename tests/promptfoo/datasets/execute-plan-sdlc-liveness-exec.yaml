@@ -187,3 +187,31 @@
   assert:
     - type: equals
       value: '{"resetWaves":[],"clearedTaskIds":[]}'
+
+# --- wave-done --usage accounting (W1.1) -----------------------------------
+
+- description: "execute-plan-sdlc/liveness/wave-done: a non-JSON --usage is rejected with an error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "wave-done --wave 1 --branch fix/live-flags --usage not-json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: contains
+      value: "Error: --usage is not valid"
+
+- description: "execute-plan-sdlc/liveness/wave-done: --usage is persisted on the wave"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-execute-wave-done-usage.js"
+    script_args: '--project-root {{project_root}} --branch fix/ctx-alpha --wave 2 --usage {"inputTokens":10,"outputTokens":5,"model":"sonnet","effort":"medium"}'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes.some(c => c !== 0)) return `FAIL: exitCodes ${o.exitCodes} ${o.lastStderr}`;
+        if (!o.wave || !o.wave.usage || o.wave.usage.inputTokens !== 10) return `FAIL: wave ${JSON.stringify(o.wave)}`;
+        if (o.wave.usage.model !== 'sonnet') return 'FAIL: model not persisted';
+        return true;

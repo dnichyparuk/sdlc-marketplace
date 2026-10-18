@@ -103,6 +103,7 @@ Each element represents one pipeline step in execution order.
 | `prUrl`          | string | optional — set by the `pr` step             | Absolute URL of the created or updated pull request.          |
 | `commitSha`      | string | optional — set by the `commit` / `commit-fixes` step | Short SHA (e.g. `"a1b2c3d"`) of the commit produced by the step. |
 | `versionTag`     | string | optional — set by the `version` step        | Git tag produced by the version step (e.g. `"v1.2.3"`).      |
+| `usage`          | object | optional — `complete-step`/`fail` `--usage` | Token accounting for the step's dispatch: `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens` (non-negative integers), `model`, `effort` (`low\|medium\|high\|xhigh\|max`), `source`. `{"source":"unavailable"}` when the harness exposes no usage. A `SubagentStop` hook payload may expose usage; it is unverified (Risk S2) — if confirmed, a plugin hook can write `usage` without SKILL.md prose. `usage.source` records where a value came from. Today the source of record is the agent's self-report (`source` absent or `"self-report"`). Once S2 confirms a `SubagentStop` usage payload, the hook-written value (`source: "subagent-stop"`) is the source of record and the self-report is the fallback: `complete-step`/`fail`/`wave-done --usage` never replace an existing `source: "subagent-stop"` value, and the hook always replaces a self-report. |
 
 ### Step Names
 

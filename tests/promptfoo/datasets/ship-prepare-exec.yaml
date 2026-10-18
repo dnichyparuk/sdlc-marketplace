@@ -1671,3 +1671,65 @@
       value: '"landed": true'
     - type: contains
       value: '"reason": "no-side-effect"'
+
+# --- --usage accounting on ship steps (W1.1) ---
+# Driven through run-ship-begin-complete.js (finalUsage = persisted step.usage).
+
+- description: "ship complete-step (usage): --usage persisted on the step"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-with-usage"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes[0] !== 0) return `FAIL: exit ${o.exitCodes[0]}`;
+        if (o.finalStatus !== 'completed') return `FAIL: step status ${o.finalStatus}`;
+        if (!o.finalUsage || o.finalUsage.inputTokens !== 10) return `FAIL: finalUsage ${JSON.stringify(o.finalUsage)}`;
+        if (o.finalUsage.model !== 'sonnet' || o.finalUsage.effort !== 'medium') return 'FAIL: model/effort not persisted';
+        return true;
+
+- description: "ship complete-step (usage): invalid --usage exits 2"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-bad-usage"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes[0] !== 2) return `FAIL: expected exit 2, got ${o.exitCodes[0]}`;
+        if (!o.lastStderr.includes('--usage is not valid')) return `FAIL: stderr ${o.lastStderr}`;
+        if (o.finalStatus !== 'pending') return `FAIL: state written before validation (${o.finalStatus})`;
+        return true;
+
+- description: "ship complete-step (usage): self-report does not replace a subagent-stop value"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-usage-guard"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes.some(c => c !== 0)) return `FAIL: exitCodes ${o.exitCodes}`;
+        if (!o.finalUsage || o.finalUsage.source !== 'subagent-stop' || o.finalUsage.inputTokens !== 99) return `FAIL: finalUsage ${JSON.stringify(o.finalUsage)}`;
+        return true;
+
+- description: "ship complete-step (usage): a subagent-stop value replaces an earlier self-report"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-usage-guard-reverse"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes.some(c => c !== 0)) return `FAIL: exitCodes ${o.exitCodes}`;
+        if (!o.finalUsage || o.finalUsage.source !== 'subagent-stop' || o.finalUsage.inputTokens !== 99) return `FAIL: finalUsage ${JSON.stringify(o.finalUsage)}`;
+        return true;
