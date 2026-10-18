@@ -470,7 +470,7 @@ For each inconsistency: evidence at HEAD `0c0cdcc`, the root cause from `git log
 - **Options.**
   1. **Recommended.** Delete the header as part of the contract restructure: tuning values leave the spec under D4, and `docs/cost-tiers.md` is the single source. W3.4 Change 1 already deletes `:6` (likewise W3.2/W3.3 for ship and execute).
   2. Change the header to `opus` now. Not recommended: it would drift again at the next retune.
-- **Plan change.** None beyond **W3.4** (already in the plan). The W1.11 issue for this row is documentation-only and closes with W3.4.
+- **Plan change.** None beyond **W3.4** (already in the plan). **Covered:** W3.4 Change 1 deletes the header; W1.11 records this row as implemented by W3.4 and files no issue for it.
 - **Spec-first.** Not a behaviour change: it removes a tuning value from the spec.
 
 ### (c) jira `assign` (and `bulk`) have no critique or approval step
@@ -531,3 +531,18 @@ For each inconsistency: evidence at HEAD `0c0cdcc`, the root cause from `git log
 - **Recommendation.** PD12 should consider only `./`-relative references, or ignore a known project-file list (`AGENTS.md`, `CLAUDE.md`, `README.md`). This is a small follow-up outside this plan; until it is fixed, `validate-discovery.js` stays out of PR CI (W1.5). It is not a behaviour change to any skill.
 
 Link check after writing this section: 257 resolved, 0 unresolved (including the two links to this section from W1.11 and Appendix A).
+
+### 8.1 Applied (2026-10-18)
+
+The maintainer accepted all five resolutions as recommended. Each one is now a "Fold-in" block, with the standard executor fields, inside its owning item in [`consolidated-plan.md`](consolidated-plan.md):
+
+| Row | Where it is implemented |
+|---|---|
+| (a) | **W5.2 Fold-in (a).** `execute.js` handles the resume exemption deterministically. Two exec cases cover it: `execute-prepare: --resume with state planPath non-null…` and `…null reports missingPlanFile`, with fixtures `project-execute-prepare-resume-{planpath,nullplan}`. R41 Acceptance cites them. Not a behaviour change |
+| (b) | **W3.4 Change 1** (deletes the header). No other change; covered |
+| (c) | **W6a.3 Fold-in (c).** Assign gets a "Critique and approval" step; Bulk gets one batch approval. No spec change. The W6a.3 and W6a.4 notes and W6a open points 3 and 4 are updated |
+| (d) | **W6a.5 Fold-in (d).** New `jira.js --check-payload --type`, built on `findPlaceholdersForToolInput` and `loadTemplateHeadings`, is called from `write-ops.md` Step 2.5. Two `jira-prepare:` exec cases. One additive spec line, `P-check-payload`. The W6a.1 Must-not-touch note is updated |
+| (e) | **W6c.4 Fold-in (e).** `matchLabelRules` matches on `ctx.jiraType`. `pr.js` emits `matchContext` and `pendingJiraType`; the SKILL.md Rules mode calls `getJiraIssue` when the tool is available and runs `pr-labels.js --from-manifest … --jira-type`. Four exec cases and two additive P-fields. Committed as a `fix` (bug). Change 2's `jiraType` bullet now points to the fold-in |
+
+**W1.11** now only files the PD12 issue (row f) and holds the pointer table above. Appendix A row Q12 is updated to match.
+
