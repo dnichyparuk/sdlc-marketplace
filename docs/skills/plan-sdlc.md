@@ -61,7 +61,7 @@ For 4+ file scopes, plan-sdlc dispatches a parallel dynamic-dimension orchestrat
 
 **Step 1 — Routing.** Three branches:
 - **≤3 files (lightweight):** orchestrator skipped. Inline exploration as today. No brief.
-- **4+ files AND `explorePack.manifestPath != null`:** install EXIT/INT/TERM trap to wipe the tempdir, then dispatch `sdlc:plan-explore-orchestrator` exactly once with `MANIFEST_FILE`, `PROJECT_ROOT`, `USER_PROMPT`, `OPENSPEC_CONTEXT`.
+- **4+ files AND `explorePack.manifestPath != null`:** dispatch `sdlc:plan-explore-orchestrator` exactly once with `MANIFEST_FILE`, `PROJECT_ROOT`, `USER_PROMPT`, `OPENSPEC_CONTEXT`.
 - **`explorePack.error` non-null:** append a one-line note to `.sdlc/learnings/log.md`, fall back to inline exploration. Plan still produced.
 
 **Orchestrator (the new agent).** Four steps, mirroring review-orchestrator but with a load-bearing inversion:
@@ -81,7 +81,7 @@ For 4+ file scopes, plan-sdlc dispatches a parallel dynamic-dimension orchestrat
 
 **Gate re-validation on material change (R64).** After Step 6 (IMPROVE) applies reviewer fixes, the skill snapshots seven values before and after, per task where noted: task count; each task's `Files:` path set (added or removed paths, not just additions); each task's `Contract:` block; each task's `Depends on:` value; the `## Key Decisions` entry set; each task's OpenSpec task-mapping ref (R29/R30); and the `## Deviations & assumptions` row set. A fix is **material** — `materialChangeDetected` is set — when any of: a task is added or removed; a task is re-scoped (its Files, Contract, or Depends on changed); a Key Decision is reversed or introduced; the OpenSpec task mapping changed; or a Deviations row is added or changed (R64's conservative superset — a deviations-table edit usually co-occurs with a scope or approach change worth re-validating). On the next pass through Step 5, a material change re-dispatches all five Step 3 gate lanes (G1–G21) together with the Step 5 lens reviewers in a single merged message, rather than trusting the earlier gate results to still hold — this path also preserves the error-severity guardrail-block gate (R19). This merged dispatch counts as **one** iteration of the existing review loop (increments the counter by 1, not 2), so the 3-iteration cap still applies normally. Wording-only, formatting-only, or metadata-only fixes that leave all seven snapshotted values unchanged are not material and do not trigger this re-dispatch.
 
-**Cleanup.** Tempdir wiped by the EXIT/INT/TERM trap installed in Step 1. Orphans from crashed runs swept by `ship-sdlc --gc`, which now globs `sdlc-explore-*` alongside the existing four state-file buckets and removes by mtime + branch-liveness.
+**Cleanup.** The tempdir is swept by `ship-sdlc --gc`, which now globs `sdlc-explore-*` alongside the existing four state-file buckets and removes by mtime + branch-liveness.
 
 **Three modes for dimensions:**
 | Mode | Tools | Budget | Output tag |

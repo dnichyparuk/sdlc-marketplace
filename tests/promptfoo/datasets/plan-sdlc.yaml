@@ -371,7 +371,7 @@
         The response dispatches sdlc:plan-explore-orchestrator exactly once using the Agent tool.
         It passes MANIFEST_FILE equal to the manifestPath from explorePack, PROJECT_ROOT set to
         the working directory, USER_PROMPT set to the verbatim user request, and OPENSPEC_CONTEXT
-        set to "none" (no openspec). It installs a cleanup trap for the tempdir before dispatch.
+        set to "none" (no openspec).
         It does NOT dispatch the orchestrator more than once.
 
 - description: "plan-sdlc: orchestrator SCOPE dimensions are task-shaped kebab-case names, not bare generic axes (#408 SCOPE names)"
