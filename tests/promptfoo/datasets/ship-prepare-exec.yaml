@@ -484,6 +484,36 @@
           && !exec.args.includes('--quality')
           && !exec.args.includes('--preset')
 
+# R20: --auto suppresses pipeline pauses for received-review and version.
+
+- description: "ship-prepare: --auto sets pause false for received-review and version"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --auto"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const rr = o.steps.find(s => s.name === 'received-review');
+        const v = o.steps.find(s => s.name === 'version');
+        return rr.pause === false && v.pause === false
+
+- description: "ship-prepare: without --auto received-review and version pause"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const rr = o.steps.find(s => s.name === 'received-review');
+        const v = o.steps.find(s => s.name === 'version');
+        return rr.pause === true && v.pause === true
+
 # ---------------------------------------------------------------------------
 # Issue #232: verifyAndMigrate gate at pipeline entry
 # ---------------------------------------------------------------------------

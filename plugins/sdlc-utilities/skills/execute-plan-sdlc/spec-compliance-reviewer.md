@@ -17,7 +17,7 @@ For `{TASK_LIST}`, list each non-trivial task's:
 For `{WAVE_NUMBER}`, use the current wave number.
 
 ```
-Task tool (general-purpose):
+Agent tool (general-purpose):
   description: "Spec compliance review for Wave {WAVE_NUMBER}"
   model: sonnet
   mode: bypassPermissions

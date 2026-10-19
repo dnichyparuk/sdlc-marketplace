@@ -214,7 +214,7 @@ While a wave is running, each dispatched worker records its current phase in a s
 ```
 
 - `<stateDir>` — `resolveStateDir()`'s return value, which already ends in `.sdlc/execution`. There is no additional `execution/` path segment: the marker sits directly inside the per-run directory, alongside that run's per-task fact sheets (`task-<id>.md`).
-- `<runId>` — the run identifier passed to `wave-start --run-id` and threaded through the wave manifest.
+- `<runId>` — returned by `wave-start` (derived from `startedAt`) and threaded through the wave manifest.
 - `<N>` — the wave number.
 
 Example: `.sdlc/execution/run-20260328T143000Z/progress-wave-2.json`

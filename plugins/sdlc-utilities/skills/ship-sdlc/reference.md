@@ -31,7 +31,6 @@ Each sub-skill has its own error recovery. ship-sdlc does not duplicate their re
 - Deviate from `step.dispatchMode`. Every sub-skill step has `dispatchMode: 'agent'`; inline-Bash steps have `dispatchMode: null`. The LLM must not synthesize a `'skill'` value or invoke any step via the Skill tool from Step 5. Use Agent tool for all sub-skill steps, including `execute-plan-sdlc`.
 - Skip the critique step (Step 3) even when all checks seem obvious
 - Forward `--auto` to sub-skills that do not support it (see audit table)
-- Automatically resolve review findings — received-review-sdlc is always interactive
 - Run pipeline steps in parallel — the pipeline is strictly sequential
 - Delete the state file on failure — it is needed for `--resume`
 - Proceed past a failed sub-skill — stop, save state, inform user
@@ -69,23 +68,13 @@ Each sub-skill has its own error recovery. ship-sdlc does not duplicate their re
 
 **State files are script-managed.** Use state/ship.js / state/execute.js for all state operations. Don't hand-write JSON to `.sdlc/execution/`.
 
-**Worktree lifecycle uses git commands.** `git worktree add` to create (via util/worktree-create.js), `git worktree remove` to clean up. No EnterWorktree/ExitWorktree. No session-scoping issues.
-
-**Worktree state is not persisted.** Git is the source of truth. Branch name + `git worktree list --porcelain` = worktree path. No worktree fields in state files.
-
-**Resume re-enters via `cd`.** Match branch from state file against `git worktree list --porcelain`.
-
-**Rebase happens after all commits, before version.** This ensures the tag is placed on a commit that can merge cleanly. If rebase conflicts, the pipeline pauses — the user resolves in the worktree (main tree untouched) and resumes.
+**Rebase happens after all commits, before version.** This ensures the tag is placed on a commit that can merge cleanly. If rebase conflicts, the pipeline pauses — the user resolves the conflicts and resumes.
 
 **Rebase is skipped when main is already an ancestor.** `git merge-base --is-ancestor` is a fast check. No fetch + rebase overhead when the branch is already up to date.
 
-**Version step is auto-skipped in worktree mode.** `computeSteps` in skill/ship.js skips the version step when `workspace === 'worktree'`. Tags are repo-global — creating them from an isolated worktree risks collisions with parallel pipelines. The pipeline prints a post-merge advisory: run `/version-sdlc` on main after the PR merges. This also handles changelog — `version-sdlc` generates changelog from `previousTag..HEAD`, capturing all commits from all merged branches regardless of their source worktree.
-
-**Worktree PRs auto-label `skip-version-check`.** When `workspace === 'worktree'` causes the version step to be auto-skipped, `skill/ship.js` adds `--label skip-version-check` to the PR step args. The label is included in `gh pr create` from the start (not added post-creation), so `check-version-bump.yml` sees it on the `opened` event. Only fires for worktree auto-skip, not when `version` is omitted from `ship.steps[]`. Prerequisite: the label must exist in the repository (pr-sdlc creates it automatically if missing).
-
 **Auto mode does not auto-resume without --resume.** When `--auto` is set but `--resume` is not, the pipeline starts fresh even if a state file exists for the current branch. This prevents accidental continuation from stale state. The state file is preserved (not deleted) so the user can explicitly `--resume` later.
 
-**Sub-skill loading and agent isolation.** Each sub-skill's SKILL.md is 200–550 lines. All sub-skills (including `execute-plan-sdlc`) are Agent-dispatched so each loads SKILL.md in its own context and returns only a structured result (5–10 lines). The ship pipeline's context receives structured data, not sub-skill definitions. `execute-plan-sdlc` bounds its own context impact by dispatching one wave-runner Agent per wave rather than per task — its structured Step-9 result is what ship-sdlc consumes to continue the pipeline.
+**Sub-skill loading and agent isolation.** All sub-skills (including `execute-plan-sdlc`) are Agent-dispatched so each loads SKILL.md in its own context and returns only a structured result (5–10 lines). The ship pipeline's context receives structured data, not sub-skill definitions. `execute-plan-sdlc` bounds its own context impact by dispatching one wave-runner Agent per wave rather than per task — its structured Step-9 result is what ship-sdlc consumes to continue the pipeline.
 
 **skipSource tracks provenance.** Each step's `skipSource` field records why a step was skipped: `"none"` (not skipped), `"cli"` (step omitted from CLI `--steps`), `"quick"` (step is canonical but absent from `ship.quick` under an active `--quick` run — R-quick-4), `"config"` (omitted from `ship.steps[]` in `.sdlc/local.json`), `"auto"` (auto-skipped by `computeSteps` logic), `"condition"` (conditional step not triggered), `"default"` (built-in defaults excluded the step). The per-step `skipSource` makes the exclusion provenance auditable per step.
 

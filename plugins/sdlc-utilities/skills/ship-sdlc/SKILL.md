@@ -205,7 +205,7 @@ Not all sub-skills support `--auto`. This table is the source of truth:
 
 | Sub-skill | --auto support | Behavior when ship runs with --auto |
 |-----------|---------------|--------------------------------------|
-| execute-plan-sdlc | No | Forwards `--quality <X>` only when the user explicitly passed `--quality` to ship; otherwise no quality flag is forwarded and execute-plan-sdlc applies its own selection logic. (Renamed from `--preset` in #190 to disambiguate from ship's step-selection semantics.) |
+| execute-plan-sdlc | Yes | `--auto` forwarded so the plan-hash mismatch branch is non-interactive. Forwards `--quality <X>` only when the user explicitly passed `--quality` to ship; otherwise no quality flag is forwarded and execute-plan-sdlc applies its own selection logic. (Renamed from `--preset` in #190 to disambiguate from ship's step-selection semantics.) |
 | commit-sdlc | Yes | `--auto` forwarded. Skips commit approval prompt. |
 | review-sdlc | No | No interactive prompts to skip — runs fully automatically already. |
 | received-review-sdlc | Yes | `--auto` forwarded. Skips Step 10 consent prompt and Step 12 reply/resolve prompt. Critique gates and verification still run. Only "will fix" items auto-implemented; threads for "will fix" items auto-resolved. |
@@ -289,6 +289,8 @@ On **edit**: ask what to change, update flags, rebuild the pipeline table, and r
 
 ## Step 5 (EXECUTE): Run Pipeline Steps Sequentially
 
+In `--auto` mode, run every step without asking for confirmation. Without `--auto`, ask the user only at the prompts this file defines for that mode (rebase conflict, verify-pipeline failure, archive-openspec) and leave the sub-skills' own approval prompts to them. Before each step, print one line naming the step that runs next; after it, print its one-line result.
+
 ### Pre-step validation
 
 Before dispatching each step, read its `status` from the skill/ship.js output:
@@ -333,7 +335,10 @@ For each step that will run, apply the dispatch protocol based on `step.dispatch
    (2) result summary — 2-3 lines
    (3) artifacts — commit hash, tag, PR URL, verdict, etc.
    (4) any warnings or issues encountered
+
+   The arguments above decide whether this run is unattended. With `--auto`, follow the skill's `--auto` rules and do not ask the user anything. Without `--auto`, keep every approval prompt the skill defines; if you cannot ask the user, stop before the gated action and return status failure with the pending question in (4). Before reporting success on a step that edited source files, run the project's real check (tests, type-check or build) and include its result in (2).
    ```
+   The paragraph after item (4) implements R-subagent-brief.
 
 4. **Receive agent result.** Print result to user:
    ```
@@ -505,14 +510,6 @@ The `migrate` subcommand renames `ship-<oldSlug>-<ts>.json` → `ship-<newSlug>-
 
 ship-sdlc does not manage execute-plan-sdlc's state file — execute-plan-sdlc handles its own creation, updates, and cleanup.
 
-**Worktree re-entry on resume:** Check `context.worktree.inLinkedWorktree` from the skill/ship.js output. If true, already in the worktree — proceed normally.
-
-If false (resuming from the main worktree but the pipeline originally ran in a worktree), find the worktree for the resume branch:
-```bash
-git worktree list --porcelain
-```
-Match the branch from the ship state file against worktree entries. If found and directory exists, `cd <path>` before continuing. If the worktree directory is gone, warn and fall back to running on the current branch.
-
 **Execute-step todo mirroring (R-todowrite-visibility clause 4):**
 
 Assign `PLAN_FILE` from the prepare output's `context.planFile` field (R-PLANFILE). Resolution is explicit-only (implements R72): `skill/ship.js` resolves the plan solely from the CLI `--plan <path>` flag — there is no config-driven or directory-scan fallback. A missing, nonexistent, or non-markdown `--plan` is rejected in Step 1c (`missingPlanFile` / `planFileNotFound` / `planFileNotMarkdown`) before this point is ever reached. Do not re-derive the path here — use `context.planFile` verbatim:
@@ -563,12 +560,6 @@ Example dispatch sequence (use `step.invocation` for actual args):
 - Agent: received-review-sdlc, args: `"--auto"` (when `flags.auto`; otherwise no args)
 - Agent: version-sdlc, args: `"patch"`
 - Agent: pr-sdlc, args: `"--auto --draft"`
-
-### Post-execute note (R37 migration moved pre-execute)
-
-Branch migration (R37) now runs **before** the execute dispatch — inside the pre-execute workspace isolation block (see "Pre-execute workspace isolation" section above). The old post-execute migration block has been removed (fixes #379 — it ran after cwd changed, so `git branch --show-current` always returned the wrong value).
-
-Subsequent state operations (`start`, `complete`, `read`) automatically pick up the renamed file because `state/ship.js` resolves by current branch.
 
 ### Between execute and commit
 
@@ -898,8 +889,7 @@ At pipeline start (after Step 1 completes), initialize the state file:
 node "$SCRIPT" init --branch <branch> --flags '<flags JSON>'
 ```
 
-Before each step: `node "$SCRIPT" start --step <name>`
-After each step: `node "$SCRIPT" complete --step <name> --result "<summary>"` (or `skip --step <name> --reason "<reason>"` or `fail --step <name> --error "<error>"`)
+Step transitions use `begin-step`/`complete-step` (see TodoWrite orchestration). Remaining subcommands: `skip`, `fail`, `decide`, `defer`.
 Record decisions: `node "$SCRIPT" decide --step <name> --text "<decision>"`
 Defer findings: `node "$SCRIPT" defer --severity <s> --file <f> --title "<t>"`
 
@@ -1002,21 +992,6 @@ If OpenSpec was detected in Step 1f and the archive-openspec step ran successful
 
 If OpenSpec was detected but `archive-openspec` is NOT in `flags.steps`, append:
   `→ Run openspec archive <change> --yes to archive the OpenSpec change and sync delta specs`
-
-### Worktree cleanup
-
-(removed — ship-sdlc never creates a git worktree. Workspace is auto-detected `branch`/`continue`; there is nothing to clean up. R60, fixes #378, #379.)
-
-### Post-pipeline advisory (when version was auto-skipped)
-
-If the version step status is `skipped` and the reason contains "worktree", print a next-step hint after the summary table:
-
-```
-Note: Version step was skipped (worktree mode — tags are repo-global).
-After merging this PR, run on main:
-  /version-sdlc <patch|minor|major>
-This will tag the release and generate the changelog from all merged commits.
-```
 
 ---
 

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-10-19
+
+### Added
+- ship-sdlc: sub-skill dispatch brief keeps approval prompts without `--auto` (`R-subagent-brief`); Step 5 prompting rule per `--auto` mode (#9)
+- verify-pipeline-sdlc: re-run the failed check before emitting `fix-applied` (#9)
+- execute-plan-sdlc: workers run a real check before reporting done (#9)
+
+### Changed
+- ship-sdlc: `received-review` and `version` steps do not pause under `--auto` (R20); the audit table, R7 and the docs list `execute-plan-sdlc` as an `--auto`-forwarded sub-skill (#9)
+- ship-sdlc: `state-format.md` examples regenerated from a real `flags` write; `config-format.md` and `entry-modes.md` drop the removed `workspace`, `--preset` and `--skip` text (#9)
+- execute-plan-sdlc: failed tasks get FAILED status and the batch continues; the wave-summary parse uses a temp file (#9)
+
+### Removed
+- ship-sdlc: worktree-mode text, the legacy `start`/`complete` state commands and stub sections (#9)
+- execute-plan-sdlc: the "paste the full task text", `--run-id`, `attempts` array, compaction and removed-hook text (#9)
+
 ## [0.23.0] - 2026-10-19
 
 ### Added

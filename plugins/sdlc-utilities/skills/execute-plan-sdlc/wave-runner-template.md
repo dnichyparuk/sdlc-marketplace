@@ -21,7 +21,7 @@ waveTimeout      — integer (seconds) wall-clock budget for this wave, from shi
                    `executeWaveTimeout`; you enforce it yourself (see §2b)
 waveInterval     — integer (seconds) `Monitor` poll interval, from ship config
                    `executeWaveInterval`
-runId            — string (the execution run id, as passed to `wave-start --run-id`)
+runId            — string (returned by `wave-start`, derived from the state file's `startedAt`)
 stateScript      — absolute path to state/execute.js
                    (`STATE_SCRIPT="<PLUGIN_ROOT>/scripts/state/execute.js"`)
 tasks            — array of task objects (see shape below)
@@ -127,7 +127,7 @@ For batch Agents, extract the per-task status from the batch output.
 On per-task `NEEDS_CONTEXT` or `BLOCKED` status, or on agent error:
 
 1. Re-dispatch the failing task with full failure context added to the prompt and model escalated one step (haiku→sonnet→opus).
-2. Record the attempt in the `attempts` array.
+2. Track attempts internally for the retry cap; they are not part of WAVE_SUMMARY (only `escalationsUsed` is).
 3. Maximum 2 retries per task (tracked across all attempts within this wave).
 4. After 2 retries with continued failure, mark the task `FAILED` in the summary and set `wave.status` to `partial` or `failed`.
 
@@ -135,8 +135,6 @@ Model escalation uses `assignedModel` from the task manifest as the starting poi
 - haiku → escalate to sonnet
 - sonnet → escalate to opus
 - opus → no further escalation; mark FAILED after 2 retries
-
-Track every attempt in the `attempts` array regardless of outcome.
 
 **Guardrail invariance on retry (Fixes #392 / R33):** When constructing the retry prompt, copy the wave manifest's `guardrails` array (and `expectedFiles`) **verbatim** into the new prompt — do NOT regenerate, filter, or omit any entry. Guardrails are wave-level invariants set by main context at wave-build time; the per-task retry inherits the same constraints as the original dispatch at every escalation tier (haiku → sonnet → opus).
 

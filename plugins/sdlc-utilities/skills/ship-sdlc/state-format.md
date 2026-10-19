@@ -52,19 +52,54 @@ Captures the effective flags after defaults and config are applied, so a resumed
 
 ```json
 {
-  "auto": true,
-  "skip": ["version"],
-  "preset": "balanced",
+  "auto": false,
+  "steps": ["execute", "commit", "review", "archive-openspec", "pr", "learnings-commit"],
   "bump": "patch",
-  "draft": true
+  "draft": false,
+  "dryRun": true,
+  "resume": false,
+  "implicitResume": false,
+  "hasPlan": true,
+  "workspace": "continue",
+  "rebase": "auto",
+  "openspecChange": null,
+  "verifyPipelineTimeout": 1200,
+  "verifyPipelineInterval": 60,
+  "verifyPipelineMaxIterations": 3,
+  "awaitRemoteReviewTimeout": 600,
+  "awaitRemoteReviewInterval": 60,
+  "awaitRemoteReviewers": ["copilot"],
+  "executeWaveTimeout": 1800,
+  "executeWaveInterval": 60,
+  "executeCommitWaves": false,
+  "planModeBlocked": false,
+  "skipConfigCheck": false,
+  "sources": {
+    "auto": "default",
+    "draft": "default",
+    "bump": "default",
+    "steps": "default",
+    "reviewThreshold": "default",
+    "rebase": "default",
+    "verifyPipelineTimeout": "default",
+    "verifyPipelineInterval": "default",
+    "verifyPipelineMaxIterations": "default",
+    "awaitRemoteReviewTimeout": "default",
+    "awaitRemoteReviewInterval": "default",
+    "awaitRemoteReviewers": "default",
+    "executeWaveTimeout": "default",
+    "executeWaveInterval": "default",
+    "executeCommitWaves": "default",
+    "workspace": "derived"
+  }
 }
 ```
 
 | Field    | Type            | Description                                                          |
 |----------|-----------------|----------------------------------------------------------------------|
 | `auto`   | boolean         | Whether `--auto` (non-interactive) mode was active.                  |
-| `skip`   | string[]        | Step names explicitly skipped via `--skip`.                          |
-| `preset` | string \| null  | Execution preset used (`"full"`, `"balanced"`, or `"minimal"`), or `null` if none. Legacy `"A"`/`"B"`/`"C"` may appear in older state files. |
+| `steps`  | string[]        | Resolved pipeline step names (from `ship.steps[]`, `--steps` or `--quick`). |
+| `sources` | object         | Per-flag provenance: `cli`, `config`, `default`, `quick` or `derived`. |
 | `bump`   | string \| null  | Version bump type (`"major"`, `"minor"`, `"patch"`), or `null`.      |
 | `draft`  | boolean         | Whether the PR was opened as a draft.                                |
 
@@ -155,7 +190,7 @@ Records key choices made during the run for post-run transparency and debugging.
 
 ```json
 [
-  { "step": "execute", "decision": "preset B selected from config default" },
+  { "step": "execute", "decision": "steps resolved from config ship.steps[]" },
   { "step": "review",  "decision": "verdict: APPROVED WITH NOTES — 2 medium deferred, no critical/high" }
 ]
 ```
@@ -219,11 +254,46 @@ If multiple state files exist for the same branch (from multiple failed attempts
   "startedAt": "2026-03-27T14:30:00Z",
   "branch": "feat/ship-sdlc",
   "flags": {
-    "auto": true,
-    "skip": ["version"],
-    "preset": "balanced",
+    "auto": false,
+    "steps": ["execute", "commit", "review", "archive-openspec", "pr", "learnings-commit"],
     "bump": "patch",
-    "draft": true
+    "draft": false,
+    "dryRun": true,
+    "resume": false,
+    "implicitResume": false,
+    "hasPlan": true,
+    "workspace": "continue",
+    "rebase": "auto",
+    "openspecChange": null,
+    "verifyPipelineTimeout": 1200,
+    "verifyPipelineInterval": 60,
+    "verifyPipelineMaxIterations": 3,
+    "awaitRemoteReviewTimeout": 600,
+    "awaitRemoteReviewInterval": 60,
+    "awaitRemoteReviewers": ["copilot"],
+    "executeWaveTimeout": 1800,
+    "executeWaveInterval": 60,
+    "executeCommitWaves": false,
+    "planModeBlocked": false,
+    "skipConfigCheck": false,
+    "sources": {
+      "auto": "default",
+      "draft": "default",
+      "bump": "default",
+      "steps": "default",
+      "reviewThreshold": "default",
+      "rebase": "default",
+      "verifyPipelineTimeout": "default",
+      "verifyPipelineInterval": "default",
+      "verifyPipelineMaxIterations": "default",
+      "awaitRemoteReviewTimeout": "default",
+      "awaitRemoteReviewInterval": "default",
+      "awaitRemoteReviewers": "default",
+      "executeWaveTimeout": "default",
+      "executeWaveInterval": "default",
+      "executeCommitWaves": "default",
+      "workspace": "derived"
+    }
   },
   "steps": [
     { "name": "execute",         "status": "completed",   "result": "8 tasks, 3 waves",                             "completedAt": "2026-03-27T14:35:00Z" },
@@ -235,7 +305,7 @@ If multiple state files exist for the same branch (from multiple failed attempts
     { "name": "pr",              "status": "pending" }
   ],
   "decisions": [
-    { "step": "execute", "decision": "preset B selected from config default" },
+    { "step": "execute", "decision": "steps resolved from config ship.steps[]" },
     { "step": "review",  "decision": "verdict: APPROVED WITH NOTES — 2 medium deferred, no critical/high" }
   ],
   "deferredFindings": [

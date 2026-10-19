@@ -42,7 +42,6 @@ To migrate explicitly without waiting for the next ship run, run `/setup-sdlc --
     "draft": false,
     "auto": false,
     "reviewThreshold": "high",
-    "workspace": "prompt",
     "rebase": true,
     "verifyPipelineTimeout": 1200,
     "verifyPipelineInterval": 60,
@@ -71,7 +70,6 @@ To migrate explicitly without waiting for the next ship run, run `/setup-sdlc --
 | `draft` | `boolean` | `false` | When `true`, PRs are created as drafts. Equivalent to `--draft`. |
 | `auto` | `boolean` | `false` | When `true`, run in non-interactive auto mode (no confirmation prompts). Equivalent to `--auto`. |
 | `reviewThreshold` | `"critical"` \| `"high"` \| `"medium"` | `"high"` | Minimum review-finding severity that triggers the received-review fix loop. See table below. |
-| `workspace` | `"branch"` \| `"worktree"` \| `"prompt"` | `"prompt"` | Workspace isolation strategy for execute-plan-sdlc. `"branch"` = use a feature branch, `"worktree"` = use a git worktree, `"prompt"` = ask each time. Forwarded to execute-plan-sdlc as a hint. |
 | `rebase` | `true` \| `false` \| `"prompt"` | `true` | When `true`, auto-rebase onto the default branch before execution (execute-plan-sdlc) and before versioning (ship-sdlc). When `false`, skip rebase. When `"prompt"`, ask each time. |
 | `verifyPipelineTimeout` | `integer` (≥30) | `1200` | Maximum seconds `verify-pipeline` polls CI checks before giving up and proceeding (R57). Only prompted in `setup-sdlc` when `verify-pipeline` is in `ship.steps[]`. |
 | `verifyPipelineInterval` | `integer` (≥10) | `60` | Seconds between `verify-pipeline` poll attempts (R57). Only prompted in `setup-sdlc` when `verify-pipeline` is in `ship.steps[]`. |
@@ -81,6 +79,8 @@ To migrate explicitly without waiting for the next ship run, run `/setup-sdlc --
 | `awaitRemoteReviewers` | `string[]` (minItems 1) | `["copilot"]` | Reviewer logins (case-insensitive) whose review satisfies the `await-remote-review` gate. Login `copilot` also requires `user.type === "Bot"` (R56, R57). Only prompted in `setup-sdlc` when `await-remote-review` is in `ship.steps[]`. |
 | `executeWaveTimeout` | `integer` (60–3600) | `1800` | Maximum seconds a single execute wave may run before stalled tasks are terminated (R57, R-WAVE-DEADLINE). Forwarded to `execute-plan-sdlc` as `--wave-timeout`. The `3600` ceiling restates `MAX_WAVE_TIMEOUT_SECONDS` in `scripts/lib/ship-fields.js`, the single enforcement point (`Monitor.timeout_ms` caps at 3600000 ms). Only prompted in `setup-sdlc` when `execute` is in `ship.steps[]`. |
 | `executeWaveInterval` | `integer` (≥10) | `60` | Seconds between execute wave liveness poll attempts (R57, R-WAVE-LIVENESS). Forwarded to `execute-plan-sdlc` as `--wave-interval`. Only prompted in `setup-sdlc` when `execute` is in `ship.steps[]`. |
+
+Workspace is auto-detected (`branch`/`continue`) by `ship.js`; there is no ship-level `workspace` field — see the top-level `workspace` config section for branch-naming options.
 
 ### reviewThreshold Levels
 
@@ -92,18 +92,7 @@ To migrate explicitly without waiting for the next ship run, run `/setup-sdlc --
 
 At `"high"` (the default), findings rated Medium or lower are reported but do not block the ship pipeline.
 
-### Legacy CLI Sugar (deprecated)
-
-The CLI flags below are accepted for backward compatibility. They are NOT persisted as config fields — they expand to `steps[]` operations at parse time:
-
-- `--preset full|balanced|minimal` — expands to a canonical `steps[]` set:
-  - `full` → all six canonical steps
-  - `balanced` → all except `version`
-  - `minimal` → `[execute, commit, pr]`
-  - Legacy `A`/`B`/`C` aliases are accepted and normalized to `full`/`balanced`/`minimal`.
-- `--skip <step,…>` — subtracts named steps from the resolved `steps[]`.
-
-Combination order: `--preset` expands first, then `--skip` subtracts. Both override the config-level `steps[]`.
+`--preset` and `--skip` are no longer accepted (`ship.js` rejects them with a migration pointer). `ship.steps[]` (auto-migrated from legacy `preset`/`skip` fields) is the only source of pipeline composition; `--steps <csv>` is a one-shot CLI override.
 
 ---
 
@@ -133,22 +122,17 @@ Running `ship-sdlc --init-config` launches an interactive sequence that writes t
 
 4. **Auto mode** — Should the pipeline run without confirmation prompts where supported? (`yes` / `no`). Default: `no`.
 
-5. **Workspace isolation** — How should the execute step isolate work? (`branch` / `worktree` / `prompt`). Default: `prompt`.
-   - `branch` = create or use a feature branch (simpler, most common)
-   - `worktree` = create a git worktree (parallel work, isolated filesystem)
-   - `prompt` = ask each time (current default behavior)
-
-6. **Rebase strategy** — Should the pipeline rebase onto the default branch before execution and versioning? (`yes` / `no` / `prompt`). Default: `yes` (maps to `true`).
+5. **Rebase strategy** — Should the pipeline rebase onto the default branch before execution and versioning? (`yes` / `no` / `prompt`). Default: `yes` (maps to `true`).
    - `yes` = always rebase automatically (`true` in config)
    - `no` = never rebase (`false` in config)
    - `prompt` = ask each time (`"prompt"` in config)
 
-7. **Review threshold** — Choose the minimum severity that triggers a fix loop:
+6. **Review threshold** — Choose the minimum severity that triggers a fix loop:
    - `critical` = only blockers
    - `high` = blockers + high-severity findings (recommended)
    - `medium` = blockers + high + medium-severity findings
 
-8. **Write and confirm** — The tool runs `util/ship-init.js` with the collected answers to write the `ship` section to `.sdlc/local.json` (with `schemaVersion: 4` at the top level) and create `.sdlc/.gitignore`. The resulting config JSON is displayed for confirmation. If the ship section already exists, you are asked whether to overwrite it.
+7. **Write and confirm** — The tool runs `util/ship-init.js` with the collected answers to write the `ship` section to `.sdlc/local.json` (with `schemaVersion: 4` at the top level) and create `.sdlc/.gitignore`. The resulting config JSON is displayed for confirmation. If the ship section already exists, you are asked whether to overwrite it.
 
 ---
 
@@ -167,8 +151,7 @@ Skips the version step (manual version bump) and runs auto.
     "bump": "patch",
     "draft": false,
     "auto": true,
-    "reviewThreshold": "critical",
-    "workspace": "branch"
+    "reviewThreshold": "critical"
   }
 }
 ```
@@ -186,8 +169,7 @@ All canonical steps run; review threshold catches high-severity findings; PRs de
     "bump": "minor",
     "draft": true,
     "auto": false,
-    "reviewThreshold": "high",
-    "workspace": "prompt"
+    "reviewThreshold": "high"
   }
 }
 ```
@@ -205,8 +187,7 @@ Smallest step set with widest review threshold. Suitable for regulated environme
     "bump": "patch",
     "draft": false,
     "auto": false,
-    "reviewThreshold": "medium",
-    "workspace": "worktree"
+    "reviewThreshold": "medium"
   }
 }
 ```
