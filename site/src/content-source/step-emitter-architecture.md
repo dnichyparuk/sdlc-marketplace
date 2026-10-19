@@ -315,10 +315,10 @@ To convert an existing one-shot prepare script to step-emitter:
 
 ### Spec Field Templates
 
-Add to existing skill specs under a new `### Step-Emitter Contract` section:
+Add to the skill spec as a `### Step-emitter contract` sub-section of `## Step composition` (see `docs/spec-template.md`):
 
 ```markdown
-### Step-Emitter Contract
+### Step-emitter contract
 
 P-STEP-1: Script returns universal envelope with `status`, `step`, `llm_decision`,
           `state_file`, `progress`, and `ext` fields on every invocation.
