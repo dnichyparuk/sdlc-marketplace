@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.js\"",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -19,7 +19,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/block-askuserquestion-auto.js\"",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       }
@@ -31,7 +31,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-validate.js\"",
-            "timeout": 10000
+            "timeout": 10
           }
         ]
       },
@@ -41,7 +41,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pipeline-continue.js\"",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       }
@@ -53,7 +53,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-compact-save.js\"",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -64,7 +64,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-state-save.js\"",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       },
@@ -73,7 +73,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-plan-integrity.js\"",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       },
@@ -82,7 +82,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-pipeline-continue.js\"",
-            "timeout": 3000
+            "timeout": 3
           }
         ]
       }
