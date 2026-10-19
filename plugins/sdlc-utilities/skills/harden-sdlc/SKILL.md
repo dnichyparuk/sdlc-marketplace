@@ -296,7 +296,7 @@ the manifest JSON), then present an opt-in upstream-report offer:
 
 Use AskUserQuestion with options: **dispatch error-report-sdlc** | **skip**.
 
-- On `dispatch error-report-sdlc`: Glob `**/error-report-sdlc/REFERENCE.md`,
+- On `dispatch error-report-sdlc`: Glob `**/error-report-sdlc/SKILL.md`,
   follow it, and dispatch with the orchestrator-supplied
   `RESULT.errorReportPayload` fields (same shape and idiom as Step 6 — no
   duplicate dispatch logic).
@@ -319,7 +319,7 @@ When `RESULT.classification == "plugin-defect"`:
    `<pluginRepoUrl>` (sourced from the prepare-script manifest, not
    hardcoded in this SKILL).
 2. Use AskUserQuestion: **dispatch error-report-sdlc** | **cancel**.
-3. On `dispatch error-report-sdlc`: Glob `**/error-report-sdlc/REFERENCE.md`,
+3. On `dispatch error-report-sdlc`: Glob `**/error-report-sdlc/SKILL.md`,
    follow it, and dispatch with `skill=<failure.skill>`,
    `step=<failure.step>`, `operation=<failure.operation>`,
    `error=<failure.text>`, `exit-or-http-code=<failure.exitCode>`,

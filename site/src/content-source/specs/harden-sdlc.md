@@ -28,7 +28,7 @@
   - Execute guardrails — `.sdlc/config.json` `execute.guardrails[]` (via `lib/config.js::readSection`)
   - Review dimensions — `.sdlc/review-dimensions/*.md` (frontmatter parsed via `lib/dimensions.js::extractFrontmatter` + `parseSimpleYaml`)
   - Copilot instructions — `.github/instructions/*.instructions.md` (frontmatter `applyTo` extracted; body NOT loaded)
-  - Sibling-skill resolution — absolute path to `error-report-sdlc/REFERENCE.md` resolved via the canonical find-then-fallback pattern
+  - Sibling-skill resolution — absolute path to `error-report-sdlc/SKILL.md` resolved via the canonical find-then-fallback pattern
 - R5: The orchestrator agent MUST classify the failure as exactly one of `user-code`, `plugin-defect`, `ambiguous`, with a one-sentence rationale tied to the failure signal.
 - R6: For each hardening surface (plan-guardrails, execute-guardrails, review-dimensions, copilot-instructions), the orchestrator MUST decide PROPOSE or SKIP and, when PROPOSE, emit a proposal with `surface`, `action`, `targetFile`, `patch` (preview), and `rationale` linked to the failure signal.
 - R7: No surface file MAY be edited without an explicit per-proposal user approval recorded via AskUserQuestion in the SKILL.md main context. The orchestrator agent MUST NOT have file-write capability — the no-silent-write invariant is enforced at the tool boundary.
@@ -101,7 +101,7 @@
 - P6: `surfaces.executeGuardrails[]` — `{id, severity, description}` objects
 - P7: `surfaces.reviewDimensions[]` — `{name, severity, description, triggers, model, path}` objects
 - P8: `surfaces.copilotInstructions[]` — `{applyTo, name, path}` objects
-- P9: `surfaces.errorReportSkillPath` (string) — absolute path to resolved `error-report-sdlc/REFERENCE.md`
+- P9: `surfaces.errorReportSkillPath` (string) — absolute path to resolved `error-report-sdlc/SKILL.md`
 - P10: `pipeline.shipState` / `pipeline.executeState` — optional summaries of paused pipeline state (or `null`)
 - P11: `repository.root` / `repository.branch` / `repository.recentDiffSummary` — `repository.root` is the MAIN worktree (config/`.sdlc/` root, = `resolveSdlcRoot()`); `branch`/`recentDiffSummary` describe the ACTIVE checkout (resolved against `repository.contentRoot`); git short-stat only, no full body
 - P12: `pluginRepoUrl` (string) — constant URL of the plugin's GitHub repository, surfaced verbatim to the user prompt and forwarded as context to error-report-sdlc.

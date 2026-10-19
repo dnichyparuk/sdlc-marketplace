@@ -28,6 +28,7 @@ tests:
   - file://datasets/ship-sdlc-exec.yaml
   - file://datasets/ship-todos-exec.yaml
   - file://datasets/harden-prepare-exec.yaml
+  - file://datasets/error-report-prepare-exec.yaml
   - file://datasets/received-review-prepare-exec.yaml
   - file://datasets/review-prepare-exec.yaml
   - file://datasets/guardrails-prepare-exec.yaml

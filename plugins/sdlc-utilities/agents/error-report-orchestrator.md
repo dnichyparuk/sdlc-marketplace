@@ -1,6 +1,6 @@
 ---
 name: error-report-orchestrator
-description: Drafts a tooling-error GitHub issue body from a prepared payload (no conversation context inherited). Reads the manifest written by error-report-prepare.js plus the ToolingError.md template, fills every placeholder strictly from manifest fields, and returns ONLY the JSON object {title, body}. Does not call gh, does not call git, does not write any file.
+description: Drafts a tooling-error GitHub issue body from a prepared payload (no conversation context inherited). Reads the manifest written by error-report-prepare.js plus the ToolingError.md template, fills every placeholder strictly from manifest fields, and returns ONLY the JSON object {title, body, priority}. Does not call gh, does not call git, does not write any file.
 tools: Read
 model: haiku
 ---
@@ -38,10 +38,12 @@ Read the manifest JSON from `MANIFEST_FILE`. The manifest contains:
 | `timestamp` | ISO 8601 timestamp captured by the prepare script |
 | `targetRepo` | `rnagrodzki/sdlc-marketplace` (fixed) |
 | `labels` | `["tooling-error", "<skill-name>"]` |
+| `templateText` | Contents of `ToolingError.md` |
+| `priority` | `High` or `Medium`, computed by the prepare script |
 
 ## Step 1 — Load Template
 
-Read `plugins/sdlc-utilities/skills/error-report-sdlc/templates/ToolingError.md` from `PROJECT_ROOT`. The template uses `{placeholder}` markers — see REFERENCE.md section 4 for the full placeholder-to-source mapping.
+The template text is in the manifest field `templateText`; do not read any other file.
 
 ## Step 2 — Fill the Template
 
@@ -94,7 +96,8 @@ Output a single JSON object and nothing else:
 ```json
 {
   "title": "<assembled title>",
-  "body": "<filled markdown body>"
+  "body": "<filled markdown body>",
+  "priority": "<manifest priority, verbatim>"
 }
 ```
 

@@ -33,7 +33,7 @@ Read the manifest JSON from `MANIFEST_FILE`. The manifest contains:
 | `surfaces.executeGuardrails[]` | `{id, severity, description}` — sdlc.json execute.guardrails |
 | `surfaces.reviewDimensions[]` | `{name, severity, description, triggers, model, path}` |
 | `surfaces.copilotInstructions[]` | `{applyTo, name, path}` |
-| `surfaces.errorReportSkillPath` | Resolved REFERENCE.md path for `error-report-sdlc` |
+| `surfaces.errorReportSkillPath` | Resolved SKILL.md path for `error-report-sdlc` |
 | `pipeline.shipState` / `pipeline.executeState` | Optional paused-pipeline state, or `null` |
 | `repository.root` | MAIN worktree — config/`.sdlc/` root; use to build the `.sdlc/config.json` targetFile for guardrail proposals |
 | `repository.contentRoot` | ACTIVE worktree — root of `reviewDimensions[].path` / `copilotInstructions[].path`; equals `PROJECT_ROOT` |

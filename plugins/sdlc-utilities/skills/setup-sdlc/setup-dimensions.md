@@ -151,7 +151,7 @@ EXIT_CODE=$?
 ```
 
 - Exit code **1**: Show validation errors. Use AskUserQuestion: "Fix these validation errors automatically? (yes / no)"
-- Exit code **2**: Show `Script error — see output above` and stop. Invoke error-report-sdlc — Glob `**/error-report-sdlc/REFERENCE.md`, follow with skill=review-init-sdlc, step=Step 7 — Validate Installation, error=stderr.
+- Exit code **2**: Show `Script error — see output above` and stop. Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=review-init-sdlc, step=Step 7 — Validate Installation, error=stderr.
 
 Present the markdown output table. If any file has errors, show the error detail and offer to fix them automatically.
 

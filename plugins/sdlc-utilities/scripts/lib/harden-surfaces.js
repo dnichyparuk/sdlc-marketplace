@@ -23,14 +23,14 @@ const { extractFrontmatter, parseSimpleYaml } = require('./dimensions');
 
 /**
  * @param {string} callerDirname  — __dirname of the calling module
- * @param {string[]} segments     — path segments relative to plugin root (e.g. ['skills','error-report-sdlc','REFERENCE.md'])
+ * @param {string[]} segments     — path segments relative to plugin root (e.g. ['skills','error-report-sdlc','SKILL.md'])
  * @param {object[]} errors       — shared errors array; receives {surface, message} on failure
  * @param {string} surfaceLabel   — label used in error entry
  * @returns {string} absolute resolved path, or '' on failure
  */
 function resolveSibling(callerDirname, segments, errors, surfaceLabel) {
   // Resolve sibling path: callerDirname is lib/, so ../../ reaches sdlc-utilities/ plugin root.
-  // segments are relative to the plugin root (e.g. ['skills', 'error-report-sdlc', 'REFERENCE.md']).
+  // segments are relative to the plugin root (e.g. ['skills', 'error-report-sdlc', 'SKILL.md']).
   const resolved = path.join(callerDirname, '..', '..', ...segments);
   if (fs.existsSync(resolved)) return path.resolve(resolved);
   errors.push({ surface: surfaceLabel, message: `${segments.join('/')} not found at ${resolved}` });
@@ -185,13 +185,13 @@ function loadCopilotInstructions(projectRoot, errors) {
 }
 
 // ---------------------------------------------------------------------------
-// Sibling skill resolution — error-report-sdlc REFERENCE.md
+// Sibling skill resolution — error-report-sdlc SKILL.md
 // ---------------------------------------------------------------------------
 
 function resolveErrorReportSkill(projectRoot, errors) {
   return resolveSibling(
     __dirname,
-    ['skills', 'error-report-sdlc', 'REFERENCE.md'],
+    ['skills', 'error-report-sdlc', 'SKILL.md'],
     errors,
     'error-report-skill'
   );

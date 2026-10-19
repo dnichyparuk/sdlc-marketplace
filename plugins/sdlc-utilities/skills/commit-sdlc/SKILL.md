@@ -54,7 +54,7 @@ Read and parse `COMMIT_CONTEXT_FILE` as `COMMIT_CONTEXT_JSON`.
 - Exit code 1: The JSON still contains an `errors` array. Show each error to the user, run `rm -f "$COMMIT_CONTEXT_FILE"`, and stop.
 - Exit code 2: Show `Script error — see output above`, run `rm -f "$COMMIT_CONTEXT_FILE"`, and stop.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/REFERENCE.md`, follow with skill=commit-sdlc, step=Step 0 — skill/commit.js execution, error=stderr.
+**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=commit-sdlc, step=Step 0 — skill/commit.js execution, error=stderr.
 
 **If `COMMIT_CONTEXT_JSON.errors` is non-empty**, show each error message and stop.
 

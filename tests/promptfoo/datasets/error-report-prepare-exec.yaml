@@ -21,6 +21,13 @@
     # labels include both tooling-error and the skill name
     - type: icontains
       value: '"tooling-error"'
+    # template text and priority are computed by the script, not the agent
+    - type: icontains
+      value: '"templateText": "## Error Summary'
+    - type: icontains
+      value: '{what failed'
+    - type: icontains
+      value: '"priority": "Medium"'
 
 - description: "error-report-prepare: --output-file writes manifest to temp file and prints absolute path"
   vars:
@@ -59,3 +66,12 @@
       value: '"tooling-error"'
     - type: icontains
       value: '"version-sdlc"'
+
+- description: "error-report-prepare: script crash errorType yields priority High"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/error-report-prepare.js"
+    script_args: "--skill commit-sdlc --step Step-0 --operation skill/commit.js --error-text exit-2-crash"
+    script_stdin: '{"errorType":"script crash"}'
+  assert:
+    - type: icontains
+      value: '"priority": "High"'

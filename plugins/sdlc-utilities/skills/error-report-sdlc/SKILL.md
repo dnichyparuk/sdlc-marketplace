@@ -1,6 +1,6 @@
 ---
 name: error-report-sdlc
-description: "Internal skill invoked by other SDLC skills when they encounter an actionable error (script crash, CLI failure, persistent API error, build failure after retries). Proposes creating a GitHub issue in rnagrodzki/sdlc-marketplace to track the error with full context capture, two-gate user consent, and pre-flight verification. NOT user-invocable — only dispatched from within another skill's error handling path. When dispatched, follow ./REFERENCE.md for the full procedure."
+description: "Internal skill invoked by other SDLC skills when they encounter an actionable error (script crash, CLI failure, persistent API error, build failure after retries). Proposes creating a GitHub issue in rnagrodzki/sdlc-marketplace to track the error with full context capture, two-gate user consent, and pre-flight verification. NOT user-invocable — only dispatched from within another skill's error handling path. When dispatched, follow this file."
 user-invocable: false
 disable-model-invocation: true
 model: inherit
@@ -36,23 +36,63 @@ error. The calling skill provides:
 
 ## Procedure
 
-The full procedural narrative — error classification (issue-worthy vs not),
-pre-flight verification, two-gate consent flow, template, and the `gh issue create`
-sequence — lives in `./REFERENCE.md`. The implementation flow below resolves
-sections from REFERENCE.md and dispatches the orchestrator.
-
 ### Step 1 — Classify and Pre-flight (main context)
 
-Follow REFERENCE.md sections 1 (Error Classification) and 2 (Pre-flight Verification)
-in the main context. If the error is NOT issue-worthy, or any required pre-flight
-check fails, return to the calling skill's normal error handling immediately. Do
-not run the prepare script, do not dispatch the orchestrator.
+Run both parts in the main context. If the error is NOT issue-worthy, or any required
+pre-flight check fails, skip silently and return to the calling skill's normal error
+handling immediately. Do not run the prepare script, do not dispatch the orchestrator.
+
+**Classification.** Only proceed for **issue-worthy** errors.
+
+| Issue-worthy error | Examples |
+|---|---|
+| Prepare script crash | Exit code 2 from any `*-prepare.js` script |
+| CLI tool failure | `gh pr create` / `gh pr edit` fails with non-auth error; `git tag` or `git push` fails |
+| Persistent API error | HTTP 400/5xx on the same external API operation 2+ times in a row |
+| Persistent conflict | HTTP 409 that persists after one retry |
+| Escalated task failure | Task in `execute-plan-sdlc` fails after 2 retries |
+| Build failure blocking execution | Build fails and blocks wave progression |
+
+| NOT issue-worthy | Reason |
+|---|---|
+| Exit code 1 from prepare script | User input error — missing config, wrong args |
+| HTTP 401 | Auth token expired — user action needed |
+| HTTP 403 | Insufficient permission — user action needed |
+| HTTP 404 on issue key | User typo — not a bug |
+| User cancellation | Intentional — not an error |
+| Lint-only failure | Low severity, auto-fixable |
+| Missing project key / config | User setup — not a bug |
+| `gh auth` not logged in | User setup — not a bug |
+
+**Pre-flight.** Check 1 — gh CLI available and authenticated:
+
+```bash
+gh auth status
+```
+
+If the command fails (exit non-zero) → skip. The user's GitHub CLI is not configured or not authenticated.
+
+Check 2 — GitHub remote resolvable:
+
+```bash
+REPO_URL=$(git remote get-url origin 2>/dev/null)
+```
+
+If `REPO_URL` is empty or the command fails → skip.
+
+The target repository is fixed: `TARGET_REPO=rnagrodzki/sdlc-marketplace`.
 
 ### Step 2 — Consent Gate 1: Offer (main context)
 
-Follow REFERENCE.md section 3 verbatim. Use `AskUserQuestion`. The prompt MUST run
-in the main context (not inside the orchestrator agent) — the user's consent is
-required before any further work, including running the prepare script.
+Use `AskUserQuestion`. The prompt MUST run in the main context (not inside the
+orchestrator agent) — the user's consent is required before any further work,
+including running the prepare script. Present:
+
+```
+This error may be worth tracking as a GitHub issue. Create one? (yes / no)
+  yes — I'll draft the issue with the full error context for your review
+  no  — skip, continue with normal error handling
+```
 
 **On `no`:** Return to the calling skill's normal error handling. Do not proceed.
 
@@ -81,7 +121,9 @@ EXIT_CODE=$?
 Substitute the shell variables with the values supplied by the calling skill. Optional
 fields (`exitOrHttpCode`, `errorType`, `userIntent`, `argsString`,
 `suggestedInvestigation`) may be empty; the script tolerates empty values and the
-orchestrator will omit dependent template sections.
+orchestrator will omit dependent template sections. The manifest also carries the
+computed `templateText` and `priority` fields (`High` for script crash or build
+failure, `Medium` for everything else).
 
 **On `EXIT_CODE != 0`:**
 
@@ -106,32 +148,47 @@ Use the `Agent` tool with:
   Substitute `<ERROR_CONTEXT_FILE>` with the absolute temp-file path captured in
   Step 3. Substitute `<cwd>` with the current working directory.
 
-The orchestrator reads the manifest, reads
-`plugins/sdlc-utilities/skills/error-report-sdlc/templates/ToolingError.md`, fills
-every `{placeholder}` strictly from manifest fields, removes sections whose
-manifest fields are empty, and returns ONLY a JSON object:
+The orchestrator reads the manifest, fills the template in `templateText`
+strictly from manifest fields, removes sections whose manifest fields are empty,
+and returns ONLY a JSON object:
 
 ```json
 {
   "title": "<assembled title>",
-  "body": "<filled markdown body>"
+  "body": "<filled markdown body>",
+  "priority": "<High | Medium>"
 }
 ```
 
 The orchestrator does not call `gh`, does not call `git`, does not write any file.
 
-Capture the returned object as `PROPOSAL = { title, body }`. If the parse fails, stop.
+Capture the returned object as `PROPOSAL = { title, body, priority }`. If the parse fails, stop.
 
 ### Step 5 — Consent Gate 2: Review (main context)
 
-Follow REFERENCE.md section 5 verbatim. Display `PROPOSAL.title` and
-`PROPOSAL.body` to the user along with the labels (`tooling-error` plus the
-calling skill's name) and the priority. Use `AskUserQuestion` for the
-`yes / edit / cancel` choice.
+Display `PROPOSAL.title` and `PROPOSAL.body` to the user along with the labels
+(`tooling-error` plus the calling skill's name) and the priority. Use
+`AskUserQuestion` for the `yes / edit / cancel` choice. Present:
+
+```
+Proposed GitHub Issue:
+───────────────────────────────────────────
+Title:    {PROPOSAL.title}
+Priority: {PROPOSAL.priority}
+Labels:   tooling-error, {skill-name}
+
+Description:
+{PROPOSAL.body}
+───────────────────────────────────────────
+Create this issue? (yes / edit / cancel)
+  yes    — create the issue as shown
+  edit   — tell me what to change
+  cancel — skip issue creation
+```
 
 **On `edit`:** Apply the requested changes to `PROPOSAL.title` and / or
 `PROPOSAL.body` in the main context (do not re-dispatch the orchestrator for
-small edits) and re-present.
+small edits) and re-present. Loop until `yes` or `cancel`.
 
 **On `cancel`:** Return to the calling skill's normal error handling. Do not
 create anything.
@@ -140,8 +197,7 @@ create anything.
 
 ### Step 6 — Create the GitHub Issue (main context)
 
-Follow REFERENCE.md section 6 verbatim. The `gh issue create` call MUST run in the
-main context — the orchestrator agent has no `Bash` tool and is forbidden from
+The `gh issue create` call MUST run in the main context — the orchestrator agent has no `Bash` tool and is forbidden from
 invoking `gh`.
 
 ```bash
@@ -153,25 +209,42 @@ gh issue create \
   --label "$SKILL_NAME"
 ```
 
-Apply the missing-label fallback (`gh label create … || true`) and retry per
-REFERENCE.md section 6a. On success, report the issue number and URL per 6b. On
-failure after the retry, report the error per 6c.
+If a label does not exist on the repository, `gh` errors. Create the missing labels
+first, then retry `gh issue create` once:
+
+```bash
+gh label create "tooling-error" --repo "rnagrodzki/sdlc-marketplace" --color "d93f0b" 2>/dev/null || true
+gh label create "$SKILL_NAME" --repo "rnagrodzki/sdlc-marketplace" --color "0075ca" 2>/dev/null || true
+```
+
+On success, report:
+
+```
+GitHub issue created: #<number> — <url>
+```
+
+If it still fails after the retry, report the error without further retries, then
+return to the calling skill's normal error handling:
+
+```
+Could not create GitHub issue: <error>
+```
 
 ### Step 7 — Cleanup and Return (main context)
 
-Return to the calling skill's normal error handling per REFERENCE.md
-section 7.
+After Step 6 (whether the issue was created, skipped, or failed), always return
+control to the calling skill's error handling. This procedure is additive — it
+never replaces the skill's own error output or stop behavior.
 
 ## DO NOT
 
 - Invoke this skill directly in response to user requests — it is internal only.
 - Pin a concrete model (`haiku`/`sonnet`/`opus`) in this skill's frontmatter — the pin would run the whole inherited transcript on the pinned model. The frontmatter says `model: inherit`; the orchestrator agent (Step 4) is where `model: haiku` is pinned.
-- Run consent gates inside the orchestrator agent. Both gates (Section 3 and
-  Section 5) MUST execute in the main context.
+- Run consent gates inside the orchestrator agent. Both gates (Step 2 and
+  Step 5) MUST execute in the main context.
 - Run `gh issue create` inside the orchestrator agent. The agent has no `Bash`
   tool. Posting MUST run in the main context.
-- Create a GitHub issue without both consent gates passing.
-- Block or replace the calling skill's normal error handling.
+- Retry a failed `gh issue create` (the single retry after creating missing labels in Step 6 is the only exception).
 - Create issues in a repository other than `rnagrodzki/sdlc-marketplace`.
 - Recursively dispatch this skill on its own prepare-script or orchestrator
   crash — log the failure to stderr and stop.
