@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-10-19
+
+### Changed
+- docs: `docs/specs/ship-sdlc.md` is restructured into the ten contract sections; all requirement ids stay as stable anchors, issue numbers and withdrawn entries move to the appendix, and tuning values (model, timeouts, defaults) leave the spec for `docs/cost-tiers.md` and the config schema (#19)
+- tests: `ship-hooks-exec.yaml` descriptions cite `R71` instead of an issue number (#19)
+
 ## [0.25.0] - 2026-10-19
 
 ### Added
