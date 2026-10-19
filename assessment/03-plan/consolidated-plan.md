@@ -49,6 +49,7 @@ Seven workstreams, 68 items (W1.9, W1.10 and W1.11 added by the plan review on 2
 | W5 Execute topology | W5.1–W5.5 | M1 (W5.1), M5 | `skill/execute.js`; workers from main, wave-runner opt-in (D2) |
 | W6 Non-pipeline skills (W6a jira/setup, W6b review/received-review, W6c commit/pr/version/error-report/harden/plugin-wide) | W6a.1–W6a.9, W6b.1–W6b.6, W6c.1–W6c.10 | M1 (W6c.1–3, 7–9), parallel | text and script moves per group reports D/E/F |
 | W7 Plan pipeline | W7.1–W7.8 | parallel (W7.1–2), after M3 (W7.3–8) | deterministic lanes into `plan.js`; declarative lane/lens agents; cache-shared critique prefix |
+| W8 Follow-ups found during execution (M5.1) | W8.1–W8.20 | M5.1 | added 2026-10-19 from the M1–M3 milestone reports and decline reviews (todos #9101–#9121); each item re-verified at the M5.1 base; legacy specs get W3.5 first (§0 rule 9) |
 
 Cross-workstream rules the executor must apply to every item: (1) `error-report-sdlc/REFERENCE.md` is inlined into `error-report-sdlc/SKILL.md` by W6c.2 — any item that points at `<PLUGIN_ROOT>/skills/error-report-sdlc/REFERENCE.md` (W5.1 B40, W6b.1, W6c.6, W6a.7) must point at `SKILL.md` once W6c.2 has landed; (2) `site/src/content-source/**` is a generated copy of `docs/` — never hand-edit it; run `node site/scripts/copy-docs.mjs` after any `docs/` change; (3) the Agent tool in this harness has no `run_in_background`, `mode` or `background` parameter (report A verified the schema: `description, prompt, subagent_type, model, effort, isolation`) — every item that removes such a parameter also removes the matching check in `.claude/skills/validate-plugin-consistency/check-consistency.js` rule 13 (W7.1 item 18 does this once); (4) prepare manifests persist under `.sdlc/execution/` (W1.9) — never add a Bash `trap … EXIT`: it fires at the end of the single Bash tool call that declared it (each call is its own shell), before a later call can read the file; `check-consistency.js` rule 11 (`no-exit-trap`, W1.10) enforces this.
 
@@ -3778,20 +3779,805 @@ Scope: ten items covering README items 3, 7, 8, 10 (effort part), 12, 20, 21, 26
 
 ---
 
+## W8 — Follow-ups found during execution (M5.1)
+
+**Scope.** Defects and gaps that the M1–M3 waves found but did not fix, because plan §0 rule 3 kept each wave inside its own Change. The source records are local (`.sdlc/orchestration/`, gitignored): the milestone reports `m1/milestone-report.md` §6, `m2/milestone-report.md` §6 and `m3/milestone-report.md` §6, and the decline reviews `m1/declines-wave-4-e3e089b.md` and `m1/declines-wave-5-14389be.md`. The owner tracks each follow-up as a local todo (#9101–#9121, `.sdlc/orchestration/todos.md`), and every item names the todo ids it covers. The owner placed this workstream in milestone M5.1, after M5 and before M6 (2026-10-19). The waves follow the todo list: 1 security (W8.1); 2 hooks and scripts (W8.2–W8.7); 3 validators and tests (W8.8–W8.11); 4 spec and schema sync (W8.12–W8.17); 5 stale text (W8.18–W8.20).
+
+**Verified at origin/main `7de2012` (2026-10-19).** Every todo was checked against the code. None is fixed yet, so each has an item. Line numbers below are at `7de2012`. M4 and M5 run before M5.1, so for every quote use the §0 rule 2 method: locate it with `grep -n` and proceed only if it occurs exactly once.
+
+**Conditional items.** M4 (W4.2, W4.5) and M5 (W5.2, W5.3) rewrite some of the same lines: W8.3, W8.12, W8.13, W8.14, W8.15 (part A), W8.17, W8.19 and W8.20. Each of these items names the M4/M5 item in **Depends on**, and its **Current state** says which lines that item rewrites. Its **Change** starts with a re-verify step: re-locate the quoted lines at the M5.1 base. If the defect is gone, close the item with evidence (the grep output and the commit that removed it) in the PR body and the M5.1 report, and make no edit. Otherwise apply the Change. M4/M5 follow-ups are appended as W8.21+ when those milestones close.
+
+**Rule 9 in this workstream.** Four legacy specs are touched here: commit (W8.1), verify-pipeline (W8.15), error-report (W8.16) and review (W8.17, unless W4.5 has already restructured it). Each of these items first does W3.5 for that spec in a separate commit. That commit uses W3.2's method and the W3 shared procedure P-1 to P-7, and P-5 must print `SAME` for it. The behaviour or text change follows in a second commit.
+
+**Noticed while verifying, not itemised (owner decides):**
+- `docs/specs/ship-sdlc.md` P8 says `migration` is null when the config check is skipped. At `7de2012`, a skipped run prints `"migration": {"infrastructure": {…}}`, with no `project`/`local` keys.
+- `.claude/skills/validate-plugin-consistency/check-consistency.js:318`: rule 1's message still advises "find ~/.claude/plugins first".
+- `hooks/post-tool-validate.js:102`: interpolates the tool's `file_path` into a double-quoted `execSync` string.
+- `execute-plan-sdlc/SKILL.md:574` `git commit -m "<subject>"`: builds the WIP subject from plan task titles. This is the same quoting class as W8.1, but the input is trusted (M1 wave-4 decline #13). W5.4 moves the block.
+
+### W8.1 — commit-sdlc: the message reaches git and the subject gate only through a file; `--auto` path for the gate exits
+- **Source:** todo #9101 — M1 report §6 item 1 and `m1/declines-wave-5-14389be.md` #1 (HIGH, security; a plan defect carried by W6c.3 Change 1 and the base `git commit -m` line). Todo #9102 — `m1/declines-wave-5-14389be.md` #13. Merged into one item because both edit the Step 5 gate block and its exit bullets.
+- **Effort:** S–M (three commits)
+- **Depends on:** none. §0 rule 9 applies, because `docs/specs/commit-sdlc.md` has no `## Inputs and flags` line.
+- **Files:** edit `docs/specs/commit-sdlc.md` (W3.5 restructure, then C14/E8); edit `plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md` (Step 5 `:180-232`, Step 6 `:250`); create `tests/promptfoo/scripts/run-commit-literal-message.js`; edit `tests/promptfoo/datasets/commit-prepare-exec.yaml` (new case) and `tests/promptfoo/datasets/commit-sdlc.yaml` (`:276`). Read `plugins/sdlc-utilities/scripts/lib/links.js:407-462` (`--file <path>` is parsed at `:412` and read at `:450`) and `plugins/sdlc-utilities/scripts/lib/output.js:52-90` (manifest naming).
+- **Current state:**
+  - `commit-sdlc/SKILL.md:184-192`, the subject gate. It puts the model-written subject and the config pattern inside double quotes:
+    ```
+       node -e "
+         const subject = process.argv[2];
+         if (/^wip(\(|:)/.test(subject)) { process.exit(2); }
+         if (process.argv[1]) {
+           const pattern = new RegExp(process.argv[1]);
+           if (!pattern.test(subject)) { process.exit(1); }
+         }
+       " "<subjectPattern, or empty string when commitConfig/subjectPattern is unset>" "<subject line>"
+    ```
+  - `:196` "- **Exit 2:** the subject starts with an internal WIP marker. Do not commit. Use AskUserQuestion with **edit subject** or **cancel** (no **harden** option)." and `:197` "- **Exit 1:** keep the existing handling — … Use AskUserQuestion to offer:". Neither bullet has an `--auto` path. The **harden** option at `:199` is "Suppressed when `--auto` is set", but the prompt itself is not.
+  - `:207` `   printf '%s' "$message" | node "<PLUGIN_ROOT>/scripts/lib/links.js" --json`. `$message` is never assigned, so the model substitutes the message text into double quotes.
+  - `:222-224`:
+    ```
+    3. Execute the commit:
+       - If `flags.amend` is true: `git commit --amend -m "<message>"`
+       - Otherwise: `git commit -m "<message>"`
+    ```
+    A subject such as ``fix: handle `null` `` or one containing `$(…)` or `"` runs command substitution or breaks the command (decline #1).
+  - `:230` (On `edit`) says to "re-validate against the subject-pattern gate before re-presenting". `:232` (On `cancel`) and `:250` (Step 6) read `Run \`rm -f "$COMMIT_CONTEXT_FILE"\` to clean up the manifest.`
+  - Step 2 (`:127-131`) already uses the placeholder convention `<COMMIT_CONTEXT_FILE>` = "the absolute temp-file path captured in Step 0". Each Bash call is its own shell, so shell variables do not survive between calls.
+  - `tests/promptfoo/datasets/commit-sdlc.yaml:276`: `      value: "git commit -m"` (a `not-icontains` assertion in the `--auto` default-branch refusal case).
+  - `docs/specs/commit-sdlc.md` is legacy: it has `## Arguments`, `## Core Requirements`, `## Workflow Phases`, `## Quality Gates`, `## Prepare Script Contract`, `## Error Handling`, `## Constraints` (C1–C13 at `:91-103`, then R-expected-branch at `:104-105`), `## Step-Emitter Contract` (`:107-119`) and `## Integration`. It also has the header line `:6` `**Model:** haiku (pinned on orchestrator agent, not skill frontmatter — see issue #202)`. E1–E7 are at `:81-87`.
+- **Change:**
+  1. **Commit 1 — W3.5 for `docs/specs/commit-sdlc.md`.** Follow W3.5's Change (rule) and P-1 to P-7. Use the default placement:
+     - A1–A6 and R-expected-branch (names a flag) go to `## Inputs and flags`.
+     - R15 (persisted manifest) goes to `## State model`.
+     - R6, R12 and R13 (gates) go to `## Gates` with G1–G10.
+     - P1–P13 go to `## Prepare script contract`.
+     - E1–E7 go to `## Failure handling and resume`.
+     - C1–C13 go to `## Invariants and constraints`.
+     - I1–I6 go to `## Integration`.
+     - The Workflow Phases list goes to `## Step composition` `### Phases`.
+     - The `## Step-Emitter Contract` block (`:109-119`, blockquote included) moves verbatim to `## Step composition` `### Step-emitter contract`, as W3.2 did for ship.
+     - The other R-ids go to `## Step composition`.
+     - `## Dispatch and routing` holds `None.`
+
+     Drop the `**Model:**` line, and move the seven `#NNN` fragments to the Issue trail table (P-3). Write the per-id mapping into the commit body. Commit message: `refactor(#<todo>): specs - commit-sdlc contract sections (W3.5)`.
+  2. **Commit 2 — SKILL.md Step 5.** Apply the edits bottom-up.
+     - a. `:250` and `:232`: replace `rm -f "$COMMIT_CONTEXT_FILE"` with `rm -f "$COMMIT_CONTEXT_FILE" "<MSG_FILE>"` (the rest of each line is unchanged).
+     - b. `:230`: after "apply user-supplied edits to `MESSAGE` directly", insert "rewrite `<MSG_FILE>` with the message-file block below," (so the gate re-reads the edited text).
+     - c. Replace `:222-224` with:
+       ```
+       3. Execute the commit, reading the message from the file (never from a shell argument):
+          - If `flags.amend` is true: `git commit --amend -F "<MSG_FILE>"`
+          - Otherwise: `git commit -F "<MSG_FILE>"`
+       ```
+     - d. `:203`: replace "The script reads the body from stdin" with "The script reads the message from `<MSG_FILE>`". Replace `:207` with `   node "<PLUGIN_ROOT>/scripts/lib/links.js" --json --file "<MSG_FILE>"`.
+     - e. Replace `:182-193` (the gate heading line through the closing fence) with:
+       ````
+       0. **Message file, then subject gate (hard gate):** `<MSG_FILE>` is the Step 0 manifest path with `.json` replaced by `.msg`; substitute that absolute path, and the manifest path for `<COMMIT_CONTEXT_FILE>`, in every block below. Write the message with a quoted heredoc — the quotes around `SDLC_COMMIT_MSG` keep `$`, backticks and `"` literal — replacing the `<message>` line with `MESSAGE` exactly. If `MESSAGE` contains a line that is exactly `SDLC_COMMIT_MSG`, stop and report. Run each block without the list indentation: the closing `SDLC_COMMIT_MSG` must start its line.
+
+          ```bash
+          cat > "<MSG_FILE>" <<'SDLC_COMMIT_MSG'
+          <message>
+          SDLC_COMMIT_MSG
+          ```
+
+          Then run the gate. It reads the subject (first line) from `<MSG_FILE>` and `commitConfig.subjectPattern` from the manifest. Always run it — the WIP-prefix check applies even when `commitConfig` is null.
+
+          ```bash
+          node -e '
+            const fs = require("fs");
+            const subject = fs.readFileSync(process.argv[2], "utf8").split("\n")[0];
+            const cfg = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).commitConfig || {};
+            if (/^wip(\(|:)/.test(subject)) process.exit(2);
+            if (cfg.subjectPattern && !new RegExp(cfg.subjectPattern).test(subject)) process.exit(1);
+          ' "<COMMIT_CONTEXT_FILE>" "<MSG_FILE>"
+          ```
+       ````
+     - f. Insert a new bullet directly after `:195` (`- **Exit 0:** continue to step 1.`):
+       `   - **Exit 1 or 2 with \`flags.auto\` true:** do not call AskUserQuestion. Print \`Subject gate rejected the subject (exit <code>): <reason>\` — for 2 the reason is "internal WIP marker"; for 1 it is \`commitConfig.subjectPatternError\` if set, otherwise the pattern — run \`rm -f "$COMMIT_CONTEXT_FILE" "<MSG_FILE>"\`, and stop without committing. (C14, E8)`
+       The interactive Exit 2 and Exit 1 bullets (`:196-201`) stay as they are.
+  3. **Commit 2 (same commit) — spec.** In the restructured spec:
+     - Under `## Invariants and constraints`, append `- C14: The commit message reaches the shell only through a message file written with a quoted heredoc; \`git commit -F\`, the subject gate and the link check (R12) read that file. The message and subject are never interpolated into a shell argument.`
+     - Under `## Failure handling and resume`, append `- E8: Subject gate exit 1 or 2 under \`--auto\` → print the reason, remove the manifest and the message file, stop without committing (no prompt, no error report).`
+     - Check first that C14 and E8 are unused (`grep -nE '^\s*- (C14|E8)[:( ]' docs/specs/commit-sdlc.md` empty).
+  4. **Commit 3 — tests.**
+     - `run-commit-literal-message.js`: model it on `run-stop-plan-integrity.js`, which finds the repo root by walking up from `__dirname`. It:
+       - (1) reads `plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md` and extracts three things:
+         - the fenced bash block containing `<<'SDLC_COMMIT_MSG'`;
+         - the fenced bash block containing `"<COMMIT_CONTEXT_FILE>" "<MSG_FILE>"`;
+         - the inline command matching ``/`(git commit -F "<MSG_FILE>")`/``.
+         If any is missing, it prints `{"error":"block not found: <which>"}` and exits 1. It removes from each block line the indentation of that block's opening fence (the blocks sit inside a list item), as the model does when it runs them.
+       - (2) creates a temp git repo with `fs.mkdtempSync` under `os.tmpdir()`, runs `git init -q -b main`, sets the user name and email, and stages one file.
+       - (3) writes a manifest `{"commitConfig":{"subjectPattern":"^fix: "}}` to `<tmp>/m.json`.
+       - (4) builds a script from block 1 with the `<message>` line replaced by the message, then block 2, then `GATE=$?; echo "GATE=$GATE"; [ "$GATE" -eq 0 ] && <commit command>`. It replaces `<MSG_FILE>` with `<tmp>/m.msg` and `<COMMIT_CONTEXT_FILE>` with `<tmp>/m.json` everywhere, and runs the script with `spawnSync('bash', ['-c', script], { cwd: repo })`.
+       - (5) uses the message ``fix: keep "quotes", $(touch PWNED1) and `touch PWNED2` literal`` plus a blank line and the body `Body $HOME stays literal.`
+       - (6) runs a second pass on a fresh repo with the subject `wip: x`.
+       - (7) prints `{"gateExit":…,"body":"<git log -1 --format=%B>","literal":<body.trim()===message.trim()>,"pwned":<PWNED1 or PWNED2 exists in repo or cwd>,"wipGateExit":…}`. It removes its temp dirs with `fs.rmSync(dir, {recursive:true, force:true})` on its own paths only.
+     - New case in `commit-prepare-exec.yaml`: description `"commit-literal-message: message with quotes, $() and backticks is committed literally and the gate reads it from the file"`, `script_path: "repo://tests/promptfoo/scripts/run-commit-literal-message.js"`. A javascript assertion checks `gateExit === 0 && literal === true && pwned === false && wipGateExit === 2`.
+     - `commit-sdlc.yaml:276`: `value: "git commit -m"` → `value: "git commit -F"`.
+- **Must not touch:**
+  - the Step 5 interactive Exit 1/Exit 2 menus (`:196-201`) and the R13 harden option;
+  - the stash/pop blocks (`:218-228`);
+  - `links.js`;
+  - `commit.js`;
+  - `agents/commit-orchestrator.md`;
+  - `docs/skills/commit-sdlc.md` (its `:52` gate description stays true);
+  - `execute-plan-sdlc/SKILL.md:574` (W5.4 owns that block).
+- **Verification:**
+  - (1) P-5 prints `SAME` for commit 1. P-6 is clean. P-7 is empty. `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root .` prints no stdout line, and its stderr no longer lists `commit-sdlc`.
+  - (2) `grep -nE 'commit (--amend )?-m "<message>"|printf .%s. "\$message"' plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md` prints nothing.
+  - (3) `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "commit-literal-message|commit-prepare"` passes.
+  - (4) `node .claude/skills/validate-plugin-consistency/check-consistency.js` exits 0.
+  - (5) `node site/scripts/copy-docs.mjs`.
+  - (6) Single final behavioural case: `"commit-sdlc: --auto --force-default-branch on default branch proceeds with warning (R14, C12/#398)"`.
+- **Expected effect:** security. A commit message or subject can no longer run shell code on the user's machine, and `--auto` commits under ship (W4.3 dispatches commit with `--auto`) no longer reach a prompt that the R71 hook denies.
+- **Done when:** the grep in Verification (2) is empty; the `commit-literal-message` case passes; the spec is contract-shaped with C14 and E8.
+- **Guardrails for the executor:**
+  - Do not switch to the Write tool for `<MSG_FILE>`. The exec case tests the heredoc block text, and a Write-tool step cannot be tested.
+  - Keep the gate's regex and exit codes byte-for-byte as the old gate had them.
+  - If `links.js` no longer accepts `--file`, stop and report.
+
+### W8.2 — stop-plan-integrity: no exit-2 loop when the marker cannot be deleted
+- **Source:** todo #9103 — M2 report §6 item 5. The stale header and the `:119-121` comment are from M2 report §4 "Small notes": restored by ruling, now inaccurate.
+- **Effort:** S
+- **Depends on:** none
+- **Files:** edit `plugins/sdlc-utilities/hooks/stop-plan-integrity.js`; edit `tests/promptfoo/scripts/run-stop-plan-integrity.js` (new `--readonly-state-dir` flag); edit `tests/promptfoo/datasets/hook-stop-plan-integrity-exec.yaml` (new case).
+- **Current state:**
+  - `stop-plan-integrity.js:118-122`:
+    ```
+        // Consume-then-delete: remove marker regardless of integrity outcome.
+        // Wrapped in try/catch so a failed unlink cannot break the advisory-only
+        // exit-0 contract. deleteState is silent on errors but we wrap anyway.
+        // The marker is gone before the warning exits 2, so the next Stop exits 0 — no stop_hook_active guard is needed.
+        try { deleteState(markerPath); } catch (_) { /* best-effort */ }
+    ```
+    `lib/state.js:427-433` `deleteState` swallows every unlink error. When the unlink fails (read-only state dir, EPERM), the marker survives, and `:143-144` (`process.stderr.write(lines.join('\n') + '\n');` / `process.exit(2);`) blocks every later Stop.
+  - Header `:8-16` still describes the deleted transcript fallback ("If no plan state file exists, scan the last 64 KB of the transcript…", "Reads stdin: only when the state-file primary path misses…"). The hook reads no stdin and has no fallback since W2.3.
+  - The wrapper already has `--report-state-files` (lists `.sdlc/execution/` after the run) and sets `SDLC_STATE_DIR_OVERRIDE` to the fixture's state dir.
+- **Change:**
+  1. Replace `:118-122` with:
+     ```
+         // Consume-then-delete: remove the marker regardless of integrity outcome,
+         // so the warning fires once. If the unlink fails the marker survives and
+         // every later Stop would block again, so only a consumed marker may exit 2.
+         try { deleteState(markerPath); } catch (_) { /* best-effort */ }
+         const consumed = !fs.existsSync(markerPath);
+     ```
+     and change `:144` `    process.exit(2);` to `    process.exit(consumed ? 2 : 0);`.
+  2. Replace header lines `:8-16` with:
+     ```
+      * Reads the plan state file for the current branch (no stdin). If one exists,
+      * checks the planIntegrity markers and stats the recorded planFilePath, then
+      * deletes the marker (single-shot). Warns on any missing or failed check.
+     ```
+     Update `:19-20` to: `2 = one or more integrity markers missing and the marker was consumed (warning on stderr)` / `0 = every other path, including an undeletable marker (warning still on stderr) and any internal error`.
+  3. Wrapper: parse `--readonly-state-dir`. When set and the fixture state dir exists, `fs.chmodSync(stateDir, 0o555)` before the `spawnSync`, and `fs.chmodSync(stateDir, 0o755)` right after it, before `--report-state-files` reads the dir.
+  4. New case, modelled on the case at `:44`: description `"stop-plan-integrity-undeletable: marker that cannot be deleted warns once per Stop with exit 0, never exit 2"`, fixture `plan-integrity-partial`, `script_args: "--project-root {{project_root}} --readonly-state-dir --report-state-files"`. A javascript assertion parses `JSON.parse(JSON.parse(output).stdout)` and checks:
+     - `inner.exitCode === 0`;
+     - `inner.stderr` contains `[plan-integrity]`;
+     - `inner.stateFiles.some(f => /^plan-/.test(f))`.
+     If the last check is false, the run had root permissions; report that and do not weaken the assertion.
+- **Must not touch:** `REQUIRED_MARKERS`; the marker checks `:93-116`; the unreadable-state path `:82-86`; the `findStateFile` try/catch `:64-73` (comments included, byte-identical); the top-level catch `:148-151`.
+- **Verification:** `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec-hooks.yaml --filter-pattern "stop-plan-integrity"` passes: the six existing cases and the new one.
+- **Expected effect:** reliability. A permission problem in `.sdlc/execution/` can no longer block every turn of the session.
+- **Done when:** `grep -n 'process.exit(consumed ? 2 : 0)' plugins/sdlc-utilities/hooks/stop-plan-integrity.js` prints one line; the new case passes.
+- **Guardrails for the executor:** do not add a retry or a second delete. Do not touch comment lines outside `:8-16`, `:19-20` and `:118-122` (M2 acceptance ruled such edits rule-3 overreach).
+
+### W8.3 — pipeline-continue: a retried step or a new pipeline gets its nudge again
+- **Source:** todo #9104 — M2 report §6 item 6 (re-verify after W4.2).
+- **Effort:** S
+- **Depends on:** W4.2 (M4). W4.2 moves step starts into `ship.js` (Change 3: the LLM no longer calls `begin-step`), so this item keys the dedupe in the hook itself, whoever starts the step.
+- **Files:** edit `plugins/sdlc-utilities/hooks/pipeline-continue.js`; create `tests/promptfoo/scripts/run-pipeline-continue-rearm.js`; edit `tests/promptfoo/datasets/ship-hooks-exec.yaml`.
+- **Current state:**
+  - `pipeline-continue.js:122-135`:
+    ```
+      // 6b. Nudge once per (stepName, status) transition. Sidecar shares the state
+      //     dir and branch slug with .stop-block-count-<slug>.json. Written only on
+      //     a path that emits; a write failure never blocks the nudge.
+      let sidecarPath = null;
+      try {
+        sidecarPath = path.join(resolveStateDir(), `.pipeline-nudge-${branchSlug}.json`);
+        const prior = JSON.parse(fs.readFileSync(sidecarPath, 'utf8'));
+        if (prior && prior.stepName === stepName && prior.status === step.status) process.exit(0);
+      } catch { /* absent or corrupt = no prior nudge */ }
+      if (sidecarPath) {
+        try {
+          fs.mkdirSync(path.dirname(sidecarPath), { recursive: true });
+          fs.writeFileSync(sidecarPath, JSON.stringify({ stepName, status: step.status }));
+        } catch { /* never block the nudge */ }
+      }
+    ```
+  - Nothing clears the sidecar except the session-start 24 h sweep (`hooks/session-start.js:208`). A retried `begin-step` on the same step, or a new pipeline on the branch within 24 h, matches `(stepName, status)` and gets no nudge.
+  - `startStepCore` (`state/ship.js:181-187`) sets `step.startedAt = new Date().toISOString()` on every start. `readState` returns `{ data, filePath }` (`lib/state.js:343`), and `result` holds it at `pipeline-continue.js:82`.
+  - W4.2 does not edit hooks (its Must-not-touch lists "hooks"), so these lines should survive M4 unchanged.
+- **Change:**
+  1. Re-verify: `grep -n "prior.stepName === stepName && prior.status === step.status" plugins/sdlc-utilities/hooks/pipeline-continue.js`. If it is absent, or the sidecar already carries a per-start key, close the item with evidence. Otherwise:
+  2. Insert, after the `let sidecarPath = null;` line: `  const startKey = step.startedAt || null;` and `  const ledgerKey = path.basename(result.filePath || '');`.
+  3. Change the dedupe condition to `if (prior && prior.stepName === stepName && prior.status === step.status && prior.startedAt === startKey && prior.ledger === ledgerKey) process.exit(0);`.
+  4. Change the write to `fs.writeFileSync(sidecarPath, JSON.stringify({ stepName, status: step.status, startedAt: startKey, ledger: ledgerKey }));`.
+  5. Change the comment's first line to `  // 6b. Nudge once per (stepName, status) transition of one step start in one ledger. Sidecar shares the state`.
+  6. Wrapper `run-pipeline-continue-rearm.js`, with args `--project-root <p>`:
+     - spawns the hook four times with `input: '{"tool_name":"Bash","session_id":"sess-fixture"}'` and `cwd` = project root;
+     - between run 2 and run 3, it sets `startedAt: "2026-06-08T13:00:00Z"` on the `in_progress` step of the single `.sdlc/execution/ship-*.json` ledger;
+     - between run 3 and run 4, it renames that ledger to `ship-feat-ship-20260608T140000Z.json`;
+     - prints `JSON.stringify(runs.map(r => ({status: r.status, stdout: r.stdout})))`.
+  7. New case in `ship-hooks-exec.yaml`: description `"pipeline-continue-rearm: retried step and new ledger re-arm the nudge; same start stays silent"`, fixture `ship-pipeline-noauto`, `script_path: "repo://tests/promptfoo/scripts/run-pipeline-continue-rearm.js"`, `script_args: "--project-root {{project_root}}"`, `script_cwd: "{{project_root}}"`. A javascript assertion parses `JSON.parse(JSON.parse(output).stdout)` and checks:
+     - all statuses are 0;
+     - runs 1, 3 and 4 have non-empty stdout containing `in progress`;
+     - run 2 is empty.
+- **Must not touch:** the R73 gate (`:97-101`); the in-progress / `--auto` between-steps branch (`:111-120`); the session-start sweep regex; the six R67 cases.
+- **Verification:** `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec-hooks.yaml --filter-pattern "pipeline-continue"` passes, including the existing `"pipeline-continue (R67): second call same step emits nothing"`.
+- **Expected effect:** reliability. A retried `in_progress` step gets its factual reminder again.
+- **Done when:** the new case passes; the sidecar JSON carries `startedAt` and `ledger`.
+- **Guardrails for the executor:** keep the sidecar name and location (the session-start sweep matches it). The R67 spec text is synced by W8.12; do not edit the spec here.
+
+### W8.4 — Read stdin with fd 0, not `/dev/stdin`, in plan.js, jira.js and post-tool-validate.js
+- **Source:** todo #9105 — M2 report §6 item 9 (arch report G4). The same defect class was fixed for `plan-explore.js:308` in M2 wave 0, and M2 report §3 has the ENXIO evidence.
+- **Effort:** S
+- **Depends on:** none
+- **Files:**
+  - edit `plugins/sdlc-utilities/scripts/skill/plan.js` (`:433`), `plugins/sdlc-utilities/scripts/skill/jira.js` (`:333`) and `plugins/sdlc-utilities/hooks/post-tool-validate.js` (`:36`);
+  - create `tests/promptfoo/datasets/post-tool-validate-exec.yaml` and register it in `tests/promptfoo/promptfooconfig-exec-hooks.yaml`;
+  - edit `tests/promptfoo/datasets/jira-sdlc-exec.yaml`.
+- **Current state:** three lines read the stdin path. Under `spawnSync` with `input` (and other socket-backed stdio), opening `/dev/stdin` fails with ENXIO, and each site swallows or reports the error:
+  - `plan.js:433` `      userPrompt = fs.readFileSync('/dev/stdin', 'utf8');` (inside `if (!process.stdin.isTTY)`, catch → empty prompt);
+  - `jira.js:333` `    return fs.readFileSync('/dev/stdin', 'utf8');` (catch → `Failed to read stdin`);
+  - `post-tool-validate.js:36` `  const raw = fs.readFileSync('/dev/stdin', 'utf8');` (catch → silent exit 0, so validation never runs under such a spawn).
+  The fourth occurrence, `execute-plan-sdlc/SKILL.md:457`, is W8.20's. `setup-sdlc/setup-dimensions.md:198` passes `--common-file /dev/stdin` to a shell pipe and is out of scope.
+- **Change:** in each of the three lines replace `fs.readFileSync('/dev/stdin', 'utf8')` with `fs.readFileSync(0, 'utf8')`. Nothing else changes.
+  - Tests: `post-tool-validate-exec.yaml` gets one case:
+    - description `"stdin-fd0: post-tool-validate reads its payload and exits 2 on an empty .claude/pr-template.md"`;
+    - `script_path: "repo://plugins/sdlc-utilities/hooks/post-tool-validate.js"`, `script_cwd: "{{project_root}}"`, `project_root: "file://fixtures-fs/project-empty-pr-template"`;
+    - `script_stdin: '{"tool_name":"Write","tool_input":{"file_path":"/x/.claude/pr-template.md"}}'`;
+    - a javascript assertion checks `JSON.parse(output).exitCode === 2`.
+    Register the file in `promptfooconfig-exec-hooks.yaml` after `ship-hooks-exec.yaml`.
+  - `jira-sdlc-exec.yaml` gets one case, modelled on the `"jira-prepare: --check finds cache at home-cache layout after --save (pre-seeded fixture)"` case at `:260` (same `script_home`/`script_cwd` vars):
+    - description `"stdin-fd0: jira --save reads the cache JSON from stdin"`;
+    - `script_args: "--project STDIN --save"`;
+    - `script_stdin: '{"version":1,"cloudId":"c1","project":{"key":"STDIN"},"siteUrl":"https://mycompany.atlassian.net"}'`;
+    - assert `icontains '"saved": true'` and `not-icontains "Failed to read stdin"`.
+- **Must not touch:** the `isTTY` guards; the error messages; `setup-dimensions.md`.
+- **Verification:**
+  - `grep -rn "readFileSync('/dev/stdin'" plugins/sdlc-utilities/scripts plugins/sdlc-utilities/hooks` prints nothing.
+  - `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec-hooks.yaml --filter-pattern "stdin-fd0"` passes.
+  - `npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "stdin-fd0|jira-prepare|plan-prepare"` passes.
+- **Expected effect:** reliability. The hook and the two scripts work under every stdio kind the harness and the test providers use.
+- **Done when:** the grep is empty and both new cases pass.
+- **Guardrails for the executor:** if the post-tool-validate case passes before the change, the fixture does not trigger the validator: stop and report. Do not change the fixture.
+
+### W8.5 — session-start sweeps stale `sdlc-explore-*` tempdirs
+- **Source:** todo #9106 — M1 report §6 item 5 (explore-tempdir leak).
+- **Effort:** S
+- **Depends on:** none
+- **Files:** edit `plugins/sdlc-utilities/hooks/session-start.js` (after `:223-228`); create `tests/promptfoo/scripts/run-session-start-gc-tempdirs.js`; edit `tests/promptfoo/datasets/session-start-exec.yaml`.
+- **Current state:**
+  - The session-start sweep covers the hook sidecars (`:199-221`) and `gcOutputDir({ ttlHours: 24 })` (`:223-228`):
+    ```
+      // Sweep persisted prepare manifests (`.sdlc/execution/out/`) older than 24h.
+      try {
+        require('../scripts/lib/state').gcOutputDir({ ttlHours: 24 });
+      } catch (sweepErr) {
+        console.error('[sdlc/session-start] manifest out/ sweep error:', sweepErr.message);
+      }
+    ```
+  - Only `ship.js --gc` calls `gcTempdirs` (`skill/ship.js:1197-1199`, with `SDLC_EXPLORE_TMPDIR_OVERRIDE` for tests and `knownBranches` from `git branch --list --format='%(refname:short)'` at `:1182`).
+  - `plan-sdlc/SKILL.md:187` says the explore tempdir "is swept by `ship.js --gc`". A user who never runs `--gc` accumulates `sdlc-explore-<slug>-XXXXXX` dirs under `os.tmpdir()`.
+  - `gcTempdirs` (`lib/state.js:755`) deletes a dir only when it is older than the TTL AND its branch is gone.
+- **Change:**
+  1. Insert after `:228` (inside the outer `try`):
+     ```
+       // Sweep stale plan-explore tempdirs (sdlc-explore-<slug>-XXXXXX), same rule as
+       // `ship.js --gc`: older than 7 days AND the branch is gone. Skipped when the
+       // branch list cannot be read, so no dir is judged against an empty list.
+       try {
+         const { exec: gitExec } = require('../scripts/lib/git');
+         const out = gitExec("git branch --list --format='%(refname:short)'", { cwd: process.cwd(), shell: true });
+         const knownBranches = typeof out === 'string' ? out.split('\n').map(s => s.trim()).filter(Boolean) : [];
+         if (knownBranches.length > 0) {
+           require('../scripts/lib/state').gcTempdirs({
+             prefix: 'sdlc-explore-', ttlDays: 7, knownBranches,
+             tmpdir: process.env.SDLC_EXPLORE_TMPDIR_OVERRIDE || undefined,
+           });
+         }
+       } catch (sweepErr) {
+         console.error('[sdlc/session-start] explore tempdir sweep error:', sweepErr.message);
+       }
+     ```
+  2. `plan-sdlc/SKILL.md:187`: replace "is swept by `ship.js --gc` (`gcTempdirs`, prefix `sdlc-explore-`)." with "is swept by `ship.js --gc` and by the session-start hook (`gcTempdirs`, prefix `sdlc-explore-`)."
+  3. Wrapper `run-session-start-gc-tempdirs.js`: copy the setup part of `test-ship-gc-explore-tempdirs.js` (`:64-78`: create `fake-tmpdir/sdlc-explore-dead-branch-abc123` back-dated to 2024-01-01 and `fake-tmpdir/sdlc-explore-main-xyz789`). Spawn `node <repo>/plugins/sdlc-utilities/hooks/session-start.js` with `input: '{}'`, `cwd` = project root, and env `SDLC_EXPLORE_TMPDIR_OVERRIDE=<fake-tmpdir>` and `SDLC_STATE_DIR_OVERRIDE=<project>/.sdlc/execution`. Print `{"staleRemoved": !exists(stale), "freshKept": exists(fresh), "exitCode": r.status}`.
+  4. New case in `session-start-exec.yaml`: description `"session-start-gc-tempdirs: stale sdlc-explore dir of a gone branch is removed, live-branch dir kept"`, `project_root: "file://fixtures-fs/project-ship-gc-explore-tempdirs"`, `script_args: "--project-root {{project_root}}"`. Assert `"staleRemoved": true`, `"freshKept": true` and `"exitCode": 0`.
+- **Must not touch:** the sidecar and `out/` sweeps; the session-start output lines (prompt-cache byte stability, `session-start-exec.yaml:94`); `gcTempdirs`.
+- **Verification:** `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "session-start|ship-prepare: --gc"` passes.
+- **Expected effect:** hygiene. The explore tempdir leak stops without a manual `--gc`.
+- **Done when:** the new case passes; `grep -n "gcTempdirs" plugins/sdlc-utilities/hooks/session-start.js` prints one line.
+- **Guardrails for the executor:** the TTL stays the `gcTempdirs` default convention (7). Do not read config here: session-start is on every session's path. Stop and report if `lib/git.js` `exec` does not accept `{ shell: true }`.
+
+### W8.6 — error-report-prepare: exit code 2 also yields priority High
+- **Source:** todo #9107 — `m1/declines-wave-5-14389be.md` #11 (a plan defect in W6c.2 Change 1).
+- **Effort:** S
+- **Depends on:** none. This item edits only the script and its dataset. The SKILL.md:124-126 sentence and the spec entry are W8.16's, which restructures the error-report spec first (rule 9).
+- **Files:** edit `plugins/sdlc-utilities/scripts/skill/error-report-prepare.js` (`:24`, `:169`); edit `tests/promptfoo/datasets/error-report-prepare-exec.yaml`.
+- **Current state:**
+  - `error-report-prepare.js:169` `    priority: /^(script crash|build failure)$/i.test(errorType) ? 'High' : 'Medium',`. The header `:24` reads ` *   priority     = 'High' for errorType 'script crash' / 'build failure', else 'Medium'`.
+  - `exitOrHttpCode` is already in the manifest (`:156`).
+  - The commit, pr, version and review crash lines pass no `--error-type`, so their exit-2 crashes show Medium (decline #11). The priority is display-only (SKILL.md Step 5), not a label.
+  - Existing case `"error-report-prepare: script crash errorType yields priority High"` (`:72`).
+- **Change:**
+  1. `:169` → `    priority: (/^(script crash|build failure)$/i.test(errorType) || String(input.exitOrHttpCode ?? '').trim() === '2') ? 'High' : 'Medium',`.
+  2. `:24` → ` *   priority     = 'High' for errorType 'script crash' / 'build failure' or exit code 2 (prepare-script crash), else 'Medium'`.
+  3. Two cases after `:79`:
+     - `"error-report-prepare: exit code 2 yields priority High without an errorType"` (`script_args: "--skill commit-sdlc --step Step-0 --operation skill/commit.js --error-text crash --exit-or-http-code 2"`, assert `icontains '"priority": "High"'`);
+     - `"error-report-prepare: exit code 1 without an errorType stays Medium"` (same args with `--exit-or-http-code 1`, assert `icontains '"priority": "Medium"'`).
+- **Must not touch:** the template read; `targetRepo`; `labels`; the required-field check.
+- **Verification:** `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "error-report-prepare"` passes.
+- **Expected effect:** a prepare-script crash reported by any skill is proposed as High, as it was before W6c.2.
+- **Done when:** both new cases pass.
+- **Guardrails for the executor:** compare the code as a trimmed string. Do not parse it as a number: HTTP codes such as `502` must stay Medium unless an error type says otherwise.
+
+### W8.7 — claude-cli promptfoo provider: retry when the `claude` binary is missing mid-update
+- **Source:** todo #9108 — M1 report §6 item 2 (the grader failed with `spawn claude ENOENT` during a CLI auto-update; arbiter log 2026-10-19T10:26Z).
+- **Effort:** S
+- **Depends on:** none. `DISABLE_AUTOUPDATER` is an owner setting and is not part of this item (todos.md "Not in M5.1").
+- **Files:** edit `tests/promptfoo/providers/claude-cli.js`; create `tests/promptfoo/scripts/run-claude-cli-enoent-retry.js`; edit `tests/promptfoo/datasets/script-runner-stub-bin-exec.yaml`.
+- **Current state:** `claude-cli.js:8-27` calls `execFile('claude', [...])` once. On any error it resolves `{ error: error.message, output: stderr }`. A spawn ENOENT (binary briefly absent during an auto-update) therefore fails the case. `proc.stdin.write(prompt)` (`:24`) has no `'error'` listener, so an EPIPE on a failed spawn can also throw.
+- **Change:** replace the body of `callApi` with a loop of at most 3 attempts. Each attempt runs the same `execFile` call (same args, `timeout`, `maxBuffer`, env without `CLAUDECODE`) and attaches `proc.stdin.on('error', () => {})` before writing. If `error && error.code === 'ENOENT'` and attempts remain, it waits `Number(process.env.SDLC_CLAUDE_CLI_RETRY_MS) || 5000` ms and retries. Otherwise it resolves exactly as today. Keep `id()` and the export.
+  - Wrapper `run-claude-cli-enoent-retry.js`:
+    - creates an empty temp dir `D` and sets `process.env.PATH = D` and `SDLC_CLAUDE_CLI_RETRY_MS = '1000'`;
+    - after 1500 ms, writes `D/claude` (mode 0755) with `#!/bin/sh\n/bin/cat >/dev/null\necho STUB-OK\n`;
+    - requires `../providers/claude-cli.js`, calls `new P().callApi('x')`;
+    - prints `JSON.stringify(result)` and removes `D`.
+  - New case: description `"claude-cli-provider: spawn ENOENT is retried until the binary is back"`, `script_path: "repo://tests/promptfoo/scripts/run-claude-cli-enoent-retry.js"`. Assert `icontains "STUB-OK"` and `not-icontains "ENOENT"`.
+- **Must not touch:** the CLI arguments, `timeout`, the behavioural config, `prompts/skill-runner.txt`.
+- **Verification:** `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "claude-cli-provider"` passes. Do not run the behavioural suite for this item.
+- **Expected effect:** a CLI auto-update no longer fails behavioural evidence runs (the C10 environment re-runs in M1 wave 4).
+- **Done when:** the new case passes.
+- **Guardrails for the executor:** retry only `ENOENT`. Timeouts and non-zero exits are real results.
+
+### W8.8 — validate-spec-shape: repeated headings, trailing-space appendix, withdrawn ids, no git call with `--root`
+- **Source:** todo #9109 — M3 report §6 (first bullet), `m3/declines-wave-1-b9b4d32.md` #11 (MISSING_SECTION/DUPLICATE_ID coverage) and arbiter acceptance of PR #18. The git "fatal" was reproduced at `7de2012` from a non-git cwd with `--root`.
+- **Effort:** S
+- **Depends on:** none
+- **Files:** edit `plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js`; create fixture `tests/promptfoo/fixtures-fs/spec-shape-edge/` (`docs/specs/edge-skill.md`, `docs/specs/other-skill.md`, `skills/edge-skill/SKILL.md`); edit `tests/promptfoo/datasets/validate-spec-shape-exec.yaml`.
+- **Current state:**
+  - `:57` `  let root = resolveSdlcRoot();` runs before `--root` is parsed. From a non-git cwd it prints `fatal: not a git repository (or any of the parent directories): .git` to stderr even when `--root` is given.
+  - `:109` `  return bodyLines(lines).some(([, text]) => text === '## ' + FIRST_SECTION);` and `:167` `    if (text === '## ' + APPENDIX) inAppendix = true;` compare exactly. The heading check at `:142` (`/^## (.*?)\s*$/`) strips trailing space. A spec with `## Appendix — history ` therefore passes the heading order but flags every appendix `#NNN` as ISSUE_REF.
+  - `:141-154`: a heading seen twice at the same index passes, because `idx < lastIdx` is false.
+  - `:270-272` adds every R definition to `allRids`, including bullets under `### Withdrawn`. A skill citing a withdrawn id therefore resolves. Today every withdrawn R-id (ship R13, R35, R65; execute R26; plan R17) is also defined live in another spec, so the change adds no finding at `7de2012`.
+  - The dataset has no MISSING_SECTION or DUPLICATE_ID case.
+- **Change:**
+  1. `parseArgs`: `let root = null;` at `:57`, and after the loop `if (!root) root = resolveSdlcRoot();`.
+  2. `:109` → `text.trimEnd() === '## ' + FIRST_SECTION`. `:167` → `if (text.trimEnd() === '## ' + APPENDIX) inAppendix = true;`.
+  3. In the heading loop, before `seen.push(heading);` insert `if (seen.includes(heading)) { add('DUPLICATE_SECTION', n, \`section "## ${heading}" appears more than once\`); continue; }`.
+  4. Add `function withdrawnIds(lines)`. It returns a `Set` of the ids matched by `ID_RE` on body lines after a line equal to `### Withdrawn` (after `trimEnd()`) and before the next line starting with `#`. In `main`, replace the `:270-272` loop with: `const withdrawn = withdrawnIds(lines); for (const id of extractDefinitions(lines).keys()) { if (id.startsWith('R') && !withdrawn.has(id)) allRids.add(id); }`. Export `withdrawnIds`.
+  5. Fixture `spec-shape-edge`:
+     - `edge-skill.md` is contract-shaped, with `**Prepare script:** none` and `None.` in each section it keeps. Under `## Gates` it repeats `## Gates` once. It omits `## Integration` and defines `- R1:` twice. It ends with `## Appendix — history ` (one trailing space), an Issue trail row `| R1 | (Fixes #12.) |`, and `### Withdrawn` with `- R5 — withdrawn in 0.21.0 (see CHANGELOG 0.21.0): gone.`.
+     - `other-skill.md` is a legacy spec with `- R2: live.`.
+     - `skills/edge-skill/SKILL.md` cites `R2` and `R5`.
+  6. Cases:
+     - `"validate-spec-shape: edge fixture flags DUPLICATE_SECTION, MISSING_SECTION, DUPLICATE_ID and a cited withdrawn id"`: `--root {{project_root}}`. Assert `icontains` `DUPLICATE_SECTION: edge-skill`, `MISSING_SECTION: edge-skill`, `DUPLICATE_ID: edge-skill`, `cites R5`; `not-icontains` `cites R2` and `ISSUE_REF: edge-skill`.
+     - `"validate-spec-shape: --root from a non-git cwd prints no git error"`: `script_cwd: "{{project_root}}"`, `script_capture_stderr: true`, fixture `spec-shape-clean`. Assert `not-icontains "not a git repository"`.
+- **Must not touch:** `CONTRACT_HEADINGS`; the citation regex; exit-code semantics; the two existing fixtures.
+- **Verification:** `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "validate-spec-shape"` passes, with five cases. `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root .` prints no stdout line on the repo.
+- **Expected effect:** the shape validator catches the defects M3's judges found by hand.
+- **Done when:** both new cases pass and the repo run is clean.
+- **Guardrails for the executor:** if the repo run prints a new finding, stop and report it with the spec line. Do not edit a spec here.
+
+### W8.9 — check-consistency rule 2: flag a paired prepare script called through a variable; inline plan-sdlc's call
+- **Source:** todo #9110 — M1 report §6 item 7 and §4 P8 (rule 2 "passes on any inline call"). Arbiter acceptance of PR #5 F2: plan-sdlc passes only through its `--mark` calls.
+- **Effort:** S
+- **Depends on:** none (W7.1, M7, also edits plan-sdlc/SKILL.md, but not these lines).
+- **Files:** edit `plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md` (`:86-96`); edit `.claude/skills/validate-plugin-consistency/check-consistency.js` (`checkSkillRunsScript` `:396-420`); edit `.claude/skills/validate-plugin-consistency/SKILL.md` (`skill-runs-script` section `:58-63`); create fixture `tests/promptfoo/fixtures-fs/prepare-contract-cases/indirect-project/`; edit `tests/promptfoo/datasets/sdlc-script-resolution-exec.yaml`.
+- **Current state:**
+  - `plan-sdlc/SKILL.md:88` `SCRIPT="<PLUGIN_ROOT>/scripts/skill/plan.js"`, `:90` `PLAN_OUTPUT_FILE=$(node "$SCRIPT" --output-file)`, `:96` "include it in the node command: `node "$SCRIPT" --output-file --from-openspec <name>`."
+  - Rule 2 (`containsPrepareScriptExecution`, `:226-238`) is satisfied by any bash line containing `node "<PLUGIN_ROOT>/scripts/skill/plan.js"`. For plan-sdlc that is the `--mark` calls at `:171`, `:450` and `:458`. The real prepare call is never checked.
+  - A simulated stricter rule at `7de2012` (call and `--output-file` in one logical command) passes every mapped skill except plan-sdlc. It also breaks the `prepare-contract-cases/bad-project` case (`sdlc-script-resolution-exec.yaml:95-111`), whose bad skill calls the script without `--output-file` and must still reach rules 3–5. So this item flags the variable form and leaves `containsPrepareScriptExecution` alone.
+- **Change:**
+  1. **Commit 1 — plan-sdlc:** delete `:88` and the blank `:89`; `:90` → `PLAN_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file)`; in `:96` replace `node "$SCRIPT" --output-file --from-openspec <name>` with `node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file --from-openspec <name>`.
+  2. **Commit 2 — rule 2:** at the end of the loop body in `checkSkillRunsScript` (after the existing `if (!containsPrepareScriptExecution…) {…}`), add:
+     ```
+         const esc = rel.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+         if (new RegExp(`^\\s*[A-Za-z_][A-Za-z0-9_]*="<PLUGIN_ROOT>/scripts/${esc}"\\s*$`, 'm').test(content)) {
+           findings.push({
+             rule: 'skill-runs-script',
+             severity: 'error',
+             file: path.relative(process.cwd(), skill.file),
+             message: `Skill '${skillName}' assigns ${rel} to a shell variable. Invoke it inline as node "<PLUGIN_ROOT>/scripts/${rel}" so rules 2–5 check the real prepare call.`,
+           });
+         }
+     ```
+     Append to the SKILL.md `skill-runs-script` paragraph (`:63`): " The rule also fails when the paired script is assigned to a shell variable (`SCRIPT="<PLUGIN_ROOT>/scripts/skill/<script>.js"`)."
+  3. Fixture `indirect-project`: copy `good-project`. Its `SKILL.md` bash block becomes `SCRIPT="<PLUGIN_ROOT>/scripts/skill/commit.js"` / `MANIFEST_FILE=$(node "$SCRIPT" --output-file $ARGUMENTS)` / `EXIT_CODE=$?`. New case: `"prepare-contract: flags a paired prepare script assigned to a shell variable"`. Assert `icontains '"rule": "skill-runs-script"'` and `icontains 'assigns skill/commit.js to a shell variable'`.
+- **Must not touch:** `containsPrepareScriptExecution`; rules 3–5; `SKILL_TO_SCRIPT`; ship's `SCRIPT="<PLUGIN_ROOT>/scripts/state/ship.js"` (`state/ship.js` is not a paired prepare script); plan-sdlc's `--mark` lines.
+- **Verification:**
+  - `node .claude/skills/validate-plugin-consistency/check-consistency.js` exits 0.
+  - `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "prepare-contract|script-resolution"` passes.
+  - `grep -n '\$SCRIPT' plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md` prints nothing.
+- **Expected effect:** the prepare-contract rules see every skill's real prepare call.
+- **Done when:** the new case passes and the repo validator run exits 0.
+- **Guardrails for the executor:** commit 1 lands before commit 2 so the validator never fails on main. If another skill trips the new check, stop and report it.
+
+### W8.10 — ship-prepare skip-config-check cases assert the skip itself
+- **Source:** todo #9111 — M2 report §6 item 7 (wave-0 decline re-check).
+- **Effort:** S
+- **Depends on:** none
+- **Files:** edit `tests/promptfoo/fixtures-fs/project-skill-skip-via-env/setup.sh`; edit `tests/promptfoo/datasets/ship-prepare-exec.yaml` (`:521-541`).
+- **Current state:**
+  - `:521-530` (`SDLC_SKIP_CONFIG_CHECK=1`) and `:532-541` (`--skip-config-check`) run `ship.js --has-plan` with no `--plan`. They assert only `'"skipConfigCheck": true'`, which comes from the flag alone, so they pass even though ship.js exits 1 with `missingPlanFile`.
+  - The fixture config is `{"version": 3, "ship": {"preset": "balanced"}}`.
+  - Reproduced at `7de2012` in a scratch copy:
+    - with the skip and `--plan plan.md`: exit 0, `errors: []`, `migration` has only `infrastructure`;
+    - without the skip: `migration.project.migrated === true`.
+- **Change:**
+  1. `setup.sh`: before the `.sdlc` block, add `printf '# Plan\n\n## Tasks\n- [ ] t1\n' > plan.md`.
+  2. Both cases: `script_args` gets ` --plan plan.md`. Replace the `icontains` with a javascript assertion: `const o = JSON.parse(output); return o.errors.length === 0 && o.flags.skipConfigCheck === true && !(o.migration && o.migration.project);`.
+  3. New contrast case `"ship-prepare: without SDLC_SKIP_CONFIG_CHECK the same fixture migrates"`: `script_args: "--has-plan --plan plan.md"`, same fixture. Assert `JSON.parse(output).migration.project.migrated === true`.
+- **Must not touch:** `ship.js`; other cases using this fixture (none today).
+- **Verification:** `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "SDLC_SKIP_CONFIG_CHECK|skip-config-check|without SDLC_SKIP"` passes.
+- **Expected effect:** the R-config-version skip gate has a test that fails if the skip stops working.
+- **Done when:** the three cases pass.
+- **Guardrails for the executor:** if the scratch result above does not hold at the M5.1 base (W4.2 changes prepare output), stop and report. Do not loosen the assertion.
+
+### W8.11 — Dataset R-id prose and `#505` remnants
+- **Source:** todo #9112 — M3 report §6 (last bullet, "R-numbers") and the execute-spec bullet (`#505` in `execute-plan-sdlc.yaml`).
+- **Effort:** S
+- **Depends on:** none (re-locate with `grep -n` if M5 has edited `execute-plan-sdlc.yaml`).
+- **Files:** edit `tests/promptfoo/datasets/ship-sdlc.yaml` (`:147`, `:654`); edit `tests/promptfoo/datasets/execute-plan-sdlc.yaml` (`:546`, `:565`).
+- **Current state:**
+  - `ship-sdlc.yaml:147` `      relevant R-numbers from docs/specs/ship-sdlc.md.` and `:654` `      Walk through what ship-sdlc does next, citing the relevant R-numbers from`. The token `R-numbers` reads as an unresolved R-id to every citation sweep (M3 gates: "pre-existing non-citations").
+  - `execute-plan-sdlc.yaml:546` `# Standalone plan-argument gate (R41, #505)` and `:565` `        or build waves for any plan. It cites R41 (and/or #505). The halt message`.
+  - `execute-plan-sdlc/SKILL.md:30` and `:38` still cite `#505`, so the rubric's "and/or" is permissive. W6c.10 later drops `#NNN` from SKILL.md.
+- **Change:** `:147` `R-numbers` → `requirement ids`; `:654` `R-numbers` → `requirement ids`; `:546` → `# Standalone plan-argument gate (R41)`; `:565` `It cites R41 (and/or #505).` → `It cites R41.`
+- **Must not touch:** every assertion value other than `:565`'s sentence; the `R99` fixture in `spec-shape-bad`.
+- **Verification:** `grep -rn 'R-numbers\|#505' tests/promptfoo/datasets/ship-sdlc.yaml tests/promptfoo/datasets/execute-plan-sdlc.yaml` prints nothing. No promptfoo run: the edits are prompt prose and a permissive rubric clause (§0 rule 4).
+- **Expected effect:** citation sweeps stop reporting a false unresolved id.
+- **Done when:** the grep is empty.
+- **Guardrails for the executor:** change only the listed words.
+
+### W8.12 — Ship spec sync: R67 dedupe, R-advancing-predicate vs R-pause, P2/warnings, R-pause tests, R39/E4 tuning values
+- **Source:** todo #9113 — M2 report §6 items 1–4 and M3 report §6 ("Ship spec" and "Carried from M2" bullets) (re-verify after W4.2).
+- **Effort:** S–M
+- **Depends on:** W4.2 (M4; it edits the ship spec's Step-emitter contract and P-STEP lines); W8.3 (the R67 dedupe text describes W8.3's sidecar key).
+- **Files:** edit `docs/specs/ship-sdlc.md`; edit `tests/promptfoo/datasets/ship-hooks-exec.yaml` (two R-pause cases).
+- **Current state:** W4.2 Change 9 rewrites only P-TRANS-1, P-STEP-4 and P-TRANS-2. W4.4 amends R-progressive-disclosure, W4.5 R6 and W4.6 R-b3. None of them touches the lines below, but re-locate each one.
+  - R67 (`:236-242`) has no sentence on the once-per-transition dedupe or its sidecar. Its Acceptance (`:242`) lists eight cases but not `"pipeline-continue (R67): second call same step emits nothing"`.
+  - R-advancing-predicate (`:104-111`) defines `advancing` from the step list only. The code returns early at `lib/state.js:913` `  if (data && data.paused) return { advancing: false, step: null, index: -1 };`. R-pause (`:113`) states the effect, but the predicate's own definition does not.
+  - P2 (`:313`) `- P2: \`resume\` (object) — \`{ found, stateFile }\` resume detection result`. The code also sets `resume.capExhausted = { stepName, at }` (`skill/ship.js:1489`) and pushes the stall notice to `warnings`. No P-id names `warnings`. P-ids in use: P1–P10.
+  - R-pause Acceptance (`:114`) names one case. No test covers `begin-step` or `claimSession` clearing `paused`. Code: `state/ship.js:364-365` (`delete data.paused;`) and `lib/state.js:968` (`delete state.data.paused; // --resume re-arms the hooks (R-pause)`).
+  - Tuning values left by W3.2 under rule 3:
+    - R39 (`:81`): "The TTL defaults to `state.gc.ttlDays` from `.claude/sdlc.json` (fallback 7)";
+    - E4 (`:325`): `- E4: Network error (gh API) → auto-retry 3 attempts with exponential backoff; if exhausted, save state`.
+- **Change:**
+  1. Re-verify: run the greps implied above at the M5.1 base. Close each sub-change whose gap is gone, and apply the rest.
+  2. R67: after its fourth bullet (`- When no ship state file exists …`), insert `  - Each emitted context is sent once per step start: the hook records \`{stepName, status, startedAt, ledger}\` in \`<stateDir>/.pipeline-nudge-<branchSlug>.json\` and stays silent while all four match; a new step start (new \`startedAt\`) or a new ledger re-arms it. The session-start hook sweeps the sidecar after 24 h.` In the Acceptance line, append `, \`pipeline-continue (R67): second call same step emits nothing\`, \`pipeline-continue-rearm: retried step and new ledger re-arm the nudge; same start stays silent\``.
+  3. R-advancing-predicate: insert, as the first bullet of its list (before `  - \`inProgress = …\``), `  - \`paused\`: when \`data.paused\` is set (R-pause), return \`{ advancing: false, step: null, index: -1 }\` before any step is examined`.
+  4. P2 → `- P2: \`resume\` (object) — \`{ found, stateFile, capExhausted? }\` resume detection result; \`capExhausted\` is \`{ stepName, at }\` when \`.stop-cap-exhausted-<slug>.json\` exists for the resumed pipeline (R-cap-recovery), absent otherwise`. After P10, under `## Dispatch and routing`, keep the order. In `## Prepare script contract`, after P8, add `- P11: \`warnings\` (string[]) — non-blocking notices shown before the pipeline runs, including the cap-exhausted stall notice (R-cap-recovery)`. Use the next free P number if P11 is taken at the base.
+  5. R-pause tests in `ship-hooks-exec.yaml`, modelled on case 24 at `:851-868` (`script_path: "-e"`, no whitespace in `script_args`, fixture `ship-pipeline-inprogress`):
+     - (a) `"stop-pipeline-continue (R-pause): begin-step clears paused"`: spawn `state/ship.js pause --reason test --state-file <ledger>`, then `state/ship.js begin-step --step execute --state-file <ledger>`, and print `JSON.parse(fs.readFileSync(ledger)).paused === undefined`. Assert `true`.
+     - (b) `"stop-pipeline-continue (R-pause): claimSession clears paused"`: write `paused` into the ledger, call `require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state").claimSession("ship","feat-ship")` with `script_env: '{"CLAUDE_CODE_SESSION_ID":"sess-fixture"}'`, and print whether `paused` is gone. Assert `true`.
+     Append both names to R-pause's Acceptance line.
+  6. R39: replace `(fallback 7)` with `(fallback: the default in \`skill/ship.js\` TTL resolution)`. E4: replace `auto-retry 3 attempts with exponential backoff` with `auto-retry with exponential backoff (the attempt count is a tuning value)`.
+- **Must not touch:** every id; R68, R74 and R-cap-recovery text; W4.2's P-TRANS/P-STEP lines; the appendix.
+- **Verification:**
+  - P-5 prints `SAME` except the added `P11` (one `>` line). P-7 is empty for ship. `validate-spec-shape.js --root .` prints no stdout line.
+  - `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec-hooks.yaml --filter-pattern "R-pause"` passes.
+  - `node site/scripts/copy-docs.mjs`.
+- **Expected effect:** the ship contract describes the hook and prepare behaviour M2 shipped, and R-pause is covered on all three clearing paths.
+- **Done when:** the four spec gaps are closed and the two R-pause cases pass.
+- **Guardrails for the executor:** do not touch W4.2's transition table. If `state/ship.js begin-step` no longer exists as a CLI verb at the base, write case (a) against the in-process start path W4.2 added, and say so.
+
+### W8.13 — ship-state schema: `sessionId` and `worktree`; drop stale `flags.skip`/`flags.preset`
+- **Source:** todo #9114 — M2 report §6 item 8 (W2.4 report-only) and M4 ruling `ruling-w1-l6-inputs.md` item 5 (re-verify after W4.2).
+- **Effort:** S
+- **Depends on:** W4.2 (M4). Per that ruling, W4.2 adds `history` and `currentStep` at the top level and `planFile`, `openspecContext` and `sources` inside `flags`.
+- **Files:** edit `schemas/ship-state.schema.json`.
+- **Current state:**
+  - `:142-143` `  "required": ["version", "startedAt", "branch", "flags", "steps"],` / `  "additionalProperties": false`. `properties` has no `sessionId` or `worktree`. Both are written: `sessionId` by `lib/state.js:383` (`initState`, `CLAUDE_CODE_SESSION_ID || null`) and `claimSession` (`:967`); `worktree` by `state/ship.js:136` (`resolveActiveWorktreeSafe(process.cwd())`). They are read by `hookEnforcementAllowed` and `detectResumeState` (`lib/state.js:299-305`).
+  - `flags.properties.skip` (`:25-31`, an enum of step names) and `flags.properties.preset` (`:32-42`, `"A"|"B"|"C"|null`). `--skip` and `--preset` are rejected by `skill/ship.js` (`:105-112`), so no current ledger writes them.
+- **Change:**
+  1. Re-verify: `node -e "const s=require('./schemas/ship-state.schema.json'); console.log(!!s.properties.sessionId, !!s.properties.worktree, !!s.properties.flags.properties.skip, !!s.properties.flags.properties.preset)"`. If it prints `true true false false`, close the item with evidence.
+  2. Add to the top-level `properties` (after `"branch"`): `"sessionId": {"type": ["string", "null"], "description": "Session currently driving the pipeline; stamped by initState and re-stamped by claimSession (R73)"},` and `"worktree": {"type": ["string", "null"], "description": "Active worktree at init (realpath); compared on resume (R-resume-worktree)"},`.
+  3. Delete `flags.properties.skip` (`:25-31`) and `flags.properties.preset` (`:32-42`), including the comma between entries. `flags` has no `additionalProperties: false`, so old ledgers that carry them stay valid.
+- **Must not touch:** W4.2's additions; `steps`; `paused`; the `required` list.
+- **Verification:**
+  - The re-verify command prints `true true false false`.
+  - `node -e "JSON.parse(require('fs').readFileSync('schemas/ship-state.schema.json','utf8'))"` exits 0.
+  - `grep -n '"skip"\|"preset"' schemas/ship-state.schema.json` prints nothing.
+- **Expected effect:** the schema accepts every ledger the scripts write. IDE validation stops flagging `sessionId` and `worktree`.
+- **Done when:** the Verification commands hold.
+- **Guardrails for the executor:** schema only; no script reads this schema at run time.
+
+### W8.14 — Execute spec sync after W5.1 and M5
+- **Source:** todo #9115 — `m1/declines-wave-4-e3e089b.md` #18 (R8, R21, R26, C4 stale after W5.1) and M3 report §6 ("Execute spec (moved as is)": R-main-context-steps "via Skill tool", Phases 1–10 vs Step 9, R-WAVE-DEADLINE's R57/R35 citation) (re-verify after M5).
+- **Effort:** S
+- **Depends on:**
+  - W5.2 (M5): it adds `skill/execute.js` and its P-ids, changes `**Prepare script:** none`, and moves `waveTimeout` into `execute` config.
+  - W5.3 (M5): its Change 10 rewrites R8 to the fact-sheet and direct-dispatch wording.
+  - W5.4 (M5): it moves Steps 9 and 5 blocks to on-demand files.
+- **Files:** edit `docs/specs/execute-plan-sdlc.md`.
+- **Current state (at `7de2012`):**
+  - `:156` R8 ends "Every per-task agent prompt still includes full task text (never a reference to the plan file), …". W5.1 B9/B10 moved task text into fact sheets (R-FACT-SHEET-DISPATCH `:166`).
+  - `:120` `- R21: Context management between waves — compact verbose agent output when context is high`. W5.1 deleted the compaction rule from SKILL.md (decline #18). `:314` (the R26 Withdrawn bullet) ends "R21 (between-wave compaction inside the execution loop) is unaffected and remains the live context-management mechanism."
+  - `:284` `- C4: Must not reference the plan file inside an agent prompt — paste full task text`.
+  - `:117` R-main-context-steps ends "When execute is invoked via Skill tool from ship-sdlc, all of these surfaces fire in ship's main context, restoring supervision." Ship dispatches execute through the Agent tool (R-execute-agent-dispatch in the ship spec).
+  - `:80-104` `### Phases` numbers 1–10 (LOAD … REPORT). SKILL.md numbers Step 0–9 with Step 2b for ROUTE, and its prose says "Step 9 (REPORT)".
+  - `:252-254` R-WAVE-DEADLINE: "sourced from `ship.executeWaveTimeout` (seconds, `.sdlc/local.json`, R57 convention). execute-plan-sdlc has no prepare script of its own … (same cross-skill wiring pattern as R35)". R57 is defined in both the ship spec (`:54`, config fields) and the plan spec (`:262`, Context section).
+  - `:138-140` the step-emitter blockquote sits in a spec whose header says `**Prepare script:** none` (`:6`).
+- **Change:**
+  1. Re-verify each bullet above with `grep -n` at the M5.1 base, and drop the sub-changes M5 already made. Expected: W5.3 rewrote R8, and W5.2 changed the header and possibly R-WAVE-DEADLINE.
+  2. R21 → withdrawn. Move its bullet to `### Withdrawn` as `- R21 — withdrawn in 0.23.1 (see CHANGELOG 0.23.1): Between-wave compaction of verbose agent output was removed from SKILL.md; bounded \`WAVE_SUMMARY\` returns (R-BOUNDED-RETURN) and fact sheets (R-FACT-SHEET-DISPATCH) keep wave context small.` Append ` R21 was itself withdrawn in 0.23.1.` to the R26 Withdrawn bullet.
+  3. C4 → `- C4: Must not reference the plan file inside an agent prompt — the prompt points at the task's fact sheet (R-FACT-SHEET-DISPATCH)`.
+  4. R8, only if W5.3 did not rewrite it: replace "Every per-task agent prompt still includes full task text (never a reference to the plan file), exact file list, expected deliverable, and prior-wave context." with "Every per-task agent prompt points at its fact sheet (never the plan file) and carries the exact file list, expected deliverable and prior-wave context."
+  5. R-main-context-steps: replace its last sentence with "When ship-sdlc dispatches execute, these surfaces run in execute's own agent context, never inside a wave-runner."
+  6. `### Phases`: append the SKILL.md step label to each phase name: `1. LOAD (Step 1)`, `2. CLASSIFY (Step 2)`, `3. ROUTE (Step 2b)`, `4. CRITIQUE (Step 3)`, `5. IMPROVE (Step 4)`, `6. DO (Step 5)`, `7. RECOVER (Step 6)`, `8. VERIFY (Step 7)`, `9. CRITIQUE (Step 8)`, `10. REPORT (Step 9)`. Use the step labels as they stand at the base.
+  7. R-WAVE-DEADLINE, if W5.2 moved the timeout to `execute.waveTimeout`: replace its first two sentences with "A wave MUST be bounded by a wall-clock deadline: \`execute.waveTimeout\` (\`.sdlc/config.json\`; legacy fallback \`ship.executeWaveTimeout\` in \`.sdlc/local.json\`), resolved by \`skill/execute.js\`." Otherwise, replace `R57 convention` with `ship-sdlc R57 convention` and `same cross-skill wiring pattern as R35` with `same cross-skill wiring pattern as this spec's R35`.
+  8. Blockquote: if the header still says `**Prepare script:** none`, replace the blockquote at `:140` with `> Applies once \`skill/execute.js\` (W5.2) exists; P-TRANS-1 is defined then.` Otherwise leave it.
+- **Must not touch:** every id, apart from the R21 move; R-WAVE-* bodies apart from the stated sentences; W5.x's own spec lines.
+- **Verification:**
+  - P-5: the id set is unchanged (R21 moves within the file).
+  - P-7 is empty for execute.
+  - `validate-spec-shape.js --root .` prints no stdout line.
+  - `grep -n 'via Skill tool\|paste full task text\|compact verbose' docs/specs/execute-plan-sdlc.md` prints nothing.
+  - `node site/scripts/copy-docs.mjs`.
+- **Expected effect:** the execute contract matches the SKILL.md that W5.1 and M5 shipped.
+- **Done when:** the grep is empty and the validators are clean.
+- **Guardrails for the executor:** spec text only. If an M5 item left a contradiction this item does not name, report it as a W8.21+ follow-up.
+
+### W8.15 — Spec requirements for X11 (ship) and V1 (verify-pipeline); the V1 fallback restores the working tree
+- **Source:** todo #9116 — `m1/declines-wave-4-e3e089b.md` #4 (X11 has no spec R), #5 (V1 has no spec entry) and #16 (V1 fallback leaves edits in the working tree).
+- **Effort:** S–M (part A one commit; part B three commits)
+- **Depends on:** part A — W4.2 (M4), which replaces the Step 5 opening that holds X11 (its Change 7 loop text has an X11 variant). Part B — none; §0 rule 9 applies, because `docs/specs/verify-pipeline-sdlc.md` is legacy.
+- **Files:** part A: edit `docs/specs/ship-sdlc.md` (Dispatch and routing) and `plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md` (one HTML-comment cite). Part B: edit `docs/specs/verify-pipeline-sdlc.md`, `plugins/sdlc-utilities/skills/verify-pipeline-sdlc/SKILL.md` (`:60`) and `tests/promptfoo/datasets/verify-pipeline-sdlc.yaml`.
+- **Current state:**
+  - Ship SKILL.md:292 (X11, owner-approved wording, M1 wave 4): "In `--auto` mode, run every step without asking for confirmation. Without `--auto`, ask the user only at the prompts this file defines for that mode (rebase conflict, verify-pipeline failure, archive-openspec) and leave the sub-skills' own approval prompts to them. Before each step, print one line naming the step that runs next; after it, print its one-line result." No ship R-id covers it. The owner reading lists R20, R71, R45, R25/R-archive-sync-3, E8 and R-todowrite-visibility. W4.2 Change 7 replaces this paragraph with "Work through the pipeline without pausing for confirmation except at the consent gates ship.js marks `pause: true`; before each step print one line saying what runs next; after each step print the one-line result."
+  - `verify-pipeline-sdlc/SKILL.md:60`: "… Before emitting `fix-applied`, run the check that failed (lint/test/type-check for the touched file) when it can run locally; if it still fails, emit `proposal`." The `proposal` path leaves the edits in the working tree. Ship defines no `proposal` handling, so a later `git status --porcelain` commit path can pick them up (decline #16).
+  - `docs/specs/verify-pipeline-sdlc.md` is legacy (R1–R10, G1–G3, E1–E3, C1–C4, I1–I3; `**Model:** sonnet` at `:6`). R10 requires inline R citations. C1 forbids state-changing git commands; `git diff` is read-only.
+- **Change:**
+  - **Part A (ship):**
+    1. Re-locate the Step 5 opening (`grep -n "print one line" plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md`).
+    2. In the ship spec `## Dispatch and routing`, directly after the R-subagent-brief block, add `- R-step5-prompting: Step 5 asks the user only at the prompts ship defines for interactive runs (none under \`--auto\`) and leaves each sub-skill's own approval prompts to that sub-skill; before each step it prints one line naming the step that runs next, and after it the step's one-line result.` If the located sentence names a different prompt set, use the located sentence's set verbatim.
+    3. Append ` <!-- R-step5-prompting -->` to the located SKILL.md paragraph.
+  - **Part B (verify-pipeline):**
+    1. **Commit 1:** W3.5 for `docs/specs/verify-pipeline-sdlc.md`. The header says `**Prepare script:** none`, so `## Prepare script contract` is omitted and `## State model` and `## Dispatch and routing` hold `None.`.
+    2. **Commit 2:** replace the `:60` sentence "Before emitting `fix-applied`, run the check that failed (lint/test/type-check for the touched file) when it can run locally; if it still fails, emit `proposal`." with "Before emitting `fix-applied`, run the check that failed (lint/test/type-check for the touched file) when it can run locally (R11). If it still fails: capture `git diff -- <edited files>` as `suggestedPatch`, restore each edited file to its pre-edit content with the `Edit` tool (reverse each edit), and emit `proposal` — the working tree is left as it was before this skill ran (E4)."
+    3. Spec: under `## Gates` add `- R11: Before \`fix-applied\` the skill re-runs the failed check locally when it can; a fix whose check still fails is never reported as \`fix-applied\`.`; under `## Failure handling and resume` add `- E4: Local re-check still fails → \`suggestedPatch\` = the attempted diff, every edited file restored, verdict \`proposal\`.`
+    4. **Commit 3:** add the behavioural case `"verify-pipeline-sdlc (R11): local re-check still failing restores the files and emits proposal"` to `verify-pipeline-sdlc.yaml`, modelled on `:4`, with a user_request stating that the re-run lint still fails after the edit. It is an llm-rubric case: the response restores the file, puts the diff in `suggestedPatch` and emits one `proposal` JSON line.
+- **Must not touch:**
+  - the R5 verdict shapes;
+  - C1 (no state-changing git commands; `git diff` is read-only);
+  - the case when no local check can run: it stays `fix-applied` (owner question, see Guardrails);
+  - ship's handling of verdicts.
+- **Verification:**
+  - Part A: ship P-7 is empty, and the `validate-spec-shape.js` citation check resolves `R-step5-prompting`.
+  - Part B: P-5 prints `SAME` for commit 1; `validate-spec-shape.js --root .` no longer lists `verify-pipeline-sdlc`.
+  - Single final behavioural case: the new R11 case.
+  - `node site/scripts/copy-docs.mjs`.
+- **Expected effect:** traceability for two owner-approved behaviours (AGENTS.md principle 1). A failed auto-fix no longer leaves stray edits for the next commit step.
+- **Done when:** both ids exist and are cited inline; the R11 case passes.
+- **Guardrails for the executor:** the verdict for "no local check can run" is an owner decision. Do not change it. If W4.2 removed the X11 sentence without a successor, close part A with evidence.
+
+### W8.16 — commit and error-report spec entries: expected-branch exit 3, the WIP gate, `templateText`/`priority` and the return contract
+- **Source:** todo #9117 — `m1/declines-wave-5-14389be.md` #4 (expected-branch acceptance stale), #5 (WIP gate has no R/E) and #6 (`templateText`/`priority`/`{title, body, priority}` have no spec entries). It also carries W8.6's SKILL.md sentence.
+- **Effort:** S–M
+- **Depends on:** W8.1 (commit spec already contract-shaped); W8.6 (the priority rule). §0 rule 9 applies to the error-report spec.
+- **Files:** edit `docs/specs/commit-sdlc.md`, `docs/specs/error-report-sdlc.md`, `plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md` (`:55`, the Step 5 gate heading) and `plugins/sdlc-utilities/skills/error-report-sdlc/SKILL.md` (`:124-126`).
+- **Current state:**
+  - Commit spec R-expected-branch Acceptance (`:105` before W8.1's move) ends "SKILL.md cites `branchGuard.ok === false` immediately after prepare-output read without re-deriving current branch." SKILL.md handles the guard as exit 3 at `:55`: "- Exit code 3: expected-branch guard failed (`--expected-branch` did not match) — show `errors[0]` (the guard message), run `rm -f "$COMMIT_CONTEXT_FILE"`, and stop." It has no R cite. `commit.js:217-220` exits 3.
+  - The commit spec has no requirement for the WIP subject gate (exit 2, applies with null `commitConfig`, no override). SKILL.md Step 1c cites execute's R35, which defines the squash path.
+  - The error-report spec (`docs/specs/error-report-sdlc.md`, 51 lines) is legacy. It has no `**Prepare script:**` header and no P-ids. R5/I3 say "assemble from the `ToolingError.md` template". `error-report-prepare.js` writes `templateText`, `priority`, `targetRepo` and `labels` (`:152-170`), and the orchestrator returns `{title, body, priority}` (`error-report-sdlc/SKILL.md:151-160`).
+  - `error-report-sdlc/SKILL.md:124-126`: "The manifest also carries the computed `templateText` and `priority` fields (`High` for script crash or build failure, `Medium` for everything else)."
+- **Change:**
+  1. **Commit spec (contract-shaped after W8.1):**
+     - R-expected-branch Acceptance: replace "SKILL.md cites `branchGuard.ok === false` immediately after prepare-output read without re-deriving current branch." with "SKILL.md handles exit 3 immediately after the prepare call — shows `errors[0]` (the guard message) and stops before any `git commit` — without re-deriving the current branch."
+     - Add `- R16: The Step 5 subject gate rejects (exit 2) any subject starting with \`wip:\` or \`wip(execute):\` before stash or commit — also when \`commitConfig\` is null — with no override; interactive runs offer edit or cancel, \`--auto\` stops (E8).` under `## Gates`. Use the next free R number if R16 is taken.
+     - In SKILL.md, append ` (R-expected-branch)` to the `:55` bullet, and add `(R16)` to the Step 5 gate heading written by W8.1 ("**Message file, then subject gate (hard gate, R16):**").
+  2. **Error-report spec, commit 1:** W3.5 for `docs/specs/error-report-sdlc.md`. `## Prepare script contract` holds `None.` for now, and `## State model` and `## Dispatch and routing` hold `None.`.
+  3. **Error-report spec, commit 2:**
+     - Add the header line `**Prepare script:** \`skill/error-report-prepare.js\`` after `**User-invocable:** no`.
+     - Replace `None.` under `## Prepare script contract` with:
+       - `- P1: \`templateText\` (string) — contents of \`skills/error-report-sdlc/templates/ToolingError.md\`; the orchestrator fills it strictly from manifest fields`
+       - `- P2: \`priority\` (\`High\` | \`Medium\`) — \`High\` when \`errorType\` is \`script crash\` or \`build failure\`, or \`exitOrHttpCode\` is \`2\`; otherwise \`Medium\`. Computed by the script, never inferred by the model; display-only (not a label, not passed to \`gh\`)`
+       - `- P3: \`targetRepo\` and \`labels\` — the fixed target repository (C4) and \`["tooling-error", <calling skill>]\``
+     - Under `## Integration`, add `- I4: \`error-report-orchestrator\` returns only \`{title, body, priority}\` JSON; \`priority\` is P2 copied verbatim.`
+     - In SKILL.md, replace "(`High` for script crash or build failure, `Medium` for everything else)" with "(`High` for a script crash, a build failure or exit code 2, `Medium` for everything else; P2)".
+- **Must not touch:** commit spec ids other than the stated lines; C14/E8 from W8.1; error-report R1–R7 text; `error-report-prepare.js`.
+- **Verification:**
+  - P-5 prints `SAME` for the error-report restructure commit, and for commit 2 the only `>` id lines are P1–P3 and I4.
+  - P-7 is empty for commit-sdlc and error-report-sdlc.
+  - `validate-spec-shape.js --root .` no longer lists `error-report-sdlc`.
+  - `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "error-report-prepare|commit-prepare"` passes.
+  - `node site/scripts/copy-docs.mjs`.
+- **Expected effect:** the behaviour W6c.2/W6c.3 shipped in M1 is in the contract (AGENTS.md principle 1).
+- **Done when:** R16, P1–P3 and I4 exist; both specs are contract-shaped; the SKILL.md cites resolve.
+- **Guardrails for the executor:** a restructure commit never carries a behaviour or text change.
+
+### W8.17 — review-sdlc spec: G3 and C11 after persistent manifests
+- **Source:** todo #9118 — M1 report §6 item 6. Also arbiter acceptance of PR #5: W1.9 missed the claims outside `skills/`.
+- **Effort:** S
+- **Depends on:** W4.5 (M4). Its Files include `docs/specs/review-sdlc.md` and review-sdlc SKILL.md Step 6 (`:235-240`). Under §0 rule 9 it may already have done W3.5 for this spec.
+- **Files:** edit `docs/specs/review-sdlc.md`.
+- **Current state:**
+  - `:77` `- G3: Manifest file and \`diff_dir\` cleaned up by the skill after the terminal branch (including failures)`.
+  - `:114` `- C11: Orchestrator MUST NOT delete \`manifest.diff_dir\` — the skill owns cleanup of both the manifest file and the diff dir`.
+  - Since W1.9, `review.js` writes the manifest through `writeOutput` under `.sdlc/execution/out/`. That file is pruned on write (one hour, same prefix and branch) and swept by the session-start hook (24 h). The skill removes only `diff_dir` (`review-sdlc/SKILL.md:233-238`, `rm -rf "{diff_dir}"`).
+- **Change:**
+  1. Re-verify: re-locate G3 and C11. If W4.5 already reworded both, close with evidence. If `docs/specs/review-sdlc.md` still has no `## Inputs and flags` line, do W3.5 for it first in a separate commit.
+  2. G3 → `- G3: \`diff_dir\` removed by the skill after the terminal branch (including failures); the manifest file persists under \`.sdlc/execution/out/\` and is pruned by \`writeOutput\` and the session-start sweep`.
+  3. C11 → `- C11: Orchestrator MUST NOT delete \`manifest.diff_dir\` — the skill owns removal of the diff dir; neither deletes the manifest file (persistent, swept)`.
+- **Must not touch:** other review ids; W4.5's `review-summary.json` lines.
+- **Verification:**
+  - P-5 prints `SAME` for any restructure commit, and for the edit commit the id set is unchanged.
+  - P-7 is empty for review-sdlc.
+  - `validate-spec-shape.js --root .` no longer lists `review-sdlc`.
+  - `grep -n 'cleanup of both the manifest' docs/specs/review-sdlc.md` prints nothing.
+  - `node site/scripts/copy-docs.mjs`.
+- **Expected effect:** the review contract matches the persistent-manifest design (W1.9, plan-review R-1).
+- **Done when:** the grep is empty and the spec is contract-shaped.
+- **Guardrails for the executor:** spec only; the SKILL.md cleanup step is W6b.1's (M8) if it needs any change.
+
+### W8.18 — Stale text: validate-plugin-consistency resolver docs, plan-explore-orchestrator EXIT trap, `writeOutput` docstring
+- **Source:** todo #9119 — M1 report §6 item 8.
+- **Effort:** S
+- **Depends on:** W8.5 (the session-start sweep the new agent sentence names).
+- **Files:** edit `.claude/skills/validate-plugin-consistency/SKILL.md` (`:35-56`, `:144-163`); edit `plugins/sdlc-utilities/agents/plan-explore-orchestrator.md` (`:245`); edit `plugins/sdlc-utilities/scripts/lib/output.js` (`:40-46`).
+- **Current state:**
+  - `validate-plugin-consistency/SKILL.md:35-56`:
+    - the `script-resolution-order` section tells the reader to fix a CWD-first `find` by making it plugins-first (block `:39-44` with `SCRIPT=$(find ~/.claude/plugins …`);
+    - the `script-resolution-version` section (`:46-56`) tells the reader to use `| sort -V | tail -1` (block `:53-56`).
+    Rule 1b (`check-consistency.js:341-358`) now flags any `find ~/.claude/plugins` line and requires `node "<PLUGIN_ROOT>/scripts/…"`.
+  - `:144-163`, "Reference: The Correct Skill Pattern", still shows the `find` resolver (`:150-152`), `CONTEXT_FILE=$(node "$SCRIPT" --output-file $ARGUMENTS --json)` (`:154`) and `# Cleanup: rm -f "$CONTEXT_FILE" after use` (`:156`).
+  - `plan-explore-orchestrator.md:245`: "**DO NOT** write outside `manifest.outDir`, modify `manifest.json`, or delete `manifest.outDir` (plan-sdlc owns cleanup via the EXIT/INT/TERM trap)." W1.9 removed every trap. The dir is swept by `gcTempdirs` (`ship.js --gc`, and session-start after W8.5).
+  - `output.js:41` " * LLM-skill manifest protocol — writes JSON to a temp file under `os.tmpdir()`". `writeOutput` writes under `<state dir>/out/` first (`:48`, `createPersistentOutputFile`) and falls back to `os.tmpdir()`.
+- **Change:**
+  1. Replace `:35-56` with two sections:
+     - `### \`script-resolution-order\` (error)` / blank / "A skill resolves a plugin script with a CWD-first `find`. Replace the resolver with the injected-path form (see `script-resolution-version`)."
+     - `### \`script-resolution-version\` (error)` / blank / "A skill resolves a plugin script with `find ~/.claude/plugins …`, which can select a fixture or marketplace-clone copy. Use the injected-path form, substituting `<PLUGIN_ROOT>` from the `sdlc plugin root:` line in session context:" / a bash block `node "<PLUGIN_ROOT>/scripts/<script>.js" …` / "Subagent prompt templates and `agents/*.md` must contain no resolver at all; pass a pre-computed path into them."
+  2. Replace the bash block `:148-163` with:
+     ```bash
+     # Step 0: run the prepare script (substitute <PLUGIN_ROOT> from the `sdlc plugin root:` line)
+     CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/<name>.js" --output-file $ARGUMENTS)
+     EXIT_CODE=$?
+     # No EXIT trap and no rm: the manifest persists under .sdlc/execution/out/ and is swept.
+
+     # On non-zero EXIT_CODE:
+     # Exit code 1: show stderr message to the user and stop.
+     # Exit code 2: show "Script error — see output above" and stop.
+
+     # Step 1: Read and parse CONTEXT_FILE as CONTEXT_JSON, then proceed with skill logic.
+     ```
+     Change `:146` to "Every skill paired with a prepare script under `scripts/skill/` follows this pattern:".
+  3. `plan-explore-orchestrator.md:245`: replace "(plan-sdlc owns cleanup via the EXIT/INT/TERM trap)" with "(plan-sdlc owns the dir; stale `sdlc-explore-*` dirs are swept by `ship.js --gc` and the session-start hook)".
+  4. `output.js:41` → " * LLM-skill manifest protocol — writes JSON under `<state dir>/out/` (falling back to `os.tmpdir()` outside git)".
+- **Must not touch:** the other rule sections of the SKILL.md (`:58` onward, except the reference block); `writeOutput` code; the agent's other DO NOT lines.
+- **Verification:**
+  - `grep -n 'find ~/.claude/plugins\|sort -V' .claude/skills/validate-plugin-consistency/SKILL.md` prints nothing.
+  - `grep -n 'EXIT/INT/TERM' plugins/sdlc-utilities/agents/plan-explore-orchestrator.md` prints nothing.
+  - `node .claude/skills/validate-plugin-consistency/check-consistency.js` exits 0 (rule 1b forbids a `<PLUGIN_ROOT>/scripts/` literal in `agents/*.md`, so the agent sentence names no script path).
+- **Expected effect:** no instruction tells a reader to reintroduce a resolver or a trap that the validators reject.
+- **Done when:** both greps are empty and the validator exits 0.
+- **Guardrails for the executor:** text only.
+
+### W8.19 — Ship text: the `--auto` example, `skip`/`fail` syntax, worktree-mode leftovers, the seeded-steps claim
+- **Source:** todo #9120 — `m1/declines-wave-4-e3e089b.md` #6, #8, #9 and M4 ruling `ruling-w1-ledger.md` ("state-format.md:321 'all configured steps' vs the fixed seven") (re-verify after W4.2).
+- **Effort:** S
+- **Depends on:** W4.2 (M4). Its Change 7 deletes ship SKILL.md `:839-889` (with the `:877` worktree note) and `:891-907` (state persistence, with the `:892` verb list), and its ledger rulings change how `steps[]` is seeded. W5.2 changes the execute `args`.
+- **Files:** edit `docs/skills/ship-sdlc.md`, `plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md` and `plugins/sdlc-utilities/skills/ship-sdlc/state-format.md`.
+- **Current state (at `7de2012`):**
+  - `docs/skills/ship-sdlc.md:314` `1     execute-plan-sdlc     will run     --quality balanced no` and `:328` `  Invoking: /execute-plan-sdlc --quality balanced`. The example run uses `--auto`, which `ship.js` forwards to execute (`:41` and `:210` already say so).
+  - SKILL.md `:892` "Remaining subcommands: `skip`, `fail`, `decide`, `defer`." gives syntax only for `decide`/`defer` (`:893-894`). The only `skip`/`fail` syntax left is the `state/ship.js:14-15` header (`skip --step <name> --reason <text>`, `fail --step <name> --error <text> [--usage <json>]`).
+  - SKILL.md `:161` `  version: skipped (auto) — auto-skipped — tags are repo-global`, `:171` "- `(auto)` — auto-skipped by `computeSteps` logic (e.g., worktree mode)", and `:877` "Note: in a worktree, all of this is safe — main working tree is untouched." The worktree mode was removed (0.21.0).
+  - `state-format.md:321`: "The state file shape is **byte-identical** to a normal `cmdInit` write — all configured steps with `status: "pending"`, …". `cmdInit` seeds a fixed list.
+- **Change:**
+  1. Re-verify each line with `grep -n`, and close the sub-changes W4.2 removed.
+  2. Doc example: `:314` `--quality balanced no` → `--auto --quality balanced no` (keep the column alignment by trimming spaces); `:328` → `  Invoking: /execute-plan-sdlc --auto --quality balanced` (add `--plan <path>` first if W5.2's args include it at the base). Then run `node site/scripts/copy-docs.mjs`.
+  3. If a verb list for `skip`/`fail` survives at the base, add one line after it: ``Skip or fail a step: `node "$SCRIPT" skip --step <name> --reason "<text>"` / `node "$SCRIPT" fail --step <name> --error "<text>"` `` (use the variable name the surviving block defines).
+  4. `:161` → `  version: skipped (cli) — not in --steps`. `:171` → "- `(auto)` — skipped by `computeSteps` logic (for example a step whose precondition is absent)". Delete `:877` if it survives.
+  5. `state-format.md:321`: replace "all configured steps with `status: "pending"`" with "the step list `cmdInit` seeds (all `status: "pending"`)". If W4.2's reconcile is in place, append "; `ship.js` adds any missing step on the first `--after` call".
+- **Must not touch:** the rest of the example output; the `--auto` audit table; W4.2's loop text.
+- **Verification:**
+  - `grep -n 'worktree mode\|tags are repo-global\|all configured steps' plugins/sdlc-utilities/skills/ship-sdlc/*.md` prints nothing.
+  - `node .claude/skills/validate-skill-docs/check-docs-consistency.js` exits 0.
+- **Expected effect:** the ship docs describe the pipeline the code runs.
+- **Done when:** the grep is empty and the example forwards `--auto`.
+- **Guardrails for the executor:** text only. Copy the seeded-step facts from `cmdInit` at the base, not from this item.
+
+### W8.20 — execute: the wave-summary parse prints its result; a swept summary file; `--auto` without `--quality`
+- **Source:** todo #9121 — `m1/declines-wave-4-e3e089b.md` #2 (HIGH: `PARSE_RESULT` never printed, so CONTEXT_OVERFLOW is invisible), #7 (generic `mktemp`, cleanup only on the happy path) and #1 (HIGH: `--auto` without `--quality` reaches a prompt the R71 hook denies) (re-verify after M5).
+- **Effort:** S (parts 1–2); S–M (part 3)
+- **Depends on:**
+  - W5.3 (M5): direct mode composes `WAVE_SUMMARY` from worker returns; the parse block may move or change.
+  - W5.2 (M5): `skill/execute.js` exits 1 on "`--auto` without `--quality`".
+  - W8.4 (same idiom).
+  - Part 3 has an **owner gate**.
+- **Files:** edit `plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md` (the 5c parse block, `:449-462` at `7de2012`). Part 3 also edits `plugins/sdlc-utilities/scripts/skill/ship.js` (`runValidation`, after the `missingPlanFile` block `:948-957`), `docs/specs/execute-plan-sdlc.md` (R-tier-prompt-invariant `:164`), `docs/skills/ship-sdlc.md` (`:449`, `:473`) and `tests/promptfoo/datasets/ship-prepare-exec.yaml`.
+- **Current state:**
+  - `SKILL.md:451-460`:
+    ````
+       Run `mktemp` and note the printed path; write the wave-runner's return text to that path with the Write tool; then run (substituting that path for `<TMPFILE>`):
+
+       ```bash
+       # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
+       PARSE_RESULT=$(DISPATCHED_IDS='<json-array-of-dispatched-task-ids>' node -e "
+       const { parseWaveSummary } = require('<PLUGIN_ROOT>/scripts/lib/wave-summary.js');
+       const text = require('fs').readFileSync('/dev/stdin','utf8');
+       const dispatched = JSON.parse(process.env.DISPATCHED_IDS || '[]');
+       process.stdout.write(JSON.stringify(parseWaveSummary(text, dispatched)));
+       " < "<TMPFILE>")
+       rm -f "<TMPFILE>"
+       ```
+    ````
+    `$(…)` captures the JSON into a shell variable that nothing prints, and the variable dies with the Bash call. The model never sees `missingIds`, so the CONTEXT_OVERFLOW branch (`:466`) cannot fire.
+  - `lib/state.js:1024-1043` `gcOutputDir` deletes any file in `<state dir>/out/` older than its TTL (the session-start hook runs it at 24 h).
+  - `SKILL.md:147`: "quality-tier selection uses the value from `--quality` (required when `--auto` is set)". `:308` asks with AskUserQuestion. `skill/ship.js:456-459` forwards `--quality` only when the user passed it (R-tier-prompt-invariant, `docs/specs/execute-plan-sdlc.md:164`: "ship-sdlc MUST NOT synthesize a default `--quality` value"). So `ship --auto` without `--quality` dispatches execute with `--auto` and no tier.
+  - After W5.2, `skill/execute.js` exits 1 on that input, which turns the denied prompt into a mid-pipeline failure. `docs/skills/ship-sdlc.md:449` (`/ship-sdlc --auto --draft --plan …`) and `:473` (`/ship-sdlc --auto --steps … --plan …`) show `--auto` runs without `--quality`. One exec case passes `--auto` with `--plan` and no `--quality` (`ship-prepare-exec.yaml:1080`).
+- **Change:**
+  1. Re-verify: `grep -n 'PARSE_RESULT=\|mktemp' plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md`. If neither appears and M5's parse step prints its JSON, close parts 1–2 with evidence.
+  2. **Parts 1–2.** Replace the instruction line and the block with:
+     ````
+        Write the wave-runner's return text with the Write tool to `<main-worktree>/.sdlc/execution/out/wave-summary-<runId>-w<N>.txt` (`<SUMMARY_FILE>`; the session-start hook sweeps `out/` after 24 h, so an interrupted run leaves nothing behind), then run:
+
+        ```bash
+        # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
+        DISPATCHED_IDS='<json-array-of-dispatched-task-ids>' node -e "
+        const { parseWaveSummary } = require('<PLUGIN_ROOT>/scripts/lib/wave-summary.js');
+        const text = require('fs').readFileSync(0, 'utf8');
+        const dispatched = JSON.parse(process.env.DISPATCHED_IDS || '[]');
+        process.stdout.write(JSON.stringify(parseWaveSummary(text, dispatched)));
+        " < "<SUMMARY_FILE>"
+        echo "PARSE_EXIT=$?"
+        rm -f "<SUMMARY_FILE>"
+        ```
+
+        Read `schemaOk`, `missingIds`, `extraIds`, `violations` and `parsed` from the JSON line it prints. If no JSON line was printed or `PARSE_EXIT` is not 0, mark no task done: treat the wave as failed (`wave-fail`) and follow Step 6 (RECOVER) with the printed error.
+     ````
+     Delete the old "Read `schemaOk` … from the result." sentence that followed the block.
+  3. **Part 3 — owner gate.** Apply only after the owner confirms option (b) of this item; the M5.1 report lists the question. Option (b): ship refuses `--auto` without a tier up front.
+     - `runValidation` in `skill/ship.js`, directly after the `missingPlanFile` block, adds:
+       ```
+         if (flags.auto && executeWillRun && flags.quality === undefined) {
+           errors.push({
+             id: 'autoWithoutQuality',
+             message: 'ship-sdlc --auto runs execute-plan-sdlc without asking, so it needs a quality tier. ' +
+               'Fix: re-run with --quality full|balanced|minimal. ' +
+               'Why: execute-plan-sdlc asks for the tier when --quality is absent, and no question can be asked under --auto.',
+           });
+         }
+       ```
+     - R-tier-prompt-invariant: append "Under `--auto`, `skill/ship.js` refuses to start when execute will run and no `--quality` was passed (`errors[].id: autoWithoutQuality`)."
+     - `docs/skills/ship-sdlc.md:449` and `:473`: add `--quality balanced` after `--auto`.
+     - `ship-prepare-exec.yaml:1080`: add `--quality balanced` to `script_args` (consumer edit, own commit).
+     - New case `"ship-prepare: --auto with execute and no --quality errors autoWithoutQuality"` (`script_args: "--has-plan --auto --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"`, assert `icontains "autoWithoutQuality"`).
+     The other options the owner may pick instead are (a) a default tier for execute under `--auto` (changes R-tier-prompt-invariant) and (c) no change (W5.2's error stands). For (a) or (c), stop.
+- **Must not touch:** `lib/wave-summary.js`; the CONTEXT_OVERFLOW split-and-retry flow; `state/execute.js`; the interactive tier prompt.
+- **Verification:**
+  - Parts 1–2: `grep -n "PARSE_RESULT=\|readFileSync('/dev/stdin'" plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md` prints nothing; `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "execute-plan|execute-prepare"` passes.
+  - Part 3: `npx promptfoo eval -c promptfooconfig-exec.yaml --filter-pattern "ship-prepare"` passes.
+  - Single final behavioural case: the execute-plan-sdlc case that exercises the 5c parse (the one W5.3 names as its final check).
+- **Expected effect:** CONTEXT_OVERFLOW detection works again (decline #2, "effectively blind"). Interrupted runs leave no temp files. With (b), an unattended ship run fails before any step instead of mid-pipeline.
+- **Done when:** the Verification greps are empty; part 3 is applied or recorded as declined by the owner.
+- **Guardrails for the executor:**
+  - The interactive case is a separate owner question; do not change it here. Ship without `--auto` dispatches execute as an agent, and S1 (b) = NO means that agent cannot ask the tier question.
+  - Never synthesize a tier in `ship.js`.
+
+---
+
 ## 3. Milestones
 
-Milestones are dependency-ordered. Items inside a milestone may run in parallel when their **Depends on** lists allow. The non-pipeline track (W6a, W6b, W6c.4–W6c.6, W6c.10 non-ship/execute parts, W7.1, W7.2, W1.7, W1.8) is not tied to a milestone after M1 and runs whenever capacity allows; W7.3–W7.8 wait for M3.
+Milestones are dependency-ordered and run one at a time (owner, 2026-10-18). Inside a milestone the items are grouped into waves. Each wave is merged before the next one starts, and adjacent short waves may be joined only under the arbiter's join rule (owner, 2026-10-19). Within a wave, items follow their **Depends on** order. The former parallel track (W6a, W6b, W6c.4–W6c.6, W6c.10, W7.1–W7.8, W1.6, W1.7 and W1.8) does not run alongside M2–M5. The owner made it the serial milestones M6–M10 after M5 (2026-10-19), grouped by each item's Depends-on line. M5.1 (workstream W8: follow-ups found while running M1–M5) runs between M5 and M6. §0 rule 9 applies from M4 on: before an item edits a skill whose spec is still legacy-shaped, that spec gets its W3.5 restructure in a separate commit. M5.1 and M8–M10 therefore complete W3.5 along the way. CI is out of scope (owner, 2026-10-18; S13), so every exit criterion below is a local command.
 
 | Milestone | Items | Exit criterion (mechanically checkable) | What becomes safe only after it |
 |---|---|---|---|
-| **M1 — Measure, then correctness quick wins** (Phase 1 of the README) | W1.1, W1.2, W1.3, W1.9 → W1.10 (before W1.5 makes CI authoritative), W1.11, W1.4, W2.1, W2.7, W6c.1, W6c.2, W6c.3, W6c.7, W6c.8, W6c.9 (all but the ship/execute descriptions), W4.1, W5.1 | `node plugins/sdlc-utilities/scripts/ci/validate-cost-tiers.js --strict` exits 0 on this CRLF checkout; `grep -rn "context-stats\|getAdvisory" plugins/sdlc-utilities` returns nothing; `hooks.json` has no `timeout` > 60; `grep -rn "trap '" plugins/sdlc-utilities/skills` returns nothing and `check-consistency.js` reports no prepare-contract finding (W1.9, W1.10); a ship ledger written by `complete-step --usage` carries `steps[].usage`; `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml` passes (user-initiated). | Any statement about cost per completed task (W1.8); any `effort` tuning claim; all non-pipeline text work (W6a, W6b, rest of W6c, W7.1–W7.2). |
-| **M2 — CI on PR and hook simplification** | W1.5, W1.6 (optional), W2.2, W2.3, W2.4, W2.5, W2.6 | `.github/workflows/validate.yml` is green on a PR; `hooks.json` registers no `PreCompact` entry and exactly two `Stop` entries; `ship-hooks-exec.yaml` and `hook-stop-plan-integrity-exec.yaml` pass; `grep -rn "PreCompact" plugins/sdlc-utilities/skills docs/specs` returns only appendix/history lines. | Phase-2/3 prose and script edits in general (regressions now caught on PR); the ship Step 5 rewrite (hook contract is stable). |
-| **M3 — Specs as contracts** | W3.1 → W3.6 → W3.2, W3.3, W3.4 (W3.5 deferred to next touch); spike S1 (no dependencies; gates W4.3 and W7.4, so it runs here) | `docs/spec-template.md` has the ten contract headings; for each of the three specs the W3 P-5 check prints `SAME` against the commit immediately before that item (not against `0c0cdcc` — M1/M2 items edit ship R67/R68/R74/R-cap-recovery/R-pause/R35 and plan R17/R20/R21 first); `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js` prints no stdout line for ship/execute/plan; `check-consistency.js` and `check-docs-consistency.js` outputs match their pre-item captures. | W4.2 (ship step-emitter), W5.2 (`skill/execute.js`), W7.3/W7.4 (plan scripts/agents) — each step contract is then written once. |
-| **M4 — Ship control plane** | W4.2, W4.3, W4.4, W4.5, W4.6 | `node plugins/sdlc-utilities/scripts/skill/ship.js --has-plan --dry-run …` emits a `status: "step"` envelope beside the existing prepare keys; the `ship-prepare-exec.yaml` transition cases pass; `grep -c 'node -e' plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md` is 0 in the branch/archive/rebase sections; `agents/ship-step-*.md` exist with `model` and `effort`; `docs/cost-tiers.md` §4 lists them and `validate-cost-tiers.js --strict` passes. | Ship prose housekeeping (W6c.10 ship part: `<PLUGIN_ROOT>` dedupe, R-ref comments; the ship description in W6c.9); any further ship SKILL.md edits. |
-| **M5 — Execute topology** | W5.2, W5.3 (default 9), S3 measurement (moves the default if needed), W5.4, W5.5 | `scripts/skill/execute.js` exists and `execute-prepare-exec.yaml` passes; `grep -c 'node -e' plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md` ≤ 3 after W5.2 and ≤ 1 after W5.4; `agents/execute-worker*.md` exist; the S3 measurement and the chosen `execute.waveRunnerMinPlanTasks` default are recorded in `docs/cost-tiers.md` §7. | Execute prose housekeeping (W6c.10 execute part; the execute description in W6c.9/W5.5); the Haiku batched-trivial A/B (W1.8). |
-| **Parallel track (after M1)** | W6a.1–W6a.9, W6b.1–W6b.6, W6c.4, W6c.5, W6c.6, W6c.10 (non-ship/execute parts), W7.1, W7.2, W1.7; **after M2:** W1.8 (baseline row recorded in M1, right after W1.1); **after M3:** W7.3 → W7.4 → W7.5, W7.6 → W7.7 → W7.8 | Per-item verification. | — |
+| **M1 — Measure, then correctness quick wins** (Phase 1 of the README) — **done** 2026-10-19: PRs #3, #5, #8, #10, #12; last merge `cd05474`, v0.22.0 → v0.23.2 | W1.1, W1.2, W1.3, W1.9 → W1.10 (before W1.5 makes CI authoritative), W1.11, W1.4, W2.1, W2.7, W6c.1, W6c.2, W6c.3, W6c.7, W6c.8, W6c.9 (all but the ship/execute descriptions), W4.1, W5.1 | `node plugins/sdlc-utilities/scripts/ci/validate-cost-tiers.js --strict` exits 0 on this CRLF checkout; `grep -rn "context-stats\|getAdvisory" plugins/sdlc-utilities` returns nothing; `hooks.json` has no `timeout` > 60; `grep -rn "trap '" plugins/sdlc-utilities/skills` returns nothing and `check-consistency.js` reports no prepare-contract finding (W1.9, W1.10); a ship ledger written by `complete-step --usage` carries `steps[].usage`; `cd tests/promptfoo && npx promptfoo eval -c promptfooconfig-exec.yaml` passes (user-initiated). | Any statement about cost per completed task (W1.8); any `effort` tuning claim; all non-pipeline text work (W6a, W6b, rest of W6c, W7.1–W7.2). |
+| **M2 — CI on PR and hook simplification** — **done** 2026-10-19: wave 0 PR #14 → `9d00910` (v0.23.3), wave 1 PR #16 → `286e5fa` (v0.24.0) | W1.5 — **dropped** (owner 2026-10-18: CI out of scope), W1.6 (optional; moved to M6), W2.2, W2.3, W2.4, W2.5, W2.6; added by the owner as wave 0 (out of plan, 2026-10-18): fixture repair (the openspec-ready `.sdlc/.gitignore` committed, seven gitlink fixtures and three ship fixtures rebuilt as `setup.sh` fixtures, `plan-explore.js:308` reads stdin from fd 0) | The `.github/workflows/validate.yml` clause was removed with W1.5 (owner 2026-10-18). `hooks.json` registers no `PreCompact` entry and exactly two `Stop` entries; `ship-hooks-exec.yaml` and `hook-stop-plan-integrity-exec.yaml` pass; `grep -rn "PreCompact" plugins/sdlc-utilities/skills docs/specs` returns only appendix/history lines. | Phase-2/3 prose and script edits in general (with CI out of scope, regressions are caught by each wave's local gates, S13); the ship Step 5 rewrite (hook contract is stable). |
+| **M3 — Specs as contracts** — **done** 2026-10-19: PRs #18, #20, #22, #24; last merge `7de2012`, v0.25.0 → v0.25.3; spike S1 closed 2026-10-19 (§5) | W3.1 → W3.6 → W3.2, W3.3, W3.4 (W3.5 deferred to next touch); spike S1 (no dependencies; gates W4.3 and W7.4, so it runs here) | `docs/spec-template.md` has the ten contract headings; for each of the three specs the W3 P-5 check prints `SAME` against the commit immediately before that item (not against `0c0cdcc` — M1/M2 items edit ship R67/R68/R74/R-cap-recovery/R-pause/R35 and plan R17/R20/R21 first); `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js` prints no stdout line for ship/execute/plan; `check-consistency.js` and `check-docs-consistency.js` outputs match their pre-item captures. Ruled during M3: for execute, P-5 shows exactly the nine step-emitter ids W3.3 adds; run the validator as `validate-spec-shape.js --root .` (the bare form reads the main checkout). | W4.2 (ship step-emitter), W5.2 (`skill/execute.js`), W7.3/W7.4 (plan scripts/agents) — each step contract is then written once. |
+| **M4 — Ship control plane** — **in progress** since 2026-10-19 (wave 1: W4.2, todo #9001) | W4.2, W4.3, W4.4, W4.5, W4.6 | `node plugins/sdlc-utilities/scripts/skill/ship.js --has-plan --dry-run …` emits a `status: "step"` envelope beside the existing prepare keys; the `ship-prepare-exec.yaml` transition cases pass; `grep -c 'node -e' plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md` is 0 in the branch/archive/rebase sections; `agents/ship-step-*.md` exist with `model` and `effort`; `docs/cost-tiers.md` §4 lists them and `validate-cost-tiers.js --strict` passes. | Ship prose housekeeping (W6c.10 ship part: `<PLUGIN_ROOT>` dedupe, R-ref comments; the ship description in W6c.9); any further ship SKILL.md edits. |
+| **M5 — Execute topology** — not started | W5.2, W5.3 (default 9), S3 measurement (moves the default if needed), W5.4, W5.5 | `scripts/skill/execute.js` exists and `execute-prepare-exec.yaml` passes; `grep -c 'node -e' plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md` ≤ 3 after W5.2 and ≤ 1 after W5.4; `agents/execute-worker*.md` exist; the S3 measurement and the chosen `execute.waveRunnerMinPlanTasks` default are recorded in `docs/cost-tiers.md` §7. | Execute prose housekeeping (W6c.10 execute part; the execute description in W6c.9/W5.5); the Haiku batched-trivial A/B (W1.8). |
+| **M5.1 — Follow-ups from M1–M5** (owner 2026-10-19; runs after M5, before M6) | W8.1–W8.20, in five waves: 1 security (W8.1); 2 hooks and scripts (W8.2–W8.7); 3 validators and tests (W8.8–W8.11); 4 spec and schema sync (W8.12–W8.17); 5 stale text (W8.18–W8.20). Every item is re-verified at the M5.1 base first. M4/M5 follow-ups are appended as W8.21+ when those milestones close. | `grep -nE 'commit (--amend )?-m "<message>"' plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md` prints nothing and the `commit-literal-message` exec case passes (W8.1); `grep -rn "readFileSync('/dev/stdin'" plugins/sdlc-utilities` prints nothing (W8.4, W8.20); `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root .` prints no stdout line, and its LEGACY_SHAPE lines no longer name commit-sdlc, error-report-sdlc, review-sdlc or verify-pipeline-sdlc; `node .claude/skills/validate-plugin-consistency/check-consistency.js` exits 0; `promptfooconfig-exec.yaml`, then `promptfooconfig-exec-hooks.yaml`, pass (run one after the other); the M5.1 report lists every W8 item as done or closed with evidence. | M6 (the eval harness then exercises a ship/execute pair without the known commit-quoting and hook-loop defects); the later text passes (W6c.10) work on synced specs. |
+| **M6 — Eval harness** (owner 2026-10-19) | Wave 1: W1.7 (M). Wave 2: W1.6 (S, optional; a local validator only, because W1.5 was dropped. Owner: include or drop). | `claude plugin validate plugins/sdlc-utilities` exits 0; 5–7 `plugins/sdlc-utilities/evals/<case>/` directories each hold a prompt and a grader, and `plugin.json` declares the evals (W1.7); case 1 passes once with `--runs 1 --json` (owner gate: spends credentials, user-initiated); if W1.6 is included, `node plugins/sdlc-utilities/scripts/ci/validate-copilot-mirror.js` exits 0 locally. | A behaviour check for the M4/M5 ship and execute rework that the prose suite cannot give (S8). |
+| **M7 — Plan pipeline** (owner 2026-10-19) | Wave 1: W7.1, W7.2 (W7.1 item 18 relaxes validator rule 13 first). Wave 2: W7.3 (L, never joined). Wave 3: W7.4 (S1 conditions YES). Wave 4: W7.5, W7.6 (owner gate if the W7.6 runs spend credentials). Wave 5: W7.7, W7.8 (W7.7's merge decision comes from the W7.6 row; owner gate if it is not clear-cut). | `check-consistency.js` exits 0 and W7.1's grep counts are 0; the plan-explore-orchestrator frontmatter has `effort: medium` and plan spec R25 says 3–5 (W7.2); `plan-prepare-exec.yaml` case T4a passes (W7.3); the nine plan agent files exist with `model` and `effort`, `grep -n promptTemplatePath plugins/sdlc-utilities/scripts/skill/plan.js` prints nothing, and `validate-cost-tiers.js --strict` exits 0 (W7.4); `docs/cost-tiers.md` §7 holds the W7.6 row with its figures and decision, and W7.7 is done or declined per that row; `diff-material` prints `affectedGates`/`affectedLanes` and `merge-lanes --carry` exists (W7.8). | W6b.3 (M8), which needs W7.1 item 18; W6c.10's plan-sdlc part (M10). |
+| **M8 — Review family** (owner 2026-10-19) | Wave 1: W6b.1, W6b.2, W6b.3 (W6b.3 after W7.1 item 18, M7). Wave 2: W6b.4 (the `review-summary.json` schema is W4.5's, M4). Wave 3: W6b.5, W6b.6 (W6b.5's opus/effort choice depends on W1.8's A/B; owner gate if it moves a tier). | review-sdlc's `argument-hint` lists all 8 flags (W6b.1); REFERENCE §2 ends with a `## This run` block (W6b.2); `review-consolidate.js` exists and its 3 exec cases pass (W6b.4); a dimension with `effort: low` parses and is carried in the manifest (W6b.5); `received-review.js` accepts `--output-file` (W6b.6); `validate-spec-shape.js --root .` no longer lists received-review-sdlc as LEGACY_SHAPE; `check-consistency.js` exits 0. | W6c.10's review and received-review parts (M10). |
+| **M9 — jira and setup** (owner 2026-10-19) | Wave 1: W6a.1, W6a.2 (jira). Wave 2: W6a.3, W6a.4 (W6a.4's SKILL.md index line goes after W6a.3). Wave 3: W6a.5. Wave 4: W6a.6, W6a.7, W6a.8 (setup; W6a.7 before W6a.9). Wave 5: W6a.9. | jira-sdlc has one `### MCP-failure gate` section (W6a.2); `skills/jira-sdlc/write-ops.md` exists with Steps 2.5–2.7 (W6a.3); `jira.js --assemble` exists and its two exec cases pass (W6a.5); `setup-guardrails.md` has the Target table and `setup-execution-guardrails.md` is deleted (W6a.8); `project-scan.js` is used by both `guardrails.js` and `setup.js`, and `scan-patterns.md` is deleted (W6a.9); `validate-spec-shape.js --root .` no longer lists jira-sdlc or setup-sdlc as LEGACY_SHAPE; both exec configs pass. | W6c.10's jira and setup parts (M10). |
+| **M10 — Remaining skills, plugin-wide text, re-tune** (owner 2026-10-19) | Wave 1: W6c.4 (pr), W6c.5 (version), W6c.6 (harden). Wave 2: W6c.10 (the last text pass: after W4.2/W5.3 and after every skill owner's items in M7–M9). Wave 3: W1.8 (L, ongoing; needs W1.1 usage data and the M5 S3 row; measurement runs and any tier or effort change are owner gates). | `pr.js` emits `prConfig.labels.matched` and `openspec` (W6c.4); W6c.5's grep on `version-sdlc/SKILL.md` is empty and the exit-3 line exists; `dimension-to-instructions.js --write-mirror` returns the JSON envelope for its three cases (W6c.6); W6c.10's Done-when holds; `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0 (W3.5 complete for all ten specs; there is no CI step to switch); `docs/cost-tiers.md` §7 has W1.8's rows, each n ≥ 3, and `validate-cost-tiers.js --strict` exits 0. | — |
 
-Within the parallel track the internal orders are: W6a.1 → W6a.2 → W6a.3/W6a.5; W6a.6 → W6a.7 → W6a.8/W6a.9; W6b.1–3 → W6b.4 (its `review-summary.json` emission waits for W4.5 in M4); W6b.5 after W1.3; W6c.2 before W6c.4/W6c.5/W6c.6; W7.1 (relaxes validator rule 13) before W6b.3, W7.2 and W5.3. Inside M1, W1.1 lands first and the W1.8 baseline row is recorded before W6c.1 and W6c.7; W1.3 → W1.9 → W1.10, and W1.9 precedes W4.1, W6c.2 and W6c.3 (they edit the Step 0 blocks it cleans); W1.10 precedes W1.5 (M2).
+Inside M6–M10 (the former parallel track) the internal orders are: W6a.1 → W6a.2 → W6a.3/W6a.5; W6a.6 → W6a.7 → W6a.8/W6a.9; W6b.1–3 → W6b.4 (its `review-summary.json` emission waits for W4.5 in M4); W6b.5 after W1.3; W6c.2 before W6c.4/W6c.5/W6c.6; W7.1 (relaxes validator rule 13) before W6b.3, W7.2 and W5.3. Inside M1, W1.1 lands first and the W1.8 baseline row is recorded before W6c.1 and W6c.7; W1.3 → W1.9 → W1.10, and W1.9 precedes W4.1, W6c.2 and W6c.3 (they edit the Step 0 blocks it cleans); W1.10 precedes W1.5 (M2).
 
 ---
 
@@ -3875,13 +4661,48 @@ Nothing from either source is silently lost; every row names where the work land
 
 Q1–Q14 are closed; [Appendix A](#appendix-a--closed-questions) maps each to its implementing item. New item: W1.11 (file the Q12 follow-up issues).
 
+### 4.6 Added during execution (2026-10-18 to 2026-10-19)
+
+This subsection records owner decisions taken while M1–M4 ran, and the follow-ups the waves found. The source records are local (`.sdlc/orchestration/`: `log.md`, the milestone reports, the decline reviews and `todos.md`). Nothing from them is dropped silently.
+
+| Source | Disposition | Consolidated ID(s) |
+|---|---|---|
+| Owner 2026-10-18: CI workflows are out of scope | W1.5 dropped from M2, with its `validate.yml` exit clause. Every gate is local (S13). W3.6's CI step and W3.5's `--strict` CI switch are not added | W1.5 (dropped), S13 |
+| Owner 2026-10-18: fixture repair before W2.3 | done out of plan as M2 wave 0 (PR #14, `9d00910`) | — |
+| Owner 2026-10-19: spike S1 result | closed; (b) = NO, so W4.3 Change 5 takes the `confirm_<step>` path (Q5) | S1, W4.3 |
+| Owner 2026-10-19: the parallel track becomes post-M5 milestones | serial milestones M6–M10, same D-serial rules; W1.6 becomes a local validator, and the owner decides whether to include it | §3 M6–M10 |
+| Owner 2026-10-19: follow-ups as local todos, milestone M5.1 | workstream W8 | W8.1–W8.20 |
+| #9101, #9102 commit-sdlc shell injection; gate exits without an `--auto` path | kept | W8.1 |
+| #9103 stop-plan-integrity marker-delete loop | kept | W8.2 |
+| #9104 pipeline-continue nudge never re-armed | kept, conditional on W4.2 | W8.3 |
+| #9105 `/dev/stdin` idiom | kept (the execute SKILL.md site goes to W8.20) | W8.4 |
+| #9106 session-start sweep lacks `gcTempdirs` | kept | W8.5 |
+| #9107 error-report priority ignores exit code 2 | kept (script); spec and SKILL.md text in W8.16 | W8.6, W8.16 |
+| #9108 claude-cli provider ENOENT | kept (retry only; `DISABLE_AUTOUPDATER` is owner-level) | W8.7 |
+| #9109 validate-spec-shape gaps | kept | W8.8 |
+| #9110 check-consistency rule 2 misses `$SCRIPT` | kept (flags the variable form; plan-sdlc inlined) | W8.9 |
+| #9111 vacuous skip-config-check cases | kept | W8.10 |
+| #9112 dataset `R-numbers` prose, `#505` remnants | kept | W8.11 |
+| #9113 ship spec gaps | kept, conditional on W4.2 | W8.12 |
+| #9114 ship-state schema gaps | kept, conditional on W4.2 | W8.13 |
+| #9115 execute spec stale after W5.1 | kept, conditional on M5 | W8.14 |
+| #9116 X11 and V1 have no spec R; the V1 fallback leaves edits | kept (part A conditional on W4.2) | W8.15 |
+| #9117 commit and error-report spec entries | kept | W8.16 |
+| #9118 review-sdlc spec G3/C11 | kept, conditional on W4.5 | W8.17 |
+| #9119 stale validator/agent/docstring text | kept | W8.18 |
+| #9120 ship text leftovers | kept, conditional on W4.2 | W8.19 |
+| #9121 execute parse result, temp file, `--auto` vs `--quality` | kept, conditional on M5; part 3 owner-gated | W8.20 |
+| Not in M5.1, owned by plan items: `docs/skills/harden-sdlc.md:227` REFERENCE; pr-sdlc Glob; plan spec R25 "3–7" and P-TRANS-1 TBD; plan "catalog items 1–8" | stays with its owning item | W6c.6; W6c.4; W7.2, W7.3; W7.1 |
+| Not in M5.1, owner-level: `DISABLE_AUTOUPDATER`; P13 (`writeOutput` resolves the main worktree); test-runner option D; installed-plugin 0.21.29 traps (gone on a plugin update) | owner decision; no plan item | — |
+| Historical `REFERENCE.md` mentions in `assessment/` | no action | — |
+
 ---
 
 ## 5. Risks and spikes
 
 | ID | Risk / spike | Mitigation | Gates |
 |---|---|---|---|
-| **S1** | **Fork permission inheritance and consent gates for plugin skills.** `assessment/reference/03-claude-code-authoring-reference.md` §2 says `permissionMode`, `hooks`, `mcpServers` are ignored for plugin subagents; whether a `context: fork` step inherits the main session's permission mode and whether a forked sub-skill can reach `AskUserQuestion` (commit/PR approval, received-review consent) is undocumented. | Half-day spike in M3 (before M4 and before W7.4): a throwaway plugin skill with `context: fork`, `agent:` and `background: false` that (a) runs `git status` under the session's permission mode, (b) calls `AskUserQuestion`, (c) confirms that a plugin agent's `effort:` frontmatter is honoured. Record the result in `docs/cost-tiers.md` §7. Target state either way (Q5 closed 2026-10-18): consent gates as main-context `llm_decision` steps of the step-emitter and sub-skills always forked; the general-purpose Agent path is kept only until S1 reports. S1 decides only whether content-level prompts stay inside the forked sub-skill ((b) succeeds) or move to `confirm_<step>` decisions before dispatch ((b) fails); model/effort always come from the agent file. | W4.3, W7.4, W7.6 |
+| **S1** | **Fork permission inheritance and consent gates for plugin skills.** `assessment/reference/03-claude-code-authoring-reference.md` §2 says `permissionMode`, `hooks`, `mcpServers` are ignored for plugin subagents; whether a `context: fork` step inherits the main session's permission mode and whether a forked sub-skill can reach `AskUserQuestion` (commit/PR approval, received-review consent) is undocumented. | Half-day spike in M3 (before M4 and before W7.4): a throwaway plugin skill with `context: fork`, `agent:` and `background: false` that (a) runs `git status` under the session's permission mode, (b) calls `AskUserQuestion`, (c) confirms that a plugin agent's `effort:` frontmatter is honoured. Record the result in `docs/cost-tiers.md` §7. Target state either way (Q5 closed 2026-10-18): consent gates as main-context `llm_decision` steps of the step-emitter and sub-skills always forked; the general-purpose Agent path is kept only until S1 reports. S1 decides only whether content-level prompts stay inside the forked sub-skill ((b) succeeds) or move to `confirm_<step>` decisions before dispatch ((b) fails); model/effort always come from the agent file. **Closed 2026-10-19:** (a) YES. It was re-probed in `default` mode: the session's permission mode is inherited, reads ran without a dialog, and a write prompted in the main session. (b) NO. `AskUserQuestion` is not available inside subagents. The owner accepted the NO path: W4.3 Change 5 emits `confirm_<step>` decisions (Q5). (c) YES. `effort: low` reached the API. W7.4's condition (read-only plugin subagents dispatched by `subagent_type` run without prompts) also held. The result is recorded in `docs/cost-tiers.md` §7 (commit `f6049e2`, merged in `35db8dd`); the full report is local (`.sdlc/orchestration/m3/s1/report.md`). | W4.3, W7.4, W7.6 |
 | **S2** | **`SubagentStop` payload may not expose usage.** W1.1's automated source is the hook payload; the hooks page was only partially read (reference §4 caveat). | W1.1 ships with the manual path (executor reads usage from the Agent return; `{"source":"unavailable"}` when absent). Spike: register a temporary `SubagentStop` command hook that dumps stdin to a file; if `usage`/token fields are present, add `hooks/subagent-usage.js` that writes them into the ledger via `complete-step --usage` — a separate follow-up item after M2. | Automation of W1.1; W1.8 accuracy |
 | **S3** | **Execute main-context growth under direct worker dispatch (D2).** Removing the wave-runner moves N bounded worker returns plus the deadline/Monitor loop into execute's context. | W5.3 ships with `execute.waveRunnerMinPlanTasks` default 9 (plans ≤8 tasks direct). Measure a 12-task, 3-wave plan with the setting at `13` (direct) and `1` (runner), record execute-context tokens from W1.1 and wall-clock, and move the default to the plan size where direct dispatch stops beating the runner. | W5.3 default (already set); Q1 (closed) |
 | **S4** | **CRLF checkout caveat.** On this working tree `validate-cost-tiers.js --strict` reports every surface INHERITED and exits 1, `session-start.js` prints "0 skills loaded", `check-consistency.js` reports 10 false `user-invocable-flag` errors, and `review.js` cannot parse dimension frontmatter (LF-only regexes in `scripts/lib/yaml.js:24,32`, `hooks/session-start.js:75`, `check-consistency.js:269,520`, `check-docs-consistency.js:93`, `plan-explore.js:226`; `validate-cost-tiers.js:150` splits on `\n`). Any validator result before W1.3 is untrustworthy here; line numbers match HEAD but byte offsets do not. | W1.3 lands first in M1; CI (W1.5) runs on Linux/LF; executors on Windows/WSL always strip `\r` when quoting; items that must verify "no new findings" before W1.3 diff the validator output before/after instead of reading the exit code. | All validator-based verification; M1 exit |
@@ -3893,6 +4714,7 @@ Q1–Q14 are closed; [Appendix A](#appendix-a--closed-questions) maps each to it
 | **S10** | **Alias drift across providers.** On Bedrock/Vertex/Foundry `sonnet`/`haiku` resolve to 4.5-generation models (reference §7); tier/effort assumptions in W5.3/W6b.5 hold only on the Anthropic API. | Note in `docs/cost-tiers.md` §1 (W1.3) and keep aliases (no model IDs) everywhere. | Cost claims in W1.8 |
 | **S11** | **`trap … EXIT` in a Bash tool call fires when that call ends** (each Bash tool call is its own shell), so the 14 traps in 11 skill files deleted manifests before later calls read them. **Closed 2026-10-18 (plan-review R-1):** W1.9 makes `writeOutput` manifests persistent under `.sdlc/execution/out/` (prune-on-write, `--gc` and session-start sweeps) and deletes every trap; W1.10 rule 11 (`no-exit-trap`) prevents regressions. | — | W1.9, W1.10 |
 | **S12** | **Validator rule 13 blocks the `run_in_background` clean-up.** `.claude/skills/validate-plugin-consistency/check-consistency.js:278-283` requires `run_in_background: false` in any agent with the Agent tool and in files carrying `<!-- fan-out-dispatch: await-barrier-required -->`; the parameter does not exist on the Agent tool, so removing it (W6b.3, W7.1, W7.2, W5.3) fails the validator unless rule 13 is relaxed first. | W7.1 item 18 relaxes rule 13 (barrier phrase only) and must land before W6b.3/W7.2/W5.3 touch their dispatch lines; the milestone note records the order. | W6b.3, W7.2, W5.3 |
+| **S13** | **No CI (owner, 2026-10-18).** W1.5 was dropped, so nothing runs the validators or exec promptfoo on a PR. These earlier premises no longer hold: M2's "regressions caught on PR", S4's "CI (W1.5) runs on Linux/LF" and S8's W1.5 relabelling of the behavioural suite. | Each wave's gate runs the validators and both exec configs locally on the exact PR head, one after the other, before the arbiter merges. Every §3 exit criterion is a local command. If CI returns, W1.5 and the W3.6/W3.5 CI steps come back as items. | All merges; S4, S8 |
 
 ### Harness facts to verify via docs first (plan-review R-6)
 
