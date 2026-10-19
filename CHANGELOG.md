@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-19
+
+### Added
+- ci: `validate-spec-shape.js` checks `docs/specs/*.md` against the contract shape (heading order, missing sections, issue numbers and withdrawn entries in the body, `**Model:**` header, duplicate ids) and that every `R` id cited by skill and agent files is defined in some spec; legacy specs warn on stderr until `--strict` (#17)
+- tests: `validate-spec-shape-exec.yaml` dataset with clean and bad fixtures (#17)
+
+### Changed
+- docs: `spec-template.md` is contract-shaped (ten sections grouped by behaviour); `AGENTS.md` principle 1 and a new "Spec shape" bullet, `adding-skills.md` and `step-emitter-architecture.md` follow it (#17)
+- docs: `cost-tiers.md` §6 states that tuning values (model, effort, timeouts, caps) live outside specs and need no spec update; the `spec-first` guardrail says so too; the spec-compliance dimension accepts id gaps listed under Withdrawn (#17)
+
 ## [0.24.0] - 2026-10-19
 
 ### Added
