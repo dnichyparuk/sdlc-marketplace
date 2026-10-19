@@ -24,6 +24,8 @@ A per-branch sidecar lives in `resolveStateDir()`: `.stop-block-count-<branchSlu
 - **Gating:** writes to this sidecar go through the same `hookEnforcementAllowed(data, payload)` predicate as the other enforcement hooks — a foreign or session-less state never gets its block counter written or incremented.
 - **Cleanup:** swept by `session-start.js`'s 24-hour stale-sweep pass (`/^\.(?:compact-recovery|stop-block-count|pipeline-nudge|stop-cap-exhausted)-.+\.json$/`).
 
+This sidecar is owned by `stop-pipeline-continue.js`; this README only documents its filename and contract for readers of this directory.
+
 ### Sidecar: `.stop-cap-exhausted-<branchSlug>.json`
 
 Written by `stop-pipeline-continue.js` when the block cap above is reached: `{ "stepName": "<step>", "count": <n>, "at": "<ISO>" }`. While it names the current step the hook stays silent; `skill/ship.js` prepare surfaces it as a warning and `resume.capExhausted`. The hook never modifies the ledger. `state/ship.js begin-step` removes it; a sidecar for a different step is stale and ignored.
@@ -31,5 +33,3 @@ Written by `stop-pipeline-continue.js` when the block cap above is reached: `{ "
 ### The Nudge Sidecar: `.pipeline-nudge-<branchSlug>.json`
 
 `pipeline-continue.js` (PostToolUse, matcher `Bash`) records the last nudge it emitted in `<stateDir>/.pipeline-nudge-<branchSlug>.json` as `{ "stepName": "<name>", "status": "<in_progress|pending>" }` and stays silent while the current step and status are unchanged, so the nudge fires once per step transition. It is written only on a path that emits, and swept by the same 24-hour stale-sweep pass.
-
-This sidecar is owned by `stop-pipeline-continue.js`; this README only documents its filename and contract for readers of this directory.
