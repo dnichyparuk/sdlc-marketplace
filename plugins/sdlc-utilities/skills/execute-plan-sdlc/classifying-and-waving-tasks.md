@@ -400,7 +400,7 @@ to a second location.
 - Complete tasks in the listed order
 - Do NOT modify files outside each task's "Files you may touch" list
 - **Use the Edit tool exclusively for all file modifications.** Never use bash sed, awk, perl, Python scripts, Go programs, or any other indirect method to patch files. If a file needs changing, use Edit. No exceptions.
-- If one task fails, continue to the next — do not stop the batch
+- If a task fails or cannot be completed, mark it FAILED with the reason and continue to the next; do not stop or hand back the batch until every task has a status
 - Report per-task status even if some tasks fail
 - Do not add features, refactor, or clean up beyond what each task requires
 
