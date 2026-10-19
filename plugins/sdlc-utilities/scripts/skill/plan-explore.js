@@ -305,7 +305,7 @@ function main() {
   let userPrompt = '';
   try {
     if (!process.stdin.isTTY) {
-      userPrompt = fs.readFileSync('/dev/stdin', 'utf8').trim();
+      userPrompt = fs.readFileSync(0, 'utf8').trim();
     }
   } catch (_) { /* no stdin — continue with empty prompt */ }
 
