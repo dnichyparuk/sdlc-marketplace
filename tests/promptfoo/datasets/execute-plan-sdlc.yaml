@@ -384,7 +384,10 @@
         Both guardrails (no-direct-db-access at error severity, no-axios at warning severity)
         are listed with their id, severity, and description. The section is placed BEFORE
         "Files You May Touch" or task-variable content to preserve prompt-cache prefix
-        stability across sibling per-task dispatches.
+        stability across sibling per-task dispatches. The prompt also tells the worker to run a
+        real check (tests, type-check, build, or the changed command) that exercises its change
+        before reporting done, and does NOT tell the worker "do not go looking" for a missing
+        surface (it may search the repo before reporting NEEDS_CONTEXT).
 
 - description: "execute-plan-sdlc: Step 5c sub-step 1a flags HARD failure when expectedFiles ∩ diff is empty (#392 / R34)"
   vars:
