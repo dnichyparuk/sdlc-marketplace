@@ -834,14 +834,15 @@
         since it's printed before the patch runs, but the actual dispatch uses
         the patched value. Reference R-expected-branch-branch-derive (fixes #526).
 
-- description: "ship-sdlc (#379): pre-execute state migration runs before branch creation in branch mode"
+- description: "ship-sdlc (#379): in branch mode the branch is created first and the ship state is migrated in --after branch_prepare"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md"
     project_context: "file://fixtures/ship-pipeline-ready.md"
     user_request: >
       When the workspace derives to `branch`, in what ORDER does ship-sdlc run:
-      (a) derive branch name, (b) migrate the ship state file, (c) run
-      `git checkout -b`? Why is the ordering of (b) before (c) load-bearing?
+      (a) derive branch name, (b) run `git checkout -b`, (c) migrate the ship
+      state file? Where does each happen, and why is the migration safe after
+      the checkout?
   assert:
     - type: llm-rubric
       value: >
