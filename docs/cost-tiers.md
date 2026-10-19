@@ -98,3 +98,9 @@ Effort is set in agent frontmatter; the validator does not check it.
 | Surface | Config A | Config B | Artifacts (n) | Tokens in/out (A, B) | Cost per completed task (A, B) | Completed (A, B) | Decision | Date |
 |---|---|---|---|---|---|---|---|---|
 | baseline (all surfaces) | installed sdlc 0.21.29 | - | 0 | unavailable | unavailable | unavailable | baseline: unavailable; installed sdlc 0.21.29 predates --usage (W1.1) | 2026-10-19 |
+
+**Spike S1 (2026-10-19, Claude Code v2.1.303).** A throwaway plugin skill with `context: fork`, and the same plugin agent dispatched by `subagent_type`, were run in a session in `default` permission mode:
+
+- Permission mode is inherited from the session. Read-only commands ran without a dialog; a write raised the normal permission dialog in the main session, naming the agent. Nothing was auto-denied.
+- `AskUserQuestion` is not available inside subagents, even when it is listed in the agent's `tools:`. A forked sub-skill cannot ask the user, so consent prompts are asked in the main context before dispatch.
+- Agent frontmatter `effort:` is honoured: `effort: low` reached the API while the session ran at `medium`.
