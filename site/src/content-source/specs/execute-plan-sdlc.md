@@ -338,7 +338,10 @@
 | R39 | (Fixes #414 — markTaskDone non-blocking resilience) |
 | R40 | (issue #505) |
 | R41 | (issue #505) |
-| R41 | `execute-plan-sdlc (R41, #505): ` in each of the four acceptance test names; now `execute-plan-sdlc (R41): ` |
+| R41 | , #505 |
+| R41 | , #505 |
+| R41 | , #505 |
+| R41 | , #505 |
 | R42 | (Fixes #508 — per-task sibling test convention checking) |
 | R-wave-runner-contract | (issue #353) |
 | R-main-context-steps | (issue #353) |
