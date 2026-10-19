@@ -255,31 +255,6 @@ Edit `plugins/<plugin>/hooks/hooks.json`:
 > stderr output to surface validation findings as feedback to Claude. Exit 0 means
 > clean — no output needed.
 
-### Preserve Pipeline State Across Compaction
-
-```json
-{
-  "hooks": {
-    "PreCompact": [
-      {
-        "matcher": "manual|auto",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-compact-save.js\"",
-            "timeout": 5000
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-> **Pattern:** PreCompact saves critical state to a temp file. The SessionStart hook
-> (which fires on the `compact` matcher) reads and re-injects the saved state into
-> context. The file bridges the compaction boundary and is deleted after consumption.
-
 ## Tips
 
 1. **Use `|| true`** — Prevent hook failures from blocking Claude's workflow
