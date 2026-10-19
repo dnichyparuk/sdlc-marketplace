@@ -845,13 +845,16 @@
   assert:
     - type: llm-rubric
       value: >
-        The response must state the order is: (1) derive branch name, (2) migrate
-        state file, (3) `git checkout -b`, all within the `branch_prepare` step
-        (`--after branch_prepare` finishes the migration). It must explain that migration runs
-        BEFORE the checkout because `state/ship.js read` resolves the OLD slug
-        filename while still on the original branch — after the checkout, HEAD
-        changes and the old filename is no longer resolvable. Reference R37
-        (fixes #379). Under a `continue` derive, no migration runs.
+        The response must state the order the step-emitter implements: (1) `ship.js`
+        derives the branch name, (2) the model runs the emitted `git checkout -b`
+        command from the `branch_prepare` step, (3) `--after branch_prepare` migrates the
+        ship ledger in `ship.js`, taking the OLD slug from the ledger's branch and the new
+        branch from the live current branch. It must NOT claim that the migration runs
+        before the checkout; where the question presupposes (b) before (c), the response
+        corrects that premise. It must explain why the migration is safe after the
+        checkout: the old slug comes from the ledger, not from a branch-name lookup
+        (`migrateBranchSlug` renames the ledger file and rewrites `branch`). Under a
+        `continue` derive, `branch_prepare` is not emitted and no migration runs.
 
 - description: "ship-sdlc (#378): default-branch warning is advisory, not a halt"
   vars:
