@@ -333,6 +333,27 @@
         if (!/commit/.test(afterReset.reason || '')) return 'FAIL: post-reset block reason missing new step name "commit"';
         return true;
 
+# W4.2: a ledger carrying the step-emitter fields (history[], currentStep) with an
+# in_progress step and flags.auto=false still blocks the Stop hook (mode-independent
+# in_progress rule); the extra fields do not change the hook's reading of steps[].
+- description: "stop-pipeline-continue (W4.2): ledger with history and currentStep, non-auto in_progress blocks"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,hook,statePath)=>(fs.writeFileSync(statePath,JSON.stringify({version:1,startedAt:"2026-06-08T12:00:00Z",branch:"feat/ship",sessionId:"sess-fixture",flags:{auto:false,steps:["execute","commit","pr"]},currentStep:"commit",history:[{step:"execute",result:"success",timestamp:"2026-06-08T12:05:00Z"}],steps:[{name:"execute",status:"completed"},{name:"commit",status:"in_progress"},{name:"pr",status:"pending"}]})),((r)=>console.log(JSON.stringify({status:r.status,stdout:r.stdout,stderr:r.stderr})))(cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-noauto"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const run = JSON.parse(r.stdout);
+        if (run.status !== 0) return `FAIL: hook exit ${run.status} stderr=${run.stderr}`;
+        const inner = JSON.parse(run.stdout);
+        if (inner.decision !== 'block') return `FAIL: decision ${inner.decision}`;
+        if (!/commit/.test(inner.reason || '')) return `FAIL: reason missing step name: ${inner.reason}`;
+        return true;
+
 # ---------------------------------------------------------------------------
 # block-askuserquestion-auto (R71 / C18, #477) — PreToolUse deny in --auto.
 # ---------------------------------------------------------------------------

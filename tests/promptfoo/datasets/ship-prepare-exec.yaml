@@ -1782,3 +1782,805 @@
       value: |
         const o = JSON.parse(output);
         return (o.resume && o.resume.capExhausted && o.resume.capExhausted.stepName === 'execute') || `FAIL: resume ${JSON.stringify(o.resume)}`;
+
+# ---------------------------------------------------------------------------
+# ship.js step emitter (P-STEP-1..4, P-TRANS-1). Driven through
+# tests/promptfoo/scripts/run-ship-stepper.js, which chains the initial call and
+# `--after <id> --result-file <p> --state <ledger>` calls against the
+# project-ship-stepper fixture and prints {scenario, calls, ledger, ledgerExists,
+# ledgerFiles}. Seeds: seed/ledger-<name>.json, copied to
+# .sdlc/execution/ship-<slug>-20261019T120000Z.json.
+# ---------------------------------------------------------------------------
+
+- description: "ship-step: (a) initial call emits a confirm_pipeline step beside the prepare keys"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario initial --plan plan.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e).slice(0, 400)}`;
+        if (e.status !== 'step') return `FAIL: status ${e.status}`;
+        if (!e.step || e.step.id !== 'confirm_pipeline') return `FAIL: step ${JSON.stringify(e.step)}`;
+        if (!e.context || !('sdlcGitignored' in e.context)) return 'FAIL: prepare key context.sdlcGitignored missing';
+        for (const k of ['errors', 'warnings', 'flags', 'steps', 'validation', 'resume', 'llm_decision', 'state_file', 'progress', 'ext']) {
+          if (!(k in e)) return `FAIL: key ${k} missing`;
+        }
+        if (!e.llm_decision || e.llm_decision.type !== 'confirm') return `FAIL: llm_decision ${JSON.stringify(e.llm_decision)}`;
+        if (!e.progress || e.progress.completed !== 0 || !(e.progress.total > 0)) return `FAIL: progress ${JSON.stringify(e.progress)}`;
+        return true;
+
+- description: "ship-step: (f) fresh initial call creates the ledger with frozen planFile/openspecContext/sources and empty history"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario initial --plan plan.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (!o.ledgerExists) return 'FAIL: no ledger created';
+        if (!e.state_file || !/ship-feat-ship-\d{8}T\d{6}Z\.json$/.test(e.state_file)) return `FAIL: state_file ${e.state_file}`;
+        for (const k of ['planFile', 'openspecContext', 'sources']) {
+          if (!o.ledger.flagsKeys.includes(k)) return `FAIL: ledger.flags lacks ${k}`;
+        }
+        if (!/plan\.md$/.test(o.ledger.flags.planFile)) return `FAIL: planFile ${o.ledger.flags.planFile}`;
+        if (o.ledger.history.length !== 0) return `FAIL: history ${JSON.stringify(o.ledger.history)}`;
+        if (o.ledger.currentStep !== 'confirm_pipeline') return `FAIL: currentStep ${o.ledger.currentStep}`;
+        // L2: reconcile inserts every computeSteps name (cleanup excluded)
+        for (const n of ['learnings-commit', 'verify-openspec', 'archive-openspec']) {
+          if (!(n in o.ledger.stepStatuses)) return `FAIL: steps[] lacks ${n}`;
+        }
+        if ('cleanup' in o.ledger.stepStatuses) return 'FAIL: cleanup must live in history only';
+        return true;
+
+- description: "ship-step: (g) resumed legacy ledger gets the frozen keys filled once; a second call leaves them unchanged"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario legacy-twice --plan plan.md --seed legacy"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.calls.length !== 2) return `FAIL: calls ${o.calls.length}`;
+        const [a, b] = o.calls.map(c => c.stateFlags);
+        if (!a || !b) return `FAIL: no ledger flags after a call: ${JSON.stringify(o.calls.map(c => c.envelope.state_file))}`;
+        for (const k of ['planFile', 'openspecContext', 'sources']) {
+          if (!(k in a)) return `FAIL: ${k} not filled by the resume call`;
+          if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) return `FAIL: ${k} changed on the second call`;
+        }
+        // The resumed legacy ledger is reused, not re-inited.
+        if (o.ledgerFiles.length !== 1 || o.ledgerFiles[0] !== 'ship-feat-ship-20261019T120000Z.json') return `FAIL: ledger files ${o.ledgerFiles}`;
+        if (o.calls.some(c => c.envelope.state_file !== o.calls[0].envelope.state_file)) return 'FAIL: state_file differs between calls';
+        return true;
+
+- description: "ship-step: (i) --dry-run initial call emits confirm_pipeline with null llm_decision and creates no ledger"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario initial-dry-run --plan plan.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'step') return `FAIL: status ${e.status}`;
+        if (!e.step || e.step.id !== 'confirm_pipeline') return `FAIL: step ${JSON.stringify(e.step)}`;
+        if (e.llm_decision !== null) return `FAIL: llm_decision ${JSON.stringify(e.llm_decision)}`;
+        if (e.state_file !== null) return `FAIL: state_file ${e.state_file}`;
+        if (o.ledgerExists !== false) return 'FAIL: dry-run created a ledger';
+        if (!e.context || !('sdlcGitignored' in e.context) || !Array.isArray(e.steps)) return 'FAIL: prepare keys sdlcGitignored/steps missing';
+        return true;
+
+- description: "ship-step: (b) --after confirm_pipeline with yes emits branch_prepare or dispatch_execute"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen --result results/yes.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (o.calls[0].exitCode !== 0) return `FAIL: exit ${o.calls[0].exitCode}: ${JSON.stringify(e)}`;
+        if (e.status !== 'step' || !['branch_prepare', 'dispatch_execute'].includes(e.step.id)) return `FAIL: ${e.status} ${e.step && e.step.id}`;
+        if (o.ledger.history.length !== 1 || o.ledger.history[0].step !== 'confirm_pipeline') return `FAIL: history ${JSON.stringify(o.ledger.history)}`;
+        return true;
+
+- description: "ship-step: (m) worktree/continue ledger skips branch_prepare after confirm_pipeline"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen --result results/yes.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.step.id !== 'dispatch_execute') return `FAIL: next ${e.step.id}`;
+        if (o.ledger.history.some(h => h.step === 'branch_prepare')) return 'FAIL: branch_prepare recorded';
+        if (!/--plan "/.test(e.step.data.invocation)) return `FAIL: invocation lacks the frozen --plan: ${e.step.data.invocation}`;
+        if (e.step.data.skill !== 'execute-plan-sdlc' || e.step.data.model !== 'opus') return `FAIL: data ${JSON.stringify(e.step.data)}`;
+        return true;
+
+- description: "ship-step: (j) --after confirm_pipeline with edit and nothing run deletes the ledger"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario edit-cancel --seed frozen --result results/edit.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'done') return `FAIL: status ${e.status}`;
+        if (e.state_file !== null) return `FAIL: state_file ${e.state_file}`;
+        if (e.ext.reason !== 'edit') return `FAIL: reason ${e.ext.reason}`;
+        if (o.ledgerExists) return 'FAIL: ledger still exists';
+        return true;
+
+- description: "ship-step: (j) --after confirm_pipeline with cancel and nothing run deletes the ledger"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario edit-cancel --seed frozen --result results/cancel.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'done' || e.state_file !== null || e.ext.reason !== 'cancel') return `FAIL: ${JSON.stringify(e)}`;
+        if (o.ledgerExists) return 'FAIL: ledger still exists';
+        return true;
+
+- description: "ship-step: (j) --after confirm_pipeline on a dry-run ledger returns done without touching the ledger"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen-dryrun --result results/yes.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'done' || e.ext.reason !== 'dry-run') return `FAIL: ${JSON.stringify(e)}`;
+        if (!o.ledgerExists) return 'FAIL: ledger removed';
+        if (o.ledger.history.length !== 0) return `FAIL: history written ${JSON.stringify(o.ledger.history)}`;
+        if (Object.values(o.ledger.stepStatuses).some(s => s === 'in_progress' || s === 'completed')) return 'FAIL: a step ran';
+        return true;
+
+- description: "ship-step: (c) --after dispatch_commit records commit completed and emits dispatch_review"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-commit-ok --seed frozen --result results/commit-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (o.calls[0].exitCode !== 0) return `FAIL: exit ${o.calls[0].exitCode}`;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_review') return `FAIL: next ${e.step && e.step.id}`;
+        if (o.ledger.stepStatuses.commit !== 'completed') return `FAIL: commit ${o.ledger.stepStatuses.commit}`;
+        if (o.ledger.history.length !== 1 || o.ledger.history[0].step !== 'dispatch_commit' || o.ledger.history[0].result !== 'success') return `FAIL: history ${JSON.stringify(o.ledger.history)}`;
+        if (!e.ext.todos || !Array.isArray(e.ext.todos.todos)) return 'FAIL: ext.todos missing';
+        return true;
+
+- description: "ship-step: (d) --after dispatch_commit with success:false returns error and records commit failed"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-commit-fail --seed frozen --result results/commit-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (o.calls[0].exitCode !== 1) return `FAIL: exit ${o.calls[0].exitCode}`;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (!/commit failed: pre-commit hook failed\. State preserved; re-run with --resume\./.test(e.error)) return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.commit !== 'failed') return `FAIL: commit ${o.ledger.stepStatuses.commit}`;
+        return true;
+
+- description: "ship-step: (l) --after dispatch_version with a tag missing from git returns error and records version failed"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-version-no-tag --seed frozen --result results/version-tag-missing.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (!/v9\.9\.9/.test(e.error)) return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.version !== 'failed') return `FAIL: version ${o.ledger.stepStatuses.version}`;
+        return true;
+
+- description: "ship-step: (k) unreadable --result-file returns status error and records nothing"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-bad-result --seed frozen --result results/does-not-exist.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (o.calls[0].exitCode !== 1 || e.status !== 'error') return `FAIL: ${o.calls[0].exitCode} ${e.status}`;
+        if (!/does-not-exist\.json/.test(e.error)) return `FAIL: error does not name the file: ${e.error}`;
+        if (o.ledger.history.length !== 0) return 'FAIL: history recorded';
+        return true;
+
+- description: "ship-step: (e) --after learnings_commit emits cleanup with an absolute script path; --after cleanup returns done"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-cleanup --seed frozen --result results/cleanup-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [first, second] = o.calls.map(c => c.envelope);
+        if (first.status !== 'step' || first.step.id !== 'cleanup') return `FAIL: first ${first.status} ${first.step && first.step.id}`;
+        const cmd = first.step.data.commands[0];
+        const m = /^node "([^"]+)" cleanup-pipeline$/.exec(cmd);
+        if (!m) return `FAIL: cleanup command ${cmd}`;
+        if (o.commandScripts[m[1]] !== true) return `FAIL: script path not absolute or missing: ${m[1]}`;
+        if (second.status !== 'done') return `FAIL: second ${JSON.stringify(second)}`;
+        if (o.calls[1].exitCode !== 0) return `FAIL: exit ${o.calls[1].exitCode}`;
+        return true;
+
+- description: "ship-step: (e2) --after cleanup after the ledger is really deleted still returns the Step 6 summary (X1)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-cleanup --seed frozen --result results/cleanup-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [first, second] = o.calls.map(c => c.envelope);
+        if (o.ledgerExists) return 'FAIL: the ledger was expected to be deleted before --after cleanup';
+        if (second.status !== 'done') return `FAIL: second ${JSON.stringify(second)}`;
+        const s = second.ext && second.ext.summary;
+        if (!s || !Array.isArray(s.steps) || s.steps.length === 0) return `FAIL: ext.summary missing after cleanup: ${JSON.stringify(second.ext)}`;
+        if (JSON.stringify(s) !== JSON.stringify(first.step.data.summary)) return 'FAIL: ext.summary differs from the summary built when cleanup was emitted';
+        if (!s.usage || !('prUrl' in s)) return `FAIL: summary lacks usage/prUrl: ${JSON.stringify(s)}`;
+        if (o.summarySidecars.length !== 0) return `FAIL: summary sidecar not removed: ${o.summarySidecars}`;
+        return true;
+
+- description: "ship-step: (z) a failed dispatch step sweeps stale state files in-process and keeps the failed ledger (R38 failure path, M7)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-commit-fail-gc --seed frozen --result results/commit-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[0].envelope;
+        if (env.status !== 'error') return `FAIL: status ${env.status}`;
+        if (o.calls[0].exitCode !== 1) return `FAIL: exit ${o.calls[0].exitCode}`;
+        if (o.ledger.stepStatuses.commit !== 'failed') return `FAIL: commit ${o.ledger.stepStatuses.commit}`;
+        if (o.ledgerFiles.includes('ship-gone-branch-20200101T000000Z.json')) return `FAIL: stale orphan not swept: ${o.ledgerFiles}`;
+        if (!o.ledgerFiles.some(f => f.startsWith('ship-feat-ship-'))) return `FAIL: failed ledger was deleted: ${o.ledgerFiles}`;
+        return true;
+
+- description: "ship-step: (rf2) the rebase step action tells the model to run git rebase --abort on a conflict, in every mode"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rebase-emit --seed frozen --result results/review-approved.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[o.calls.length - 1].envelope;
+        if (env.status !== 'step' || env.step.id !== 'rebase') return `FAIL: ${env.status} ${env.step && env.step.id} ${env.error || ''}`;
+        if (!/git rebase --abort/.test(env.step.action)) return `FAIL: action lacks the abort: ${env.step.action}`;
+        return true;
+
+- description: "ship-step: (rf5) a failed archive_openspec result halts the pipeline with status error (R25, R-archive-sync-3)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario inline-fail-archive-openspec --seed frozen --result results/commit-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[0].envelope;
+        if (env.status !== 'error') return `FAIL: status ${env.status}`;
+        if (o.calls[0].exitCode !== 1) return `FAIL: exit ${o.calls[0].exitCode}`;
+        if (o.ledger.stepStatuses['archive-openspec'] !== 'failed') return `FAIL: ${JSON.stringify(o.ledger.stepStatuses)}`;
+        return true;
+
+- description: "ship-step: (rf5) a failed verify_pipeline result (abort) halts the pipeline with status error (R45)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario inline-fail-verify-pipeline --seed frozen --result results/commit-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[0].envelope;
+        if (env.status !== 'error') return `FAIL: status ${env.status}`;
+        if (o.calls[0].exitCode !== 1) return `FAIL: exit ${o.calls[0].exitCode}`;
+        if (o.ledger.stepStatuses['verify-pipeline'] !== 'failed') return `FAIL: ${JSON.stringify(o.ledger.stepStatuses)}`;
+        return true;
+
+- description: "ship-step: (rf5) a failed learnings_commit result stays non-fatal and continues to cleanup"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario inline-fail-learnings-commit --seed frozen --result results/commit-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[0].envelope;
+        if (env.status !== 'step') return `FAIL: status ${env.status} ${env.error || ''}`;
+        if (env.step.id !== 'cleanup') return `FAIL: next ${env.step.id}`;
+        if (o.ledger.stepStatuses['learnings-commit'] !== 'failed') return `FAIL: ${JSON.stringify(o.ledger.stepStatuses)}`;
+        return true;
+
+- description: "ship-step: (e3) forced cleanup with the ledger still present leaves no summary sidecar behind (RF6)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario forced-cleanup --seed frozen"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [first, second] = o.calls.map(c => c.envelope);
+        if (first.status !== 'step' || first.step.id !== 'cleanup') return `FAIL: first ${first.status} ${first.step && first.step.id}`;
+        if (!/ --force/.test(first.step.data.commands[0])) return `FAIL: cleanup not forced: ${first.step.data.commands[0]}`;
+        if (second.status !== 'done') return `FAIL: second ${JSON.stringify(second)}`;
+        if (o.summarySidecars.length !== 0) return `FAIL: sidecar left behind: ${o.summarySidecars}`;
+        return true;
+
+- description: "ship-step: (h) --after step list equals the initial call's and progress.total never changes"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario step-list-equal"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const init = o.calls[0].envelope;
+        if (init.status !== 'step') return `FAIL: initial ${JSON.stringify(init).slice(0, 400)}`;
+        const idOf = { commit: 'dispatch_commit', review: 'dispatch_review', execute: 'dispatch_execute', version: 'dispatch_version', pr: 'dispatch_pr', cleanup: 'cleanup' };
+        const expected = init.steps.filter(s => s.status === 'will_run').map(s => idOf[s.name] || s.name);
+        const emitted = o.calls.slice(1).map(c => c.envelope).filter(e => e.status === 'step').map(e => e.step.id);
+        if (JSON.stringify(emitted) !== JSON.stringify(expected)) return `FAIL: emitted ${emitted} vs initial ${expected}`;
+        const last = o.calls[o.calls.length - 1].envelope;
+        if (last.status !== 'done') return `FAIL: walk did not reach done: ${JSON.stringify(last).slice(0, 300)}`;
+        const totals = o.calls.map(c => c.envelope.progress && c.envelope.progress.total);
+        if (totals.some(t => t !== totals[0])) return `FAIL: totals ${totals}`;
+        // No --ttl-days on the initial call → the cleanup command forwards none.
+        const cleanup = o.calls.map(c => c.envelope).find(e => e.step && e.step.id === 'cleanup');
+        if (/--ttl-days/.test(cleanup.step.data.commands[0])) return `FAIL: unexpected --ttl-days: ${cleanup.step.data.commands[0]}`;
+        return true;
+
+- description: "ship-step: (r) --ttl-days on the initial call is frozen in flags.ttlDays and forwarded by the cleanup command"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario ttl-days"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const flags = o.calls[0].stateFlags;
+        if (!flags || flags.ttlDays !== 3) return `FAIL: flags.ttlDays ${flags && flags.ttlDays}`;
+        const cleanup = o.calls.map(c => c.envelope).find(e => e.step && e.step.id === 'cleanup');
+        if (!cleanup) return 'FAIL: no cleanup step emitted';
+        if (!/ cleanup-pipeline --ttl-days 3$/.test(cleanup.step.data.commands[0])) return `FAIL: cleanup command ${cleanup.step.data.commands[0]}`;
+        return true;
+
+- description: "ship-step: (n) branch mode migrates the ledger and patches --expected-branch"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario branch-migrate --seed frozen-branch --result results/branch-prepare-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [prep, next] = o.calls.map(c => c.envelope);
+        if (prep.status !== 'step' || prep.step.id !== 'branch_prepare') return `FAIL: first ${JSON.stringify(prep).slice(0, 300)}`;
+        if (!prep.step.data.commands[0].startsWith('git checkout -b ')) return `FAIL: command ${prep.step.data.commands[0]}`;
+        if (prep.step.data.branch !== 'feat/add-widget-support') return `FAIL: branch ${prep.step.data.branch}`;
+        if (!/ship-feat-add-widget-support-20261019T120000Z\.json$/.test(next.state_file)) return `FAIL: state_file ${next.state_file}`;
+        if (o.ledgerFiles.includes('ship-main-20261019T120000Z.json')) return `FAIL: old ledger still present: ${o.ledgerFiles}`;
+        if (!next.step || !next.step.id.startsWith('dispatch_')) return `FAIL: next ${JSON.stringify(next).slice(0, 300)}`;
+        if (!next.step.data.invocation.includes('--expected-branch feat/add-widget-support')) return `FAIL: invocation ${next.step.data.invocation}`;
+        return true;
+
+- description: "ship-step: (o) emitted dispatch step is in_progress in the ledger and a paused ledger is cleared on emit"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario emit-in-progress --seed frozen --result results/generic-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_commit') return `FAIL: next ${e.step && e.step.id}`;
+        if (o.ledger.stepStatuses.commit !== 'in_progress') return `FAIL: commit ${o.ledger.stepStatuses.commit}`;
+        if (o.ledger.paused) return 'FAIL: paused not cleared on emit';
+        if (o.stopCapExists) return 'FAIL: stop-cap sidecar not removed on emit';
+        if (!Array.isArray(e.step.data.todos) || typeof e.step.data.marker !== 'string') return 'FAIL: step.data todos/marker missing';
+        if (o.ledger.currentStep !== 'dispatch_commit') return `FAIL: currentStep ${o.ledger.currentStep}`;
+        return true;
+
+- description: "ship-step: (p) resumed ledger with execute and commit completed emits dispatch_review after confirm_pipeline"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario resumed-completed --seed frozen-resumed --result results/yes.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_review') return `FAIL: next ${e.status} ${e.step && e.step.id}`;
+        if (o.ledger.stepStatuses.execute !== 'completed' || o.ledger.stepStatuses.commit !== 'completed') return 'FAIL: completed steps changed';
+        return true;
+
+- description: "ship-step: (q) review_gate threshold row critical — 1 critical dispatches received-review"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [gate, next] = o.calls.map(c => c.envelope);
+        if (gate.step.id !== 'review_gate') return `FAIL: gate ${gate.step && gate.step.id}`;
+        if (o.ledger.flags.reviewThreshold !== 'critical') return `FAIL: threshold ${o.ledger.flags.reviewThreshold}`;
+        if (!gate.llm_decision || gate.llm_decision.prompt !== 'Review found 1 critical. Dispatch received-review-sdlc now?') return `FAIL: llm_decision ${JSON.stringify(gate.llm_decision)}`;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        return true;
+
+- description: "ship-step: (q) review_gate threshold row high — 2 high dispatches received-review"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-high.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [gate, next] = o.calls.map(c => c.envelope);
+        if (o.ledger.flags.reviewThreshold !== 'high') return `FAIL: threshold ${o.ledger.flags.reviewThreshold}`;
+        if (gate.step.data.dispatchReceivedReview !== true || !gate.llm_decision) return `FAIL: gate ${JSON.stringify(gate.step.data)}`;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        return true;
+
+- description: "ship-step: (q) review_gate threshold row medium — 1 medium dispatches received-review"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-medium.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [gate, next] = o.calls.map(c => c.envelope);
+        if (o.ledger.flags.reviewThreshold !== 'medium') return `FAIL: threshold ${o.ledger.flags.reviewThreshold}`;
+        if (gate.step.data.dispatchReceivedReview !== true) return `FAIL: gate ${JSON.stringify(gate.step.data)}`;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        return true;
+
+- description: "ship-step: (q) review_gate threshold row low — 3 low findings dispatch received-review"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-low.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [gate, next] = o.calls.map(c => c.envelope);
+        if (o.ledger.flags.reviewThreshold !== 'low') return `FAIL: threshold ${o.ledger.flags.reviewThreshold}`;
+        if (gate.step.data.dispatchReceivedReview !== true) return `FAIL: gate ${JSON.stringify(gate.step.data)}`;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        return true;
+
+- description: "ship-step: (q) review_gate APPROVED verdict does not dispatch received-review"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-approved.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [gate, next] = o.calls.map(c => c.envelope);
+        if (gate.llm_decision !== null || gate.step.data.dispatchReceivedReview !== false) return `FAIL: gate ${JSON.stringify(gate.step.data)}`;
+        if (next.step.id === 'dispatch_received_review') return 'FAIL: received-review dispatched';
+        if (o.ledger.stepStatuses['received-review'] !== 'skipped') return `FAIL: received-review ${o.ledger.stepStatuses['received-review']}`;
+        return true;
+
+- description: "ship-step: (q) review_gate below-threshold findings (2 medium, threshold high) do not dispatch"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-approved-notes.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [gate, next] = o.calls.map(c => c.envelope);
+        if (o.ledger.flags.reviewThreshold !== 'high') return `FAIL: threshold ${o.ledger.flags.reviewThreshold}`;
+        if (gate.step.data.dispatchReceivedReview !== false) return `FAIL: gate ${JSON.stringify(gate.step.data)}`;
+        if (next.step.id !== 'dispatch_version') return `FAIL: next ${next.step.id}`;
+        if (!(next.progress.skipped || []).includes('received-review')) return `FAIL: progress.skipped ${JSON.stringify(next.progress)}`;
+        if (!(next.progress.skipped || []).includes('rebase')) return `FAIL: rebase skip (flags.rebase=skip) is not recorded in progress.skipped: ${JSON.stringify(next.progress)}`;
+        return true;
+
+- description: "ship-step: (q) review_gate unparseable verdict dispatches received-review with a warnings line"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-unparseable.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [gate, next] = o.calls.map(c => c.envelope);
+        if (gate.llm_decision !== null) return `FAIL: llm_decision ${JSON.stringify(gate.llm_decision)}`;
+        if (!(gate.ext.warnings || []).some(w => /unparseable/.test(w))) return `FAIL: warnings ${JSON.stringify(gate.ext.warnings)}`;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        return true;
+
+- description: "ship-step: (s) worktree-mismatch warning drops 'Use --resume' only when init replaces the ledger"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario worktree-mismatch --plan plan.md --seed frozen"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [dry, real] = o.calls.map(c => c.envelope);
+        const pick = (e) => (e.warnings || []).find(w => /different worktree/.test(w));
+        const dryW = pick(dry);
+        if (!dryW || !/Use --resume to resume explicitly\./.test(dryW)) return `FAIL: dry-run warning ${dryW}`;
+        const realW = pick(real);
+        if (!realW) return `FAIL: no different-worktree warning: ${JSON.stringify(real.warnings)}`;
+        if (/Use --resume/.test(realW)) return `FAIL: warning still offers --resume: ${realW}`;
+        if (!/cannot be resumed/.test(realW)) return `FAIL: warning text ${realW}`;
+        return true;
+
+# Execute-step invariants (completeness gate, --resume forwarding, per-task todos,
+# isolation pass-through). --exec-seed copies seed/execute-<name>.json to
+# .sdlc/execution/execute-feat-ship-20261019T120000Z.json; the fixture plan.md has
+# two "### Task N:" headings.
+
+- description: "ship-step: (t) --after dispatch_execute with every planned task accounted records execute completed and emits stage_changes"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --exec-seed complete --result results/execute-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e).slice(0, 400)}`;
+        if (e.status !== 'step' || e.step.id !== 'stage_changes') return `FAIL: next ${e.status} ${e.step && e.step.id}`;
+        if (o.ledger.stepStatuses.execute !== 'completed') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        const h = o.ledger.history[o.ledger.history.length - 1];
+        if (!h || h.step !== 'dispatch_execute' || h.result !== 'success') return `FAIL: history ${JSON.stringify(o.ledger.history)}`;
+        return true;
+
+- description: "ship-step: (u) --after dispatch_execute with an unaccounted planned task returns error and records execute failed (R-INVARIANT-COMPLETENESS)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --exec-seed missing --result results/execute-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (c.exitCode !== 65) return `FAIL: exit ${c.exitCode}`;
+        if (!/verify-completeness exit 65/.test(e.error)) return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.execute !== 'failed') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        if (o.calls.some(x => x.envelope.step && x.envelope.step.id === 'stage_changes')) return 'FAIL: stage_changes emitted';
+        const todos = (e.ext && e.ext.todos && e.ext.todos.todos) || [];
+        if (todos.some(t => t.status === 'in_progress')) return `FAIL: in_progress todo left: ${JSON.stringify(todos)}`;
+        const taskTodos = todos.filter(t => /^Task \d+: /.test(t.content));
+        // The fixture plan.md has two "### Task N:" headings.
+        if (taskTodos.length !== 2) return `FAIL: plan-task todos ${JSON.stringify(taskTodos)}`;
+        return true;
+
+- description: "ship-step: (u2) --after dispatch_execute with no execute state file halts too (any non-zero exit, L23)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --result results/execute-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
+        if (!/verify-completeness exit 1\b/.test(e.error)) return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.execute !== 'failed') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        return true;
+
+- description: "ship-step: (u3) --after dispatch_execute with an execute state file lacking plannedTaskIds returns error with exit 2"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --exec-seed noplanned --result results/execute-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (c.exitCode !== 2) return `FAIL: exit ${c.exitCode}`;
+        if (!/verify-completeness exit 2\b/.test(e.error)) return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.execute !== 'failed') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        return true;
+
+- description: "ship-step: (v) resumed ledger with execute in_progress and an execute state file emits dispatch_execute with --resume"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen-exec --exec-seed complete --result results/yes.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_execute') return `FAIL: next ${e.status} ${e.step && e.step.id}`;
+        const d = e.step.data;
+        if (!/ --resume$/.test(d.args)) return `FAIL: args ${d.args}`;
+        if (d.invocation !== `skill: "execute-plan-sdlc", args: "${d.args}"`) return `FAIL: invocation ${d.invocation}`;
+        if ((d.args.match(/--resume/g) || []).length !== 1) return `FAIL: --resume count in ${d.args}`;
+        return true;
+
+- description: "ship-step: (v2) execute in_progress and no execute state file emits dispatch_execute without --resume"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen-exec --result results/yes.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_execute') return `FAIL: next ${e.status} ${e.step && e.step.id}`;
+        if (/--resume/.test(e.step.data.args) || /--resume/.test(e.step.data.invocation)) return `FAIL: --resume present: ${e.step.data.invocation}`;
+        return true;
+
+- description: "ship-step: (v3) execute not in_progress emits dispatch_execute without --resume even when an execute state file exists"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen --exec-seed complete --result results/yes.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_execute') return `FAIL: next ${e.status} ${e.step && e.step.id}`;
+        if (/--resume/.test(e.step.data.args) || /--resume/.test(e.step.data.invocation)) return `FAIL: --resume present: ${e.step.data.invocation}`;
+        return true;
+
+- description: "ship-step: (w) dispatch_execute carries one execute todo per plan task and the execute marker"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen --result results/yes.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_execute') return `FAIL: next ${e.status} ${e.step && e.step.id}`;
+        const d = e.step.data;
+        const taskTodos = (d.todos || []).filter(t => /^Task \d+: /.test(t.content));
+        // The fixture plan.md has two "### Task N:" headings (more than the one placeholder todo).
+        if (taskTodos.length !== 2) return `FAIL: plan-task todos ${JSON.stringify(d.todos)}`;
+        if (!/execute: \d+ plan tasks queued/.test(d.marker)) return `FAIL: marker ${d.marker}`;
+        if ('planTasks' in d) return 'FAIL: planTasks leaked into step.data';
+        return true;
+
+- description: "ship-step: (x) dispatch step data carries isolation only when computeSteps sets it"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-commit-ok --seed frozen --result results/commit-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'step' || !e.step.id.startsWith('dispatch_')) return `FAIL: next ${e.status} ${e.step && e.step.id}`;
+        // computeSteps sets isolation: null on every fixture step, so the key must be absent (no null leak).
+        if ('isolation' in e.step.data) return `FAIL: isolation present: ${JSON.stringify(e.step.data.isolation)}`;
+        return true;
+
+- description: "ship-step: (y) dispatch_execute on a plan with zero \"### Task N:\" headings returns error (R-SHIPTODOS-FAILLOUD)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario plan-no-tasks --seed frozen --answer yes"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (!/plan-notasks\.md$/.test(o.ledger.flags.planFile)) return `FAIL: planFile ${o.ledger.flags.planFile}`;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (!e.error.includes('the plan must contain at least one "### Task N:" heading')) return `FAIL: error ${e.error}`;
+        if (o.calls.some(x => x.envelope.step && x.envelope.step.id === 'dispatch_execute')) return 'FAIL: dispatch_execute emitted';
+        return true;

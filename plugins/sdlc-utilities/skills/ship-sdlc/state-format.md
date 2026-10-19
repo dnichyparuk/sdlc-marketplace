@@ -43,6 +43,8 @@ Example: `.sdlc/execution/ship-feat-my-feature-20260327T143000Z.json`
 | `worktree`        | string \| absent | Absolute realpath of the active worktree at init. Optional, absent on pre-#501 state files. Does not affect state file location keying — the state directory stays main-worktree-shared regardless of this field's value (R73). When present, it now also gates *implicit* resume eligibility (R-resume-worktree, #503): `skill/ship.js` only sets `flags.implicitResume = true` when this field equals the current worktree's resolved path, preventing a state file created in one worktree from silently reporting progress (e.g. a stale `in_progress` step) as if it belonged to a different worktree the user has since moved to. Absent (legacy) state files skip the comparison and fall back to R-implicit-resume's existing worktree-unaware rule. Explicit `--resume` is never blocked by a mismatch. Also used to scope the session-start banner to the active worktree. |
 | `sessionId`       | string \| null | The Claude Code session (`CLAUDE_CODE_SESSION_ID`) currently recognized as driving this pipeline. Stamped by `initState()` at creation and re-stamped by `claimSession()` on every resume (implicit or explicit `--resume`), so it always names the session that most recently claimed the pipeline rather than the one that first created it. Read by `hookEnforcementAllowed()` (R73, #505): the three ship continuation hooks compare this against the hook payload's session id and stay silent on a mismatch, so a stale or abandoned pipeline can no longer inject "continue executing this step" reminders into an unrelated session that happens to share a branch. Not worktree-scoped — see `worktree` above, which the predicate does not read. |
 | `nextPendingStep` | string \| null | Derived at read time by `lib/state.js::detectResumeState`. Name of the first step in `steps[]` whose `status` is neither `completed` nor `skipped`, or `null` when every step is resolved. Not written into the on-disk file; recomputed on every read so a resumed run picks the correct re-entry point. Example: `"review"`. |
+| `history` | array \| absent | Optional append-only log of stepper transitions. Each entry: `step` (string), `result` (`"success"`, `"failed"` or `"unknown"`), `data` (any, optional), `timestamp` (string). Steps with no `steps[]` record, such as `cleanup`, appear here only. |
+| `currentStep` | string \| null \| absent | Optional name of the step the stepper last emitted and has not yet completed, or `null` when none. |
 
 ---
 
@@ -102,6 +104,9 @@ Captures the effective flags after defaults and config are applied, so a resumed
 | `sources` | object         | Per-flag provenance: `cli`, `config`, `default`, `quick` or `derived`. |
 | `bump`   | string \| null  | Version bump type (`"major"`, `"minor"`, `"patch"`), or `null`.      |
 | `draft`  | boolean         | Whether the PR was opened as a draft.                                |
+| `planFile` | string \| null | Plan file path frozen at init (or once on resume of a legacy ledger); an input to `computeSteps`, never re-read. Optional. |
+| `openspecContext` | object | OpenSpec context frozen at init: `branchMatch`, `isAlreadyArchived` (boolean), `tasksDone` (integer \| null), `tasksTotal` (integer \| null). An input to `computeSteps`, never re-read. Optional. |
+| `ttlDays` | integer | Ledger retention in days (`--ttl-days`), minimum 0. Optional. |
 
 ---
 

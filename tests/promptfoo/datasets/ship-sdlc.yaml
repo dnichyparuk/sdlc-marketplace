@@ -120,7 +120,7 @@
   assert:
     # Must show the pipeline is pausing
     - type: icontains
-      value: "PAUSING PIPELINE"
+      value: "review_gate"
     # Must reference received-review-sdlc
     - type: icontains
       value: "received-review-sdlc"
@@ -131,9 +131,11 @@
     - type: llm-rubric
       value: >
         The response parses the review verdict as CHANGES REQUESTED with 1 critical
-        finding. It announces that the pipeline is pausing (PAUSING PIPELINE or
-        equivalent language) because critical or high issues were found. It states
-        it is invoking received-review-sdlc for interactive fix approval. The SQL
+        finding. It explains that the `review_gate` step (ship.js applies the
+        reviewThreshold to the verdict) found critical or high issues, so the
+        pipeline pauses at that gate (equivalent language is fine). It states
+        received-review-sdlc is invoked for interactive fix approval (the
+        `dispatch_received_review` step). The SQL
         injection finding is mentioned. The response does NOT silently continue to
         version-sdlc or pr-sdlc — it stops for human approval.
 
@@ -154,8 +156,9 @@
       value: "(--auto|flags\\.auto|R71)"
     - type: llm-rubric
       value: >
-        With flags.auto === true, ship-sdlc auto-dispatches received-review-sdlc --auto at the
-        review→fix boundary on the documented default and does NOT call AskUserQuestion or pause
+        With flags.auto === true, the `review_gate` step carries llm_decision null and ship.js
+        routes to `dispatch_received_review` (received-review-sdlc --auto) at the
+        review→fix boundary on the documented default and ship-sdlc does NOT call AskUserQuestion or pause
         for input (R71). It does not ask the user whether to fix the findings.
 
 - description: "ship-sdlc: medium/low review findings continue pipeline without invoking received-review-sdlc"
@@ -177,8 +180,8 @@
     - type: llm-rubric
       value: >
         The response shows the review verdict is APPROVED WITH NOTES with only medium
-        and low findings — no critical or high findings. It announces the pipeline is
-        CONTINUING (not pausing). The medium and low findings are collected as deferred
+        and low findings — no critical or high findings. The `review_gate` step routes
+        past received-review (to `rebase`), so the pipeline is CONTINUING (not pausing). The medium and low findings are collected as deferred
         to the final summary report. The response does NOT invoke received-review-sdlc.
         It proceeds toward the next pipeline step (version-sdlc or pr-sdlc).
 
@@ -304,7 +307,7 @@
       value: >
         The pr-sdlc step in the pipeline table shows args that do NOT include --draft,
         because the config has draft: false and no --draft CLI flag was passed. The
-        args come from the ship-prepare.js output (the invocation field), not from the
+        args come from the ship-prepare.js output (`step.data.invocation` of the dispatch envelope), not from the
         SKILL.md example which shows "--auto --draft". The response correctly reflects
         that draft is false — the PR will not be created as a draft.
 
@@ -532,8 +535,9 @@
     - type: llm-rubric
       value: >
         The pipeline table shows `learnings-commit` as the final step, ordered AFTER
-        `pr-sdlc`. The step is described as an inline shell operation (no Agent
-        dispatched, no sub-skill invoked) that appends Learning Capture entries to
+        `pr-sdlc`. The step is the `learnings_commit` step: an inline shell operation
+        (its `step.data.commands` run via Bash; no Agent dispatched, no sub-skill
+        invoked; procedure in the `learnings_commit` section of reference.md) that appends Learning Capture entries to
         `.sdlc/learnings/log.md` and creates a trailing
         `chore(ship-sdlc): capture pipeline learnings` commit if the diff is
         non-empty. The response notes the step is a no-op when no learnings were
@@ -586,7 +590,8 @@
       value: "--auto"
     - type: llm-rubric
       value: >
-        The response decides to invoke received-review-sdlc because
+        The response decides to invoke received-review-sdlc (the `review_gate` step
+        routes to `dispatch_received_review`) because
         flags.reviewThreshold === "medium" and the review found a medium-severity
         finding. The decision cites flags.reviewThreshold (the resolved field
         from ship.js) — NOT a hardcoded threshold like "any high" or "≥3 high"
@@ -664,7 +669,8 @@
       value: >
         With flags.auto === true, ship-sdlc dispatches verify-pipeline-sdlc as
         a subagent (Agent tool, model sonnet) with the failed-check log excerpts —
-        no AskUserQuestion. On fix-applied verdict, ship-sdlc directly dispatches
+        no AskUserQuestion. The `verify_pipeline` step (procedure in its reference.md
+        section) drives this. On fix-applied verdict, ship-sdlc directly dispatches
         commit-sdlc to commit/push and re-polls verify-pipeline up to
         flags.verifyPipelineMaxIterations (default 3, R47).
 
@@ -690,7 +696,7 @@
       value: >
         ship-sdlc Step 5 dispatches execute-plan-sdlc via the Agent tool (not the
         Skill tool) because step.dispatchMode === 'agent'. The response must cite
-        dispatchMode or the dispatch protocol. It must NOT describe invoking execute
+        dispatchMode or the `dispatch_*` family rule (Step 5 item 5). It must NOT describe invoking execute
         via the Skill tool. It must NOT claim execute is a special orchestrator
         exception that uses Skill-tool dispatch.
 
@@ -701,7 +707,7 @@
     user_request: >
       The prepare script output includes a `commit-sdlc` step with `dispatchMode: 'agent'`,
       `model: 'haiku'`, `isolation: null`, and `status: 'will_run'`. Walk through what
-      ship-sdlc does in Step 5 for this step, citing the dispatch protocol.
+      ship-sdlc does in Step 5 for this step, citing the `dispatch_*` family rule (Step 5 item 5).
   assert:
     - type: regex
       value: "(Agent|agent)"
@@ -731,7 +737,7 @@
     - type: llm-rubric
       value: >
         ship-sdlc dispatches execute-plan-sdlc via the Agent tool (not Skill tool)
-        with args from step.invocation plus '--resume'. The response cites
+        with args from step.data.invocation plus '--resume'. The response cites
         dispatchMode === 'agent' as the dispatch channel. It does NOT describe
         invoking execute via the Skill tool for the resume path.
 
@@ -758,7 +764,8 @@
         lib/branch-name.js, and runs `git checkout -b <derived>` in its main shell
         BEFORE dispatching execute. It must NOT create a git worktree (there is no
         worktree creation) and must NOT mention a `--workspace`/`--branch`/`--tree`
-        flag. Reference R60 (workspace auto-detection, fixes #378, #379).
+        flag. This happens in the `branch_prepare` step that ship.js emits before
+        `dispatch_execute` (workspace=branch only). Reference R60 (workspace auto-detection, fixes #378, #379).
 
 - description: "ship-sdlc (#378): continue derive runs in place on a feature branch, no branch creation"
   vars:
@@ -775,7 +782,8 @@
         The response must state that the workspace derives to `continue` (feature
         branch, or a linked worktree) — ship-sdlc runs the pipeline IN PLACE on the
         current branch with no branch derivation, no `git checkout -b`, no worktree
-        creation, and no state migration. The version step still runs normally
+        creation, and no state migration (ship.js does not emit `branch_prepare`).
+        The version step still runs normally
         (tags are repo-global). Reference R60 (fixes #378, #379).
 
 - description: "ship-sdlc (#378): no --branch forward to execute; execute derives continue"
@@ -794,7 +802,8 @@
         execute-plan-sdlc. Because ship already ran `git checkout -b` before the
         dispatch, the cwd is on the feature branch, so execute-plan-sdlc's own
         workspace derive yields `continue` (run in place) — no workspace value
-        crosses the boundary. Reference R60 (fixes #378, #379). The response must
+        crosses the boundary. The checkout happens in the `branch_prepare` step
+        (`--after branch_prepare`). Reference R60 (fixes #378, #379). The response must
         NOT claim a `--branch "$EXECUTE_BRANCH"` flag is forwarded.
 
 - description: "ship-sdlc (#526): stale --expected-branch from prepare is patched to EXECUTE_BRANCH after checkout"
@@ -812,13 +821,12 @@
   assert:
     - type: llm-rubric
       value: >
-        The response must state that ship-sdlc patches the prepare-output file
-        in place immediately after `git checkout -b "$EXECUTE_BRANCH"` (same
-        shell invocation), rewriting every `--expected-branch <value>` in
-        steps[].args/.invocation to the real feature branch and updating
-        context.expectedBranch to match — so commit-sdlc/commit-fixes/version-sdlc/
-        pr-sdlc all receive the real feature branch, not `main`. It must state
-        this is a one-time file patch that later steps re-read, NOT a live
+        The response must state that the `branch_prepare` step (`--after branch_prepare`)
+        migrates the ledger to the new feature branch right after `git checkout -b`,
+        and that ship.js then emits `--expected-branch` from the ledger branch in
+        the later commit/commit-fixes/version/pr envelopes (`step.data.invocation`) —
+        so they all receive the real feature branch, not `main`. It must state
+        this is a one-time ledger migration that later steps read, NOT a live
         `git branch --show-current` re-query performed separately at each of the
         four dispatch sites (a live re-query would make the branch-mismatch guard
         tautological and defeat the #347/#348/#349 protection). It may note the
@@ -826,23 +834,27 @@
         since it's printed before the patch runs, but the actual dispatch uses
         the patched value. Reference R-expected-branch-branch-derive (fixes #526).
 
-- description: "ship-sdlc (#379): pre-execute state migration runs before branch creation in branch mode"
+- description: "ship-sdlc (#379): in branch mode the branch is created first and the ship state is migrated in --after branch_prepare"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md"
     project_context: "file://fixtures/ship-pipeline-ready.md"
     user_request: >
       When the workspace derives to `branch`, in what ORDER does ship-sdlc run:
-      (a) derive branch name, (b) migrate the ship state file, (c) run
-      `git checkout -b`? Why is the ordering of (b) before (c) load-bearing?
+      (a) derive branch name, (b) run `git checkout -b`, (c) migrate the ship
+      state file? Where does each happen, and why is the migration safe after
+      the checkout?
   assert:
     - type: llm-rubric
       value: >
-        The response must state the order is: (1) derive branch name, (2) migrate
-        state file, (3) `git checkout -b`. It must explain that migration runs
-        BEFORE the checkout because `state/ship.js read` resolves the OLD slug
-        filename while still on the original branch — after the checkout, HEAD
-        changes and the old filename is no longer resolvable. Reference R37
-        (fixes #379). Under a `continue` derive, no migration runs.
+        The response must state the order the step-emitter implements: (1) `ship.js`
+        derives the branch name, (2) the model runs the emitted `git checkout -b`
+        command from the `branch_prepare` step, (3) `--after branch_prepare` migrates the
+        ship ledger in `ship.js`, taking the OLD slug from the ledger's branch and the new
+        branch from the live current branch. It must NOT claim that the migration runs
+        before the checkout. It must explain why the migration is safe after the
+        checkout: the old slug comes from the ledger, not from a branch-name lookup
+        (`migrateBranchSlug` renames the ledger file and rewrites `branch`). Under a
+        `continue` derive, `branch_prepare` is not emitted and no migration runs.
 
 - description: "ship-sdlc (#378): default-branch warning is advisory, not a halt"
   vars:
@@ -872,20 +884,20 @@
     user_request: >
       Walk through how ship-sdlc renders the pipeline table for this configuration. Show the
       execute step's invocation verbatim and explain how SKILL.md cites the --commit-waves
-      flag (does it read config.execute.commitWaves directly, or does it cite step.invocation
+      flag (does it read config.execute.commitWaves directly, or does it cite step.data.invocation
       computed by scripts/skill/ship.js?).
   assert:
     - type: icontains
       value: "--commit-waves"
     - type: icontains
-      value: "step.invocation"
+      value: "step.data.invocation"
     - type: not-icontains
       value: "config.execute.commitWaves"
     - type: llm-rubric
       value: >
         The response shows the execute step's invocation as
         "execute-plan-sdlc --commit-waves" (or equivalent) and explicitly notes that
-        ship-sdlc SKILL.md cites step.invocation verbatim — NOT
+        ship-sdlc SKILL.md passes step.data.invocation to the dispatch prompt — NOT
         config.execute.commitWaves directly. Resolution is centralized in
         scripts/skill/ship.js per the scripts-over-llm-logic and
         flag-coherence-cross-skill guardrails. The response references the squash
@@ -915,8 +927,9 @@
       value: >
         The response states that ship-sdlc aborts the pipeline (exits non-zero / halts)
         when verify-tag-ancestry.js returns a non-zero exit code, and emits an error
-        message containing both the tag name (v1.2.3) and the branch name (feat/my-feature).
-        It also provides the remediation command to delete the tag
+        message containing both the tag name (v1.2.3) and the branch name (feat/my-feature),
+        taken from `step.data` of the `verify_version_tag` envelope (not a separately
+        captured shell variable). It also provides the remediation command to delete the tag
         (git push origin :refs/tags/v1.2.3 and git tag -d v1.2.3) and instructs the user
         to re-run the version step on the correct branch. The response does NOT proceed
         to the PR step after the failure.
@@ -973,8 +986,9 @@
     - type: llm-rubric
       value: >
         The response demonstrates that the MAIN thread (not a dispatched sub-agent)
-        calls the TodoWrite tool at the start of the pipeline (init) and before each
-        step transition. Each TodoWrite call is paired with a [task-tray] stdout
+        calls the TodoWrite tool with `step.data.todos` from each ship.js envelope
+        (at the start of the pipeline and at each step transition) and echoes
+        `step.data.marker`. Each TodoWrite call is paired with a [task-tray] stdout
         marker. The response does NOT claim that sub-agent TodoWrite calls bubble up
         to the parent — it instead documents that main-thread calls are the source
         of task-tray visibility.

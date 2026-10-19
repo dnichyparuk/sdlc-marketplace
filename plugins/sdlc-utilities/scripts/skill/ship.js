@@ -41,7 +41,12 @@ const { spawnSync } = require('child_process');
 const LIB = path.join(__dirname, '..', 'lib');
 
 const { exec, checkGitState, detectBaseBranch, deriveWorkspace, parseRemoteOwner, probeGhAuth, formatAccountMismatch, probeRepoAccess, formatAccessDenied, getTagList } = require(path.join(LIB, 'git'));
-const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, readState, slugifyBranch, claimSession } = require(path.join(LIB, 'state'));
+const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, readState, slugifyBranch, claimSession, writeState, deleteState, migrateBranchSlug, listBranches, readTtlDaysFromConfig } = require(path.join(LIB, 'state'));
+const { parseArgs: parseStepArgs, createEnvelope } = require(path.join(LIB, 'stepper'));
+const shipState = require(path.join(__dirname, '..', 'state', 'ship'));
+const { stepTransition, markCompleted, renderTodos, parsePlanTasks } = require(path.join(LIB, 'ship-todos'));
+const { parseUsage } = require(path.join(LIB, 'usage'));
+const { resolveBranchName } = require(path.join(LIB, 'branch-name'));
 const { readSection, resolveSdlcRoot } = require(path.join(LIB, 'config'));
 const { writeOutput } = require(path.join(LIB, 'output'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
@@ -1108,6 +1113,640 @@ function writeFatalErrors(errors) {
 }
 
 // ---------------------------------------------------------------------------
+// Step emitter (P-STEP-1..4, P-TRANS-1)
+// ---------------------------------------------------------------------------
+
+// L5: fixed step.id → ledger steps[].name table. Ids not listed here
+// (confirm_pipeline, branch_prepare, stage_changes, review_gate, rebase,
+// rebase_conflict, verify_version_tag, cleanup) are recorded in history[] only.
+const STEP_ID_TO_LEDGER_NAME = {
+  dispatch_execute:         'execute',
+  dispatch_commit:          'commit',
+  dispatch_review:          'review',
+  dispatch_received_review: 'received-review',
+  dispatch_commit_fixes:    'commit-fixes',
+  dispatch_version:         'version',
+  verify_openspec:          'verify-openspec',
+  archive_openspec:         'archive-openspec',
+  dispatch_pr:              'pr',
+  verify_pipeline:          'verify-pipeline',
+  await_remote_review:      'await-remote-review',
+  learnings_commit:         'learnings-commit',
+};
+
+// P-TRANS-1 row order. rebase_conflict is emitted only by `--after rebase`.
+const STEP_ORDER = [
+  'confirm_pipeline', 'branch_prepare', 'dispatch_execute', 'stage_changes',
+  'dispatch_commit', 'dispatch_review', 'review_gate', 'dispatch_received_review',
+  'dispatch_commit_fixes', 'rebase', 'rebase_conflict', 'dispatch_version',
+  'verify_version_tag', 'verify_openspec', 'archive_openspec', 'dispatch_pr',
+  'verify_pipeline', 'await_remote_review', 'learnings_commit', 'cleanup',
+];
+
+// Steps whose result carries an answer, not an outcome.
+const DECISION_STEPS = ['confirm_pipeline', 'review_gate', 'rebase_conflict'];
+// Inline steps whose failure halts the pipeline: archive_openspec (R25, R-archive-sync-3:
+// validation failure or abort) and verify_pipeline (R45: abort). Other inline steps
+// (verify_openspec, await_remote_review, learnings_commit) stay non-fatal.
+const HALTING_INLINE_STEPS = ['archive_openspec', 'verify_pipeline'];
+
+// L6/L9: computeSteps inputs frozen in ledger.flags.
+const FROZEN_FLAG_KEYS = ['planFile', 'openspecContext', 'sources'];
+
+// R6 threshold table, most to least severe.
+const SEVERITIES = ['critical', 'high', 'medium', 'low'];
+
+// P8/Q2: every emitted command uses an absolute, double-quoted script path.
+const STATE_SHIP_SCRIPT      = path.join(__dirname, '..', 'state', 'ship.js');
+const EXECUTE_STATE_SCRIPT   = path.join(__dirname, '..', 'state', 'execute.js');
+const VERIFY_TAG_SCRIPT      = path.join(__dirname, '..', 'util', 'verify-tag-ancestry.js');
+const VERIFY_PIPELINE_SCRIPT = path.join(__dirname, 'verify-pipeline.js');
+const AWAIT_REVIEW_SCRIPT    = path.join(__dirname, 'await-remote-review.js');
+const STAGE_COMMAND = "git add -A -- ':!.sdlc/'";
+const LEARNINGS_COMMIT_COMMAND = 'git diff --quiet -- .sdlc/learnings/log.md || { git add .sdlc/learnings/log.md && git commit -m "chore(ship-sdlc): capture pipeline learnings" && { git push || echo "push failed (non-fatal)" >&2; }; }';
+
+/**
+ * progress.total: will_run steps (cleanup included) plus conditional steps whose
+ * condition is known to be met — only archive-openspec; review-driven conditions
+ * are unknown up front and count as not met. Same value on every call of a run.
+ */
+function countTotal(steps) {
+  return steps.filter(s => s.status === 'will_run' || (s.status === 'conditional' && s.name === 'archive-openspec')).length;
+}
+
+/**
+ * L2: insert computeSteps names missing from ledger.steps[] at their computeSteps
+ * position and mark still-pending skipped steps skipped. Existing statuses are
+ * never changed otherwise; cleanup lives in history[] only.
+ */
+function reconcileSteps(ledger, steps) {
+  if (!Array.isArray(ledger.steps)) ledger.steps = [];
+  const ordered = steps.filter(s => s.name !== 'cleanup');
+  ordered.forEach((cs, i) => {
+    let entry = ledger.steps.find(e => e.name === cs.name);
+    if (!entry) {
+      entry = { name: cs.name, status: 'pending' };
+      if (cs.status === 'conditional') entry.condition = cs.reason;
+      const prevIdx = Math.max(-1, ...ordered.slice(0, i).map(p => ledger.steps.findIndex(e => e.name === p.name)));
+      ledger.steps.splice(prevIdx + 1, 0, entry);
+    }
+    if (cs.status === 'skipped' && entry.status === 'pending') {
+      entry.status = 'skipped';
+      entry.completedAt = new Date().toISOString();
+      entry.reason = cs.reason;
+    }
+  });
+}
+
+/**
+ * L1/L7/L9: create the ledger with the unchanged `state/ship.js init` (mirrors the
+ * plan-mode-blocked spawn), or adopt the resumed one; freeze the computeSteps
+ * inputs in ledger.flags (present keys are never overwritten).
+ * @returns {string|null} ledger path; null on errors or --dry-run (init failure is pushed to errors)
+ */
+function ensureLedger({ flags, flagSources, openspecContext, planFile, gitState, resume, errors, steps, ttlDays }) {
+  if (errors.length > 0 || flags.dryRun) return null;
+  let ledgerPath;
+  if (resume && resume.found && flags.resume) {
+    ledgerPath = resume.fullPath;
+  } else {
+    const initFlags = { ...flags, planFile, openspecContext, sources: flagSources, ...(ttlDays != null ? { ttlDays } : {}) };
+    const res = spawnSync('node', [
+      STATE_SHIP_SCRIPT, 'init',
+      '--branch', gitState.currentBranch,
+      '--flags', JSON.stringify(initFlags),
+    ], { encoding: 'utf8', timeout: 10000 });
+    if (res.error || res.status !== 0) {
+      errors.push(`state/ship.js init failed: ${res.error ? res.error.message : ((res.stderr || '').trim() || `exit ${res.status}`)}`);
+      return null;
+    }
+    ledgerPath = JSON.parse(res.stdout).filePath;
+  }
+  const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
+  ledger.flags = ledger.flags || {};
+  const frozen = { planFile, openspecContext, sources: flagSources };
+  for (const key of FROZEN_FLAG_KEYS) {
+    if (!(key in ledger.flags)) ledger.flags[key] = frozen[key];
+  }
+  if (!Array.isArray(ledger.history)) ledger.history = [];
+  ledger.currentStep = 'confirm_pipeline';
+  reconcileSteps(ledger, steps);
+  writeState(ledgerPath, ledger);
+  return ledgerPath;
+}
+
+/**
+ * Branch name for workspace=branch, from the plan's first `# ` heading.
+ * @returns {{ type: string, slug: string, name: string }}
+ * @throws {TypeError} from resolveBranchName (empty slug, bad template)
+ */
+function deriveBranchFromPlan(planPath, config) {
+  const text = fs.readFileSync(planPath, 'utf8');
+  const m = /^# (.+)$/m.exec(text);
+  const heading = m ? m[1].trim() : '';
+  const first = (heading.split(/\s+/)[0] || '').toLowerCase();
+  const type = /^(fix|bug)/.test(first) ? 'bugfix'
+    : /^doc/.test(first) ? 'docs'
+      : /^refactor/.test(first) ? 'refactor'
+        : /^(chore|ci|deps)$/.test(first) ? 'chore'
+          : 'feature';
+  const slug = heading.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return { type, slug, name: resolveBranchName({ type, slug, config }) };
+}
+
+function lastHistory(ledger, id) {
+  for (let i = ledger.history.length - 1; i >= 0; i--) {
+    if (ledger.history[i].step === id) return ledger.history[i];
+  }
+  return null;
+}
+
+/** `### Task N:` headings of the plan file; [] when it cannot be read. */
+function readPlanTasks(planFile) {
+  try { return parsePlanTasks(fs.readFileSync(planFile, 'utf8')); } catch { return []; }
+}
+
+function historySuccess(ledger, id) {
+  return ledger.history.some(h => h.step === id && h.result === 'success');
+}
+
+/**
+ * L12: parse the review verdict line of the latest dispatch_review result and
+ * apply the R6 threshold table with flags.reviewThreshold. A missing or
+ * unparseable verdict counts as met (dispatch plus a warning).
+ */
+function reviewGateDecision(ledger) {
+  const threshold = SEVERITIES.includes(ledger.flags.reviewThreshold)
+    ? ledger.flags.reviewThreshold
+    : BUILT_IN_DEFAULTS.reviewThreshold;
+  const entry = lastHistory(ledger, 'dispatch_review');
+  const verdict = entry && entry.data && entry.data.artifacts ? entry.data.artifacts.verdict : undefined;
+  if (typeof verdict !== 'string' || !/CHANGES REQUESTED|APPROVED WITH NOTES|APPROVED/.test(verdict)) {
+    return { parseable: false, threshold, verdict: verdict === undefined ? null : verdict, counts: null, met: true };
+  }
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const m of verdict.matchAll(/(\d+) (critical|high|medium|low)/g)) counts[m[2]] += Number(m[1]);
+  const met = SEVERITIES.slice(0, SEVERITIES.indexOf(threshold) + 1).some(s => counts[s] > 0);
+  return { parseable: true, threshold, verdict, counts, met };
+}
+
+/** Reason a conditional step's condition is not met, or null when it is met. */
+function unmetCondition(name, ledger) {
+  if (name === 'received-review') {
+    const review = ledger.steps.find(s => s.name === 'review');
+    if (!review || review.status !== 'completed') return 'review did not run';
+    const d = reviewGateDecision(ledger);
+    if (!d.met) return `review verdict below reviewThreshold (${d.threshold})`;
+    if (ledger.flags.auto || !d.parseable) return null;
+    const gate = lastHistory(ledger, 'review_gate');
+    return gate && gate.data && gate.data.answer === 'defer' ? 'deferred by the user at review_gate' : null;
+  }
+  if (name === 'commit-fixes') {
+    const rr = ledger.steps.find(s => s.name === 'received-review');
+    if (!rr || rr.status !== 'completed') return 'received-review did not run';
+    return exec('git status --porcelain', { cwd: process.cwd() }) ? null : 'no working-tree changes after received-review';
+  }
+  return null; // archive-openspec: met whenever computeSteps returns it conditional
+}
+
+/** Step 6 report data: step statuses, usage totals, PR url. */
+function buildSummary(ledger) {
+  const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+  for (const s of ledger.steps || []) {
+    for (const k of Object.keys(usage)) {
+      if (s.usage && Number.isInteger(s.usage[k])) usage[k] += s.usage[k];
+    }
+  }
+  const pr = lastHistory(ledger, 'dispatch_pr');
+  return {
+    steps: (ledger.steps || []).map(s => ({ name: s.name, status: s.status })),
+    usage,
+    prUrl: (pr && pr.data && pr.data.artifacts && pr.data.artifacts.prUrl) || null,
+  };
+}
+
+/**
+ * Sidecar for the Step 6 summary (X1). `cleanup-pipeline` deletes the ledger before
+ * `--after cleanup` runs, so the summary is persisted next to the ledger when the
+ * cleanup step is emitted. The dot-prefixed name keeps `ship-<slug>-*` globs from
+ * matching it.
+ */
+function summarySidecarPath(ledgerPath) {
+  return path.join(path.dirname(ledgerPath), '.summary-' + path.basename(ledgerPath));
+}
+
+/**
+ * R38 failure-path sweep (M7): the GC that `cleanup-pipeline --force` runs, in-process,
+ * before a failure envelope is emitted. The failed ledger itself is never deleted
+ * (P-STEP-3 keeps it for `--resume`).
+ */
+function sweepStateFiles(flags) {
+  try {
+    const ttlDays = (flags && typeof flags.ttlDays === 'number') ? flags.ttlDays : readTtlDaysFromConfig();
+    const knownBranches = listBranches();
+    for (const prefix of ['ship', 'execute', 'plan', 'commit']) {
+      gcStateFiles({ prefix, ttlDays, knownBranches });
+    }
+  } catch (_) { /* the sweep is best effort; the error envelope must still be emitted */ }
+}
+
+/**
+ * Pick the next step after `after` in P-TRANS-1 order (L6, L19) and build its
+ * payload. Conditional steps whose condition is not met are recorded skipped.
+ * @returns {{ step, planTasks?, llmDecision, warnings: string[] } | { error: string } | { done: true }}
+ */
+function pickNextStep(after, ctx) {
+  const { ledger, flags, steps, ledgerPath, recorded, skipped } = ctx;
+  const stepOf = (name) => steps.find(s => s.name === name);
+  const entryOf = (name) => ledger.steps.find(s => s.name === name);
+  const isDone = (name) => { const e = entryOf(name); return !!e && (e.status === 'completed' || e.status === 'skipped'); };
+  const runnable = (name) => { const cs = stepOf(name); return !!cs && cs.status === 'will_run' && !isDone(name); };
+
+  for (const id of STEP_ORDER.slice(STEP_ORDER.indexOf(after) + 1)) {
+    if (id === 'rebase_conflict') continue;
+    const name = STEP_ID_TO_LEDGER_NAME[id];
+    const cs = name ? stepOf(name) : null;
+    let data;
+    let planTasks;
+    let llmDecision = null;
+    const warnings = [];
+
+    if (name) {
+      if (!cs || cs.status === 'skipped' || isDone(name)) continue;
+      if (cs.status === 'conditional') {
+        const reason = unmetCondition(name, ledger);
+        if (reason) {
+          const e = entryOf(name);
+          if (e) { e.status = 'skipped'; e.completedAt = new Date().toISOString(); e.reason = reason; }
+          skipped.push(name);
+          continue;
+        }
+      }
+    } else if (historySuccess(ledger, id)) {
+      continue;
+    }
+
+    switch (id) {
+      case 'branch_prepare': {
+        if (flags.workspace !== 'branch') continue;
+        let derived;
+        try {
+          const config = (readSection(resolveSdlcRoot(), 'workspace') || {}).branch || {};
+          derived = deriveBranchFromPlan(flags.planFile, config);
+        } catch (err) {
+          return { error: `branch_prepare: cannot derive the branch name from the plan: ${err.message}` };
+        }
+        if (ledger.branch === derived.name) continue;
+        data = { branch: derived.name, commands: [`git checkout -b ${derived.name}`] };
+        break;
+      }
+      case 'stage_changes':
+        if (!recorded.has('execute')) continue;
+        data = { commands: [STAGE_COMMAND] };
+        break;
+      case 'review_gate': {
+        if (!recorded.has('review')) continue;
+        const d = reviewGateDecision(ledger);
+        data = { verdict: d.verdict, threshold: d.threshold, counts: d.counts, dispatchReceivedReview: d.met };
+        if (!d.parseable) {
+          warnings.push(`Review verdict missing or unparseable (${JSON.stringify(d.verdict)}); dispatching received-review-sdlc.`);
+        } else if (d.met && !flags.auto) {
+          const found = SEVERITIES.filter(s => d.counts[s] > 0).map(s => `${d.counts[s]} ${s}`).join(', ');
+          llmDecision = { type: 'choice', prompt: `Review found ${found}. Dispatch received-review-sdlc now?`, options: ['yes', 'defer'] };
+        }
+        break;
+      }
+      case 'rebase': {
+        if (!(runnable('version') || runnable('pr'))) continue;
+        if (flags.rebase === 'skip') { skipped.push('rebase'); continue; }
+        let base;
+        try { base = detectBaseBranch(process.cwd()); } catch (err) {
+          return { error: `rebase: ${err.message} State preserved; re-run with --resume.` };
+        }
+        if (exec('git fetch origin', { cwd: process.cwd() }) === null) {
+          return { error: 'rebase: git fetch origin failed. State preserved; re-run with --resume.' };
+        }
+        const upToDate = exec(`git merge-base --is-ancestor origin/${base} HEAD`, { cwd: process.cwd() }) !== null;
+        data = { base, commands: upToDate ? [] : [`git rebase origin/${base}`] };
+        break;
+      }
+      case 'verify_version_tag': {
+        if (!recorded.has('version')) continue;
+        const v = lastHistory(ledger, 'dispatch_version');
+        const NEW_TAG = (v && v.data && v.data.artifacts && v.data.artifacts.tag) || null;
+        const EXECUTE_BRANCH = historySuccess(ledger, 'branch_prepare') ? ledger.branch : null;
+        data = {
+          NEW_TAG,
+          EXECUTE_BRANCH,
+          commands: NEW_TAG && EXECUTE_BRANCH
+            ? [`node "${VERIFY_TAG_SCRIPT}" --tag "${NEW_TAG}" --branch "${EXECUTE_BRANCH}" --remote origin`]
+            : [],
+        };
+        break;
+      }
+      case 'verify_openspec':
+      case 'archive_openspec':
+        data = {
+          change: flags.openspecChange || (flags.openspecContext && flags.openspecContext.branchMatch) || null,
+          args: cs.args,
+          commands: [],
+        };
+        break;
+      case 'verify_pipeline':
+      case 'await_remote_review':
+        data = { commands: [`node "${id === 'verify_pipeline' ? VERIFY_PIPELINE_SCRIPT : AWAIT_REVIEW_SCRIPT}" ${cs.args} --state-file "${ledgerPath}"`] };
+        break;
+      case 'learnings_commit':
+        data = { commands: [LEARNINGS_COMMIT_COMMAND] };
+        break;
+      case 'cleanup': {
+        const force = ledger.steps.some(s => s.status === 'failed');
+        data = {
+          commands: [`node "${STATE_SHIP_SCRIPT}" cleanup-pipeline${force ? ' --force' : ''}${flags.ttlDays != null ? ` --ttl-days ${flags.ttlDays}` : ''}`],
+          summary: buildSummary(ledger),
+        };
+        break;
+      }
+      default: // dispatch_*
+        data = { skill: cs.skill, args: cs.args, invocation: cs.invocation, model: cs.model, ...(cs.effort ? { effort: cs.effort } : {}), ...(cs.isolation ? { isolation: cs.isolation } : {}) };
+        if (id === 'dispatch_execute') {
+          // L22: a resumed run (execute in_progress with an execute state file) forwards --resume only.
+          const exec0 = entryOf('execute');
+          if (exec0 && exec0.status === 'in_progress' && readState('execute', slugifyBranch(ledger.branch))) {
+            data.args = `${cs.args} --resume`;
+            data.invocation = `skill: "${cs.skill}", args: "${data.args}"`;
+          }
+          planTasks = readPlanTasks(flags.planFile);
+          if (planTasks.length === 0) {
+            return { error: `dispatch_execute: the plan must contain at least one "### Task N:" heading (R-SHIPTODOS-FAILLOUD): ${flags.planFile}` };
+          }
+        }
+    }
+
+    const ACTIONS = {
+      branch_prepare: 'Create the feature branch: run data.commands, then report the result.',
+      stage_changes: 'Stage the changes: run data.commands, then report the result.',
+      review_gate: 'Apply the review gate: ask the user when llm_decision is set; otherwise report the result.',
+      rebase: 'Run data.commands (none when the branch is up to date). On a rebase conflict run `git rebase --abort` first, then report success:false.',
+      verify_version_tag: 'Run data.commands (a no-op when empty) to verify the release tag ancestry.',
+      verify_openspec: 'Run the verify-openspec judgment section of reference.md for data.change and report its outcome.',
+      archive_openspec: 'Run the archive-openspec judgment section of reference.md for data.change and report its outcome.',
+      verify_pipeline: 'Run data.commands and handle its JSON verdict per the verify-pipeline section of reference.md.',
+      await_remote_review: 'Run data.commands and handle its JSON verdict per the await-remote-review section of reference.md.',
+      learnings_commit: 'Run data.commands, then report the result.',
+      cleanup: 'Run data.commands to finish the pipeline, then report the result.',
+    };
+    const isDispatch = id.startsWith('dispatch_');
+    return {
+      step: {
+        id,
+        action: isDispatch ? `Dispatch ${cs.skill} as a sub-agent with data.invocation, then report its result.` : ACTIONS[id],
+        tool_hints: isDispatch ? ['Agent'] : (id === 'review_gate' ? ['AskUserQuestion'] : ['Bash']),
+        data,
+      },
+      planTasks,
+      llmDecision,
+      warnings,
+    };
+  }
+  return { done: true };
+}
+
+/**
+ * `--after <id> --result-file <p> --state <ledger>` (P-STEP-2): record the finished
+ * step in the ledger, then emit the next one (P-TRANS-1). Every computeSteps
+ * input comes from ledger.flags (L6, L8).
+ */
+function runAfter(stepArgs) {
+  const after = stepArgs.after;
+  let ledgerPath = stepArgs.stateFile;
+  const emit = (envelope, exitCode) => writeOutput(envelope, 'ship-step', envelope.status === 'error' ? (exitCode ?? 1) : 0);
+  const fail = (message, extra = {}) => emit(createEnvelope('error', null, { error: message, stateFile: ledgerPath, ...extra }));
+
+  // 1. Validate.
+  if (stepArgs.result == null) {
+    const i = process.argv.indexOf('--result-file');
+    const file = i !== -1 ? process.argv[i + 1] : null;
+    return fail(`--after ${after}: the result ${file ? `file "${file}"` : '(--result-file)'} is missing or not valid JSON; nothing recorded.`);
+  }
+  if (!STEP_ORDER.includes(after)) return fail(`--after ${after}: unknown step id.`);
+  if (!ledgerPath) return fail(`--after ${after}: --state <ledger path> is required.`);
+  if (!fs.existsSync(ledgerPath)) {
+    // The normal cleanup-pipeline already deleted the ledger.
+    if (after === 'cleanup') {
+      let summary = null;
+      const sidecar = summarySidecarPath(ledgerPath);
+      try {
+        summary = JSON.parse(fs.readFileSync(sidecar, 'utf8'));
+        fs.unlinkSync(sidecar);
+      } catch (_) { /* no sidecar (older run): summary stays null */ }
+      return emit(createEnvelope('done', null, { ext: { summary } }));
+    }
+    return fail(`--after ${after}: state file not found: ${ledgerPath}`);
+  }
+  let ledger;
+  try {
+    ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
+  } catch (err) {
+    return fail(`--after ${after}: state file unreadable: ${err.message}`);
+  }
+  const flags = ledger.flags || {};
+
+  // The ledger still exists after a forced cleanup or a contract violation: the summary
+  // sidecar was not consumed above, so remove it here (GC never prunes it).
+  if (after === 'cleanup') {
+    try { fs.unlinkSync(summarySidecarPath(ledgerPath)); } catch (_) { /* absent is fine */ }
+  }
+
+  // 1b. Dry-run ledger: no step runs (P11).
+  if (after === 'confirm_pipeline' && flags.dryRun === true) {
+    return emit(createEnvelope('done', null, { ext: { reason: 'dry-run' }, stateFile: ledgerPath }));
+  }
+  const missing = FROZEN_FLAG_KEYS.find(k => !(k in flags));
+  if (missing) {
+    return fail(`ledger.flags lacks "${missing}"; re-run /ship-sdlc with --resume so the initial call freezes it.`);
+  }
+  if (!Array.isArray(ledger.history)) ledger.history = [];
+  const result = stepArgs.result;
+  const output = (result.output && typeof result.output === 'object') ? result.output : {};
+  const warnings = [];
+
+  // --after branch_prepare: migrate the ledger before any in-memory mutation.
+  if (after === 'branch_prepare' && result.success === true) {
+    const newBranch = checkGitState(process.cwd()).currentBranch;
+    const reported = output.artifacts && output.artifacts.branch;
+    if (reported && reported !== newBranch) {
+      warnings.push(`branch_prepare reported branch "${reported}" but the current branch is "${newBranch}"; using "${newBranch}".`);
+    }
+    const res = migrateBranchSlug({ prefix: 'ship', fromSlug: slugifyBranch(ledger.branch), toBranch: newBranch });
+    if (res.migrated) ledgerPath = res.filePath;
+    ledger.branch = newBranch;
+  }
+
+  // 2. Recompute the step plan from the frozen flags.
+  const steps = computeSteps(flags, flags.sources, {
+    openspecContext: flags.openspecContext,
+    expectedBranch: ledger.branch,
+    planFile: flags.planFile,
+  });
+  const total = countTotal(steps);
+  const skipped = [];
+  const progress = () => ({
+    completed: ledger.steps.filter(s => s.status === 'completed').length,
+    total,
+    ...(skipped.length > 0 ? { skipped } : {}),
+  });
+
+  // 3. edit/cancel before anything ran: delete the ledger (L1).
+  const answer = typeof output.answer === 'string' ? output.answer : null;
+  if (after === 'confirm_pipeline' && (answer === 'edit' || answer === 'cancel')) {
+    const pristine = ledger.history.length === 0 &&
+      !ledger.steps.some(s => ['in_progress', 'completed', 'failed'].includes(s.status));
+    if (pristine) {
+      deleteState(ledgerPath);
+      return emit(createEnvelope('done', null, { ext: { reason: answer } }));
+    }
+  }
+
+  // 4. Record the finished step.
+  const name = STEP_ID_TO_LEDGER_NAME[after];
+  let success = result.success === true;
+  let failureText = output.summary;
+  if (name && STEP_SIDE_EFFECTS[name] === 'tag' && success) {
+    const tag = output.artifacts && output.artifacts.tag;
+    if (!tag || !getTagList(resolveActiveWorktreeSafe()).includes(tag)) {
+      success = false;
+      failureText = `version tag "${tag || ''}" was not found in the git tag list`;
+    }
+  }
+  // L23/L27: completeness gate; any non-zero exit halts and becomes the process exit code.
+  let failExitCode;
+  if (name === 'execute' && success) {
+    if (!fs.existsSync(EXECUTE_STATE_SCRIPT)) {
+      success = false;
+      failExitCode = 2;
+      failureText = 'Cannot locate execute.js — completeness gate cannot run (exit 2).';
+    } else {
+      const r = spawnSync('node', [EXECUTE_STATE_SCRIPT, 'verify-completeness', '--branch', ledger.branch], { encoding: 'utf8', timeout: 10000 });
+      if (r.error || r.status !== 0) {
+        success = false;
+        failExitCode = r.error || r.status == null ? 2 : r.status;
+        failureText = `execute-plan-sdlc returned but planned tasks are unaccounted. Pipeline halted (verify-completeness exit ${r.error ? 'error' : r.status}): ${(r.stderr || '').trim()}`;
+      }
+    }
+  }
+  const ext = {};
+  const recorded = new Set();
+  if (name) {
+    const entry = ledger.steps.find(s => s.name === name);
+    if (entry && entry.status === 'pending') shipState.startStepCore(ledger, name);
+    // Usage is reported by dispatched sub-agents only; inline steps carry none.
+    let usage;
+    if (after.startsWith('dispatch_')) {
+      const parsedUsage = parseUsage(JSON.stringify(output.usage));
+      usage = parsedUsage.ok ? parsedUsage.value : undefined;
+      if (!parsedUsage.ok) warnings.push(`${name}: usage absent or invalid (${parsedUsage.error}); not recorded.`);
+    }
+    const res = shipState.completeStepCore(ledger, name, success ? output.summary : failureText, success ? 'success' : 'failure', usage);
+    if (!res.ok) return fail(`--after ${after}: ${res.error} in the ledger.`);
+    // A failed execute lists one todo per plan task (HEAD's `--event execute --fail-step execute`).
+    const failTasks = !success && name === 'execute' ? readPlanTasks(flags.planFile) : [];
+    ext.todos = success
+      ? markCompleted(ledger, name)
+      : failTasks.length > 0
+        ? renderTodos(ledger, { event: 'execute', currentStep: 'execute', failStep: 'execute', planTasks: failTasks })
+        : renderTodos(ledger, { event: 'step', currentStep: name, failStep: name });
+    if (success) recorded.add(name);
+  }
+  ledger.history.push({
+    step: after,
+    result: result.success === undefined ? 'unknown' : (success ? 'success' : 'failed'),
+    data: output,
+    timestamp: new Date().toISOString(),
+  });
+  ledger.currentStep = null;
+
+  const finish = (envelope, exitCode) => {
+    if (warnings.length > 0) envelope.ext.warnings = warnings;
+    writeState(ledgerPath, ledger);
+    emit(envelope, exitCode);
+  };
+  const failStep = (message, exitCode) => {
+    sweepStateFiles(flags);
+    return finish(createEnvelope('error', null, { error: message, stateFile: ledgerPath, progress: progress(), ext }), exitCode);
+  };
+
+  // Failure rows.
+  if (!success && !DECISION_STEPS.includes(after)) {
+    if (after === 'rebase' && !flags.auto) {
+      ledger.currentStep = 'rebase_conflict';
+      return finish(createEnvelope('step', {
+        id: 'rebase_conflict',
+        action: 'Ask the user how to resolve the rebase conflict, then report the answer.',
+        tool_hints: ['AskUserQuestion'],
+        data: {},
+      }, {
+        llmDecision: { type: 'choice', prompt: 'The rebase hit a conflict. How should the pipeline continue?', options: ['pause', 'skip', 'merge'] },
+        stateFile: ledgerPath, progress: progress(), ext,
+      }));
+    }
+    if (after === 'rebase' || after.startsWith('dispatch_') || !name || HALTING_INLINE_STEPS.includes(after)) {
+      return failStep(`${name || after} failed: ${failureText || 'no summary'}. State preserved; re-run with --resume.`, failExitCode);
+    }
+    // The other inline named steps (verify-openspec, await-remote-review, learnings-commit)
+    // stay recorded failed; cleanup then runs with --force.
+  }
+  if (after === 'confirm_pipeline' && !flags.auto && answer !== 'yes') {
+    if (answer === 'edit' || answer === 'cancel') {
+      return finish(createEnvelope('done', null, { ext: { ...ext, reason: answer }, stateFile: ledgerPath, progress: progress() }));
+    }
+    return failStep(`confirm_pipeline: unknown answer "${answer}" (expected yes, edit or cancel).`);
+  }
+  if (after === 'rebase_conflict' && answer === 'pause') {
+    ledger.paused = { at: new Date().toISOString(), reason: 'rebase conflict' };
+    return finish(createEnvelope('done', null, { ext: { ...ext, reason: 'paused' }, stateFile: ledgerPath, progress: progress() }));
+  }
+
+  // 5. Pick the next step.
+  const next = pickNextStep(after, { ledger, flags, steps, ledgerPath, recorded, skipped });
+  if (next.error) return failStep(next.error);
+  if (next.done) {
+    return finish(createEnvelope('done', null, { ext: { ...ext, summary: buildSummary(ledger) }, stateFile: ledgerPath, progress: progress() }));
+  }
+  warnings.push(...next.warnings);
+
+  // 6. Start on emit (L14).
+  const nextName = STEP_ID_TO_LEDGER_NAME[next.step.id];
+  if (nextName) {
+    const res = shipState.startStepCore(ledger, nextName);
+    if (!res.ok) return failStep(`${next.step.id}: ${res.error} in the ledger.`);
+    delete ledger.paused;
+    try {
+      fs.unlinkSync(path.join(resolveStateDir(), '.stop-cap-exhausted-' + slugifyBranch(ledger.branch) + '.json'));
+    } catch { /* absent is fine */ }
+    const rendered = nextName === 'execute'
+      ? renderTodos(ledger, { event: 'execute', currentStep: 'execute', planTasks: next.planTasks })
+      : stepTransition(ledger, nextName);
+    next.step.data.todos = rendered.todos;
+    next.step.data.marker = rendered.marker;
+  }
+  ledger.currentStep = next.step.id;
+
+  // X1: `cleanup-pipeline` deletes the ledger before `--after cleanup` runs, so keep
+  // the Step 6 summary where that call can still read it.
+  if (next.step.id === 'cleanup' && next.step.data && next.step.data.summary) {
+    try {
+      fs.writeFileSync(summarySidecarPath(ledgerPath), JSON.stringify(next.step.data.summary));
+    } catch (_) { /* the summary then stays null after cleanup */ }
+  }
+
+  // 7. Persist and emit.
+  return finish(createEnvelope('step', next.step, {
+    llmDecision: next.llmDecision, stateFile: ledgerPath, progress: progress(), ext,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -1119,6 +1758,10 @@ function main() {
   if (process.argv[2] === 'verify-side-effect') {
     return verifySideEffect(process.argv);
   }
+
+  // P-STEP-2: every call after the initial one is `--after <id> --result-file <p> --state <ledger>`.
+  const stepArgs = parseStepArgs();
+  if (stepArgs.after) return runAfter(stepArgs);
 
   const projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/
   // issue #457: OpenSpec content scans live on the active branch in the active worktree —
@@ -1510,7 +2153,11 @@ function main() {
     claimSession('ship', slugifyBranch(gitState.currentBranch));
   }
   if (resume && resume.found && resume.worktreeMismatch && !cli.resume) {
-    warnings.push('Ship state file exists but was created in a different worktree. Use --resume to resume explicitly.');
+    // L15: when init will run (no errors, not --dry-run) it prunes the earlier
+    // ledger, so the warning no longer offers --resume.
+    warnings.push(errors.length === 0 && !flags.dryRun
+      ? 'Ship state file exists but was created in a different worktree. This run replaced it with a new ledger; the earlier run cannot be resumed.'
+      : 'Ship state file exists but was created in a different worktree. Use --resume to resume explicitly.');
   }
   flags.implicitResume = implicitResume;
 
@@ -1531,6 +2178,12 @@ function main() {
   // workspace auto-detection, the derive returns `branch` ONLY when cwd is already
   // the main worktree on the default branch, so branch creation can never fire from
   // the wrong cwd — the assertion is unreachable by construction.
+
+  // L1: create (or adopt on resume) the ledger once, before the envelope names it.
+  const ledgerPath = ensureLedger({
+    flags, flagSources, openspecContext, planFile, gitState, resume, errors, steps,
+    ttlDays: cli.ttlDays,
+  });
 
   // Build config values for output
   const configValues = {};
@@ -1602,6 +2255,31 @@ function main() {
     },
     resume,
   };
+
+  // P-STEP-1 / P-TRANS-1 (initial): the prepare keys above stay as they are;
+  // the envelope keys are added beside them. Error-free runs emit confirm_pipeline
+  // (under --dry-run too, P11) — prepare errors emit status "error" instead.
+  if (errors.length > 0) {
+    const first = errors[0];
+    Object.assign(result, createEnvelope('error', null, {
+      error: typeof first === 'string' ? first : first.message,
+      stateFile: null,
+    }));
+  } else {
+    Object.assign(result, createEnvelope('step', {
+      id: 'confirm_pipeline',
+      action: 'Confirm the pipeline with the user (skip when llm_decision is null).',
+      tool_hints: ['AskUserQuestion'],
+      data: {},
+    }, {
+      llmDecision: (flags.auto || flags.dryRun)
+        ? null
+        : { type: 'confirm', prompt: 'Run this pipeline?', options: ['yes', 'edit', 'cancel'] },
+      stateFile: ledgerPath,
+      progress: { completed: 0, total: countTotal(steps) },
+      ext: {},
+    }));
+  }
 
   // Exit with 1 if there are fatal errors, 0 otherwise
   const exitCode = errors.length > 0 ? 1 : 0;

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-19
+
+### Changed
+- feat: `ship-sdlc` adopts the step-emitter — `skill/ship.js` sequences the pipeline (initial call plus `--after <step_id> --result-file <f> --state <ledger>` calls) and emits `status/step/llm_decision/state_file/progress/ext` beside the existing prepare keys; SKILL.md Step 5 shrinks to a short loop, the judgment procedures move to `reference.md`, and branch derivation, rebase, staging and the review-gate threshold run in the script (#9001)
+- feat: the ship ledger gains `history`, `currentStep` and the frozen `flags.planFile`, `flags.openspecContext`, `flags.sources` and optional `flags.ttlDays`; steps are marked `in_progress` when emitted; `state/ship.js` exports `startStepCore` and `completeStepCore` (#9001)
+- fix: the execute-step completeness gate, `--resume` forwarding to execute and per-task execute todos now run in `ship.js`; a completeness failure exits with the completeness script's code (#9001)
+- changed: `rebase` is not emitted when `flags.rebase` is `skip` (still recorded as skipped); the found-but-not-resumed worktree warning now says the earlier ledger was replaced (#9001)
+- docs: `docs/specs/ship-sdlc.md` gets the P-TRANS-1 transition table and amended P-STEP-3, R70, R-pause, R6 and R-expected-branch-branch-derive (#9001)
+- fix: `status: "done"` is routed on `ext.reason` (edit → the Step 4 edit path; cancel, paused and dry-run stop; otherwise the Step 6 report) (#9001)
+- fix: the stale-state GC sweep that R38 requires on failure paths is restored — `ship.js` runs it before emitting a failure envelope, and the failed ledger is kept for `--resume` (#9001)
+- fix: `ext.summary` is returned after `cleanup-pipeline` has deleted the ledger (the summary is persisted when `cleanup` is emitted and removed again on forced cleanup) (#9001)
+- fix: the `rebase` step aborts a conflicted rebase (`git rebase --abort`) in every mode, and a rebase skipped under `flags.rebase=skip` is recorded in `progress.skipped` (#9001)
+- changed: a failed `archive_openspec` or `verify_pipeline` result now halts the pipeline with `status: "error"` (R25, R-archive-sync-3, R45); `verify_openspec`, `await_remote_review` and `learnings_commit` stay non-fatal (#9001)
+- docs: R37 and the R60 lifecycle follow the step-emitter branch order (checkout first, then the ledger migration in `--after branch_prepare`) (#9001)
+- tests: 44 `ship-step: ` exec cases, a stepper fixture and wrapper, one new hooks case; the R37 rubric in `ship-sdlc.yaml` follows the same branch order (#9001)
+
 ## [0.25.3] - 2026-10-19
 
 ### Changed

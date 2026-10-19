@@ -53,7 +53,11 @@
         },
         "draft": {
           "type": "boolean"
-        }
+        },
+        "planFile": {"oneOf":[{"type":"string"},{"type":"null"}]},
+        "openspecContext": {"type":"object","properties":{"branchMatch":{},"isAlreadyArchived":{"type":"boolean"},"tasksDone":{"oneOf":[{"type":"integer"},{"type":"null"}]},"tasksTotal":{"oneOf":[{"type":"integer"},{"type":"null"}]}}},
+        "sources": {"type":"object"},
+        "ttlDays": {"type":"integer","minimum":0}
       }
     },
     "steps": {
@@ -63,7 +67,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "enum": ["execute", "commit", "review", "received-review", "commit-fixes", "version", "pr", "verify-pipeline", "await-remote-review"]
+            "enum": ["execute", "commit", "review", "received-review", "commit-fixes", "version", "pr", "verify-pipeline", "await-remote-review", "verify-openspec", "archive-openspec", "learnings-commit"]
           },
           "status": {
             "type": "string",
@@ -94,6 +98,8 @@
         "required": ["name", "status"]
       }
     },
+    "currentStep": { "oneOf": [ { "type": "string" }, { "type": "null" } ] },
+    "history": { "type": "array", "items": { "type": "object", "properties": { "step": {"type":"string"}, "result": {"type":"string","enum":["success","failed","unknown"]}, "data": {}, "timestamp": {"type":"string"} }, "required": ["step","result","timestamp"] } },
     "decisions": {
       "type": "array",
       "items": {
