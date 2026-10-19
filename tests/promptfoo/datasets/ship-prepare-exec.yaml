@@ -2051,6 +2051,107 @@
         if (o.calls[1].exitCode !== 0) return `FAIL: exit ${o.calls[1].exitCode}`;
         return true;
 
+- description: "ship-step: (e2) --after cleanup after the ledger is really deleted still returns the Step 6 summary (X1)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-cleanup --seed frozen --result results/cleanup-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [first, second] = o.calls.map(c => c.envelope);
+        if (o.ledgerExists) return 'FAIL: the ledger was expected to be deleted before --after cleanup';
+        if (second.status !== 'done') return `FAIL: second ${JSON.stringify(second)}`;
+        const s = second.ext && second.ext.summary;
+        if (!s || !Array.isArray(s.steps) || s.steps.length === 0) return `FAIL: ext.summary missing after cleanup: ${JSON.stringify(second.ext)}`;
+        if (JSON.stringify(s) !== JSON.stringify(first.step.data.summary)) return 'FAIL: ext.summary differs from the summary built when cleanup was emitted';
+        if (!s.usage || !('prUrl' in s)) return `FAIL: summary lacks usage/prUrl: ${JSON.stringify(s)}`;
+        if (o.summarySidecars.length !== 0) return `FAIL: summary sidecar not removed: ${o.summarySidecars}`;
+        return true;
+
+- description: "ship-step: (z) a failed dispatch step sweeps stale state files in-process and keeps the failed ledger (R38 failure path, M7)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-commit-fail-gc --seed frozen --result results/commit-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[0].envelope;
+        if (env.status !== 'error') return `FAIL: status ${env.status}`;
+        if (o.calls[0].exitCode !== 1) return `FAIL: exit ${o.calls[0].exitCode}`;
+        if (o.ledger.stepStatuses.commit !== 'failed') return `FAIL: commit ${o.ledger.stepStatuses.commit}`;
+        if (o.ledgerFiles.includes('ship-gone-branch-20200101T000000Z.json')) return `FAIL: stale orphan not swept: ${o.ledgerFiles}`;
+        if (!o.ledgerFiles.some(f => f.startsWith('ship-feat-ship-'))) return `FAIL: failed ledger was deleted: ${o.ledgerFiles}`;
+        return true;
+
+- description: "ship-step: (rf2) the rebase step action tells the model to run git rebase --abort on a conflict, in every mode"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rebase-emit --seed frozen --result results/review-approved.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[o.calls.length - 1].envelope;
+        if (env.status !== 'step' || env.step.id !== 'rebase') return `FAIL: ${env.status} ${env.step && env.step.id} ${env.error || ''}`;
+        if (!/git rebase --abort/.test(env.step.action)) return `FAIL: action lacks the abort: ${env.step.action}`;
+        return true;
+
+- description: "ship-step: (rf5) a failed archive_openspec result halts the pipeline with status error (R25, R-archive-sync-3)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario inline-fail-archive-openspec --seed frozen --result results/commit-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[0].envelope;
+        if (env.status !== 'error') return `FAIL: status ${env.status}`;
+        if (o.calls[0].exitCode !== 1) return `FAIL: exit ${o.calls[0].exitCode}`;
+        if (o.ledger.stepStatuses['archive-openspec'] !== 'failed') return `FAIL: ${JSON.stringify(o.ledger.stepStatuses)}`;
+        return true;
+
+- description: "ship-step: (rf5) a failed verify_pipeline result (abort) halts the pipeline with status error (R45)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario inline-fail-verify-pipeline --seed frozen --result results/commit-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[0].envelope;
+        if (env.status !== 'error') return `FAIL: status ${env.status}`;
+        if (o.calls[0].exitCode !== 1) return `FAIL: exit ${o.calls[0].exitCode}`;
+        if (o.ledger.stepStatuses['verify-pipeline'] !== 'failed') return `FAIL: ${JSON.stringify(o.ledger.stepStatuses)}`;
+        return true;
+
+- description: "ship-step: (rf5) a failed learnings_commit result stays non-fatal and continues to cleanup"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario inline-fail-learnings-commit --seed frozen --result results/commit-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[0].envelope;
+        if (env.status !== 'step') return `FAIL: status ${env.status} ${env.error || ''}`;
+        if (env.step.id !== 'cleanup') return `FAIL: next ${env.step.id}`;
+        if (o.ledger.stepStatuses['learnings-commit'] !== 'failed') return `FAIL: ${JSON.stringify(o.ledger.stepStatuses)}`;
+        return true;
+
 - description: "ship-step: (h) --after step list equals the initial call's and progress.total never changes"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
@@ -2243,6 +2344,7 @@
         if (gate.step.data.dispatchReceivedReview !== false) return `FAIL: gate ${JSON.stringify(gate.step.data)}`;
         if (next.step.id !== 'dispatch_version') return `FAIL: next ${next.step.id}`;
         if (!(next.progress.skipped || []).includes('received-review')) return `FAIL: progress.skipped ${JSON.stringify(next.progress)}`;
+        if (!(next.progress.skipped || []).includes('rebase')) return `FAIL: rebase skip (flags.rebase=skip) is not recorded in progress.skipped: ${JSON.stringify(next.progress)}`;
         return true;
 
 - description: "ship-step: (q) review_gate unparseable verdict dispatches received-review with a warnings line"

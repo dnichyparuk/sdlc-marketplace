@@ -17,7 +17,8 @@
  *                        after-version-no-tag | after-bad-result |
  *                        step-list-equal | branch-migrate | resumed-completed |
  *                        emit-in-progress | review-gate-rows | ttl-days |
- *                        worktree-mismatch | after-execute | plan-no-tasks
+ *                        worktree-mismatch | after-execute | plan-no-tasks | after-commit-fail-gc |
+ *                        rebase-emit | inline-fail-<step-with-dashes>
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
  *   --seed <name>        legacy | frozen | frozen-dryrun | frozen-branch | frozen-resumed | frozen-exec | none
@@ -149,6 +150,14 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     if (scenario === 'review-gate-rows' && result && result.threshold) data.flags.reviewThreshold = result.threshold;
     if (scenario === 'emit-in-progress') data.paused = { at: '2026-10-19T12:00:00.000Z', reason: 'fixture' };
     if (scenario === 'worktree-mismatch') data.worktree = path.dirname(projectRoot);
+    if (scenario === 'rebase-emit') { data.flags.rebase = 'auto'; data.flags.auto = true; }
+    if (scenario.startsWith('inline-fail-')) {
+      const nm = scenario.slice('inline-fail-'.length);
+      data.flags.auto = true;
+      if (!data.flags.steps.includes(nm)) data.flags.steps.push(nm);
+      const e = data.steps.find(x => x.name === nm);
+      if (e) e.status = 'in_progress'; else data.steps.push({ name: nm, status: 'in_progress' });
+    }
     if (scenario === 'plan-no-tasks') data.flags.planFile = path.join(projectRoot, 'plan-notasks.md');
   });
 }
@@ -182,6 +191,23 @@ switch (scenario) {
   case 'after-commit-fail':
     after('dispatch_commit', resultRel);
     break;
+  case 'after-commit-fail-gc': {
+    // R38 failure-path sweep (M7): a stale ledger of a branch that no longer exists
+    // must be pruned when a step fails; the failed ledger itself is kept.
+    const orphan = path.join(execDir, 'ship-gone-branch-20200101T000000Z.json');
+    fs.writeFileSync(orphan, JSON.stringify({ version: 1, branch: 'gone-branch', steps: [] }));
+    const old = new Date(Date.now() - 30 * 86400000);
+    fs.utimesSync(orphan, old, old);
+    after('dispatch_commit', resultRel || 'results/commit-fail.json');
+    break;
+  }
+  case 'rebase-emit': {
+    // A real local origin so `git fetch origin` succeeds; rebase.flag auto + version runnable.
+    sh('git init -q --bare ../origin-bare.git && git remote add origin ../origin-bare.git && git push -q origin main && git fetch -q origin');
+    const gate = after('dispatch_review', resultRel || 'results/review-approved.json');
+    if (gate.status === 'step' && gate.step.id === 'review_gate') after('review_gate', `results/${answer}.json`);
+    break;
+  }
   case 'after-execute':
     after('dispatch_execute', resultRel || 'results/execute-ok.json');
     break;
@@ -236,6 +262,10 @@ switch (scenario) {
     initial();
     break;
   default:
+    if (scenario.startsWith('inline-fail-')) {
+      after(scenario.slice('inline-fail-'.length).replace(/-/g, '_'), resultRel || 'results/commit-fail.json');
+      break;
+    }
     console.log(JSON.stringify({ scenario, error: `unknown scenario: ${scenario}` }));
     process.exit(0);
 }
@@ -275,6 +305,7 @@ console.log(JSON.stringify({
   ledger,
   ledgerExists: Boolean(data),
   ledgerFiles: ledgerFiles(),
+  summarySidecars: (() => { try { return fs.readdirSync(execDir).filter(f => f.startsWith('.summary-')); } catch (_) { return []; } })(),
   commandScripts,
   stopCapExists: fs.existsSync(path.join(execDir, '.stop-cap-exhausted-feat-ship.json')),
 }));

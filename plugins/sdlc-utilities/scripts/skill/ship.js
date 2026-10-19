@@ -41,7 +41,7 @@ const { spawnSync } = require('child_process');
 const LIB = path.join(__dirname, '..', 'lib');
 
 const { exec, checkGitState, detectBaseBranch, deriveWorkspace, parseRemoteOwner, probeGhAuth, formatAccountMismatch, probeRepoAccess, formatAccessDenied, getTagList } = require(path.join(LIB, 'git'));
-const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, readState, slugifyBranch, claimSession, writeState, deleteState, migrateBranchSlug } = require(path.join(LIB, 'state'));
+const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, readState, slugifyBranch, claimSession, writeState, deleteState, migrateBranchSlug, listBranches, readTtlDaysFromConfig } = require(path.join(LIB, 'state'));
 const { parseArgs: parseStepArgs, createEnvelope } = require(path.join(LIB, 'stepper'));
 const shipState = require(path.join(__dirname, '..', 'state', 'ship'));
 const { stepTransition, markCompleted, renderTodos, parsePlanTasks } = require(path.join(LIB, 'ship-todos'));
@@ -1145,6 +1145,10 @@ const STEP_ORDER = [
 
 // Steps whose result carries an answer, not an outcome.
 const DECISION_STEPS = ['confirm_pipeline', 'review_gate', 'rebase_conflict'];
+// Inline steps whose failure halts the pipeline: archive_openspec (R25, R-archive-sync-3:
+// validation failure or abort) and verify_pipeline (R45: abort). Other inline steps
+// (verify_openspec, await_remote_review, learnings_commit) stay non-fatal.
+const HALTING_INLINE_STEPS = ['archive_openspec', 'verify_pipeline'];
 
 // L6/L9: computeSteps inputs frozen in ledger.flags.
 const FROZEN_FLAG_KEYS = ['planFile', 'openspecContext', 'sources'];
@@ -1322,6 +1326,31 @@ function buildSummary(ledger) {
 }
 
 /**
+ * Sidecar for the Step 6 summary (X1). `cleanup-pipeline` deletes the ledger before
+ * `--after cleanup` runs, so the summary is persisted next to the ledger when the
+ * cleanup step is emitted. The dot-prefixed name keeps `ship-<slug>-*` globs from
+ * matching it.
+ */
+function summarySidecarPath(ledgerPath) {
+  return path.join(path.dirname(ledgerPath), '.summary-' + path.basename(ledgerPath));
+}
+
+/**
+ * R38 failure-path sweep (M7): the GC that `cleanup-pipeline --force` runs, in-process,
+ * before a failure envelope is emitted. The failed ledger itself is never deleted
+ * (P-STEP-3 keeps it for `--resume`).
+ */
+function sweepStateFiles(flags) {
+  try {
+    const ttlDays = (flags && typeof flags.ttlDays === 'number') ? flags.ttlDays : readTtlDaysFromConfig();
+    const knownBranches = listBranches();
+    for (const prefix of ['ship', 'execute', 'plan', 'commit']) {
+      gcStateFiles({ prefix, ttlDays, knownBranches });
+    }
+  } catch (_) { /* the sweep is best effort; the error envelope must still be emitted */ }
+}
+
+/**
  * Pick the next step after `after` in P-TRANS-1 order (L6, L19) and build its
  * payload. Conditional steps whose condition is not met are recorded skipped.
  * @returns {{ step, planTasks?, llmDecision, warnings: string[] } | { error: string } | { done: true }}
@@ -1388,7 +1417,8 @@ function pickNextStep(after, ctx) {
         break;
       }
       case 'rebase': {
-        if (flags.rebase === 'skip' || !(runnable('version') || runnable('pr'))) continue;
+        if (!(runnable('version') || runnable('pr'))) continue;
+        if (flags.rebase === 'skip') { skipped.push('rebase'); continue; }
         let base;
         try { base = detectBaseBranch(process.cwd()); } catch (err) {
           return { error: `rebase: ${err.message} State preserved; re-run with --resume.` };
@@ -1457,7 +1487,7 @@ function pickNextStep(after, ctx) {
       branch_prepare: 'Create the feature branch: run data.commands, then report the result.',
       stage_changes: 'Stage the changes: run data.commands, then report the result.',
       review_gate: 'Apply the review gate: ask the user when llm_decision is set; otherwise report the result.',
-      rebase: 'Run data.commands (none when the branch is up to date); report success:false on a rebase conflict.',
+      rebase: 'Run data.commands (none when the branch is up to date). On a rebase conflict run `git rebase --abort` first, then report success:false.',
       verify_version_tag: 'Run data.commands (a no-op when empty) to verify the release tag ancestry.',
       verify_openspec: 'Run the verify-openspec judgment section of reference.md for data.change and report its outcome.',
       archive_openspec: 'Run the archive-openspec judgment section of reference.md for data.change and report its outcome.',
@@ -1503,7 +1533,15 @@ function runAfter(stepArgs) {
   if (!ledgerPath) return fail(`--after ${after}: --state <ledger path> is required.`);
   if (!fs.existsSync(ledgerPath)) {
     // The normal cleanup-pipeline already deleted the ledger.
-    if (after === 'cleanup') return emit(createEnvelope('done', null, { ext: { summary: null } }));
+    if (after === 'cleanup') {
+      let summary = null;
+      const sidecar = summarySidecarPath(ledgerPath);
+      try {
+        summary = JSON.parse(fs.readFileSync(sidecar, 'utf8'));
+        fs.unlinkSync(sidecar);
+      } catch (_) { /* no sidecar (forced cleanup or older run): summary stays null */ }
+      return emit(createEnvelope('done', null, { ext: { summary } }));
+    }
     return fail(`--after ${after}: state file not found: ${ledgerPath}`);
   }
   let ledger;
@@ -1627,7 +1665,10 @@ function runAfter(stepArgs) {
     writeState(ledgerPath, ledger);
     emit(envelope, exitCode);
   };
-  const failStep = (message, exitCode) => finish(createEnvelope('error', null, { error: message, stateFile: ledgerPath, progress: progress(), ext }), exitCode);
+  const failStep = (message, exitCode) => {
+    sweepStateFiles(flags);
+    return finish(createEnvelope('error', null, { error: message, stateFile: ledgerPath, progress: progress(), ext }), exitCode);
+  };
 
   // Failure rows.
   if (!success && !DECISION_STEPS.includes(after)) {
@@ -1643,10 +1684,10 @@ function runAfter(stepArgs) {
         stateFile: ledgerPath, progress: progress(), ext,
       }));
     }
-    if (after === 'rebase' || after.startsWith('dispatch_') || !name) {
+    if (after === 'rebase' || after.startsWith('dispatch_') || !name || HALTING_INLINE_STEPS.includes(after)) {
       return failStep(`${name || after} failed: ${failureText || 'no summary'}. State preserved; re-run with --resume.`, failExitCode);
     }
-    // Inline named steps (openspec, verify-pipeline, await-remote-review, learnings-commit)
+    // The other inline named steps (verify-openspec, await-remote-review, learnings-commit)
     // stay recorded failed; cleanup then runs with --force.
   }
   if (after === 'confirm_pipeline' && !flags.auto && answer !== 'yes') {
@@ -1684,6 +1725,14 @@ function runAfter(stepArgs) {
     next.step.data.marker = rendered.marker;
   }
   ledger.currentStep = next.step.id;
+
+  // X1: `cleanup-pipeline` deletes the ledger before `--after cleanup` runs, so keep
+  // the Step 6 summary where that call can still read it.
+  if (next.step.id === 'cleanup' && next.step.data && next.step.data.summary) {
+    try {
+      fs.writeFileSync(summarySidecarPath(ledgerPath), JSON.stringify(next.step.data.summary));
+    } catch (_) { /* the summary then stays null after cleanup */ }
+  }
 
   // 7. Persist and emit.
   return finish(createEnvelope('step', next.step, {
