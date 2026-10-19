@@ -49,7 +49,6 @@ const { VALID_STEPS, BUILT_IN_DEFAULTS, CANONICAL_STEPS, RESERVED_STEPS } = requ
 const { gcStateFiles, gcTempdirs, gcOutputDir } = require(path.join(LIB, 'state'));
 const { detectActiveChanges, isArchived } = require(path.join(LIB, 'openspec'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
-const { getAdvisory } = require(path.join(LIB, 'context-advisory'));
 const { PRE_RELEASE_LABEL_RE } = require(path.join(LIB, 'version'));
 
 const VALID_QUALITY = ['full', 'balanced', 'minimal'];
@@ -1517,12 +1516,6 @@ function main() {
     });
   }
 
-  // Context-heaviness advisory (implements R35) — sourced from the sidecar
-  // written by hooks/context-stats.js on UserPromptSubmit. Returns null when
-  // the sidecar is missing, malformed, or transcript is below the heavy
-  // threshold. Surfaced verbatim by SKILL.md Step 1c when non-null.
-  const contextAdvisory = getAdvisory({ skill: 'ship-sdlc' });
-
   // R65 removed (issue #378, #379): the cwd-assertion diagnostic is gone. Under
   // workspace auto-detection, the derive returns `branch` ONLY when cwd is already
   // the main worktree on the default branch, so branch creation can never fire from
@@ -1597,7 +1590,6 @@ function main() {
       warnings: validation.warnings,
     },
     resume,
-    contextAdvisory,
   };
 
   // Exit with 1 if there are fatal errors, 0 otherwise

@@ -334,6 +334,7 @@
         if (h.permissionDecision !== 'deny') return `FAIL: decision ${h.permissionDecision}`;
         if (h.hookEventName !== 'PreToolUse') return 'FAIL: wrong hookEventName';
         if (typeof h.permissionDecisionReason !== 'string' || !h.permissionDecisionReason) return 'FAIL: missing reason';
+        if (!/no one to answer/.test(h.permissionDecisionReason)) return 'FAIL: reason text';
         return true;
 
 # Negative control: auto=false (same in_progress step) → silent stdout, exit 0 (C18).

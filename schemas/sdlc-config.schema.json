@@ -287,6 +287,16 @@
           "description": "Custom guardrails evaluated during execute-plan-sdlc runtime (pre-wave and post-wave checks).",
           "minItems": 1,
           "items": { "$ref": "#/$defs/guardrailItem" }
+        },
+        "dispatchBudget": {
+          "type": "object",
+          "description": "Optional per-model input-token budgets for wave sizing; overrides built-in defaults in lib/dispatch-budget.js.",
+          "properties": {
+            "haiku": { "type": "integer", "minimum": 1000 },
+            "sonnet": { "type": "integer", "minimum": 1000 },
+            "opus": { "type": "integer", "minimum": 1000 }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

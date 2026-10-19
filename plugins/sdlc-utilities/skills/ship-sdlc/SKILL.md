@@ -85,8 +85,6 @@ Parse the output JSON from `$PREPARE_OUTPUT_FILE`. If `errors` is non-empty, ren
 
 **Plan-file error rendering (implements R72):** If `errors` contains an entry whose `id` is one of `missingPlanFile`, `planFileNotFound`, or `planFileNotMarkdown`, print that entry's `message` VERBATIM before stopping — do NOT summarize, paraphrase, or collapse it into a generic "prepare failed" line. Each such message already states (1) what failed, (2) how to fix it, and (3) why the rule exists; it is composed by `skill/ship.js` (`runValidation`/`resolvePlanFile`) for direct display, not for further rewriting. `errors[]` entries may be plain strings or `{id, message}` objects — render with `typeof e === 'string' ? e : e.message` for every entry. Then STOP: do not dispatch any step.
 
-**Context-heaviness advisory (implements R35):** If the parsed output's top-level `contextAdvisory` field is a non-empty string, print it verbatim before continuing. The advisory recommends `/compact` and notes that pipeline state is preserved across compaction (PreCompact + SessionStart hooks). Sourced from `$TMPDIR/sdlc-context-stats.json`, written by the `UserPromptSubmit` hook (`hooks/context-stats.js`); helper at `scripts/lib/context-advisory.js`. When `contextAdvisory` is `null`, emit nothing.
-
 **Gitignore warning:** If `context.sdlcGitignored` is `false` in the output, print:
 ```
 ⚠ Warning: .sdlc/ is not gitignored. Run --init-config to fix, or manually create .sdlc/.gitignore:

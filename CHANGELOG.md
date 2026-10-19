@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-19
+
+### Added
+- execute-plan-sdlc: `dispatch-budget.js` sizes waves for 1M-context models (Haiku capped at 100K) and accepts a per-model `execute.dispatchBudget` override in the config schema (#6)
+- docs: `docs/cost-tiers.md` §7 records the M1 usage baseline (#6)
+
+### Fixed
+- hooks: `hooks.json` timeouts are now in seconds, as Claude Code reads them (#6)
+- hooks: `block-askuserquestion-auto` deny reason is a plain statement (#6)
+
+### Removed
+- plan-sdlc, ship-sdlc, execute-plan-sdlc: the dead context-heaviness advisory path (`context-advisory.js`, `plan-handoff-advisory.js`, `contextAdvisory` ship output field) (#6)
+
 ## [0.22.1] - 2026-10-18
 
 ### Fixed

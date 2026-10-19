@@ -106,8 +106,7 @@ function main() {
       hookEventName: 'PreToolUse',
       permissionDecision: 'deny',
       permissionDecisionReason:
-        'Auto-mode ship pipeline is advancing (flags.auto=true). Do NOT pause for input — ' +
-        'proceed on the documented default (auto-dispatch the fix path). See ship-sdlc R71/#477.',
+        'This ship pipeline is running with --auto, so there is no one to answer. Take the documented default for this step (dispatch the fix path) and continue.',
     },
   };
   console.log(JSON.stringify(output));

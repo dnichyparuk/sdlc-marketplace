@@ -127,7 +127,7 @@ Complex tasks count as 2 toward the cap (they consume more context and are more 
 | 9–15 | 5 |
 | 16+ | 6 |
 
-The static table is the ceiling. When `computeWaveBudget` returns a lower value (e.g., large fact-sheets push the byte budget below the static cap), use the lower value. When `dispatch-budget.js` is unavailable, fall back to the static table.
+The static table is the ceiling. When `computeWaveBudget` returns a lower value (e.g., large fact-sheets push the byte budget below the static cap), use the lower value.
 
 On resource-constrained systems or when tasks share mutable state (databases, caches, singletons), reduce to 2–3 regardless of the table.
 

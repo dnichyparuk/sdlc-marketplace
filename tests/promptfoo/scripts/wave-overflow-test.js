@@ -10,6 +10,8 @@
  *   factsheet-path        -- verify taskFactSheetPath is deterministic
  *   budget-tight          -- computeWaveBudget with tight byte budget
  *   budget-uncapped       -- computeWaveBudget with 3-task wave (no static cap)
+ *   budget-model-limits   -- MODEL_MAX_INPUT_BYTES per-model ceilings
+ *   budget-config-override -- dispatchBudget config lowers maxConcurrentTasks
  *   summarize-files       -- summarizePriorWaveContext caps filesAdded
  *   summarize-decisions   -- summarizePriorWaveContext caps decisionsFromPriorWaves
  *   render-notes          -- renderFactSheet: present description → `## Notes (rationale)`, absent → omitted
@@ -152,6 +154,39 @@ switch (op) {
       totalRemainingTasks: 4,
     });
     out({ maxConcurrentTasks: r.maxConcurrentTasks, lessThanCap: r.maxConcurrentTasks < 4 });
+    break;
+  }
+
+  case 'budget-model-limits': {
+    const { MODEL_MAX_INPUT_BYTES } = require(path.join(LIB, 'dispatch-budget'));
+    out({
+      haiku: MODEL_MAX_INPUT_BYTES.haiku,
+      sonnet: MODEL_MAX_INPUT_BYTES.sonnet,
+      opus: MODEL_MAX_INPUT_BYTES.opus,
+      ok: MODEL_MAX_INPUT_BYTES.haiku === 300000
+        && MODEL_MAX_INPUT_BYTES.sonnet === 3000000
+        && MODEL_MAX_INPUT_BYTES.opus === 3000000,
+    });
+    break;
+  }
+
+  case 'budget-config-override': {
+    const { computeWaveBudget } = require(path.join(LIB, 'dispatch-budget'));
+    const base = {
+      templateBytes: 5000,
+      guardrailsBytes: 0,
+      perTaskFactSheetBytes: [10000, 10000, 10000],
+      priorWaveContextBytes: 0,
+      model: 'sonnet',
+      totalRemainingTasks: 3,
+    };
+    const without = computeWaveBudget(base);
+    const withOverride = computeWaveBudget({ ...base, dispatchBudget: { sonnet: 10000 } });
+    out({
+      without: without.maxConcurrentTasks,
+      withOverride: withOverride.maxConcurrentTasks,
+      lower: withOverride.maxConcurrentTasks < without.maxConcurrentTasks,
+    });
     break;
   }
 
