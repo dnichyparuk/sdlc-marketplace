@@ -248,7 +248,7 @@ try {
     const sweepEntries = fs.readdirSync(recoveryDir);
     for (const entry of sweepEntries) {
       // Only target per-branch compact-recovery and stop-block-count files
-      if (!/^\.(?:compact-recovery|stop-block-count)-.+\.json$/.test(entry)) continue;
+      if (!/^\.(?:compact-recovery|stop-block-count|pipeline-nudge|stop-cap-exhausted)-.+\.json$/.test(entry)) continue;
       const entryPath = path.join(recoveryDir, entry);
       // Skip the file we just consumed above — avoid double-unlink
       if (entryPath === consumedRecoveryPath) continue;

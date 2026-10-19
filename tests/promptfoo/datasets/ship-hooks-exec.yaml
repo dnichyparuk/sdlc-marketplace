@@ -49,7 +49,7 @@
         const inner = JSON.parse(r.stdout);
         if (!inner.hookSpecificOutput) return 'FAIL: no hookSpecificOutput';
         if (inner.hookSpecificOutput.hookEventName !== 'PostToolUse') return 'FAIL: wrong hookEventName';
-        if (!/in_progress/.test(inner.hookSpecificOutput.additionalContext || '')) return 'FAIL: additionalContext missing in_progress';
+        if (!/in progress/.test(inner.hookSpecificOutput.additionalContext || '')) return 'FAIL: additionalContext missing in progress';
         return true;
 
 # 2. auto + between-steps pending (none in_progress) → emit forward additionalContext.
@@ -66,7 +66,7 @@
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
         const inner = JSON.parse(r.stdout);
         if (!inner.hookSpecificOutput) return 'FAIL: no hookSpecificOutput';
-        if (!/pending/.test(inner.hookSpecificOutput.additionalContext || '')) return 'FAIL: forward context missing pending';
+        if (!/is next/.test(inner.hookSpecificOutput.additionalContext || '')) return 'FAIL: forward context missing is next';
         if (!/commit/.test(inner.hookSpecificOutput.additionalContext || '')) return 'FAIL: forward context missing next step name';
         return true;
 
@@ -100,6 +100,26 @@
         const inner = JSON.parse(r.stdout);
         if (!inner.hookSpecificOutput) return 'FAIL: no hookSpecificOutput';
         if (!/cleanup/.test(inner.hookSpecificOutput.additionalContext || '')) return 'FAIL: forward context missing cleanup';
+        return true;
+
+# 7. Second call on the same step emits nothing (nudge once per transition).
+- description: "pipeline-continue (R67): second call same step emits nothing"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,hook)=>console.log(JSON.stringify(Array(2).fill(0).map(_=>cp.spawnSync("node",[hook],{input:JSON.stringify({tool_name:"Bash",session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout,stderr:r.stderr})))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/hooks/pipeline-continue.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-noauto"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const runs = JSON.parse(r.stdout);
+        if (!Array.isArray(runs) || runs.length !== 2) return `FAIL: expected 2 runs, got: ${r.stdout}`;
+        if (runs[0].status !== 0 || runs[1].status !== 0) return `FAIL: statuses ${runs[0].status}/${runs[1].status}`;
+        const first = JSON.parse(runs[0].stdout);
+        if (!/in progress/.test((first.hookSpecificOutput || {}).additionalContext || '')) return `FAIL: run 0 missing in progress: ${runs[0].stdout}`;
+        if (runs[1].stdout.trim() !== '') return `FAIL: run 1 expected silent, got: ${runs[1].stdout}`;
         return true;
 
 # 5. all steps resolved → exits silently (empty stdout), exit 0.
@@ -502,7 +522,7 @@
         const r = JSON.parse(output);
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
         const inner = JSON.parse(r.stdout);
-        if (!/in_progress/.test((inner.hookSpecificOutput || {}).additionalContext || '')) return `FAIL: no nudge, stderr=${r.stderr}`;
+        if (!/in progress/.test((inner.hookSpecificOutput || {}).additionalContext || '')) return `FAIL: no nudge, stderr=${r.stderr}`;
         return true;
 
 # 8. MATCH / stop-pipeline-continue → the block is preserved.
@@ -655,7 +675,7 @@
         if (inner.claimed !== true) return 'FAIL: claimSession did not rewrite the state file';
         if (inner.hook.status !== 0) return `FAIL: hook exited ${inner.hook.status}`;
         const emitted = JSON.parse(inner.hook.stdout);
-        if (!/in_progress/.test((emitted.hookSpecificOutput || {}).additionalContext || '')) return `FAIL: no nudge after reclaim, stderr=${inner.hook.stderr}`;
+        if (!/in progress/.test((emitted.hookSpecificOutput || {}).additionalContext || '')) return `FAIL: no nudge after reclaim, stderr=${inner.hook.stderr}`;
         return true;
 
 # 17. ANCIENT — matching session, state mtime backdated to 2024. The gate carries
@@ -691,7 +711,7 @@
         const r = JSON.parse(output);
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
         const inner = JSON.parse(r.stdout);
-        if (!/in_progress/.test((inner.hookSpecificOutput || {}).additionalContext || '')) return `FAIL: worktree mismatch silenced the gate, stderr=${r.stderr}`;
+        if (!/in progress/.test((inner.hookSpecificOutput || {}).additionalContext || '')) return `FAIL: worktree mismatch silenced the gate, stderr=${r.stderr}`;
         return true;
 
 # ---------------------------------------------------------------------------

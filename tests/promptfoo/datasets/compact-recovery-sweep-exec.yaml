@@ -76,3 +76,24 @@
       value: |
         const data = JSON.parse(output);
         return Array.isArray(data.hiddenFiles);
+
+# ---------------------------------------------------------------------------
+# Case 4: stale pipeline-nudge sidecar (>24h) is swept on session-start
+# ---------------------------------------------------------------------------
+
+- description: "session-start: stale pipeline-nudge sidecar older than 24h is deleted by sweep"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-session-start-state.js"
+    script_args: "--project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pipeline-nudge-stale"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        return data.exitCode === 0;
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        return Array.isArray(data.hiddenFiles) &&
+               !data.hiddenFiles.includes('.pipeline-nudge-main.json');

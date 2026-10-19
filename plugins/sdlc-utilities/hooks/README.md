@@ -48,6 +48,10 @@ A second per-branch sidecar lives alongside `.compact-recovery-<branchSlug>.json
 - **Shape:** `{ "stepName": "<step name or id>", "count": <number> }`.
 - **Behavior:** each consecutive Stop-hook block on the *same* `stepName` increments `count`. A `stepName` change (the pipeline advanced) resets the counter to `{ stepName: <new step>, count: 0 }`. Once `count` reaches `STOP_BLOCK_CAP` (3), `stop-pipeline-continue.js` stops blocking and lets the Stop event proceed, logging a diagnostic to stderr.
 - **Gating:** writes to this sidecar go through the same `hookEnforcementAllowed(data, payload)` predicate as the recovery sidecar — a foreign or session-less state never gets its block counter written or incremented.
-- **Cleanup:** swept by `session-start.js`'s 24-hour stale-sweep pass (`/^\.(?:compact-recovery|stop-block-count)-.+\.json$/`), the same pass that clears abandoned `.compact-recovery-*.json` files.
+- **Cleanup:** swept by `session-start.js`'s 24-hour stale-sweep pass (`/^\.(?:compact-recovery|stop-block-count|pipeline-nudge|stop-cap-exhausted)-.+\.json$/`), the same pass that clears abandoned `.compact-recovery-*.json` files.
+
+### The Nudge Sidecar: `.pipeline-nudge-<branchSlug>.json`
+
+`pipeline-continue.js` (PostToolUse, matcher `Bash`) records the last nudge it emitted in `<stateDir>/.pipeline-nudge-<branchSlug>.json` as `{ "stepName": "<name>", "status": "<in_progress|pending>" }` and stays silent while the current step and status are unchanged, so the nudge fires once per step transition. It is written only on a path that emits, and swept by the same 24-hour stale-sweep pass.
 
 This sidecar is owned by `stop-pipeline-continue.js`; this README only documents its filename and contract for readers of this directory.
