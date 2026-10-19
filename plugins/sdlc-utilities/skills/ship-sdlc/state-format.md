@@ -99,7 +99,7 @@ Captures the effective flags after defaults and config are applied, so a resumed
 |----------|-----------------|----------------------------------------------------------------------|
 | `auto`   | boolean         | Whether `--auto` (non-interactive) mode was active.                  |
 | `steps`  | string[]        | Resolved pipeline step names (from `ship.steps[]`, `--steps` or `--quick`). |
-| `sources` | object         | Per-flag provenance: `cli`, `config`, `default` or `quick`.          |
+| `sources` | object         | Per-flag provenance: `cli`, `config`, `default`, `quick` or `derived`. |
 | `bump`   | string \| null  | Version bump type (`"major"`, `"minor"`, `"patch"`), or `null`.      |
 | `draft`  | boolean         | Whether the PR was opened as a draft.                                |
 
