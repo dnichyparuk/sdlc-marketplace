@@ -289,6 +289,8 @@ On **edit**: ask what to change, update flags, rebuild the pipeline table, and r
 
 ## Step 5 (EXECUTE): Run Pipeline Steps Sequentially
 
+In `--auto` mode, run every step without asking for confirmation. Without `--auto`, ask the user only at the prompts this file defines for that mode (rebase conflict, verify-pipeline failure, archive-openspec) and leave the sub-skills' own approval prompts to them. Before each step, print one line naming the step that runs next; after it, print its one-line result.
+
 ### Pre-step validation
 
 Before dispatching each step, read its `status` from the skill/ship.js output:
