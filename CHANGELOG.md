@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-19
+
+### Changed
+- feat: `ship-sdlc` adopts the step-emitter — `skill/ship.js` sequences the pipeline (initial call plus `--after <step_id> --result-file <f> --state <ledger>` calls) and emits `status/step/llm_decision/state_file/progress/ext` beside the existing prepare keys; SKILL.md Step 5 shrinks to a short loop, the judgment procedures move to `reference.md`, and branch derivation, rebase, staging and the review-gate threshold run in the script (#9001)
+- feat: the ship ledger gains `history`, `currentStep` and the frozen `flags.planFile`, `flags.openspecContext`, `flags.sources` and optional `flags.ttlDays`; steps are marked `in_progress` when emitted; `state/ship.js` exports `startStepCore` and `completeStepCore` (#9001)
+- fix: the execute-step completeness gate, `--resume` forwarding to execute and per-task execute todos now run in `ship.js`; a completeness failure exits with the completeness script's code (#9001)
+- changed: `rebase` is not emitted when `flags.rebase` is `skip` (still recorded as skipped); the found-but-not-resumed worktree warning now says the earlier ledger was replaced (#9001)
+- docs: `docs/specs/ship-sdlc.md` gets the P-TRANS-1 transition table and amended P-STEP-3, R70, R-pause, R6 and R-expected-branch-branch-derive (#9001)
+- tests: 37 `ship-step: ` exec cases, a stepper fixture and wrapper, one new hooks case (#9001)
+
 ## [0.25.3] - 2026-10-19
 
 ### Changed
