@@ -27,7 +27,7 @@ scripts/                     # Node.js helper scripts (optional; invoked via Bas
 
 ## Architecture Principles
 
-1. **Spec-driven development** — every skill has a specification at `docs/specs/<skill-name>.md` that defines WHAT the skill must do (behavioral contract, testable requirements). The spec is the source of truth for behavior. SKILL.md (HOW) implements the spec; `docs/skills/` (usage reference) documents it for users. Changes to SKILL.md must reference spec requirement numbers (e.g., "implements R3"). New skills need an accepted spec before writing SKILL.md. Use `docs/spec-template.md` as the starting point.
+1. **Spec-driven development** — every skill has a specification at `docs/specs/<skill-name>.md` that defines WHAT the skill must do as a behavioural contract, organised by behaviour (inputs, state, steps, dispatch, gates, failure handling, invariants) per `docs/spec-template.md`. The spec is the source of truth for behaviour; SKILL.md (HOW) implements it and `docs/skills/` documents it for users. Changes to SKILL.md cite spec ids (e.g., "implements R3"). Ids are stable anchors: never renumbered or reused. New skills need an accepted spec before writing SKILL.md. Tuning values (model, effort, timeouts, caps) are not contract: they live in frontmatter, config and script constants, documented in `docs/cost-tiers.md`.
 2. **Plan → Critique → Improve → Do → Critique → Improve** — mandatory dual critique gates in every pipeline (critique the plan, then critique the output)
 3. **Parallel execution** — always run independent steps concurrently
 4. **Specificity over generics** — every skill targets a concrete task
@@ -76,6 +76,8 @@ Every skill requires three artifacts:
 1. **Specification** at `docs/specs/<skill-name>.md` — behavioral contract (WHAT). Use `docs/spec-template.md`.
 2. **SKILL.md** at `plugins/<plugin>/skills/<skill-name>/SKILL.md` — implementation (HOW). Must reference spec requirement numbers.
 3. **Reference doc** at `docs/skills/<skill-name>.md` — usage reference for end users. Use `docs/skill-doc-template.md`.
+
+- **Spec shape** — specs use the contract sections from `docs/spec-template.md`, in order: Inputs and flags, State model, Step composition, Dispatch and routing, Gates, Prepare script contract, Failure handling and resume, Invariants and constraints, Integration, Appendix — history. Acceptance criteria stay under their requirement. Withdrawn ids and issue numbers appear only in the appendix. `plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js` checks the shape.
 
 Each skill doc must include:
 

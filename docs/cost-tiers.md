@@ -59,11 +59,17 @@ Files where per-call `model:` is computed at runtime and **wins over frontmatter
 
 When ship-sdlc invokes a sub-skill, the sub-skill's frontmatter `model:` is shadowed by the per-step value computed in `ship.js`. Consumers should not assume frontmatter applies inside a pipeline.
 
-## 6. Why Frontmatter Changes Do Not Require Spec Updates
+## 6. Why tuning changes do not require spec updates
 
-The `spec-first` planning guardrail requires an accepted spec at `docs/specs/<skill>.md` before changes that modify a skill's behavioral contract. Adding or changing `model:` is **not** a behavioral change — it tunes the cost/quality tradeoff for the same contract. The skill's inputs, outputs, side effects, and user-visible behavior are unchanged.
+Specs (`docs/specs/<skill>.md`) are behavioural contracts: inputs, state, step order, dispatch targets, gates, failure handling and invariants. A spec names each tuning knob and says where it is defined; it never states the value. The values live outside the spec:
 
-If a `model:` change later proves to degrade output quality below the contract's bar (e.g., commit messages stop matching project style), that is a behavioral regression and triggers a normal spec-driven update of the skill. The fix in that case is either to revert the tier or to update the spec to acknowledge the new quality envelope.
+- `model:` and `effort:` — skill frontmatter and `plugins/sdlc-utilities/agents/<name>.md` frontmatter (§3–§5 of this document).
+- Timeouts, intervals and retry counts — `.sdlc/config.json` / `.sdlc/local.json` keys, with defaults in `schemas/*.schema.json`.
+- Caps and limits — constants in `plugins/sdlc-utilities/scripts/lib/*` (for example the static wave-size cap table in `dispatch-budget.js`).
+
+The `spec-first` planning guardrail (`.sdlc/config.json`) applies to contract changes only. Changing a tuning value is not a behavioural change — inputs, outputs, side effects and user-visible behaviour stay the same — so it needs no spec edit. Update this document instead; `validate-cost-tiers.js` keeps frontmatter and the tables above in sync.
+
+If a tuning change later degrades output below the contract's bar (e.g., commit messages stop matching project style), that is a behavioural regression and triggers a normal spec-driven change: revert the value, or update the spec to state the new quality envelope.
 
 ## 7. Effort
 
