@@ -126,7 +126,7 @@ function writeJsonLine(obj, opts = {}) {
  * Streaming protocol for raw text — writes the string to stdout (with a
  * trailing newline if the input doesn't end in one) and exits. Used by
  * the small set of advisory scripts whose output is human-readable text
- * rather than JSON (plan-handoff-advisory).
+ * rather than JSON (review-consolidate, W6b.4).
  */
 function emitText(s, exitCode = 0) {
   const out = s.endsWith('\n') ? s : s + '\n';

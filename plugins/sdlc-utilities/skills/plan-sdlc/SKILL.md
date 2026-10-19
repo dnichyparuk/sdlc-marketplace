@@ -680,22 +680,13 @@ On zero exit, proceed to Step 7.
 
 ## Step 7: Handoff
 
-**Context-heaviness advisory (implements R17):** Before printing either branch below, locate and run the advisory wrapper. If it prints text, prepend that text verbatim to the handoff menu (above the `ship` / `execute` / `done` lines). If it prints nothing, skip the prepend.
-
-```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
-node "<PLUGIN_ROOT>/scripts/skill/plan-handoff-advisory.js"
-```
-
-The wrapper reads `$TMPDIR/sdlc-context-stats.json` (written by the `UserPromptSubmit` hook `hooks/context-stats.js`) and emits a `/compact` advisory only when transcript ≥60% of model budget. Pipeline state is preserved across `/compact` (PreCompact + SessionStart hooks), so re-invoking after compaction is safe.
-
 **Gate B scorecard pointer (implements R41 — Fixes #445):** Before the plan-mode or normal-mode branch below, when a `## Verification Scorecard` section exists in the plan file (i.e., Gate B ran during Step 5), surface a one-line verdict reference above the `ship` / `execute` / `done` menu:
 
 > Verification Scorecard: `<verdict line>` — see `## Verification Scorecard` in the plan for details.
 
 Where `<verdict line>` is the verbatim verdict label from the scorecard: *"All checks passed. Ready for archive."*, *"…Ready for archive (with noted improvements)."*, or *"…Fix before archiving."*. When no scorecard is present (non-OpenSpec plan or scorecard was not generated), omit this line entirely.
 
-**Plan mode:** Announce the plan path and propose execution. Prepend any advisory output from the wrapper above the `ship` / `execute` lines:
+**Plan mode:** Announce the plan path and propose execution:
 
 > Plan written to `<path>`. On approval:
 >   ship    — run the full pipeline: execute → commit → review → version → PR (/ship-sdlc)
@@ -703,7 +694,7 @@ Where `<verdict line>` is the verbatim verdict label from the scorecard: *"All c
 
 Then call ExitPlanMode. Do NOT invoke execute-plan-sdlc or ship-sdlc in this turn — they run after the user accepts in the next turn.
 
-**Normal mode:** Announce the plan path, then present the Workflow Continuation menu (see below). Prepend any advisory output from the wrapper above the menu's `ship` / `execute` / `done` lines.
+**Normal mode:** Announce the plan path, then present the Workflow Continuation menu (see below).
 
 Do NOT report the plan as "validated" on format-floor PASS alone. Format floor = deterministic structure. Render/narrate quality was judged by the content-coverage lane in Step 3. Surface both, separately.
 

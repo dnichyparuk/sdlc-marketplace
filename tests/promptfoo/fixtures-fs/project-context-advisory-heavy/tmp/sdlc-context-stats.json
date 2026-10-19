@@ -1,8 +1,0 @@
-{
-  "ts": "2026-04-28T22:00:00.000Z",
-  "transcriptBytes": 600000,
-  "tokensApprox": 150000,
-  "modelBudget": 200000,
-  "percent": 75,
-  "heavy": true
-}

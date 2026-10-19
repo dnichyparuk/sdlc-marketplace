@@ -74,18 +74,12 @@ Blocking issues → stop and ask. Warnings only → show them and proceed.
 SCRIPT_DIR="<PLUGIN_ROOT>/scripts/lib"
 node -e "
 const { readSection } = require('$SCRIPT_DIR/config.js');
-try {
-  const advisory = require('$SCRIPT_DIR/context-advisory.js').getAdvisory({ skill: 'execute-plan-sdlc' });
-  if (advisory) process.stderr.write(advisory + '\n');
-} catch (_) { /* helper missing or sidecar unreadable — silent */ }
 const execute = readSection(process.cwd(), 'execute');
 console.log(JSON.stringify(execute?.guardrails || []));
 "
 ```
 
 Parse the JSON output. If the array is non-empty, store as `activeGuardrails` and print: "Loaded N execution guardrails." If empty or config not found: "No execution guardrails configured." This is backward compatible — no guardrails means no change in behavior.
-
-**Context-heaviness advisory (implements R26):** The inline node block above also prints a context-heaviness advisory to stderr when the sidecar at `$TMPDIR/sdlc-context-stats.json` indicates `heavy: true` (transcript ≥60% of model budget). The advisory recommends `/compact` and notes that pipeline state is preserved across compaction (PreCompact + SessionStart hooks). When the sidecar is absent or `heavy: false`, no advisory is emitted. Sidecar is written by the `UserPromptSubmit` hook (`hooks/context-stats.js`); helper at `scripts/lib/context-advisory.js`.
 
 Note: this reads `execute.guardrails` (runtime enforcement), not `plan.guardrails` (planning-time critique). They are independent sets configured separately in `.sdlc/config.json`.
 
