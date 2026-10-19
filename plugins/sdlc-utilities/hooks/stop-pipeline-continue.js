@@ -31,20 +31,17 @@
  * pending auto-gated — no-opposite-logical-vectors). The `stop_hook_active === true`
  * early-exit avoids contributing to the Claude Code 8-consecutive-continuation cap
  * (and prevents the now-mode-independent in_progress block from looping against that
- * cap in non-auto mode). The hook otherwise never mutates the ship state file, so its
- * block decision is normally a pure function of pipeline state — but an unchanged
- * advancing step would otherwise block forever, so a consecutive-block counter
- * (STOP_BLOCK_CAP, keyed by step name) is kept in its own sidecar file, never in the
- * ship state file itself, so the hook stays non-mutating with respect to pipeline
- * state for every decision short of cap exhaustion. After STOP_BLOCK_CAP consecutive
- * blocks on the same unchanged step, the hook degrades to silent exit 0 (with a
- * stderr note) rather than blocking forever — and, as the sole exception to the
- * non-mutating rule, re-reads state, locates the step by name, marks it `failed`
- * with `failedReason: 'block-cap-exhausted'`, and writes back (fail-open: a write
- * error emits a stderr diagnostic but never crashes the hook). The sidecar is
- * deleted after exhaustion so a retry of the same step gets a fresh block budget.
- * The counter resets whenever the current step name differs from the one recorded
- * in the sidecar, so ordinary multi-step progress is unaffected.
+ * cap in non-auto mode). The hook NEVER mutates the ship state file (the state CLI is
+ * the ledger's only writer), so its block decision is a pure function of pipeline
+ * state — but an unchanged advancing step would otherwise block forever, so a
+ * consecutive-block counter (STOP_BLOCK_CAP, keyed by step name) is kept in its own
+ * sidecar file. After STOP_BLOCK_CAP consecutive blocks on the same unchanged step,
+ * the hook writes `.stop-cap-exhausted-<branchSlug>.json`
+ * ({stepName, count, at}), deletes the counter sidecar, and degrades to silent exit 0
+ * (with a stderr note); while that sidecar names the current step it stays silent.
+ * `skill/ship.js` prepare surfaces the stall as a warning. The counter resets
+ * whenever the current step name differs from the one recorded in the sidecar, so
+ * ordinary multi-step progress is unaffected.
  *
  * Lazy-loads ../scripts/lib/state.js and ../scripts/lib/git.js. Requires only
  * Node.js built-ins plus those two lib files — no new npm dependencies.
@@ -78,20 +75,27 @@ function main() {
   //     `payload.session_id` is read further down by the R73 gate (e).
   if (payload.stop_hook_active === true) process.exit(0);
 
-  let slugifyBranch, findStateFile, readState, writeState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, exec;
+  let slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, resolveHookContext, exec;
   try {
-    ({ slugifyBranch, findStateFile, readState, writeState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir } = require('../scripts/lib/state'));
+    ({ slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, resolveHookContext } = require('../scripts/lib/state'));
     ({ exec } = require('../scripts/lib/git'));
   } catch {
     process.exit(0);
   }
 
-  // Resolve current branch. If none, exit 0 silently.
-  let branch;
-  try {
-    branch = exec('git branch --show-current');
-  } catch {
-    process.exit(0);
+  // Spawn-free gate: no state dir means no pipeline. Falls through when unknown.
+  const ctx = resolveHookContext(payload);
+  if (ctx.stateDir && !fs.existsSync(ctx.stateDir)) process.exit(0);
+
+  // Resolve current branch (HEAD file first; one git call only as the fallback,
+  // e.g. detached HEAD). If none, exit 0 silently.
+  let branch = ctx.branch;
+  if (!branch) {
+    try {
+      branch = exec('git branch --show-current');
+    } catch {
+      process.exit(0);
+    }
   }
   if (!branch) process.exit(0);
 
@@ -146,7 +150,18 @@ function main() {
   // SAME unchanged step is already past normal while still tolerating a
   // transient stall. ANY sidecar I/O failure degrades to "do not block".
   try {
-    const sidecarPath = path.join(resolveStateDir(), `.stop-block-count-${branchSlug}.json`);
+    const stateDir = resolveStateDir();
+    const sidecarPath = path.join(stateDir, `.stop-block-count-${branchSlug}.json`);
+    const exhaustedPath = path.join(stateDir, `.stop-cap-exhausted-${branchSlug}.json`);
+
+    // Cap already exhausted for THIS step → stay silent (otherwise the next Stop
+    // would block three more times, since pipelineAdvancing still reports the step
+    // as advancing). A different stepName is stale: ignored, overwritten later.
+    try {
+      const exhausted = JSON.parse(fs.readFileSync(exhaustedPath, 'utf8'));
+      if (exhausted && exhausted.stepName === stepName) process.exit(0);
+    } catch { /* absent or corrupt — no exhaustion recorded */ }
+
     let counter = { stepName: null, count: 0 };
     try {
       const raw = fs.readFileSync(sidecarPath, 'utf8');
@@ -161,24 +176,17 @@ function main() {
     }
 
     if (counter.count >= STOP_BLOCK_CAP) {
-      // Re-read state to avoid clobbering concurrent writes (#review F2).
-      // Locate the step by name (not index) so a concurrent step-advance
-      // doesn't mark the wrong step failed.
+      // Record the stall in its own sidecar; the ledger is never modified here.
       try {
-        const fresh = readState('ship', branchSlug);
-        if (fresh && fresh.data && Array.isArray(fresh.data.steps)) {
-          const target = fresh.data.steps.find(s => (s.name || s.id || 'unknown') === stepName);
-          if (target && target.status !== 'completed') {
-            target.status = 'failed';
-            target.failedReason = 'block-cap-exhausted';
-            writeState(fresh.filePath, fresh.data);
-          }
-        }
+        fs.writeFileSync(
+          exhaustedPath,
+          JSON.stringify({ stepName, count: counter.count, at: new Date().toISOString() }),
+          'utf8'
+        );
       } catch (e) {
-        // Fail open — state write error must not crash the hook, but emit
-        // a diagnostic so the failure is visible in logs (#review F3).
+        // Fail open — a write error must not crash the hook, but emit a diagnostic.
         process.stderr.write(
-          `stop-pipeline-continue: cap-exhaustion state write failed: ${e.message}\n`
+          `stop-pipeline-continue: cap-exhaustion sidecar write failed: ${e.message}\n`
         );
       }
       // Delete sidecar so a retry of the same step gets a fresh block

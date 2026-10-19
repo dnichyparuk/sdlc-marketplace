@@ -1763,3 +1763,22 @@
         if (o.exitCodes.some(c => c !== 0)) return `FAIL: exitCodes ${o.exitCodes}`;
         if (!o.finalUsage || o.finalUsage.source !== 'subagent-stop' || o.finalUsage.inputTokens !== 99) return `FAIL: finalUsage ${JSON.stringify(o.finalUsage)}`;
         return true;
+
+# R-cap-recovery: the Stop hook's cap-exhaustion sidecar is surfaced by prepare as
+# a warning and resume.capExhausted; the ledger is not modified.
+- description: "ship-prepare: stop-hook cap-exhausted sidecar surfaces a stalled-step warning and resume.capExhausted (R-cap-recovery)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-cap-exhausted"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return (o.warnings || []).some(w => /stalled after 3 consecutive Stop blocks/.test(w)) || `FAIL: warnings ${JSON.stringify(o.warnings)}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return (o.resume && o.resume.capExhausted && o.resume.capExhausted.stepName === 'execute') || `FAIL: resume ${JSON.stringify(o.resume)}`;

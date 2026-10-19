@@ -36,7 +36,7 @@
         ]
       },
       {
-        "matcher": "Bash|TodoWrite",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
@@ -46,28 +46,7 @@
         ]
       }
     ],
-    "PreCompact": [
-      {
-        "matcher": "manual|auto",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-compact-save.js\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-state-save.js\"",
-            "timeout": 3
-          }
-        ]
-      },
       {
         "hooks": [
           {

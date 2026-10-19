@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * pipeline-continue.js
- * PostToolUse hook (matcher Bash|TodoWrite) — implements R67 (issue #452, broadened).
+ * PostToolUse hook (matcher Bash) — implements R67 (issue #452, broadened).
  *
  * Consumes the shared `pipelineAdvancing(data)` predicate (R-advancing-predicate,
  * lib/state.js) against the ship state file for the current branch:
@@ -27,6 +27,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const path = require('node:path');
 
 function main() {
   // 1. Read stdin JSON. If parse fails, exit 0 silently.
@@ -41,20 +42,34 @@ function main() {
   // the in_progress decision. `payload.session_id` IS required — the R73 gate
   // below reads it to confirm this session owns the pipeline.
 
-  let slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, exec;
+  let slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, resolveHookContext, exec;
   try {
-    ({ slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed } = require('../scripts/lib/state'));
+    ({ slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, resolveHookContext } = require('../scripts/lib/state'));
     ({ exec } = require('../scripts/lib/git'));
   } catch {
     process.exit(0);
   }
 
-  // 2. Resolve current branch. If none, exit 0 silently.
-  let branch;
+  // Early gate (spawns nothing): no state dir, or no ship-* entry in it, means
+  // no pipeline — skip the git spawn below. Falls through when the dir is unknown.
+  const ctx = resolveHookContext(payload);
   try {
-    branch = exec('git branch --show-current');
+    if (ctx.stateDir) {
+      if (!fs.existsSync(ctx.stateDir)) process.exit(0);
+      if (!fs.readdirSync(ctx.stateDir).some((e) => e.startsWith('ship-'))) process.exit(0);
+    }
   } catch {
     process.exit(0);
+  }
+
+  // 2. Resolve current branch. If none, exit 0 silently.
+  let branch = ctx.branch;
+  if (!branch) {
+    try {
+      branch = exec('git branch --show-current');
+    } catch {
+      process.exit(0);
+    }
   }
   if (!branch) process.exit(0);
 
@@ -90,22 +105,34 @@ function main() {
   const stepName = step.name || step.id || 'unknown';
 
   // 6. Two cases:
-  //   (a) in_progress step → emit "continue this step", MODE-INDEPENDENT.
+  //   (a) in_progress step → emit a factual in-progress statement, MODE-INDEPENDENT.
   //   (b) between-steps pending (no in_progress) → emit forward context ONLY in
   //       --auto; non-auto exits silently to preserve interactive review.
   let additionalContext;
   if (step.status === 'in_progress') {
     additionalContext =
-      `Ship pipeline: step ${stepIndex} of ${steps.length} (${stepName}) is in_progress. ` +
-      'Continue executing this step — do not end the response turn. ' +
-      'Next action: record the step result and advance to the next step.';
+      `Ship pipeline: step ${stepIndex} of ${steps.length} (${stepName}) is in progress; the pipeline advances when its result is recorded.`;
   } else {
     // between-steps pending — auto-gated
     if (!auto) process.exit(0);
     additionalContext =
-      `Ship pipeline: the next step is step ${stepIndex} of ${steps.length} (${stepName}), pending. ` +
-      'In --auto mode, advance to it now — do not end the response turn. ' +
-      'Next action: begin the next step.';
+      `Ship pipeline: step ${stepIndex} of ${steps.length} (${stepName}) is next; in --auto mode begin it now.`;
+  }
+
+  // 6b. Nudge once per (stepName, status) transition. Sidecar shares the state
+  //     dir and branch slug with .stop-block-count-<slug>.json. Written only on
+  //     a path that emits; a write failure never blocks the nudge.
+  let sidecarPath = null;
+  try {
+    sidecarPath = path.join(resolveStateDir(), `.pipeline-nudge-${branchSlug}.json`);
+    const prior = JSON.parse(fs.readFileSync(sidecarPath, 'utf8'));
+    if (prior && prior.stepName === stepName && prior.status === step.status) process.exit(0);
+  } catch { /* absent or corrupt = no prior nudge */ }
+  if (sidecarPath) {
+    try {
+      fs.mkdirSync(path.dirname(sidecarPath), { recursive: true });
+      fs.writeFileSync(sidecarPath, JSON.stringify({ stepName, status: step.status }));
+    } catch { /* never block the nudge */ }
   }
 
   const output = {

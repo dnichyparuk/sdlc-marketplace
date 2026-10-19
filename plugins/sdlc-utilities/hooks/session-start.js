@@ -173,19 +173,16 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// Compact recovery (re-inject state after context compaction)
+// Sidecar sweep (compact-recovery is no longer written or consumed; recovery
+// relies on the ledger plus the banner above)
 // ---------------------------------------------------------------------------
 
 try {
   let recoveryDir;
-  let branchSlug = null;
   let maxAgeMs;
   try {
     const stateLib = require('../scripts/lib/state');
-    const { exec } = require('../scripts/lib/git');
     recoveryDir = stateLib.resolveStateDir();
-    const branch = exec('git branch --show-current');
-    if (branch) branchSlug = stateLib.slugifyBranch(branch);
     maxAgeMs = stateLib.COMPACT_RECOVERY_TTL_MS;
   } catch {
     // R-projectroot: main-worktree-rooted resolution (#360).
@@ -199,59 +196,17 @@ try {
     maxAgeMs = 60 * 60 * 1000;
   }
 
-  // Per-branch recovery file (issue #256). Read only the file matching the
-  // current branch — never scan-and-filter across branches. branchSlug is null
-  // when not in a git repo or no current branch; in that case skip the read.
-  let consumedRecoveryPath = null;
-  if (branchSlug) {
-    const recoveryPath = path.join(recoveryDir, `.compact-recovery-${branchSlug}.json`);
-    if (fs.existsSync(recoveryPath)) {
-      const raw = fs.readFileSync(recoveryPath, 'utf8');
-      const recovery = JSON.parse(raw);
-
-      const ageMs = Date.now() - new Date(recovery.savedAt).getTime();
-
-      if (ageMs <= maxAgeMs) {
-        resumeLines.push('Pipeline state recovered after compaction:');
-
-        if (recovery.pipeline === 'ship-sdlc') {
-          resumeLines.push(`  Pipeline: ship-sdlc on ${recovery.branch}`);
-          if (recovery.currentStep) {
-            resumeLines.push(`  Current step: ${recovery.currentStep}`);
-          }
-          if (recovery.reviewVerdict) {
-            const findings = recovery.deferredFindings
-              ? ` (${recovery.deferredFindings} deferred)`
-              : '';
-            resumeLines.push(`  Review verdict: ${recovery.reviewVerdict}${findings}`);
-          }
-        } else if (recovery.pipeline === 'execute-plan-sdlc') {
-          resumeLines.push(`  Pipeline: execute-plan-sdlc on ${recovery.branch}`);
-          resumeLines.push(`  Progress: wave ${recovery.completedWaves} of ${recovery.totalWaves} complete`);
-        }
-      }
-
-      // Delete after reading — single-use
-      fs.unlinkSync(recoveryPath);
-      consumedRecoveryPath = recoveryPath;
-    }
-  }
-
-  // Stale-sweep pass: remove `.compact-recovery-*.json` and `.stop-block-count-*.json`
-  // files older than 24h (issue #334). These are orphaned files left by sessions where
-  // the single-use unlink (or count-file cleanup) never fired (JSON parse error,
-  // permission failure, session kill, etc.). The sweep threshold (24h) is an order of
-  // magnitude beyond the freshness gate (1h), so the sweep cannot delete a file the
-  // consume path above would still want.
+  // Stale-sweep pass: remove `.compact-recovery-*.json` (left by earlier plugin
+  // versions) and the hook sidecars `.stop-block-count-*`, `.pipeline-nudge-*`,
+  // `.stop-cap-exhausted-*` files older than 24h (issue #334): orphans left by
+  // sessions that never cleaned up (session kill, permission failure, etc.).
   const staleThresholdMs = 24 * 60 * 60 * 1000; // 24 hours
   try {
     const sweepEntries = fs.readdirSync(recoveryDir);
     for (const entry of sweepEntries) {
       // Only target per-branch compact-recovery and stop-block-count files
-      if (!/^\.(?:compact-recovery|stop-block-count)-.+\.json$/.test(entry)) continue;
+      if (!/^\.(?:compact-recovery|stop-block-count|pipeline-nudge|stop-cap-exhausted)-.+\.json$/.test(entry)) continue;
       const entryPath = path.join(recoveryDir, entry);
-      // Skip the file we just consumed above — avoid double-unlink
-      if (entryPath === consumedRecoveryPath) continue;
       try {
         const stat = fs.statSync(entryPath);
         if (Date.now() - stat.mtimeMs > staleThresholdMs) {
@@ -288,8 +243,8 @@ try {
     }
   }
 } catch (err) {
-  // Graceful degradation — skip compact recovery on any error
-  console.error('[sdlc/session-start] compact-recovery consumption failed:', err.message);
+  // Graceful degradation — skip the sweep on any error
+  console.error('[sdlc/session-start] sidecar sweep failed:', err.message);
 }
 
 // ---------------------------------------------------------------------------

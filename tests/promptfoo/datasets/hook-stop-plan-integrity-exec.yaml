@@ -1,7 +1,9 @@
 # Script execution tests for stop-plan-integrity.js Stop hook (#285).
 # Uses the hook via run-stop-plan-integrity.js wrapper (constructs transcript_path
 # dynamically from the fixture's project-root at test runtime).
-# All tests assert exitCode 0 — the hook is advisory-only (R21).
+# The hook exits 2 when markers are missing and 0 otherwise (R21). The wrapper's own
+# "exitCode" is the outer one, so every case asserts the hook's exit code (inner.exitCode)
+# through a javascript assert on the wrapper's JSON.
 
 # --- Case 1: Silent when state file absent AND transcript has no plan-mode marker ---
 
@@ -12,25 +14,29 @@
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-integrity-no-state-no-planmode"
   assert:
-    - type: icontains
-      value: '"exitCode": 0'
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        return inner.exitCode === 0 || 'FAIL: inner exit ' + inner.exitCode;
     - type: not-icontains
       value: '[plan-integrity]'
 
-# --- Case 2: Warns "plan-sdlc was not invoked" when state file absent and transcript shows plan mode ---
+# --- Case 2: Silent when state file absent even though transcript shows plan mode (transcript scan removed) ---
 
-- description: "stop-plan-integrity: warns 'plan-sdlc was not invoked' when no state file but transcript shows plan mode"
+- description: "stop-plan-integrity: silent when no state file even though transcript shows plan mode"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
     script_args: "--project-root {{project_root}} --transcript-file transcript.jsonl --branch test-branch"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-integrity-no-state-planmode"
   assert:
-    - type: icontains
-      value: '"exitCode": 0'
-    - type: icontains
-      value: 'plan-sdlc was not invoked'
-    - type: icontains
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        return inner.exitCode === 0 || 'FAIL: inner exit ' + inner.exitCode;
+    - type: not-icontains
       value: '[plan-integrity]'
 
 # --- Case 3: Warns and names missing checkpoints when state file is partial ---
@@ -42,8 +48,11 @@
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-integrity-partial"
   assert:
-    - type: icontains
-      value: '"exitCode": 0'
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        return inner.exitCode === 2 || 'FAIL: inner exit ' + inner.exitCode;
     - type: icontains
       value: 'Missing checkpoints'
     - type: icontains
@@ -64,8 +73,11 @@
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-integrity-empty-planfile"
   assert:
-    - type: icontains
-      value: '"exitCode": 0'
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        return inner.exitCode === 2 || 'FAIL: inner exit ' + inner.exitCode;
     - type: icontains
       value: 'Missing checkpoints'
     - type: icontains
@@ -82,8 +94,11 @@
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-integrity-complete"
   assert:
-    - type: icontains
-      value: '"exitCode": 0'
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        return inner.exitCode === 0 || 'FAIL: inner exit ' + inner.exitCode;
     - type: not-icontains
       value: '[plan-integrity]'
 
@@ -96,7 +111,10 @@
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-integrity-no-state-no-planmode"
   assert:
-    - type: icontains
-      value: '"exitCode": 0'
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        return inner.exitCode === 0 || 'FAIL: inner exit ' + inner.exitCode;
     - type: not-icontains
       value: '[plan-integrity]'

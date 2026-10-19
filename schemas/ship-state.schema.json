@@ -5,6 +5,7 @@
   "description": "Validates .sdlc/execution/ship-*.json",
   "type": "object",
   "properties": {
+    "paused": {"type":"object","properties":{"at":{"type":"string"},"reason":{"type":["string","null"]}},"required":["at"]},
     "version": {
       "const": 1
     },

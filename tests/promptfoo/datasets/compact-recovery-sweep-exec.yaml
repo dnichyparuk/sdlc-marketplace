@@ -32,10 +32,10 @@
                !data.hiddenFiles.includes('.compact-recovery-main.json');
 
 # ---------------------------------------------------------------------------
-# Case 2: fresh compact-recovery file (<1h) is consumed, not swept
+# Case 2: fresh compact-recovery file (<24h) is NOT consumed (consumption removed) and not swept
 # ---------------------------------------------------------------------------
 
-- description: "session-start: fresh compact-recovery file within 1h is consumed and emits recovery output (issue #334)"
+- description: "session-start: fresh compact-recovery file is not consumed and emits no recovery output (issue #334)"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-session-start-state.js"
     script_args: "--project-root {{project_root}}"
@@ -47,14 +47,14 @@
       value: |
         const data = JSON.parse(output);
         return data.exitCode === 0;
-    # Fresh file is consumed (deleted) by the per-branch path
+    # Fresh file is left alone: nothing consumes it and the sweep only takes files >24h
     - type: javascript
       value: |
         const data = JSON.parse(output);
         return Array.isArray(data.hiddenFiles) &&
-               !data.hiddenFiles.includes('.compact-recovery-main.json');
-    # Recovery output is emitted to stdout
-    - type: icontains
+               data.hiddenFiles.includes('.compact-recovery-main.json');
+    # No recovery output is emitted
+    - type: not-icontains
       value: 'Pipeline state recovered after compaction'
 
 # ---------------------------------------------------------------------------
@@ -76,3 +76,24 @@
       value: |
         const data = JSON.parse(output);
         return Array.isArray(data.hiddenFiles);
+
+# ---------------------------------------------------------------------------
+# Case 4: stale pipeline-nudge sidecar (>24h) is swept on session-start
+# ---------------------------------------------------------------------------
+
+- description: "session-start: stale pipeline-nudge sidecar older than 24h is deleted by sweep"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-session-start-state.js"
+    script_args: "--project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pipeline-nudge-stale"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        return data.exitCode === 0;
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        return Array.isArray(data.hiddenFiles) &&
+               !data.hiddenFiles.includes('.pipeline-nudge-main.json');

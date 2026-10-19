@@ -10,6 +10,7 @@
  *   node ship-state.js complete           --step <name> --result <text>
  *   node ship-state.js begin-step         --step <name> [--state-file <path>]          # mark in_progress + print todos JSON (R69)
  *   node ship-state.js complete-step      --step <name> [--state-file <path>] [--result <text>] [--usage <json>]  # mark completed + print todos JSON (R69)
+ *   node ship-state.js pause              [--reason <text>] [--state-file <path>]      # set paused: hooks stay silent until begin-step / --resume (R-pause)
  *   node ship-state.js skip               --step <name> --reason <text>
  *   node ship-state.js fail               --step <name> --error <text> [--usage <json>]
  *   node ship-state.js decide             --step <name> --text <text>
@@ -36,7 +37,7 @@ const {
   slugifyBranch,
   readState, writeState, initState, deleteState, resolveBranch,
   gcStateFiles, pruneStateFiles, migrateBranchSlug,
-  listBranches, readTtlDaysFromConfig,
+  listBranches, readTtlDaysFromConfig, resolveStateDir,
 } = require(path.join(LIB, 'state'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { parseUsage, resolveUsage } = require(path.join(LIB, 'usage'));
@@ -314,6 +315,14 @@ function loadShipStateOrExit(opts) {
   return found;
 }
 
+function cmdPause(opts) {
+  const { data, filePath } = loadShipStateOrExit(opts);
+  data.paused = { at: new Date().toISOString(), reason: opts.reason || null };
+  writeState(filePath, data);
+  process.stdout.write(JSON.stringify({ paused: true, at: data.paused.at, reason: data.paused.reason }) + '\n');
+  process.exit(0);
+}
+
 function cmdBeginStep(opts) {
   if (!opts.step) {
     process.stderr.write('Error: --step is required\n');
@@ -352,6 +361,11 @@ function cmdBeginStep(opts) {
     process.stderr.write(`Error: ${res.error}\n`);
     process.exit(1);
   }
+  // R-pause: starting a step re-arms the hooks and clears a stall marker.
+  delete data.paused;
+  try {
+    fs.unlinkSync(path.join(resolveStateDir(), '.stop-cap-exhausted-' + slugifyBranch(data.branch) + '.json'));
+  } catch { /* absent is fine */ }
   writeState(filePath, data);
 
   const rendered = stepTransition(data, opts.step);
@@ -710,6 +724,7 @@ try {
     case 'complete': cmdComplete(opts); break;
     case 'begin-step':    cmdBeginStep(opts);    break;
     case 'complete-step': cmdCompleteStep(opts); break;
+    case 'pause':    cmdPause(opts);    break;
     case 'skip':     cmdSkip(opts);     break;
     case 'fail':     cmdFail(opts);     break;
     case 'decide':   cmdDecide(opts);   break;
@@ -721,7 +736,7 @@ try {
     case 'migrate':           cmdMigrate(opts);          break;
     default:
       process.stderr.write(`Error: unknown subcommand "${opts.subcommand}"\n`);
-      process.stderr.write('Usage: node ship-state.js <init|start|complete|begin-step|complete-step|skip|fail|decide|defer|read|cleanup|cleanup-pipeline|gc|migrate> [options]\n');
+      process.stderr.write('Usage: node ship-state.js <init|start|complete|begin-step|complete-step|pause|skip|fail|decide|defer|read|cleanup|cleanup-pipeline|gc|migrate> [options]\n');
       process.exit(2);
   }
 } catch (e) {

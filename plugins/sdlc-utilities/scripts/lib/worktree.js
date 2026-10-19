@@ -8,6 +8,7 @@
  * Must NOT import ./config or ./state (prevents circular dependency).
  */
 
+const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
@@ -112,6 +113,43 @@ function resolveActiveWorktreeSafe(cwd) {
   }
 }
 
+/**
+ * Pure-fs main-worktree lookup: walk up from `cwd` to the first `.git`.
+ * A `.git` directory means its parent is the main worktree; a `.git` file
+ * (linked worktree) carries `gitdir: <p>` whose trailing
+ * `/.git/worktrees/<name>` is stripped. Never spawns, never throws.
+ *
+ * @param {string} [cwd=process.cwd()]
+ * @returns {string|null} Main worktree path, or null when nothing is found.
+ */
+function mainWorktreeFromFs(cwd) {
+  try {
+    let dir = path.resolve(cwd || process.cwd());
+    for (;;) {
+      const dotGit = path.join(dir, '.git');
+      let st = null;
+      try { st = fs.statSync(dotGit); } catch (_) { /* keep walking */ }
+      if (st) {
+        if (st.isDirectory()) return dir;
+        if (st.isFile()) {
+          const m = /^gitdir:\s*(.+?)\s*$/m.exec(fs.readFileSync(dotGit, 'utf8'));
+          if (!m) return null;
+          const gitdir = path.resolve(dir, m[1]);
+          const idx = gitdir.split(path.sep).join('/').lastIndexOf('/.git/worktrees/');
+          if (idx === -1) return null;
+          return gitdir.split(path.sep).join('/').slice(0, idx) || null;
+        }
+        return null;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) return null;
+      dir = parent;
+    }
+  } catch (_) {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
@@ -120,4 +158,5 @@ module.exports = {
   resolveMainWorktree,
   resolveMainWorktreeSafe,
   resolveActiveWorktreeSafe,
+  mainWorktreeFromFs,
 };

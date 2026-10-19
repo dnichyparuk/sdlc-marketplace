@@ -133,7 +133,7 @@ Each element represents one pipeline step in execution order.
 | `condition`      | string | step is conditional                         | Natural-language condition that gates this step's execution.  |
 | `reason`         | string | status is `skipped`                         | Why the step was skipped.                                     |
 | `error`          | string | status is `failed`                          | Error message or description of the failure.                  |
-| `failedReason`   | string | optional — status is `failed`               | Machine-readable category of why the step failed, complementing the human-readable `error` message. Set by `stop-pipeline-continue.js` when R74's consecutive-block cap fires — value `'block-cap-exhausted'` (R-cap-recovery, #503). Written via `writeState()` in a fail-open try/catch before the hook exits. |
+| `failedReason`   | string | optional — status is `failed`               | Machine-readable category of why the step failed, complementing the human-readable `error` message. |
 | `reviewVerdict`  | string | optional — set by the `review` step         | Review outcome label (e.g. `"APPROVED"`, `"APPROVED_WITH_NOTES"`, `"CHANGES_REQUESTED"`). Used by post-compact reminders. |
 | `prUrl`          | string | optional — set by the `pr` step             | Absolute URL of the created or updated pull request.          |
 | `commitSha`      | string | optional — set by the `commit` / `commit-fixes` step | Short SHA (e.g. `"a1b2c3d"`) of the commit produced by the step. |

@@ -849,7 +849,7 @@ ship-sdlc also removes the intermediate prepare output file (`$PLAN_MODE_OUTPUT_
 | Git commits | Feature commit (step 2) and optionally a review fix commit (step 5). |
 | Git tag | Created by version-sdlc if the version step runs. |
 | GitHub PR | Opened or updated by pr-sdlc as the final step. |
-| `hooks/pipeline-continue.js` (PostToolUse, R67) | Fires after every `Bash` or `TodoWrite` tool call. When a ship state file for the current branch has any step with status `in_progress`, emits `hookSpecificOutput.additionalContext` reminding the model which step is in progress and that the response turn must continue. Silent (no stdout) when no state file exists, no step is `in_progress`, or git/state resolution fails. Fires regardless of `flags.auto`. |
+| `hooks/pipeline-continue.js` (PostToolUse, R67) | Fires after `Bash` tool calls. When a ship state file for the current branch has any step with status `in_progress`, emits `hookSpecificOutput.additionalContext` stating which step is in progress — once per step transition, not after every call. Silent (no stdout) when no state file exists, no step is `in_progress`, the same step was already announced, or git/state resolution fails. Fires regardless of `flags.auto`. |
 | `hooks/stop-pipeline-continue.js` (Stop, R68) | Fires on every Stop event. Returns `decision: "block"` when all four conditions hold: a ship state file exists for the current branch, any step is `in_progress`, `flags.auto === true` in the state file, and `stop_hook_active !== true` on stdin. Silent in all other cases (non-auto, no state file, all resolved, `stop_hook_active === true`). Read-only — never mutates state. |
 
 ---
