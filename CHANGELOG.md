@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.3] - 2026-10-19
+
+### Fixed
+- plan-sdlc: `plan-explore.js` reads the prompt from stdin via fd 0 instead of `/dev/stdin`, which fails with ENXIO on Linux when stdin is a socketpair (#13)
+
+### Changed
+- promptfoo fixtures: the seven gitlink fixtures (`plan-integrity-*`, `project-plan-integrity`, `project-skill-skip-via-env`) are real fixtures built by `setup.sh`; the ship v3/v4 fixtures write their configs from `setup.sh`; `project-ship-openspec-ready/.sdlc/.gitignore` is committed (#13)
+
 ## [0.23.2] - 2026-10-19
 
 ### Changed
