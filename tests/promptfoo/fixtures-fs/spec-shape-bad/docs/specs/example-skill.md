@@ -2,8 +2,8 @@
 
 > Fixture spec in contract shape.
 
-**Model:** sonnet
 **User-invocable:** yes
+**Model:** sonnet
 **Prepare script:** none
 
 ## Inputs and flags
