@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.3] - 2026-10-19
+
+### Changed
+- docs: `docs/specs/plan-sdlc.md` is restructured into the contract sections; all requirement ids stay as stable anchors, issue numbers and the withdrawn R17 move to the appendix, and model values leave the spec for `scripts/skill/plan.js` and `docs/cost-tiers.md` §5 (#23)
+
 ## [0.25.2] - 2026-10-19
 
 ### Changed
