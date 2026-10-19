@@ -5,10 +5,15 @@
  * is presented. Exits 2 with the warning on stderr when markers are missing, so
  * the model sees it; exits 0 otherwise.
  *
- * Activation: if a plan state file exists for the current branch, check
- * planIntegrity markers and stat the recorded planFilePath. Warn on any
- * missing/failed check. With no state file the hook exits 0 silently. No stdin
- * is read.
+ * Activation order (state-file-first, transcript-fallback):
+ *   1. If a plan state file exists for the current branch, check planIntegrity
+ *      markers and stat the recorded planFilePath. Warn on any missing/failed check.
+ *   2. If no plan state file exists, scan the last 64 KB of the transcript for
+ *      "Plan mode is active". If found, warn that plan-sdlc was not invoked.
+ *
+ * Reads stdin: only when the state-file primary path misses. The transcript_path
+ * is consumed by the fallback signal; the state-file branch returns without ever
+ * touching stdin to avoid synchronous I/O on the common path.
  *
  * Exit codes:
  *   2 = one or more integrity markers missing (warning on stderr)
@@ -53,12 +58,13 @@ try {
   const branchSlug = slugifyBranch(branch);
 
   // -------------------------------------------------------------------------
-  // 2. State file for the current branch
+  // 2. State-file-first branch (no I/O on the primary path)
   // -------------------------------------------------------------------------
 
   // findStateFile can throw (e.g. resolveMainWorktree() failing outside any
   // git repo, as happens for promptfoo's copied fixture dirs). Degrade to
-  // "no state file" rather than letting the outer catch swallow the whole hook.
+  // "no state file" rather than letting the outer catch swallow the whole
+  // hook and skip the transcript-fallback branch below.
   let found;
   try {
     found = findStateFile('plan', branchSlug);
@@ -110,9 +116,9 @@ try {
     }
 
     // Consume-then-delete: remove marker regardless of integrity outcome.
-    // Wrapped in try/catch so a failed unlink cannot turn into an internal error.
-    // The marker is gone before the warning exits 2, so the next Stop finds no
-    // state and exits 0 — no stop_hook_active guard is needed.
+    // Wrapped in try/catch so a failed unlink cannot break the advisory-only
+    // exit-0 contract. deleteState is silent on errors but we wrap anyway.
+    // The marker is gone before the warning exits 2, so the next Stop exits 0 — no stop_hook_active guard is needed.
     try { deleteState(markerPath); } catch (_) { /* best-effort */ }
 
     if (missing.length === 0) {
@@ -140,6 +146,6 @@ try {
 
   process.exit(0);
 } catch (_) {
-  // Top-level catch — graceful degradation (R21: internal errors exit 0)
+  // Top-level catch — graceful degradation (R21: advisory-only, always exit 0)
   process.exit(0);
 }
