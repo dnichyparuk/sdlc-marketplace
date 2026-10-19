@@ -3,7 +3,7 @@ name: commit-sdlc
 description: "Use this skill when committing staged changes, creating a git commit, or generating a commit message. Analyzes staged diff and recent commit history to generate a message matching the project's style. Stashes unstaged changes to isolate the commit, commits after user confirmation, and auto-restores the stash. Arguments: [--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--force-default-branch]. Use --auto to skip interactive approval. Triggers on: commit changes, create commit, write commit message, git commit, smart commit, commit staged, stage and commit."
 user-invocable: true
 argument-hint: "[--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--force-default-branch]"
-model: haiku
+model: inherit
 ---
 
 
@@ -131,7 +131,7 @@ Read `wipSquash` from `COMMIT_CONTEXT_JSON`. The field has the shape:
 
 ### Step 2 (PLAN): Dispatch the commit-orchestrator Agent <!-- implements R3, R4, R5, R6 -->
 
-Issue #202: pinning `model:` in skill frontmatter routes the skill into a subagent that inherits the entire conversation transcript and overflows the smaller-window models on long sessions. To keep the main context clean and bound the orchestrator's input to the prepared payload only, dispatch the dedicated `commit-orchestrator` agent. See `docs/skill-best-practices.md` → "Why frontmatter `model:` is the wrong context-isolation knob" for the rationale.
+Dispatch the `commit-orchestrator` agent so its input is bounded to the prepared manifest and does not inherit the conversation transcript. `model: haiku` on the Agent call keeps this bounded task on a lightweight model.
 
 Use the `Agent` tool with:
 

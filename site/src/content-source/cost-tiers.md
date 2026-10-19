@@ -14,7 +14,7 @@ When the runtime needs to decide which model to run a surface on, it evaluates t
 
 1. **Per-call `model:` parameter** on `Agent` / `Skill` / `SendMessage` dispatch sites. Examples: `ship.js` per-step, `execute.js` per-task, `review.js` per-dimension. These are computed at dispatch time and override everything below.
 2. **Frontmatter `model:`** on the skill or agent definition file (the tables in §3 and §4).
-3. **Caller's inherited model** — only when neither of the above is set. Avoid relying on inheritance; pin explicitly.
+3. **Caller's inherited model** — only when neither of the above is set. Avoid relying on inheritance; pin explicitly. A skill whose §3 row says `inherit` carries `model: inherit` in its frontmatter: it runs on the session model.
 
 ## 3. Skill Table
 
@@ -22,19 +22,19 @@ One row per skill in `plugins/sdlc-utilities/skills/`.
 
 | Skill | Model | Rationale |
 |---|---|---|
-| commit-sdlc | haiku | Mechanical message drafting from prepare-script JSON; orchestrator agent also haiku |
-| error-report-sdlc | sonnet | Template-driven; orchestrator runs haiku |
+| commit-sdlc | inherit | Runs on the session model; message drafting is routed to commit-orchestrator (haiku). A skill pin would move the whole transcript onto the pinned model. |
+| error-report-sdlc | inherit | Runs on the session model; consent gates and gh stay in main context; drafting is routed to error-report-orchestrator (haiku). |
 | execute-plan-sdlc | sonnet | Per-task dispatch decides per-tier (haiku/sonnet/opus) |
 | harden-sdlc | sonnet | Existing — unchanged |
 | jira-sdlc | sonnet | Read/write Jira; light reasoning |
 | plan-sdlc | opus | Plan decomposition needs stronger reasoning; user-directed |
-| pr-sdlc | sonnet | PR body assembly |
+| pr-sdlc | inherit | Runs on the session model; the PR description is the judgment deliverable. Inside ship-sdlc the per-step model from ship.js wins. |
 | received-review-sdlc | opus | Review-comment triage benefits from stronger reasoning |
 | review-sdlc | sonnet | Orchestrator agent also runs sonnet; dimension subagents resolve from each dimension file's own frontmatter |
 | setup-sdlc | sonnet | Wizard / config writes |
 | ship-sdlc | sonnet | Pipeline coordinator; per-step model overrides win |
 | verify-pipeline-sdlc | sonnet | CI-failure analysis; minimal fix or proposal |
-| version-sdlc | haiku | Version bump + changelog from prepare-script JSON; deterministic |
+| version-sdlc | inherit | Runs on the session model; exact git sequence needs verification gates. Changelog draft stays on the session model. |
 
 ## 4. Agent Table
 

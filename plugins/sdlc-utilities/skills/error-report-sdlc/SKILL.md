@@ -3,7 +3,7 @@ name: error-report-sdlc
 description: "Internal skill invoked by other SDLC skills when they encounter an actionable error (script crash, CLI failure, persistent API error, build failure after retries). Proposes creating a GitHub issue in rnagrodzki/sdlc-marketplace to track the error with full context capture, two-gate user consent, and pre-flight verification. NOT user-invocable — only dispatched from within another skill's error handling path. When dispatched, follow ./REFERENCE.md for the full procedure."
 user-invocable: false
 disable-model-invocation: true
-model: sonnet
+model: inherit
 ---
 
 # Error-to-GitHub Issue Proposal
@@ -20,7 +20,7 @@ creates a tracking issue in `rnagrodzki/sdlc-marketplace` using the gh CLI.
 The skill body runs in the main parent-model context. The heavy work — assembling
 the issue title and body from the error context and the `templates/ToolingError.md`
 template — is dispatched to the dedicated `error-report-orchestrator` agent so the
-main conversation transcript is never inherited (issue #202). Both consent gates
+main conversation transcript is never inherited. Both consent gates
 and the `gh issue create` call stay in the main context.
 
 ## When This Skill Is Invoked
@@ -90,13 +90,7 @@ orchestrator will omit dependent template sections.
 
 ### Step 4 — Dispatch the error-report-orchestrator Agent
 
-Issue #202: pinning `model:` in skill frontmatter routes the skill into a subagent
-that inherits the entire conversation transcript and overflows smaller-window
-models on long sessions. To keep the main context clean and bound the
-orchestrator's input to the prepared payload only, dispatch the dedicated
-`error-report-orchestrator` agent. See
-`docs/skill-best-practices.md` → "Why frontmatter `model:` is the wrong
-context-isolation knob" for the rationale.
+Dispatch the `error-report-orchestrator` agent so its input is bounded to the prepared manifest and does not inherit the conversation transcript. `model: haiku` on the Agent call keeps this bounded task on a lightweight model.
 
 Use the `Agent` tool with:
 
@@ -171,9 +165,7 @@ section 7.
 ## DO NOT
 
 - Invoke this skill directly in response to user requests — it is internal only.
-- Pin `model:` in this skill's frontmatter — the harness will route the skill into a
-  subagent that inherits the full conversation transcript (issue #202). The
-  orchestrator agent (Step 4) is the correct place to pin `model: haiku`.
+- Pin a concrete model (`haiku`/`sonnet`/`opus`) in this skill's frontmatter — the pin would run the whole inherited transcript on the pinned model. The frontmatter says `model: inherit`; the orchestrator agent (Step 4) is where `model: haiku` is pinned.
 - Run consent gates inside the orchestrator agent. Both gates (Section 3 and
   Section 5) MUST execute in the main context.
 - Run `gh issue create` inside the orchestrator agent. The agent has no `Bash`
