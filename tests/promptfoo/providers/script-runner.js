@@ -24,7 +24,7 @@ const { spawnSync } = require('child_process');
 
 // Matches paths created by lib/output.js#createOutputFile via os.tmpdir() on macOS/Linux:
 //   /tmp/...,  /var/folders/.../...  (macOS),  /private/var/...  (macOS canonicalized)
-const TMP_PATH_RE = /^\/(?:tmp|var|private)\/.+\.json$/;
+const TMP_PATH_RE = /^(?:\/(?:tmp|var|private)\/.+|.+\/\.sdlc\/execution\/out\/.+)\.json$/;
 
 function maybeReadTmpFile(stdout, scriptPassthrough) {
   if (scriptPassthrough === true) return stdout;

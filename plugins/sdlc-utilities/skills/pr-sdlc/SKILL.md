@@ -102,12 +102,9 @@ If no tests added, explain why.]
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 PR_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/pr.js" --output-file $ARGUMENTS)
 EXIT_CODE=$?
-# Single canonical cleanup: trap fires unconditionally on EXIT/INT/TERM, so
-# the manifest is removed even if a PR creation/update path errors out.
-trap 'rm -f "$PR_CONTEXT_FILE"' EXIT INT TERM
 ```
 
-Read and parse `PR_CONTEXT_FILE` as `PR_CONTEXT_JSON`. The `trap` above guarantees cleanup on any exit path — do not add scattered `rm -f` calls in success/cancel branches.
+Read and parse `PR_CONTEXT_FILE` as `PR_CONTEXT_JSON`.
 
 **On non-zero `EXIT_CODE`:**
 

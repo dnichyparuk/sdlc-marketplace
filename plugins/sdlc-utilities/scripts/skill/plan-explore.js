@@ -223,7 +223,7 @@ function sampleSkillRegistry() {
             try {
               const content = fs.readFileSync(skillMdPath, 'utf8');
               // Extract frontmatter (lines between first --- and second ---)
-              const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+              const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
               if (fmMatch) {
                 skills.push({ skill: skillEntry, frontmatter: fmMatch[1].trim() });
               }

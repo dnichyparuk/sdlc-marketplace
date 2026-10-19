@@ -46,7 +46,7 @@ const { readSection, resolveSdlcRoot } = require(path.join(LIB, 'config'));
 const { writeOutput } = require(path.join(LIB, 'output'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { VALID_STEPS, BUILT_IN_DEFAULTS, CANONICAL_STEPS, RESERVED_STEPS } = require(path.join(LIB, 'ship-fields'));
-const { gcStateFiles, gcTempdirs } = require(path.join(LIB, 'state'));
+const { gcStateFiles, gcTempdirs, gcOutputDir } = require(path.join(LIB, 'state'));
 const { detectActiveChanges, isArchived } = require(path.join(LIB, 'openspec'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { getAdvisory } = require(path.join(LIB, 'context-advisory'));
@@ -1198,7 +1198,8 @@ function main() {
       // SDLC_EXPLORE_TMPDIR_OVERRIDE allows tests to point at a controlled directory.
       const exploreTmpdir    = process.env.SDLC_EXPLORE_TMPDIR_OVERRIDE || undefined;
       const exploreTempdirs  = gcTempdirs({ prefix: 'sdlc-explore-', ttlDays, knownBranches, tmpdir: exploreTmpdir });
-      report = { ttlDays, ship, execute, plan, commit, exploreTempdirs };
+      const out              = gcOutputDir({ ttlHours: ttlDays * 24 });
+      report = { ttlDays, ship, execute, plan, commit, exploreTempdirs, out };
     } catch (err) {
       errors.push(`gc failed: ${err.message}`);
       writeFatalErrors(errors);

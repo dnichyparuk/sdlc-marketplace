@@ -19,14 +19,30 @@ Manages the full semantic release workflow: detects the version source, bumps th
 | Flag | Description | Default |
 |------|-------------|---------|
 | `major` / `minor` / `patch` / `<label>` | Bump type (positional). If omitted, auto-detected from conventional commits. The `<label>` form (e.g. `version-sdlc rc`) is sugar for `--bump patch --pre <label>` and accepts any pre-release label matching `^[a-z][a-z0-9]*$`. | auto |
+| `--bump <value>` | Explicitly set the bump type (`major`, `minor`, `patch`, or a pre-release `<label>`). Takes precedence over the positional argument and any auto-detected suggestion. Passing both a positional bump and `--bump` is an error. | `patch` (positional default) |
 | `--init` | Run the setup wizard and write `.claude/version.json`. Safe to re-run. | — |
-| `--pre <label>` | Create a pre-release version (e.g. `beta`, `rc`). Label must match `^[a-z][a-z0-9]*$`. Auto-increments the counter on repeated runs. | — |
+| `--pre <label>` | Create a pre-release version (e.g. `beta`, `rc`). Label must match `^[a-z][a-z0-9]*$`. Auto-increments the counter on repeated runs. The counter continues from the highest existing `v<base>-<label>.N` git tag for the resolved base version, even when the version source carries no pre-release suffix. | — |
 | `--no-push` | Commit and tag locally, skip `git push`. | — |
 | `--changelog` | With a bump type: generate a CHANGELOG entry as part of the release. Without a bump type: update the changelog for the already-tagged current version (no new tag created). Can also be enabled permanently by setting `"changelog": true` in `.claude/version.json` — the CLI flag and config value are OR'd together as `flags.changelog`. | off |
 | `--hotfix` | Mark this release as a hotfix for DORA metrics tracking. Annotates the commit message with `[hotfix]` and the tag message body with `Type: hotfix`. | off |
 | `--auto` | Skip interactive approval prompts. Release plan is still displayed for visibility; critique gates and pre-condition checks still run. | off |
+| `--expected-branch <name>` | **Internal — set by ship-sdlc.** Validates that the current branch matches `<name>` before any commit/tag/push operations. Exits non-zero if the branches differ. Cross-link: see [ship-sdlc branch-verification guard](ship-sdlc.md#branch-verification-guard). | inactive |
+| `--retag` | Delete the local and remote tags for the current resolved version, recreate the annotated tag at HEAD, and push. Incompatible with bump types, `--init`, `--changelog`, and `--hotfix`. User-initiated; orthogonal to the CI-automated `retag-release.yml` workflow. See [Retag flow](#retag-flow). | off |
 
 > **Auto-upstream:** When releasing from a branch with no remote upstream configured, the push step automatically uses `git push --set-upstream origin <branch>` instead of bare `git push`. This avoids first-push failures on fresh feature branches. The subsequent `git push --tags` is unaffected.
+
+---
+
+## Bump Precedence
+
+When multiple bump sources are present, the following priority order applies (highest to lowest):
+
+1. `--bump <value>` flag — authoritative; overrides everything else.
+2. Positional bump argument (e.g., `minor`) — used when `--bump` is absent.
+3. Pre-release config auto-injects `patch` — when `version.preRelease` is set in `.sdlc/config.json` and no positional bump is given, a `patch` base is injected automatically.
+4. Default `patch` — fallback when no bump source is specified.
+
+> **Commits suggest a higher bump?** A warning is printed, but the requested bump wins. The conventional-commit suggestion (`suggestedBump`) is informational only and never overrides an explicit choice.
 
 ---
 
@@ -348,6 +364,33 @@ Auto-detected in this priority order:
 | 5 | `.claude-plugin/plugin.json` | `.version` |
 | 6 | `VERSION` | Entire file content (trimmed) |
 | 7 | `version.txt` | Entire file content (trimmed) |
+
+---
+
+## Retag flow
+
+`/version-sdlc --retag` moves an existing release tag to the current HEAD. Use this when a squash merge or force-push changed HEAD after the tag was created and you need the tag to point at the actual release commit.
+
+### What it does
+
+1. Reads the current version (from version file or latest tag, per `config.mode`).
+2. Derives the candidate tag (`v<version>`). Errors if the tag does not already exist.
+3. Asks for confirmation (skipped under `--auto`): "About to retag `<tag>` from `<oldSha>` to `<HEAD>`. Continue?"
+4. Deletes the local tag: `git tag -d <tag>`
+5. Deletes the remote tag: `git push origin :refs/tags/<tag>`
+6. Creates a new annotated tag at HEAD: `git tag -a <tag> -m "Retag <tag>"`
+7. Pushes the new tag: `git push origin <tag>`
+8. Reports the new SHA.
+
+### Usage
+
+```text
+/version-sdlc --retag
+```
+
+### Difference from `retag-release.yml`
+
+`/version-sdlc --retag` is a **user-initiated** operation. It retags the current version after a deliberate decision. The CI workflow `retag-release.yml` is a **CI-automated** squash-drift fix — it fires automatically when a tag points at a commit that was squash-merged away. The two are orthogonal and coexist without conflict. (Implements #424.)
 
 ---
 

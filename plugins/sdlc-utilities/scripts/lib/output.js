@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 
 /**
  * Output protocols
@@ -12,8 +13,8 @@ const crypto = require('crypto');
  * matches the consumer:
  *
  *   - `writeOutput(data, prefix)` — LLM-skill manifest protocol. Writes JSON
- *     to a randomized temp file under `os.tmpdir()` and prints ONLY the
- *     file path on stdout, then exits. Used by prepare-scripts whose output
+ *     to `<state dir>/out/` (falling back to `os.tmpdir()` outside git) and
+ *     prints ONLY the file path on stdout, then exits. Used by prepare-scripts whose output
  *     is read back by a SKILL.md prompt via `--output-file`.
  *
  *   - `writeJsonLine(obj)` / `emitText(s)` — streaming/polling protocol.
@@ -44,10 +45,49 @@ function createOutputFile(prefix) {
  * Callers that previously relied on stdout JSON must read the printed path.
  */
 function writeOutput(data, prefix, exitCode = 0) {
-  const filePath = createOutputFile(prefix);
+  const filePath = createPersistentOutputFile(prefix) || createOutputFile(prefix);
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n');
   process.stdout.write(filePath + '\n');
   process.exit(exitCode);
+}
+
+/**
+ * Create the manifest path under `<state dir>/out/` and prepare the directory:
+ * ensure it exists, ensure the state dir has a `.gitignore` of `*`, and prune
+ * same-`<prefix>-<branch slug>-` files older than one hour (concurrent sessions
+ * on one branch keep each other's files). Returns null on any failure so the
+ * caller falls back to `os.tmpdir()`.
+ */
+function createPersistentOutputFile(prefix) {
+  try {
+    const { resolveStateDir, slugifyBranch } = require('./state');
+    const stateDir = resolveStateDir();
+    const dir = path.join(stateDir, 'out');
+    let branch = '';
+    try {
+      branch = execFileSync('git', ['branch', '--show-current'], {
+        encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch (_) { /* no git or detached */ }
+    const slug = slugifyBranch(branch || 'nobranch');
+    fs.mkdirSync(dir, { recursive: true });
+    const ignore = path.join(stateDir, '.gitignore');
+    if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, '*\n');
+    const head = `${prefix}-${slug}-`;
+    const cutoff = Date.now() - 3600000;
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.startsWith(head) || !name.endsWith('.json')) continue;
+      try {
+        const full = path.join(dir, name);
+        if (fs.statSync(full).mtimeMs < cutoff) fs.unlinkSync(full);
+      } catch (_) { /* best effort */ }
+    }
+    const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+    const hash = crypto.randomBytes(2).toString('hex');
+    return path.join(dir, `${head}${ts}-${hash}.json`);
+  } catch (_) {
+    return null;
+  }
 }
 
 /**

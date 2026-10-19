@@ -23,6 +23,40 @@ Inspects staged changes and recent commit history to generate a commit message t
 | `--type <type>` | Override the conventional commit type (`feat`, `fix`, `refactor`, etc.) | Auto-detected from diff |
 | `--amend` | Amend the last commit instead of creating a new one | Disabled |
 | `--auto` | Skip interactive approval — commit immediately after message generation | Disabled |
+| `--force-default-branch` | Allow `--auto` commits on the default branch. Ignored on non-default branches. (Fixes #398.) | Disabled |
+| `--no-squash-wip` | Preserve `wip(execute):` commits in branch history instead of soft-resetting them into the final commit. Useful when you want the per-wave WIP history visible for review. (Fixes #392 / R35.) | Disabled (squash by default) |
+| `--expected-branch <name>` | **Internal — set by ship-sdlc.** Validates that the current branch matches `<name>` before any `git commit` invocation. Exits non-zero if the branches differ. Cross-link: see [ship-sdlc branch-verification guard](ship-sdlc.md#branch-verification-guard). | inactive |
+
+---
+
+## WIP-Commit Squashing (`wip(execute):`)
+
+When execute-plan-sdlc runs with `--commit-waves`, each completed wave produces a `wip(execute): wave N — <titles>` commit. commit-sdlc detects these on invocation and, by default, soft-resets the branch to fork-point before generating the final commit message — so the final feature commit subsumes every WIP commit cleanly and the PR history shows a single conventional-commit message instead of the per-wave WIPs.
+
+**Detection criteria** (computed by `scripts/skill/commit.js` at prepare time):
+
+- `wipSquash.commits[]` — SHAs of commits between the current branch's fork-point and HEAD whose subject starts with `wip(execute)` (per `git log --format='%H %s' <fork>..HEAD` filtered to `^wip\(execute\)`).
+- `wipSquash.stagedClean` — `true` iff `git diff --cached --name-only` returns nothing at prepare time (no user hand-edits staged on top of WIPs).
+
+**Squash mechanic** (commit-sdlc SKILL.md Step 1c):
+
+When `wipSquash.commits.length > 0` and `--no-squash-wip` is NOT set:
+
+1. Print `Detected N wip(execute): commit(s) from execute-plan-sdlc per-wave commits. The final commit will subsume them via soft-reset.`
+2. Resolve fork-point via `git merge-base HEAD <upstream-or-default-branch>` and run `git reset --soft <fork-point>` — preserves all changes in the working tree and index; drops the WIP commits from history.
+3. Re-stage any user hand-edits that were preserved by the soft-reset: `git add -A`.
+4. Proceed to Step 2 PLAN — the orchestrator generates a single conventional-commit subject for the squashed change.
+
+**`--no-squash-wip` opt-out:** when set, the squash is skipped silently; the WIP commits remain in branch history. The skill prints `Detected N wip(execute): commit(s) from execute-plan-sdlc per-wave commits — preserving (--no-squash-wip).` and proceeds to Step 2 with the staged diff unchanged.
+
+**No-`wip:`-prefix invariant for the final message:** the orchestrator MUST NOT generate a commit subject starting with `wip:` or `wip(execute):`. This is enforced at two layers:
+
+1. **LLM-side reminder** in the Step 2 PLAN dispatch (defense-in-depth).
+2. **Deterministic post-generation check** in `scripts/skill/commit.js` — regex `^wip(\(|:)` against the generated subject; on match, the message is rejected and the orchestrator is re-dispatched with an explicit constraint reminder. This is the load-bearing enforcement.
+
+**State-machine idempotency:** re-running commit-sdlc immediately after a successful squash is a no-op — `wipSquash.commits` will be empty (the WIP commits no longer exist between fork-point and HEAD), so Step 1c skips silently.
+
+(Fixes #392 / R35.)
 
 ---
 
@@ -95,6 +129,14 @@ No stash entry is created or restored. The commit proceeds with only the staged 
 ```
 
 Generates the commit message, runs the critique/improve cycle internally, and commits without prompting for confirmation. Stash behavior is unchanged — unstaged changes are still stashed and restored.
+
+### Auto-commit on default branch (override)
+
+```text
+/commit-sdlc --auto --force-default-branch
+```
+
+Expected behavior: warning is emitted but the commit proceeds. Without `--force-default-branch`, `--auto` on the default branch refuses.
 
 ---
 
@@ -246,6 +288,9 @@ Refactor login logic
 |-----------------|-------------|
 | Git commit | A new commit on the current branch, or an amended HEAD commit when `--amend` is passed |
 | Git stash (temporary) | Created from unstaged tracked-file changes before the commit and immediately popped after — not a permanent stash entry |
+| `.sdlc/execution/commit-<slug>-<ts>.json` | Persistent prepare manifest (success path) containing the staged file list, full staged diff, branch metadata, and flags. Survives across Bash invocations to support cross-shell consumers. Error-path manifests instead go to `os.tmpdir()` via `writeOutput`. |
+
+> **Note:** `.sdlc/execution/commit-*.json` files include the full staged diff content. The repo-level `.sdlc/.gitignore` excludes everything under `.sdlc/` except `config.json` and `review-dimensions/`, so these files are not tracked by git — but be aware that the diff sits on disk under the success-path manifest until the next prune-on-write or `--gc` cycle. Do not share or copy `.sdlc/execution/` contents if a stage may have included credentials.
 
 ## OpenSpec Integration
 

@@ -53,9 +53,7 @@ Pass `--from-issue "$ISSUE_NUM"` to the prepare script invocation in Step 1.
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-SCRIPT="<PLUGIN_ROOT>/scripts/skill/harden-prepare.js"
-
-MANIFEST_FILE=$(node "$SCRIPT" \
+MANIFEST_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/harden-prepare.js" \
   ${FAILURE_TEXT:+--failure-text "$FAILURE_TEXT"} \
   ${FROM_ISSUE:+--from-issue "$FROM_ISSUE"} \
   --skill "$SKILL_NAME" \
@@ -69,9 +67,6 @@ MANIFEST_FILE=$(node "$SCRIPT" \
 EXIT_CODE_PREPARE=$?
 echo "MANIFEST_FILE=$MANIFEST_FILE"
 echo "EXIT_CODE=$EXIT_CODE_PREPARE"
-# Single canonical cleanup: trap fires only when MANIFEST_FILE was written so
-# we do not attempt `rm -f ""` on a failed script invocation.
-trap '[ -n "$MANIFEST_FILE" ] && rm -f "$MANIFEST_FILE"' EXIT INT TERM
 ```
 
 Substitute the shell variables with values from the parsed arguments. Empty
@@ -174,8 +169,7 @@ Rationale:      {RESULT.classificationRationale}
 ```
 
 If `RESULT.proposals` is empty, report `No actionable hardening proposals — the
-failure signal does not point at any of the loaded surfaces.` and exit cleanly
-(the trap from Step 1 cleans up the manifest).
+failure signal does not point at any of the loaded surfaces.` and exit cleanly.
 
 ---
 
@@ -205,8 +199,7 @@ Options: **apply** | **skip** | **cancel**
 
 - **apply** — proceed to validation and write
 - **skip** — record the proposal as skipped, continue to the next
-- **cancel** — abort the entire skill (no further proposals processed); the
-  trap cleans up the manifest
+- **cancel** — abort the entire skill (no further proposals processed)
 
 ### 5a. Validate Before Write (R12, R-iteration-write)
 
@@ -336,8 +329,6 @@ When `RESULT.classification == "plugin-defect"`:
 4. Do NOT edit any user-side hardening surface in the plugin-defect path. The
    no-silent-write invariant applies here too — the user must explicitly
    approve the error-report dispatch.
-
-The trap from Step 1 cleans up the manifest on every exit path.
 
 ---
 

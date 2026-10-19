@@ -174,7 +174,7 @@
     - type: contains
       value: 'url-not-found'
 
-- description: "pr.js: --output-file writes to os.tmpdir() (issue #209 regression test)"
+- description: "pr.js: --output-file writes a manifest path, not JSON (issue #209 regression test)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
     script_args: "--output-file"
@@ -183,11 +183,11 @@
     script_passthrough: true
   assert:
     - type: regex
-      value: '^/(tmp|var|private)/.+pr-context-[0-9a-f]+\.json\s*$'
+      value: '^(?:/(?:tmp|var|private)/.+/|.+/\.sdlc/execution/out/)pr-context-[A-Za-z0-9-]+-\d{8}T\d{6}Z-[0-9a-f]{4}\.json\s*$'
     - type: not-icontains
       value: '"remoteState":'
 
-- description: "pr.js: without --output-file, output is still a tmpdir path (stdout-JSON fallback removed)"
+- description: "pr.js: without --output-file, output is still a manifest path (stdout-JSON fallback removed)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
     script_cwd: "{{project_root}}"
@@ -195,7 +195,7 @@
     script_passthrough: true
   assert:
     - type: regex
-      value: '^/(tmp|var|private)/.+pr-context-[0-9a-f]+\.json\s*$'
+      value: '^(?:/(?:tmp|var|private)/.+/|.+/\.sdlc/execution/out/)pr-context-[A-Za-z0-9-]+-\d{8}T\d{6}Z-[0-9a-f]{4}\.json\s*$'
     - type: not-icontains
       value: '"remoteState":'
 

@@ -948,6 +948,35 @@ function hookEnforcementAllowed(data, payload) {
 // Exports
 // ---------------------------------------------------------------------------
 
+/**
+ * Delete manifest files in `<state dir>/out/` older than `ttlHours`.
+ * Never throws.
+ * @param {object} [opts]
+ * @param {number} [opts.ttlHours=24]
+ * @param {number} [opts.now]  current time (ms); defaults to Date.now()
+ * @returns {{ deleted: string[], kept: string[] }}
+ */
+function gcOutputDir({ ttlHours = 24, now } = {}) {
+  const result = { deleted: [], kept: [] };
+  try {
+    const dir = path.join(resolveStateDir(), 'out');
+    const cutoff = (typeof now === 'number' ? now : Date.now()) - ttlHours * 3600000;
+    for (const name of fs.readdirSync(dir)) {
+      const full = path.join(dir, name);
+      try {
+        if (!fs.statSync(full).isFile()) continue;
+        if (fs.statSync(full).mtimeMs < cutoff) {
+          fs.unlinkSync(full);
+          result.deleted.push(name);
+        } else {
+          result.kept.push(name);
+        }
+      } catch (_) { /* best effort */ }
+    }
+  } catch (_) { /* missing dir or no git */ }
+  return result;
+}
+
 module.exports = {
   resolveMainWorktree,
   slugifyBranch,
@@ -963,6 +992,7 @@ module.exports = {
   parseStateFilename,
   gcStateFiles,
   gcTempdirs,
+  gcOutputDir,
   pruneStateFiles,
   migrateBranchSlug,
   listBranches,

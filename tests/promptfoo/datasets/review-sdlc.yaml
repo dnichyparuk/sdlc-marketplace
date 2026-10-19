@@ -272,7 +272,7 @@
     - type: llm-rubric
       value: >
         The response acknowledges the cancel reply. It does NOT post via `gh api`. It does NOT
-        write any file under `.sdlc/reviews/`. It still cleans up the manifest file and the
+        write any file under `.sdlc/reviews/`. It still cleans up the
         diff dir at `/tmp/review-diff-def456` — cleanup runs on every terminal branch, including
         cancel. It does not re-dispatch the orchestrator.
 

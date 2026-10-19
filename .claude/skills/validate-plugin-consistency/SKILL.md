@@ -1,6 +1,6 @@
 ---
 name: validate-plugin-consistency
-description: "Use after modifying any file under plugins/sdlc-utilities/ (skills/*/SKILL.md, scripts/*.js). Runs the consistency validation script to catch structural issues before they reach users: wrong script resolution order, skills missing prepare-script execution, missing mktemp or exit-code handling, missing frontmatter fields, missing user-invocable flags, missing docs/skills/ documentation, missing skills-meta.ts entries, missing README table rows, temp file cleanup gaps."
+description: "Use after modifying any file under plugins/sdlc-utilities/ (skills/*/SKILL.md, scripts/*.js). Runs the consistency validation script to catch structural issues before they reach users: wrong script resolution order, skills missing prepare-script execution, missing --output-file or exit-code handling, missing frontmatter fields, missing user-invocable flags, missing docs/skills/ documentation, missing skills-meta.ts entries, missing README table rows, EXIT traps in skill bash blocks."
 user-invocable: true
 ---
 
@@ -57,25 +57,24 @@ SCRIPT=$(find ~/.claude/plugins -name "<script>.js" -path "*/sdlc*/scripts/<scri
 
 ### `skill-runs-script` (error)
 
-A skill is paired with a prepare script but does not contain the find+node resolution
-pattern. Skills must run their own prepare scripts. Add the find+mktemp+node block to
-the skill following the pattern in `review-sdlc/SKILL.md`:
-
-1. Skill: find script → `$(node "$SCRIPT" --output-file $ARGUMENTS --json)` → read and parse JSON
+A skill listed in `SKILL_TO_SCRIPT` (check-consistency.js) whose prepare script exists under
+`plugins/sdlc-utilities/scripts/skill/` does not invoke it in a bash block as
+`node "<PLUGIN_ROOT>/scripts/skill/<script>.js"`. Skills must run their own prepare scripts;
+write the script path inline in the `node` call, not through a variable.
 
 ### `skill-uses-output-file` (error)
 
-A skill runs a prepare script but pipes output directly instead of using `--output-file` capture.
-Replace with:
+A skill that invokes its prepare script does not pass `--output-file`. Capture the printed
+manifest path:
 
 ```bash
-MANIFEST_FILE=$(node "$SCRIPT" --output-file $ARGUMENTS --json)
+MANIFEST_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/<script>.js" --output-file $ARGUMENTS)
 EXIT_CODE=$?
 ```
 
 ### `skill-checks-exit-code` (error)
 
-A skill runs a script but doesn't capture `EXIT_CODE`. Add after the node call:
+A skill that invokes its prepare script does not capture `EXIT_CODE`. Add after the node call:
 
 ```bash
 EXIT_CODE=$?
@@ -85,8 +84,8 @@ EXIT_CODE=$?
 
 ### `skill-passes-arguments` (warning)
 
-A skill runs a prepare script but doesn't use `$ARGUMENTS`. Change the node
-invocation to: `node "$SCRIPT" $ARGUMENTS --json > "$MANIFEST_FILE"`
+A skill that invokes its prepare script does not forward `$ARGUMENTS`. Add it to the node call.
+`error-report-sdlc`, `harden-sdlc` and `plan-sdlc` pass explicit flags instead and are exempt.
 
 ### `frontmatter-field-names` (error)
 
@@ -125,11 +124,12 @@ and connections. See existing entries for the format.
 A user-invocable skill is not listed in the README.md skills table. Add a row following the
 format: `| [\`/<name>\`](docs/skills/<name>.md) | description |`
 
-### `temp-file-cleanup` (warning)
+### `no-exit-trap` (error)
 
-A skill uses `mktemp` to create a temp file but has no cleanup reference (`rm -f`, `rm -rf`,
-or "clean" in narrative). Add cleanup instructions to the skill, ensuring temp files are removed
-on all exit paths (success, error, cancellation).
+A fenced block under `plugins/sdlc-utilities/skills/` declares `trap … EXIT`. Each Bash tool call
+is its own shell, so the trap fires when the declaring call ends — before a later call can read the
+manifest. Prepare manifests persist under `.sdlc/execution/out/` and are pruned on write and swept
+by `ship.js --gc`; delete the `trap` and do not add `rm -f` lines.
 
 ## Step 3 — Re-run Validation
 

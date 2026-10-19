@@ -87,3 +87,42 @@
   assert:
     - type: not-icontains
       value: '"rule": "invocation-verbatim"'
+
+# Validator regression (W1.10): rules 2–5 and 11 check the prepare-script contract
+# (node "<PLUGIN_ROOT>/scripts/skill/<script>.js", --output-file, EXIT_CODE, $ARGUMENTS)
+# and the no-exit-trap convention. The fixture skill is commit-sdlc because the
+# validator only checks the skills named in SKILL_TO_SCRIPT.
+- description: "prepare-contract: flags missing EXIT_CODE, --output-file, $ARGUMENTS and an EXIT trap"
+  vars:
+    script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/prepare-contract-cases/bad-project"
+  assert:
+    - type: icontains
+      value: '"rule": "skill-uses-output-file"'
+    - type: icontains
+      value: '"rule": "skill-checks-exit-code"'
+    - type: icontains
+      value: '"rule": "skill-passes-arguments"'
+    - type: icontains
+      value: '"rule": "no-exit-trap"'
+    # The bad skill does invoke its script, so rule 2 stays quiet.
+    - type: not-icontains
+      value: '"rule": "skill-runs-script"'
+
+- description: "prepare-contract: clean project passes"
+  vars:
+    script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/prepare-contract-cases/good-project"
+  assert:
+    - type: not-icontains
+      value: '"rule": "skill-runs-script"'
+    - type: not-icontains
+      value: '"rule": "skill-uses-output-file"'
+    - type: not-icontains
+      value: '"rule": "skill-checks-exit-code"'
+    - type: not-icontains
+      value: '"rule": "skill-passes-arguments"'
+    - type: not-icontains
+      value: '"rule": "no-exit-trap"'
