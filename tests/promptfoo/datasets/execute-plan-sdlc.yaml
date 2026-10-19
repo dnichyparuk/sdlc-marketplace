@@ -546,7 +546,7 @@
 # Standalone plan-argument gate (R41, #505)
 # ---------------------------------------------------------------------------
 
-- description: "execute-plan-sdlc (R41, #505): standalone invocation with neither a positional plan path nor --plan halts before Step 1 LOAD with what/how/why remediation text"
+- description: "execute-plan-sdlc (R41): standalone invocation with neither a positional plan path nor --plan halts before Step 1 LOAD with what/how/why remediation text"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/feature-branch-with-commits.md"
@@ -570,7 +570,7 @@
         never guesses or silently assumes which plan to execute. The response does not
         proceed with execution.
 
-- description: "execute-plan-sdlc (R41, #505): standalone invocation does not prompt or fall back to conversation-context plan text"
+- description: "execute-plan-sdlc (R41): standalone invocation does not prompt or fall back to conversation-context plan text"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/feature-branch-with-commits.md"

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-10-19
+
+### Changed
+- docs: `docs/specs/execute-plan-sdlc.md` is restructured into the contract sections; all requirement ids stay as stable anchors, issue numbers and the withdrawn R26 move to the appendix, tuning values (models per preset, wave-size cap table, escalation ladder) leave the spec for `docs/cost-tiers.md` §5 and `dispatch-budget.js`, and the step-emitter contract block is copied from the ship spec (#21)
+- docs: `cost-tiers.md` gains the "Execute quality presets" table and records the spike S1 result under §7 (#21)
+- tests: `execute-plan-sdlc.yaml` R41 descriptions cite `R41` instead of an issue number (#21)
+
 ## [0.25.1] - 2026-10-19
 
 ### Changed
