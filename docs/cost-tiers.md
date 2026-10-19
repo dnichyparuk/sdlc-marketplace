@@ -40,13 +40,13 @@ One row per skill in `plugins/sdlc-utilities/skills/`.
 
 One row per agent in `plugins/sdlc-utilities/agents/`.
 
-| Agent | Model | Rationale |
-|---|---|---|
-| commit-orchestrator | haiku | Manifest → message; deterministic shape |
-| error-report-orchestrator | haiku | Template → JSON |
-| harden-orchestrator | haiku | Manifest → JSON |
-| plan-explore-orchestrator | sonnet | Fans out discovery subagents and critiques findings |
-| review-orchestrator | sonnet | Cross-dimension critique + dedup reasoning; dimension subagents use per-dimension `model:` |
+| Agent | Model | Effort | Rationale |
+|---|---|---|---|
+| commit-orchestrator | haiku | low | Manifest → message; deterministic shape |
+| error-report-orchestrator | haiku | low | Template → JSON |
+| harden-orchestrator | haiku | low | Manifest → JSON |
+| plan-explore-orchestrator | sonnet | - | Fans out discovery subagents and critiques findings |
+| review-orchestrator | sonnet | - | Cross-dimension critique + dedup reasoning; dimension subagents use per-dimension `model:` |
 
 ## 5. Dispatch-Site Overrides
 
@@ -71,9 +71,11 @@ If a `model:` change later proves to degrade output quality below the contract's
 
 | Where effort is set | Status |
 |---|---|
-| Agent frontmatter `effort:` | The three Haiku orchestrators; none set today |
+| Agent frontmatter `effort:` | The three Haiku orchestrators set `effort: low` |
 | Review-dimension frontmatter `effort:` | Not read today; W6b.5 adds the schema field and the `review.js` pass-through |
 | Execute presets (Agent dispatch `effort` param) | First rung of the escalation ladder before a tier change |
+
+Effort is set in agent frontmatter; the validator does not check it.
 
 | Surface | Config A | Config B | Artifacts (n) | Tokens in/out (A, B) | Cost per completed task (A, B) | Completed (A, B) | Decision | Date |
 |---|---|---|---|---|---|---|---|---|

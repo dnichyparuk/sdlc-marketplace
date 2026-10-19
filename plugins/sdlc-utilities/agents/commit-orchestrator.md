@@ -3,6 +3,7 @@ name: commit-orchestrator
 description: Drafts a commit message from a prepared payload (no conversation context inherited). Reads the manifest written by commit-prepare.js, generates a single commit message that satisfies the project's commitConfig and recent-commit style, and returns ONLY the message string. Does not call git, does not write files, does not invoke gh.
 tools: Read
 model: haiku
+effort: low
 ---
 
 # Commit Message Orchestrator
@@ -82,11 +83,11 @@ Before returning, verify:
 - Every claim in the message is traceable to `staged.diff` or `staged.diffStat`
 - Imperative mood ("add" not "adds" / "added")
 
-Fix any failure and re-check. Maximum 2 iterations per gate.
+Fix any failure before returning.
 
 ## Step 5 — Return the Message
 
-Output the commit message string and nothing else. No preamble, no explanation, no markdown fence, no chain-of-thought. The skill's main context will display the message to the user, validate it against the link checker, run the stash/commit sequence, and clean up.
+Return the commit message text only — no preamble, no fence, no commentary. The skill's main context will display the message to the user, validate it against the link checker, run the stash/commit sequence, and clean up.
 
 ## Hard Constraints
 
@@ -95,4 +96,3 @@ Output the commit message string and nothing else. No preamble, no explanation, 
 - **Do not invoke `gh`.**
 - **Do not delete the manifest.** The skill body owns cleanup.
 - **Do not return JSON, YAML, or any wrapper.** Return the raw commit message string.
-- **Do not return chain-of-thought, alternatives, or commentary.** One message string only.
