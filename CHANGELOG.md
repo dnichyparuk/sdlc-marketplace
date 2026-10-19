@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.2] - 2026-10-19
+
+### Changed
+- commit-sdlc, version-sdlc, pr-sdlc, error-report-sdlc: skills run on the session model (`model: inherit`); `docs/cost-tiers.md` rows and the version and pr spec headers match (#11)
+- error-report-sdlc: `error-report-prepare.js` puts the template text and the priority in the manifest, the orchestrator returns `{title, body, priority}`, and `REFERENCE.md` is inlined into `SKILL.md`; callers and `harden-surfaces.js` point at `SKILL.md` (#11)
+- commit-sdlc: Step 5 subject gate always runs and rejects `wip:` / `wip(execute):` subjects (exit 2); exit code 3 (expected-branch guard) is documented and Step 0.5 is removed; the argument-hint lists `--no-squash-wip` and `--expected-branch` (#11)
+- commit, error-report, harden orchestrators: `effort: low` and plain output instructions; `docs/cost-tiers.md` §4 gets an Effort column (#11)
+- verify-pipeline-sdlc: plain wording for the proposal rule without `--auto` (#11)
+- version, jira, pr, commit skills: shorter descriptions and aligned argument-hints (#11)
+
+### Removed
+- commit-sdlc: the false claims that a Step 2 reminder and a `commit.js` check enforce the no-`wip:` subject rule, and the "skip the critique" DO NOT bullet (#11)
+
 ## [0.23.1] - 2026-10-19
 
 ### Added
