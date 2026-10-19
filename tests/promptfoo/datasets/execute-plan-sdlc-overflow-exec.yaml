@@ -60,6 +60,24 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.maxConcurrentTasks === 3"
 
+- description: "execute-plan-sdlc/wave-runner-overflow/dispatch-budget: 1M model limits"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
+    script_args: "--op budget-model-limits"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.haiku === 300000 && r.sonnet === 3000000 && r.opus === 3000000"
+
+- description: "execute-plan-sdlc/wave-runner-overflow/dispatch-budget: config override lowers maxConcurrentTasks"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
+    script_args: "--op budget-config-override"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.without === 3 && r.withOverride === 2 && r.lower === true"
+
 # ---------------------------------------------------------------------------
 # state.js::summarizePriorWaveContext — bounded slice
 # ---------------------------------------------------------------------------

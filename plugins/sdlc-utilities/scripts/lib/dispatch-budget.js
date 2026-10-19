@@ -12,18 +12,21 @@
  */
 
 // ---------------------------------------------------------------------------
-// Model context limits (conservative byte ceiling = token limit × 4 bytes/token)
-// Using 75% of budget for inputs; 25% reserved for sub-agent reasoning + output.
-// Claude 4 family: all models have 200K token input limit.
+// Per-model input ceiling in bytes = token window x 4 bytes/token x 0.75 reserve.
+// The 25% reserve is left for sub-agent reasoning and output.
+// Opus 5.5 / Sonnet 5.5 on the Anthropic API have a 1M-token window; where the alias resolves to a
+// 4.5/4.6 model (Bedrock/Vertex/Foundry) set execute.dispatchBudget. Haiku is capped at 100K tokens, the
+// point above which the rate card changes: a cost reason, not a context limit.
 // ---------------------------------------------------------------------------
 const MODEL_MAX_INPUT_BYTES = {
-  haiku:  Math.floor(200_000 * 4 * 0.75),  // 600_000 bytes
-  sonnet: Math.floor(200_000 * 4 * 0.75),  // 600_000 bytes
-  opus:   Math.floor(200_000 * 4 * 0.75),  // 600_000 bytes
+  haiku:  Math.floor(100_000 * 4 * 0.75),    // 300_000 bytes
+  sonnet: Math.floor(1_000_000 * 4 * 0.75),  // 3_000_000 bytes
+  opus:   Math.floor(1_000_000 * 4 * 0.75),  // 3_000_000 bytes
 };
 
-// Static wave-size cap table (tasks 4-8 → 4, 9-15 → 5, 16+ → 6).
-// Complex tasks count as 2. computeWaveBudget MUST return ≤ this cap.
+// Static wave-size cap (tasks 4-8 -> 4, 9-15 -> 5, 16+ -> 6; complex tasks count as 2). It does not come
+// from the context window; it bounds concurrent file-conflict risk and review effort per wave, so it stays
+// when the byte budget grows. `computeWaveBudget` MUST return <= this cap.
 const STATIC_CAP_TABLE = [
   { minTasks: 1,  maxTasks: 3,  cap: Infinity },
   { minTasks: 4,  maxTasks: 8,  cap: 4 },
@@ -59,6 +62,7 @@ function staticCap(totalRemainingTasks) {
  * @param {number}   opts.priorWaveContextBytes      - bytes for prior-wave context summary
  * @param {string}   opts.model                     - "haiku" | "sonnet" | "opus"
  * @param {number}   [opts.modelMaxInputBytes]       - override model limit (for testing)
+ * @param {{haiku?: number, sonnet?: number, opus?: number}} [opts.dispatchBudget] - per-model input-token budgets (config execute.dispatchBudget, read by the caller)
  * @param {number}   [opts.totalRemainingTasks]      - used for static-cap lookup (default: perTaskFactSheetBytes.length)
  *
  * @returns {{ maxConcurrentTasks: number, perTaskCeiling: number, totalReservedBytes: number }}
@@ -70,11 +74,18 @@ function computeWaveBudget({
   priorWaveContextBytes = 0,
   model = 'sonnet',
   modelMaxInputBytes: modelMaxInputBytesOverride,
+  dispatchBudget,
   totalRemainingTasks,
 }) {
+  const configTokens = dispatchBudget && dispatchBudget[model];
+  const configBytes = Number.isFinite(configTokens) && configTokens > 0
+    ? Math.floor(configTokens * 4 * 0.75)
+    : null;
   const maxInputBytes = modelMaxInputBytesOverride != null
     ? modelMaxInputBytesOverride
-    : (MODEL_MAX_INPUT_BYTES[model] || MODEL_MAX_INPUT_BYTES.sonnet);
+    : (configBytes != null
+      ? configBytes
+      : (MODEL_MAX_INPUT_BYTES[model] || MODEL_MAX_INPUT_BYTES.sonnet));
 
   const numCandidates = perTaskFactSheetBytes.length;
   const totalRemaining = totalRemainingTasks != null ? totalRemainingTasks : numCandidates;
