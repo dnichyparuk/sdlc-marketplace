@@ -38,7 +38,7 @@ The prompt-fit audit (`assessment/01-prompt-audit/README.md`, 285 findings) foun
 ---
 ## 2. Workstreams
 
-Seven workstreams, 68 items (W1.9, W1.10 and W1.11 added by the plan review on 2026-10-18). Item IDs are stable; the disposition table (§4) maps every README item and design item onto them. Each item carries the executor fields: Source, Effort (S < 1 day, M = days, L = a sprint), Depends on, Files, Current state (quoted from the working tree with `tr -d '\r'`; line numbers match HEAD `0c0cdcc`), Change, Must not touch, Verification (exact commands; the promptfoo dataset to extend; the one behavioral case allowed as the final check), Expected effect (figures reused from README §7 / design §H only), Done when, and Guardrails for the executor.
+Eight workstreams, 88 items (W1.9, W1.10 and W1.11 added by the plan review on 2026-10-18; W8.1–W8.20 added during execution on 2026-10-19). Item IDs are stable; the disposition table (§4) maps every README item and design item onto them. Each item carries the executor fields: Source, Effort (S < 1 day, M = days, L = a sprint), Depends on, Files, Current state (quoted from the working tree with `tr -d '\r'`; line numbers match HEAD `0c0cdcc`), Change, Must not touch, Verification (exact commands; the promptfoo dataset to extend; the one behavioral case allowed as the final check), Expected effect (figures reused from README §7 / design §H only), Done when, and Guardrails for the executor.
 
 | Workstream | Items | Milestone(s) | Drafting note |
 |---|---|---|---|
@@ -3785,7 +3785,7 @@ Scope: ten items covering README items 3, 7, 8, 10 (effort part), 12, 20, 21, 26
 
 **Verified at origin/main `7de2012` (2026-10-19).** Every todo was checked against the code. None is fixed yet, so each has an item. Line numbers below are at `7de2012`. M4 and M5 run before M5.1, so for every quote use the §0 rule 2 method: locate it with `grep -n` and proceed only if it occurs exactly once.
 
-**Conditional items.** M4 (W4.2, W4.5) and M5 (W5.2, W5.3) rewrite some of the same lines: W8.3, W8.12, W8.13, W8.14, W8.15 (part A), W8.17, W8.19 and W8.20. Each of these items names the M4/M5 item in **Depends on**, and its **Current state** says which lines that item rewrites. Its **Change** starts with a re-verify step: re-locate the quoted lines at the M5.1 base. If the defect is gone, close the item with evidence (the grep output and the commit that removed it) in the PR body and the M5.1 report, and make no edit. Otherwise apply the Change. M4/M5 follow-ups are appended as W8.21+ when those milestones close.
+**Conditional items.** M4 (W4.2, W4.5) and M5 (W5.2, W5.3) rewrite some of the same lines or outputs: W8.3, W8.10 (W4.2 changes the prepare output it asserts on), W8.12, W8.13, W8.14, W8.15 (part A), W8.17, W8.19 and W8.20. Each of these items names the M4/M5 item in **Depends on**, and its **Current state** says which lines that item rewrites. Its **Change** starts with a re-verify step: re-locate the quoted lines at the M5.1 base. If the defect is gone, close the item with evidence (the grep output and the commit that removed it) in the PR body and the M5.1 report, and make no edit. Otherwise apply the Change. M4/M5 follow-ups are appended as W8.21+ when those milestones close.
 
 **Rule 9 in this workstream.** Four legacy specs are touched here: commit (W8.1), verify-pipeline (W8.15), error-report (W8.16) and review (W8.17, unless W4.5 has already restructured it). Each of these items first does W3.5 for that spec in a separate commit. That commit uses W3.2's method and the W3 shared procedure P-1 to P-7, and P-5 must print `SAME` for it. The behaviour or text change follows in a second commit.
 
@@ -3839,9 +3839,10 @@ Scope: ten items covering README items 3, 7, 8, 10 (effort part), 12, 20, 21, 26
      - The other R-ids go to `## Step composition`.
      - `## Dispatch and routing` holds `None.`
 
-     Drop the `**Model:**` line, and move the seven `#NNN` fragments to the Issue trail table (P-3). Write the per-id mapping into the commit body. Commit message: `refactor(#<todo>): specs - commit-sdlc contract sections (W3.5)`.
+     Drop the `**Model:**` line, and move every `#NNN` fragment (11 occurrences on 7 lines at `7de2012`, including `#202` on the dropped `**Model:**` line) to the Issue trail table (P-3). Write the per-id mapping into the commit body. Commit message: `refactor(#<todo>): specs - commit-sdlc contract sections (W3.5)`.
   2. **Commit 2 — SKILL.md Step 5.** Apply the edits bottom-up.
      - a. `:250` and `:232`: replace `rm -f "$COMMIT_CONTEXT_FILE"` with `rm -f "$COMMIT_CONTEXT_FILE" "<MSG_FILE>"` (the rest of each line is unchanged).
+     - a2. Failure paths, so no `.msg` file is left behind (`parseStateFilename` matches only `.json`, so no sweep removes it): the hook-failure paragraph at `:234` (`**Hook failure handling**: …`) gets a final sentence `Run \`rm -f "<MSG_FILE>"\` (the next run writes a fresh one).`; the link-gate bullet `:214` `   - Stop. Do not retry. Do not edit URLs without user input. Do not bypass.` becomes `   - Run \`rm -f "<MSG_FILE>"\` and stop. Do not retry. Do not edit URLs without user input. Do not bypass.`
      - b. `:230`: after "apply user-supplied edits to `MESSAGE` directly", insert "rewrite `<MSG_FILE>` with the message-file block below," (so the gate re-reads the edited text).
      - c. Replace `:222-224` with:
        ```
@@ -3852,7 +3853,7 @@ Scope: ten items covering README items 3, 7, 8, 10 (effort part), 12, 20, 21, 26
      - d. `:203`: replace "The script reads the body from stdin" with "The script reads the message from `<MSG_FILE>`". Replace `:207` with `   node "<PLUGIN_ROOT>/scripts/lib/links.js" --json --file "<MSG_FILE>"`.
      - e. Replace `:182-193` (the gate heading line through the closing fence) with:
        ````
-       0. **Message file, then subject gate (hard gate):** `<MSG_FILE>` is the Step 0 manifest path with `.json` replaced by `.msg`; substitute that absolute path, and the manifest path for `<COMMIT_CONTEXT_FILE>`, in every block below. Write the message with a quoted heredoc — the quotes around `SDLC_COMMIT_MSG` keep `$`, backticks and `"` literal — replacing the `<message>` line with `MESSAGE` exactly. If `MESSAGE` contains a line that is exactly `SDLC_COMMIT_MSG`, stop and report. Run each block without the list indentation: the closing `SDLC_COMMIT_MSG` must start its line.
+       0. **Message file, then subject gate (hard gate):** `<MSG_FILE>` is the Step 0 manifest path with `.json` replaced by `.msg`; substitute that absolute path, and the manifest path for `<COMMIT_CONTEXT_FILE>`, in every block below. Write the message with a quoted heredoc — the quotes around `SDLC_COMMIT_MSG` keep `$`, backticks and `"` literal — replacing the `<message>` line with `MESSAGE` exactly. If `MESSAGE` contains a line that is exactly `SDLC_COMMIT_MSG`, stop and report. Run each block without the list indentation: the closing `SDLC_COMMIT_MSG` must start its line. Every re-run of the gate (the Exit 1/Exit 2 **edit subject** options and **On edit**) first rewrites `<MSG_FILE>` with the heredoc block above, then runs the gate block.
 
           ```bash
           cat > "<MSG_FILE>" <<'SDLC_COMMIT_MSG'
@@ -3888,7 +3889,7 @@ Scope: ten items covering README items 3, 7, 8, 10 (effort part), 12, 20, 21, 26
          If any is missing, it prints `{"error":"block not found: <which>"}` and exits 1. It removes from each block line the indentation of that block's opening fence (the blocks sit inside a list item), as the model does when it runs them.
        - (2) creates a temp git repo with `fs.mkdtempSync` under `os.tmpdir()`, runs `git init -q -b main`, sets the user name and email, and stages one file.
        - (3) writes a manifest `{"commitConfig":{"subjectPattern":"^fix: "}}` to `<tmp>/m.json`.
-       - (4) builds a script from block 1 with the `<message>` line replaced by the message, then block 2, then `GATE=$?; echo "GATE=$GATE"; [ "$GATE" -eq 0 ] && <commit command>`. It replaces `<MSG_FILE>` with `<tmp>/m.msg` and `<COMMIT_CONTEXT_FILE>` with `<tmp>/m.json` everywhere, and runs the script with `spawnSync('bash', ['-c', script], { cwd: repo })`.
+       - (4) builds a script from block 1 with the `<message>` line replaced by the message, then block 2 (every substitution uses `text.split(token).join(value)`, never `String.replace` with a string replacement, because the message contains `$`), then `GATE=$?; echo "GATE=$GATE"; [ "$GATE" -eq 0 ] && <commit command>`. It replaces `<MSG_FILE>` with `<tmp>/m.msg` and `<COMMIT_CONTEXT_FILE>` with `<tmp>/m.json` everywhere, and runs the script with `spawnSync('bash', ['-c', script], { cwd: repo })`.
        - (5) uses the message ``fix: keep "quotes", $(touch PWNED1) and `touch PWNED2` literal`` plus a blank line and the body `Body $HOME stays literal.`
        - (6) runs a second pass on a fresh repo with the subject `wip: x`.
        - (7) prints `{"gateExit":…,"body":"<git log -1 --format=%B>","literal":<body.trim()===message.trim()>,"pwned":<PWNED1 or PWNED2 exists in repo or cwd>,"wipGateExit":…}`. It removes its temp dirs with `fs.rmSync(dir, {recursive:true, force:true})` on its own paths only.
@@ -4198,7 +4199,7 @@ Scope: ten items covering README items 3, 7, 8, 10 (effort part), 12, 20, 21, 26
 ### W8.10 — ship-prepare skip-config-check cases assert the skip itself
 - **Source:** todo #9111 — M2 report §6 item 7 (wave-0 decline re-check).
 - **Effort:** S
-- **Depends on:** none
+- **Depends on:** W4.2 (M4): it changes the prepare output these cases assert on. Re-verify the scratch result in Current state at the M5.1 base first (see Guardrails).
 - **Files:** edit `tests/promptfoo/fixtures-fs/project-skill-skip-via-env/setup.sh`; edit `tests/promptfoo/datasets/ship-prepare-exec.yaml` (`:521-541`).
 - **Current state:**
   - `:521-530` (`SDLC_SKIP_CONFIG_CHECK=1`) and `:532-541` (`--skip-config-check`) run `ship.js --has-plan` with no `--plan`. They assert only `'"skipConfigCheck": true'`, which comes from the flag alone, so they pass even though ship.js exits 1 with `missingPlanFile`.
@@ -4577,7 +4578,7 @@ Milestones are dependency-ordered and run one at a time (owner, 2026-10-18). Ins
 | **M9 — jira and setup** (owner 2026-10-19) | Wave 1: W6a.1, W6a.2 (jira). Wave 2: W6a.3, W6a.4 (W6a.4's SKILL.md index line goes after W6a.3). Wave 3: W6a.5. Wave 4: W6a.6, W6a.7, W6a.8 (setup; W6a.7 before W6a.9). Wave 5: W6a.9. | jira-sdlc has one `### MCP-failure gate` section (W6a.2); `skills/jira-sdlc/write-ops.md` exists with Steps 2.5–2.7 (W6a.3); `jira.js --assemble` exists and its two exec cases pass (W6a.5); `setup-guardrails.md` has the Target table and `setup-execution-guardrails.md` is deleted (W6a.8); `project-scan.js` is used by both `guardrails.js` and `setup.js`, and `scan-patterns.md` is deleted (W6a.9); `validate-spec-shape.js --root .` no longer lists jira-sdlc or setup-sdlc as LEGACY_SHAPE; both exec configs pass. | W6c.10's jira and setup parts (M10). |
 | **M10 — Remaining skills, plugin-wide text, re-tune** (owner 2026-10-19) | Wave 1: W6c.4 (pr), W6c.5 (version), W6c.6 (harden). Wave 2: W6c.10 (the last text pass: after W4.2/W5.3 and after every skill owner's items in M7–M9). Wave 3: W1.8 (L, ongoing; needs W1.1 usage data and the M5 S3 row; measurement runs and any tier or effort change are owner gates). | `pr.js` emits `prConfig.labels.matched` and `openspec` (W6c.4); W6c.5's grep on `version-sdlc/SKILL.md` is empty and the exit-3 line exists; `dimension-to-instructions.js --write-mirror` returns the JSON envelope for its three cases (W6c.6); W6c.10's Done-when holds; `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0 (W3.5 complete for all ten specs; there is no CI step to switch); `docs/cost-tiers.md` §7 has W1.8's rows, each n ≥ 3, and `validate-cost-tiers.js --strict` exits 0. | — |
 
-Inside M6–M10 (the former parallel track) the internal orders are: W6a.1 → W6a.2 → W6a.3/W6a.5; W6a.6 → W6a.7 → W6a.8/W6a.9; W6b.1–3 → W6b.4 (its `review-summary.json` emission waits for W4.5 in M4); W6b.5 after W1.3; W6c.2 before W6c.4/W6c.5/W6c.6; W7.1 (relaxes validator rule 13) before W6b.3, W7.2 and W5.3. Inside M1, W1.1 lands first and the W1.8 baseline row is recorded before W6c.1 and W6c.7; W1.3 → W1.9 → W1.10, and W1.9 precedes W4.1, W6c.2 and W6c.3 (they edit the Step 0 blocks it cleans); W1.10 precedes W1.5 (M2).
+Inside M6–M10 (the former parallel track) the internal orders are: W6a.1 → W6a.2 → W6a.3/W6a.5; W6a.6 → W6a.7 → W6a.8/W6a.9; W6b.1–3 → W6b.4 (its `review-summary.json` emission waits for W4.5 in M4); W6b.5 after W1.3; W6c.2 before W6c.4/W6c.5/W6c.6; W7.1 (relaxes validator rule 13) before W6b.3, W7.2 and W5.3 (W5.3 runs in M5, before M7: per its own Depends-on it applies W7.1 item 18 first, in its own commit, when W7.1 has not landed, so W7.1 in M7 finds item 18 already done). Inside M1, W1.1 lands first and the W1.8 baseline row is recorded before W6c.1 and W6c.7; W1.3 → W1.9 → W1.10, and W1.9 precedes W4.1, W6c.2 and W6c.3 (they edit the Step 0 blocks it cleans); W1.10 precedes W1.5 (M2).
 
 ---
 
@@ -4731,7 +4732,25 @@ Each fact below is unverified in `assessment/reference/03-claude-code-authoring-
 
 ## 6. Open questions
 
-None. Every question raised by the consolidation and the plan review was closed on 2026-10-18; the closures, with the item that implements each, are in [Appendix A — Closed questions](#appendix-a--closed-questions). New questions found during execution are added here.
+Q1–Q14 are closed. Every question raised by the consolidation and the plan review was closed on 2026-10-18; the closures, with the item that implements each, are in [Appendix A — Closed questions](#appendix-a--closed-questions). New questions found during execution are added here. Open owner questions (added 2026-10-19):
+
+- **Q15: execute's prompts under ship after S1 = NO.** Gates **W4.3 (M4 wave 2)**; answer before W4.3's plan is accepted.
+  - The problem: interactive ship without `--quality` forwards no tier (`skill/ship.js:456-459`, R-tier-prompt-invariant), and execute runs as an Agent-dispatched subagent. Its Step 4 tier question is an `AskUserQuestion`, which S1 (b) showed is not available in subagents.
+  - W4.3 Change 5 adds `confirm_<step>` only for commit, version, pr and received-review, so as written it keeps the defect.
+  - Options:
+    - (A) `ship.js` emits a main-context tier decision before `dispatch_execute`, for interactive runs without `--quality` only (`null` under `--auto`), and forwards `--quality <answer>`. The user still chooses, so R-tier-prompt-invariant needs only a clarifying sentence; execute's per-task "custom" option is lost or deferred. The arbiter recommends A.
+    - (B) Ship refuses to start, in any mode, when execute will run and no `--quality` was passed (extends Q16 option (b)).
+    - (C) A default tier for execute when it runs as a subagent; changes R-tier-prompt-invariant.
+    - (D) Execute returns a "needs tier" result, ship asks in main context and re-dispatches.
+  - execute's other prompts (the 5a high-risk gate, resume, recovery escalation) have the same S1 problem; W4.3 should say how each behaves under the fork.
+- **Q16: `ship --auto` without `--quality`.** Gates W8.20 part 3. Options: (a) a default tier for execute under `--auto` (changes R-tier-prompt-invariant); (b) `skill/ship.js` refuses up front with `autoWithoutQuality` (W8.20's written Change); (c) no change, so W5.2's execute error appears mid-pipeline. The answer to Q15 may decide it.
+- **Q17: verify-pipeline verdict when no local check can run.** W8.15 keeps `fix-applied` (unverified) and does not gate on this; record the owner's decision either way.
+- **Q18: W1.6, include or drop** (M6 wave 2). If it is included, its Done-when ("the workflow runs it") cannot be met without CI; the M6 row restates it as "exits 0 locally".
+- **Q19: the four W8 "Noticed while verifying, not itemised" findings** (W8 Scope). Each needs an owner decision: add it as a W8.21+ item or leave it.
+  - ship spec P8 says `migration` is null when the config check is skipped, but the output is `{"infrastructure": …}`;
+  - check-consistency rule 1's message (`:318`) still advises `find ~/.claude/plugins` first;
+  - `hooks/post-tool-validate.js:102` interpolates `file_path` into a double-quoted `execSync` string;
+  - `execute-plan-sdlc/SKILL.md:574` `git commit -m "<subject>"` builds the WIP subject from plan task titles (trusted input; W5.4 moves the block).
 
 ---
 
