@@ -16,4 +16,3 @@ defaultTest:
 tests:
   - file://datasets/hook-stop-plan-integrity-exec.yaml
   - file://datasets/ship-hooks-exec.yaml
-  - file://datasets/compact-recovery-write-exec.yaml

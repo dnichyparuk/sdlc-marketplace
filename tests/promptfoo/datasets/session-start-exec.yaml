@@ -47,20 +47,18 @@
       value: "2 specs"
 
 # ---------------------------------------------------------------------------
-# Compact recovery — per-branch filename (issue #256)
+# Compact recovery — consumption removed; the SessionStart banner is ledger-derived
 # ---------------------------------------------------------------------------
 
-- description: "session-start: per-branch recovery file matching current branch is consumed"
+- description: "session-start: per-branch recovery file matching current branch emits no recovery line"
   vars:
     script_path: "repo://plugins/sdlc-utilities/hooks/session-start.js"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-compact-recovery-current-branch"
   assert:
-    - type: icontains
+    - type: not-icontains
       value: "Pipeline state recovered after compaction"
-    - type: icontains
-      value: "execute-plan-sdlc on main"
-    - type: icontains
+    - type: not-icontains
       value: "wave 2 of 5"
 
 - description: "session-start: recovery file for OTHER branch is NOT consumed (cross-branch isolation, issue #256)"
