@@ -59,6 +59,18 @@ Files where per-call `model:` is computed at runtime and **wins over frontmatter
 
 When ship-sdlc invokes a sub-skill, the sub-skill's frontmatter `model:` is shadowed by the per-step value computed in `ship.js`. Consumers should not assume frontmatter applies inside a pipeline.
 
+### Execute quality presets
+
+`execute-plan-sdlc` maps task complexity to a model per quality preset. The preset names are contract (`docs/specs/execute-plan-sdlc.md` A2, R2); the models are tuning. Implemented in `plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md` Step 2 (CLASSIFY) and Step 4 (IMPROVE).
+
+| Preset | Trivial | Standard | Complex |
+|---|---|---|---|
+| `full` (Speed) | haiku | haiku | sonnet |
+| `balanced` (Balanced, default) | haiku | sonnet | opus |
+| `minimal` (Quality) | sonnet | opus | opus |
+
+Two or more trivial tasks in a wave run as one batch agent at the Trivial model. On failure a task escalates one tier per retry — haiku → sonnet → opus → user — within a budget of 2 retries (R13).
+
 ## 6. Why tuning changes do not require spec updates
 
 Specs (`docs/specs/<skill>.md`) are behavioural contracts: inputs, state, step order, dispatch targets, gates, failure handling and invariants. A spec names each tuning knob and says where it is defined; it never states the value. The values live outside the spec:
