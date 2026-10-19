@@ -851,8 +851,7 @@
         command from the `branch_prepare` step, (3) `--after branch_prepare` migrates the
         ship ledger in `ship.js`, taking the OLD slug from the ledger's branch and the new
         branch from the live current branch. It must NOT claim that the migration runs
-        before the checkout; where the question presupposes (b) before (c), the response
-        corrects that premise. It must explain why the migration is safe after the
+        before the checkout. It must explain why the migration is safe after the
         checkout: the old slug comes from the ledger, not from a branch-name lookup
         (`migrateBranchSlug` renames the ledger file and rewrites `branch`). Under a
         `continue` derive, `branch_prepare` is not emitted and no migration runs.
