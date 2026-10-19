@@ -154,7 +154,7 @@ When invoking `error-report-sdlc`, provide:
 
 ```bash
 # Use this pattern in every error-report-sdlc invocation block:
-# Glob for `**/error-report-sdlc/REFERENCE.md` under `~/.claude/plugins`,
+# Glob for `**/error-report-sdlc/SKILL.md` under `~/.claude/plugins`,
 # then retry with cwd. If found, follow the procedure. If not found, skip.
 ```
 

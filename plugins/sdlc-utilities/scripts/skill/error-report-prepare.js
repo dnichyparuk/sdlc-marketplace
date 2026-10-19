@@ -18,6 +18,11 @@
  *
  * Required fields: skill, step, operation, errorText
  *
+ * Besides the caller-supplied fields and environment probes, the manifest carries
+ * two computed fields:
+ *   templateText = contents of skills/error-report-sdlc/templates/ToolingError.md
+ *   priority     = 'High' for errorType 'script crash' / 'build failure', else 'Medium'
+ *
  * Exit codes:
  *   0 = success, manifest path printed to stdout (with --output-file)
  *       or manifest JSON printed to stdout (without --output-file)
@@ -29,6 +34,7 @@
 
 'use strict';
 
+const fs = require('node:fs');
 const path = require('node:path');
 const { execSync } = require('node:child_process');
 
@@ -36,6 +42,7 @@ const LIB = path.join(__dirname, '..', 'lib');
 const { writeOutput } = require(path.join(LIB, 'output'));
 
 const TARGET_REPO = 'rnagrodzki/sdlc-marketplace';
+const TEMPLATE_PATH = path.join(__dirname, '..', '..', 'skills', 'error-report-sdlc', 'templates', 'ToolingError.md');
 
 // ---------------------------------------------------------------------------
 // CLI parsing
@@ -139,13 +146,15 @@ function main() {
   }
 
   const skill = String(input.skill).trim();
+  const templateText = fs.readFileSync(TEMPLATE_PATH, 'utf8');
+  const errorType = input.errorType != null ? String(input.errorType).trim() : '';
   const manifest = {
     skill,
     step: String(input.step).trim(),
     operation: String(input.operation).trim(),
     errorText: String(input.errorText),
     exitOrHttpCode: input.exitOrHttpCode != null ? String(input.exitOrHttpCode) : '',
-    errorType: input.errorType != null ? String(input.errorType).trim() : '',
+    errorType,
     userIntent: input.userIntent != null ? String(input.userIntent) : '',
     argsString: input.argsString != null ? String(input.argsString) : '',
     suggestedInvestigation: input.suggestedInvestigation != null
@@ -156,6 +165,8 @@ function main() {
     timestamp: new Date().toISOString(),
     targetRepo: TARGET_REPO,
     labels: ['tooling-error', skill],
+    templateText,
+    priority: /^(script crash|build failure)$/i.test(errorType) ? 'High' : 'Medium',
   };
 
   writeOutput(manifest, 'sdlc-error-report', 0);

@@ -1,6 +1,6 @@
 ---
 name: jira-sdlc
-description: "Use this skill when creating, editing, reading, viewing, searching, transitioning, commenting on, or linking Jira issues using Atlassian MCP tools. Caches project metadata (custom fields, workflows, transitions, user mappings) to eliminate redundant discovery calls. Supports multi-project repos via jira.projects, and skipping workflow discovery for CI. Arguments: [--project <KEY>] [--force-refresh] [--init-templates] [--site <host>] [--skip-workflow-discovery]. Triggers on: create jira issue, edit jira ticket, search jira, transition jira, jira comment, link jira, assign jira, log work jira, bulk jira operations, manage jira, jira template, read jira, view jira, show jira, get jira, fetch jira, jira details, add comment, comment on jira, reply to jira, jira ticket, jira issue."
+description: "Use this skill to create, edit, read, search, transition, comment on, link, or log work on Jira issues via Atlassian MCP tools, with cached project metadata (fields, workflows, transitions, users) and multi-project support. Arguments: [--project <KEY>] [--force-refresh] [--init-templates] [--site <host>] [--skip-workflow-discovery]. Triggers on: jira issue, jira ticket, create or search jira, transition jira, jira comment, jira template."
 user-invocable: true
 argument-hint: "[--project <KEY>] [--force-refresh] [--init-templates] [--site <host>] [--skip-workflow-discovery]"
 model: sonnet

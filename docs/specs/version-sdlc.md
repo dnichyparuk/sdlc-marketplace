@@ -3,7 +3,7 @@
 > Execute a semantic release workflow: version bump, annotated git tag, optional CHANGELOG entry, release commit, and push to origin. Also supports one-time init setup and standalone changelog updates.
 
 **User-invocable:** yes
-**Model:** sonnet
+**Model:** inherit (session model)
 **Prepare script:** `skill/version.js`
 
 ## Arguments

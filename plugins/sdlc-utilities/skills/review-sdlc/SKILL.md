@@ -32,7 +32,7 @@ echo "EXIT_CODE=$EXIT_CODE"
 - Exit code 1: show the stderr message to the user and stop.
 - Exit code 2: show `Script error — see output above` and stop.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/REFERENCE.md`, follow with skill=review-sdlc, step=Step 0 — skill/review.js execution, error=stderr.
+**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=review-sdlc, step=Step 0 — skill/review.js execution, error=stderr.
 
 **Do NOT read the manifest file contents into the main context.** The orchestrator will read it.
 

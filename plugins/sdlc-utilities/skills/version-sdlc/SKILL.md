@@ -1,9 +1,9 @@
 ---
 name: version-sdlc
-description: "Use this skill when bumping a project version, creating a git release tag, generating a changelog, or performing a full semantic release workflow, updating an existing changelog entry for the current version, or retagging the current version at HEAD. Consumes pre-computed context from skill/version.js and handles the complete release process. Use --changelog without a bump type to update the changelog for the already-tagged current version. Use --retag to move an existing tag to HEAD. Arguments: [major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--changelog] [--hotfix] [--retag] [--auto]. The positional `<label>` form (e.g. `version-sdlc rc`) is sugar for `--bump patch --pre <label>` and accepts any pre-release label matching `^[a-z][a-z0-9]*$`. Triggers on: version bump, create release, bump version, tag release, generate changelog, semantic versioning, semver bump, pre-release, release candidate, retag release. Use --auto to skip interactive approval prompts (release plan is still displayed)."
+description: "Use this skill when bumping a version, creating a release tag, generating or updating a changelog, retagging the current version at HEAD, or setting up versioning (--init). Arguments: [major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--changelog] [--hotfix] [--retag] [--auto]. A positional <label> (e.g. rc) means --bump patch --pre <label>. Triggers on: version bump, create release, tag release, changelog, semver, pre-release, retag."
 user-invocable: true
-argument-hint: "[major|minor|patch|<label>] [--pre <label>] [--changelog] [--hotfix] [--retag] [--auto]"
-model: haiku
+argument-hint: "[major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--bump <type>] [--changelog] [--hotfix] [--retag] [--auto]"
+model: inherit
 ---
 
 # Versioning Releases Skill
@@ -52,7 +52,7 @@ Read and parse `VERSION_CONTEXT_FILE` as `VERSION_CONTEXT_JSON`.
 - Exit code 1: The JSON still contains an `errors` array. Show each error to the user and stop.
 - Exit code 2: Show `Script error — see output above` and stop.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/REFERENCE.md`, follow with skill=version-sdlc, step=Step 0 — skill/version.js execution, error=stderr.
+**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=version-sdlc, step=Step 0 — skill/version.js execution, error=stderr.
 
 **If `VERSION_CONTEXT_JSON.errors` is non-empty**, show each error message and stop.
 
@@ -330,7 +330,7 @@ The release proceeds regardless of the user's answer. This is informational, not
 
 **If any git command fails** (commit, tag, or push) with a non-auth error, show the error.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/REFERENCE.md`, follow with skill=version-sdlc, step=Step 8 — Release execution, error=git command failure message.
+**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=version-sdlc, step=Step 8 — Release execution, error=git command failure message.
 
 Display result:
 

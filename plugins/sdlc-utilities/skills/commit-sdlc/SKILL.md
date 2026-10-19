@@ -1,9 +1,9 @@
 ---
 name: commit-sdlc
-description: "Use this skill when committing staged changes, creating a git commit, or generating a commit message. Analyzes staged diff and recent commit history to generate a message matching the project's style. Stashes unstaged changes to isolate the commit, commits after user confirmation, and auto-restores the stash. Arguments: [--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--force-default-branch]. Use --auto to skip interactive approval. Triggers on: commit changes, create commit, write commit message, git commit, smart commit, commit staged, stage and commit."
+description: "Use this skill when committing staged changes or generating a commit message that matches the project's style: stashes unstaged work, commits after confirmation, restores the stash. Arguments: [--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--no-squash-wip] [--expected-branch <name>] [--force-default-branch]. Triggers on: commit changes, create commit, commit message, git commit, commit staged."
 user-invocable: true
-argument-hint: "[--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--force-default-branch]"
-model: haiku
+argument-hint: "[--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--no-squash-wip] [--expected-branch <name>] [--force-default-branch]"
+model: inherit
 ---
 
 
@@ -41,10 +41,9 @@ If the system context contains "Plan mode is active":
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 COMMIT_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/commit.js" --output-file $ARGUMENTS)
 EXIT_CODE=$?
-# No EXIT trap: success-path manifest is persistent (.sdlc/execution/commit-<slug>-<ts>.json)
-# so it survives across separate Bash tool invocations. Error-path manifests still write to
-# os.tmpdir() via writeOutput. Explicit `rm -f "$COMMIT_CONTEXT_FILE"` at each exit path
-# handles both cases.
+# No EXIT trap: each Bash call is its own shell. The manifest persists under .sdlc/execution/
+# (success path: commit-<slug>-<ts>.json via writeManifestState; error paths: out/ via writeOutput)
+# and is pruned on the next run; the explicit `rm -f "$COMMIT_CONTEXT_FILE"` lines remove it early.
 ```
 
 Read and parse `COMMIT_CONTEXT_FILE` as `COMMIT_CONTEXT_JSON`.
@@ -53,8 +52,9 @@ Read and parse `COMMIT_CONTEXT_FILE` as `COMMIT_CONTEXT_JSON`.
 
 - Exit code 1: The JSON still contains an `errors` array. Show each error to the user, run `rm -f "$COMMIT_CONTEXT_FILE"`, and stop.
 - Exit code 2: Show `Script error — see output above`, run `rm -f "$COMMIT_CONTEXT_FILE"`, and stop.
+- Exit code 3: expected-branch guard failed (`--expected-branch` did not match) — show `errors[0]` (the guard message), run `rm -f "$COMMIT_CONTEXT_FILE"`, and stop.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/REFERENCE.md`, follow with skill=commit-sdlc, step=Step 0 — skill/commit.js execution, error=stderr.
+**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=commit-sdlc, step=Step 0 — skill/commit.js execution, error=stderr.
 
 **If `COMMIT_CONTEXT_JSON.errors` is non-empty**, show each error message and stop.
 
@@ -64,19 +64,6 @@ Read and parse `COMMIT_CONTEXT_FILE` as `COMMIT_CONTEXT_JSON`.
 - In `--auto` mode without `--force-default-branch`: the prepare script already emitted a `default-branch-auto-block` error in `errors[]` and exited non-zero — the error path above will have already shown the message and stopped. No additional action needed here.
 - In interactive mode (or `--auto --force-default-branch`): the warning from `COMMIT_CONTEXT_JSON.warnings[]` matching `default branch` is already shown by the "show warnings" step above. The Step 5 AskUserQuestion prompt still runs — the user makes the final call.
 All gates cite `COMMIT_CONTEXT_JSON.onDefaultBranch`, `flags.auto`, `flags.forceDefaultBranch` from prepare output — never re-parse `$ARGUMENTS` or re-run `git symbolic-ref`.
-
-### Step 0.5 (BRANCH-GUARD): HARD GATE — Expected Branch Check
-
-**Implements R-expected-branch (docs/specs/commit-sdlc.md, issues #347, #348, #349).**
-
-Check `branchGuard.active` and `branchGuard.ok` from `COMMIT_CONTEXT_JSON`.
-
-If `branchGuard.active === true` AND `branchGuard.ok === false`:
-- Surface `branchGuard.message` verbatim to the user.
-- Halt the skill immediately. Do NOT proceed to Step 1 or any `git commit` invocation.
-- Do NOT re-derive the current branch via shell commands — use the resolved `branchGuard` field only.
-
-If `branchGuard.active === false` (flag was not passed) or `branchGuard.ok === true` (branches match): proceed to Step 1.
 
 ---
 
@@ -122,16 +109,13 @@ Read `wipSquash` from `COMMIT_CONTEXT_JSON`. The field has the shape:
 
 4. The staged diff now reflects the FULL feature change (every file the wave WIPs touched, plus any user hand-edits). Proceed to Step 2 PLAN — the orchestrator will generate a single conventional-commit subject for the squashed change.
 
-**Final-message invariant (no `wip:` prefix):** The orchestrator MUST NOT generate a commit subject starting with `wip:` or `wip(execute):` — those are internal markers. This is enforced at two layers:
-
-1. **LLM-side reminder (defense-in-depth):** Step 2 PLAN dispatch includes a reminder in the orchestrator's prompt: "Even when WIP commits are being squashed, the generated subject MUST NOT start with `wip:` or `wip(execute):` — those are internal markers."
-2. **Deterministic post-generation check (load-bearing — `scripts-over-llm-logic` guardrail):** `scripts/skill/commit.js` runs a regex (`^wip(\(|:)`) against the generated subject before the user approval prompt fires. On match, the message is rejected and the orchestrator is re-dispatched with an explicit constraint reminder.
+**Final-message invariant (no `wip:` prefix):** The final commit subject must never start with `wip:` or `wip(execute):` — those are internal markers. The orchestrator is told this in its own instructions, and the Step 5 subject gate rejects any subject matching `^wip(\(|:)` before the stash/commit sequence runs.
 
 **State-machine idempotency:** Re-running commit-sdlc immediately after a successful squash on the same branch is a no-op: `wipSquash.commits` will be empty (the WIP commits no longer exist between fork-point and HEAD).
 
 ### Step 2 (PLAN): Dispatch the commit-orchestrator Agent <!-- implements R3, R4, R5, R6 -->
 
-Issue #202: pinning `model:` in skill frontmatter routes the skill into a subagent that inherits the entire conversation transcript and overflows the smaller-window models on long sessions. To keep the main context clean and bound the orchestrator's input to the prepared payload only, dispatch the dedicated `commit-orchestrator` agent. See `docs/skill-best-practices.md` → "Why frontmatter `model:` is the wrong context-isolation knob" for the rationale.
+Dispatch the `commit-orchestrator` agent so its input is bounded to the prepared manifest and does not inherit the conversation transcript. `model: haiku` on the Agent call keeps this bounded task on a lightweight model.
 
 Use the `Agent` tool with:
 
@@ -195,18 +179,22 @@ Show `Amend:` instead of `Commit:` heading when `flags.amend` is true.
 
 **On `yes`:**
 
-0. **Subject pattern gate (hard gate):** If `commitConfig` is non-null and `commitConfig.subjectPattern` is set, validate the subject line before proceeding:
+0. **Subject gate (hard gate):** Always run — the WIP-prefix check applies even when `commitConfig` is null.
 
    ```bash
    node -e "
-     const pattern = new RegExp(process.argv[1]);
      const subject = process.argv[2];
-     if (!pattern.test(subject)) { process.exit(1); }
-   " "<subjectPattern>" "<subject line>"
+     if (/^wip(\(|:)/.test(subject)) { process.exit(2); }
+     if (process.argv[1]) {
+       const pattern = new RegExp(process.argv[1]);
+       if (!pattern.test(subject)) { process.exit(1); }
+     }
+   " "<subjectPattern, or empty string when commitConfig/subjectPattern is unset>" "<subject line>"
    ```
 
-   - If the check **passes** (exit 0): continue to step 1.
-   - If the check **fails** (exit 1): show the error message from `commitConfig.subjectPatternError` if set, otherwise show the pattern itself as a fallback. Do **not** proceed with the commit. Use AskUserQuestion to offer:
+   - **Exit 0:** continue to step 1.
+   - **Exit 2:** the subject starts with an internal WIP marker. Do not commit. Use AskUserQuestion with **edit subject** or **cancel** (no **harden** option).
+   - **Exit 1:** keep the existing handling — show the error message from `commitConfig.subjectPatternError` if set, otherwise show the pattern itself as a fallback. Do **not** proceed with the commit. Use AskUserQuestion to offer:
      - **edit subject** — let the user revise the subject line to match the pattern; re-run the gate
      - **harden** — run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time. Opt-in — no surface is edited without your approval. (This option targets refining the regex or error message in `commitConfig`, not the current subject. Suppressed when `--auto` is set.) When the user selects **harden**, dispatch `Skill(harden-sdlc)` with `--failure-text "Subject pattern reject: subject '<line>' does not match pattern '<subjectPattern>' — error: <subjectPatternError>"`, `--skill commit-sdlc`, `--step "Step 5 — subject pattern gate"`, `--operation "subject pattern validation"`. Implements R13.
      - **cancel** — abort the commit
@@ -291,7 +279,6 @@ Run `rm -f "$COMMIT_CONTEXT_FILE"` to clean up the manifest.
 
 - Execute any git command without explicit user approval (`yes`) (unless `--auto` was passed)
 - Fabricate changes not present in `staged.diff`
-- Skip the critique step (Step 3)
 - Include file paths in the subject line
 - Run `git stash` if `flags.noStash` is true
 - Run `git commit --amend` unless `flags.amend` was explicitly passed

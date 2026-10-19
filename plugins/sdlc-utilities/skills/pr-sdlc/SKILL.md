@@ -1,9 +1,9 @@
 ---
 name: pr-sdlc
-description: "Use this skill when creating or updating a pull request, updating a PR description, or generating PR content from commits and diffs. Handles the full PR workflow: consumes pre-computed context from skill/pr.js, generates description with plan-critique-improve-do-critique-improve, user review, and gh CLI execution. Auto-labels PRs based on context signals (branch, commits, diff, Jira) with mandatory approval. Arguments: [--draft] [--update] [--base <branch>] [--auto] [--label <name>]. Use --auto to skip interactive approval. Triggers on: create PR, open pull request, update PR, write PR description, PR summary, describe changes for a pull request."
+description: "Use this skill when creating or updating a pull request or its description from commits and diffs: drafts the description, auto-labels with approval, and runs gh. Arguments: [--draft] [--update] [--base <branch>] [--auto] [--label <name>]. Triggers on: create PR, open pull request, update PR, PR description, PR summary."
 user-invocable: true
 argument-hint: "[--draft] [--update] [--base <branch>] [--auto] [--label <name>]"
-model: sonnet
+model: inherit
 ---
 
 # Creating Pull Requests
@@ -111,7 +111,7 @@ Read and parse `PR_CONTEXT_FILE` as `PR_CONTEXT_JSON`.
 - Exit code 1: The JSON still contains an `errors` array. Show each error to the user and stop.
 - Exit code 2: Show `Script error — see output above` and stop.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/REFERENCE.md`, follow with skill=pr-sdlc, step=Step 0 — skill/pr.js execution, error=stderr.
+**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=pr-sdlc, step=Step 0 — skill/pr.js execution, error=stderr.
 
 **If `PR_CONTEXT_JSON.errors` is non-empty**, show each error message and stop.
 
@@ -533,7 +533,7 @@ Title: <title>
 <description>
 ```
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/REFERENCE.md`, follow with skill=pr-sdlc, step=Step 6 — Create or Update PR, error=gh CLI failure message.
+**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=pr-sdlc, step=Step 6 — Create or Update PR, error=gh CLI failure message.
 
 ---
 

@@ -61,7 +61,7 @@ Routing by category:
 - **`build-error`, `dependency`, `infra`**: Non-trivial. Emit a proposal regardless of `--auto` (R4) — these typically require human judgement.
 - **`unknown`**: fall through to `proposal` verdict with the raw log excerpt as `summary` (E3).
 
-When NOT running with `--auto`, ALWAYS emit a proposal (no automatic edits) regardless of category (R4, R9).
+When not running with `--auto`, emit a proposal regardless of category (no automatic edits) (R4, R9).
 
 C1 prohibition: never run `git commit`, `git push`, or any state-changing git command. C2: never modify files outside the project root.
 

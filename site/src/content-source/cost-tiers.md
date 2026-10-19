@@ -14,7 +14,7 @@ When the runtime needs to decide which model to run a surface on, it evaluates t
 
 1. **Per-call `model:` parameter** on `Agent` / `Skill` / `SendMessage` dispatch sites. Examples: `ship.js` per-step, `execute.js` per-task, `review.js` per-dimension. These are computed at dispatch time and override everything below.
 2. **Frontmatter `model:`** on the skill or agent definition file (the tables in §3 and §4).
-3. **Caller's inherited model** — only when neither of the above is set. Avoid relying on inheritance; pin explicitly.
+3. **Caller's inherited model** — only when neither of the above is set. Avoid relying on inheritance; pin explicitly. A skill whose §3 row says `inherit` carries `model: inherit` in its frontmatter: it runs on the session model.
 
 ## 3. Skill Table
 
@@ -22,31 +22,31 @@ One row per skill in `plugins/sdlc-utilities/skills/`.
 
 | Skill | Model | Rationale |
 |---|---|---|
-| commit-sdlc | haiku | Mechanical message drafting from prepare-script JSON; orchestrator agent also haiku |
-| error-report-sdlc | sonnet | Template-driven; orchestrator runs haiku |
+| commit-sdlc | inherit | Runs on the session model; message drafting is routed to commit-orchestrator (haiku). A skill pin would move the whole transcript onto the pinned model. |
+| error-report-sdlc | inherit | Runs on the session model; consent gates and gh stay in main context; drafting is routed to error-report-orchestrator (haiku). |
 | execute-plan-sdlc | sonnet | Per-task dispatch decides per-tier (haiku/sonnet/opus) |
 | harden-sdlc | sonnet | Existing — unchanged |
 | jira-sdlc | sonnet | Read/write Jira; light reasoning |
 | plan-sdlc | opus | Plan decomposition needs stronger reasoning; user-directed |
-| pr-sdlc | sonnet | PR body assembly |
+| pr-sdlc | inherit | Runs on the session model; the PR description is the judgment deliverable. Inside ship-sdlc the per-step model from ship.js wins. |
 | received-review-sdlc | opus | Review-comment triage benefits from stronger reasoning |
 | review-sdlc | sonnet | Orchestrator agent also runs sonnet; dimension subagents resolve from each dimension file's own frontmatter |
 | setup-sdlc | sonnet | Wizard / config writes |
 | ship-sdlc | sonnet | Pipeline coordinator; per-step model overrides win |
 | verify-pipeline-sdlc | sonnet | CI-failure analysis; minimal fix or proposal |
-| version-sdlc | haiku | Version bump + changelog from prepare-script JSON; deterministic |
+| version-sdlc | inherit | Runs on the session model; exact git sequence needs verification gates. Changelog draft stays on the session model. |
 
 ## 4. Agent Table
 
 One row per agent in `plugins/sdlc-utilities/agents/`.
 
-| Agent | Model | Rationale |
-|---|---|---|
-| commit-orchestrator | haiku | Manifest → message; deterministic shape |
-| error-report-orchestrator | haiku | Template → JSON |
-| harden-orchestrator | haiku | Manifest → JSON |
-| plan-explore-orchestrator | sonnet | Fans out discovery subagents and critiques findings |
-| review-orchestrator | sonnet | Cross-dimension critique + dedup reasoning; dimension subagents use per-dimension `model:` |
+| Agent | Model | Effort | Rationale |
+|---|---|---|---|
+| commit-orchestrator | haiku | low | Manifest → message; deterministic shape |
+| error-report-orchestrator | haiku | low | Template → JSON |
+| harden-orchestrator | haiku | low | Manifest → JSON |
+| plan-explore-orchestrator | sonnet | - | Fans out discovery subagents and critiques findings |
+| review-orchestrator | sonnet | - | Cross-dimension critique + dedup reasoning; dimension subagents use per-dimension `model:` |
 
 ## 5. Dispatch-Site Overrides
 
@@ -71,9 +71,11 @@ If a `model:` change later proves to degrade output quality below the contract's
 
 | Where effort is set | Status |
 |---|---|
-| Agent frontmatter `effort:` | The three Haiku orchestrators; none set today |
+| Agent frontmatter `effort:` | The three Haiku orchestrators set `effort: low` |
 | Review-dimension frontmatter `effort:` | Not read today; W6b.5 adds the schema field and the `review.js` pass-through |
 | Execute presets (Agent dispatch `effort` param) | First rung of the escalation ladder before a tier change |
+
+Effort is set in agent frontmatter; the validator does not check it.
 
 | Surface | Config A | Config B | Artifacts (n) | Tokens in/out (A, B) | Cost per completed task (A, B) | Completed (A, B) | Decision | Date |
 |---|---|---|---|---|---|---|---|---|

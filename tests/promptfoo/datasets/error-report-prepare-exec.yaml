@@ -21,15 +21,24 @@
     # labels include both tooling-error and the skill name
     - type: icontains
       value: '"tooling-error"'
+    # template text and priority are computed by the script, not the agent
+    - type: icontains
+      value: '"templateText": "## Error Summary'
+    - type: icontains
+      value: '{what failed'
+    - type: icontains
+      value: '"priority": "Medium"'
 
-- description: "error-report-prepare: --output-file writes manifest to temp file and prints absolute path"
+- description: "error-report-prepare: --output-file writes a manifest and prints its absolute path"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/error-report-prepare.js"
     script_args: "--skill pr-sdlc --step Step-2 --operation gh-pr-create --error-text 401-Bad-credentials --output-file"
+    script_passthrough: true
   assert:
     # stdout is an absolute path, not the JSON manifest
     - type: regex
-      value: '^/.+/sdlc-error-report-[0-9a-f]+\.json\s*$'
+      # filename per lib/output.js:87 (persistent: <prefix>-<slug>-<ts>-<hash4>) or :37 (tmpdir fallback: <prefix>-<hash8>)
+      value: '^(?:/(?:tmp|var|private)/.+/|.+/\.sdlc/execution/out/)sdlc-error-report-(?:[A-Za-z0-9-]+-\d{8}T\d{6}Z-[0-9a-f]{4}|[0-9a-f]{8})\.json\s*$'
     # The manifest payload should NOT be on stdout when --output-file is set
     - type: not-icontains
       value: '"targetRepo":'
@@ -59,3 +68,12 @@
       value: '"tooling-error"'
     - type: icontains
       value: '"version-sdlc"'
+
+- description: "error-report-prepare: script crash errorType yields priority High"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/error-report-prepare.js"
+    script_args: "--skill commit-sdlc --step Step-0 --operation skill/commit.js --error-text exit-2-crash"
+    script_stdin: '{"errorType":"script crash"}'
+  assert:
+    - type: icontains
+      value: '"priority": "High"'

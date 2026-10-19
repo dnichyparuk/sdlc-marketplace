@@ -3,7 +3,7 @@
 > Generate and execute an 8-section PR description (or custom template) from pre-computed git context, with auto-labeling, title pattern validation, and create/update mode support.
 
 **User-invocable:** yes
-**Model:** sonnet
+**Model:** inherit (session model)
 **Prepare script:** `skill/pr.js`
 
 ## Arguments

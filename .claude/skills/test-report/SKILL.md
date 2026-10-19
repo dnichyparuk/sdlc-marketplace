@@ -35,7 +35,7 @@ EXIT_CODE=$?
 
 **Error-to-GitHub issue proposal**:
 
-For exit code 2 (script crash), locate the procedure: Glob for `**/error-report-sdlc/REFERENCE.md`
+For exit code 2 (script crash), locate the procedure: Glob for `**/error-report-sdlc/SKILL.md`
 under `~/.claude/plugins`, then retry with cwd. If found, follow the procedure with:
 
 - **Skill**: test-report

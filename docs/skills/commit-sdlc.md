@@ -49,10 +49,7 @@ When `wipSquash.commits.length > 0` and `--no-squash-wip` is NOT set:
 
 **`--no-squash-wip` opt-out:** when set, the squash is skipped silently; the WIP commits remain in branch history. The skill prints `Detected N wip(execute): commit(s) from execute-plan-sdlc per-wave commits — preserving (--no-squash-wip).` and proceeds to Step 2 with the staged diff unchanged.
 
-**No-`wip:`-prefix invariant for the final message:** the orchestrator MUST NOT generate a commit subject starting with `wip:` or `wip(execute):`. This is enforced at two layers:
-
-1. **LLM-side reminder** in the Step 2 PLAN dispatch (defense-in-depth).
-2. **Deterministic post-generation check** in `scripts/skill/commit.js` — regex `^wip(\(|:)` against the generated subject; on match, the message is rejected and the orchestrator is re-dispatched with an explicit constraint reminder. This is the load-bearing enforcement.
+**No-`wip:`-prefix invariant for the final message:** the final commit subject must never start with `wip:` or `wip(execute):`. The commit-orchestrator is told this in its own instructions, and the Step 5 subject gate (a `node -e` regex `^wip(\(|:)`) rejects any matching subject with exit 2 before the stash/commit sequence runs.
 
 **State-machine idempotency:** re-running commit-sdlc immediately after a successful squash is a no-op — `wipSquash.commits` will be empty (the WIP commits no longer exist between fork-point and HEAD), so Step 1c skips silently.
 

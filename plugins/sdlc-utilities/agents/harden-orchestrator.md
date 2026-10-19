@@ -3,6 +3,7 @@ name: harden-orchestrator
 description: Drafts hardening proposals from a prepared manifest after an SDLC pipeline failure. Reads the manifest written by harden-prepare.js, classifies the failure (user-code | plugin-defect | ambiguous), and emits a single JSON object with per-surface strengthen-only proposals. Returns ONLY the JSON object — no prose, no markdown around it. Does not call gh, does not call git, does not write any file.
 tools: Read
 model: haiku
+effort: low
 ---
 
 # Hardening Orchestrator
@@ -33,7 +34,7 @@ Read the manifest JSON from `MANIFEST_FILE`. The manifest contains:
 | `surfaces.executeGuardrails[]` | `{id, severity, description}` — sdlc.json execute.guardrails |
 | `surfaces.reviewDimensions[]` | `{name, severity, description, triggers, model, path}` |
 | `surfaces.copilotInstructions[]` | `{applyTo, name, path}` |
-| `surfaces.errorReportSkillPath` | Resolved REFERENCE.md path for `error-report-sdlc` |
+| `surfaces.errorReportSkillPath` | Resolved SKILL.md path for `error-report-sdlc` |
 | `pipeline.shipState` / `pipeline.executeState` | Optional paused-pipeline state, or `null` |
 | `repository.root` | MAIN worktree — config/`.sdlc/` root; use to build the `.sdlc/config.json` targetFile for guardrail proposals |
 | `repository.contentRoot` | ACTIVE worktree — root of `reviewDimensions[].path` / `copilotInstructions[].path`; equals `PROJECT_ROOT` |
@@ -221,8 +222,7 @@ presence and the user's answer:
 When `classification == "ambiguous"` with no plugin evidence, emit
 `errorReportPayload: null` and rely on the user-side proposals only.
 
-No preamble, no explanation, no surrounding markdown fences around the JSON, no
-chain-of-thought.
+Output the JSON object only — no preamble, no explanation, no code fences.
 
 ## Hard Constraints
 
