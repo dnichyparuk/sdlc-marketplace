@@ -21,6 +21,7 @@
  *   0 = success, JSON on stdout
  *   1 = fatal error, JSON with non-empty errors[] on stdout
  *   2 = unexpected script crash, message on stderr
+ *   3 = expected-branch guard failed (JSON with errors[0] on stdout)
  *
  * Uses only Node.js built-in modules. No npm install required.
  */

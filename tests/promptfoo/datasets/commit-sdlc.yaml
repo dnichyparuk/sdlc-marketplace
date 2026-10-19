@@ -216,9 +216,8 @@
         upstream or default branch), runs `git reset --soft <fork-point>`, then `git add -A`
         to re-stage. The WIP commits are dropped from history; the working tree is unchanged.
         The response confirms the final commit subject MUST NOT start with `wip:` or
-        `wip(execute):` — enforced both by an LLM-side reminder in Step 2 and a deterministic
-        post-generation regex check in scripts/skill/commit.js (the load-bearing layer per
-        scripts-over-llm-logic guardrail).
+        `wip(execute):` — enforced by the commit-orchestrator's own instructions and by the
+        Step 5 subject gate (a `node -e` regex `^wip(\(|:)` that exits 2).
 
 - description: "commit-sdlc: --no-squash-wip preserves wip(execute) commits in branch history (#392)"
   vars:

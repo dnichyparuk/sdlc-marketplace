@@ -66,7 +66,8 @@ Config constraints take precedence over `recentCommits` inference.
 3. If `flags.scope` is set, use it. Else infer from changed files or omit (constrained by `allowedScopes`).
 4. If `flags.amend` and `lastCommitMessage` is non-null, start from it and revise based on the staged diff.
 5. Subject ≤ 72 characters, imperative mood, no trailing period.
-6. Body only when the change is non-trivial and benefits from "why" context. Blank line between subject and body. Required trailers go after a blank line at the end.
+6. The subject must never start with `wip:` or `wip(...)` — those prefixes are internal markers for per-wave commits.
+7. Body only when the change is non-trivial and benefits from "why" context. Blank line between subject and body. Required trailers go after a blank line at the end.
 
 ## Step 4 — Self-Critique
 
