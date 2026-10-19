@@ -1,0 +1,51 @@
+# Script execution tests for plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js
+# Verifies a contract-shaped fixture passes (legacy specs only warn), a malformed
+# fixture reports every finding kind under --strict, and --json lists both shapes.
+
+- description: "validate-spec-shape: contract-shaped fixture passes; legacy spec only warns"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js"
+    script_args: "--root {{project_root}}"
+    project_root: "file://fixtures-fs/spec-shape-clean"
+  assert:
+    # LEGACY_SHAPE is on stderr at exit 0, so it is not captured.
+    - type: not-icontains
+      value: "HEADING_ORDER:"
+    - type: not-icontains
+      value: "ISSUE_REF:"
+    - type: not-icontains
+      value: "MODEL_HEADER:"
+    - type: not-icontains
+      value: "UNRESOLVED_RID:"
+    - type: not-icontains
+      value: "LEGACY_SHAPE:"
+
+- description: "validate-spec-shape: --strict reports every finding kind"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js"
+    script_args: "--root {{project_root}} --strict"
+    project_root: "file://fixtures-fs/spec-shape-bad"
+  assert:
+    - type: icontains
+      value: "MODEL_HEADER: example-skill"
+    - type: icontains
+      value: "HEADING_ORDER: example-skill"
+    - type: icontains
+      value: "ISSUE_REF: example-skill"
+    - type: icontains
+      value: "WITHDRAWN_IN_BODY: example-skill"
+    - type: icontains
+      value: "cites R99"
+    - type: icontains
+      value: "LEGACY_SHAPE: legacy-skill"
+
+- description: "validate-spec-shape: --json lists contract-shaped and legacy specs"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js"
+    script_args: "--root {{project_root}} --json"
+    project_root: "file://fixtures-fs/spec-shape-clean"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.contractShaped.includes('example-skill') && o.legacy.includes('legacy-skill');
