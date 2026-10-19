@@ -38,7 +38,7 @@ Review that every skill implementation change is traceable to a specification in
 
 ### Spec structure
 - [ ] New or modified specs follow the template at `docs/spec-template.md`
-- [ ] Requirement numbering is sequential within each prefix (R1, R2, R3 — no gaps)
+- [ ] Ids are never renumbered or reused; a gap is allowed only when the missing id is listed under `### Withdrawn` in the spec appendix
 - [ ] Specs contain only WHAT (behavioral contract), not HOW (implementation details)
 
 ## Severity Guide
@@ -51,5 +51,5 @@ Review that every skill implementation change is traceable to a specification in
 | Spec quality gate missing from SKILL.md critique step | high |
 | SKILL.md depends on prepare script field not in spec P entries | medium |
 | Spec argument entry missing for a SKILL.md flag | medium |
-| Minor numbering gap in spec requirements | low |
+| Id gap not listed under Withdrawn | low |
 | Spec wording could be more precise but is not wrong | info |

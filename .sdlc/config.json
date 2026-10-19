@@ -71,7 +71,7 @@
       },
       {
         "id": "spec-first",
-        "description": "Any task that modifies a skill's behavior (SKILL.md changes) must first update the corresponding spec in docs/specs/<skill-name>.md. The spec is the source of truth — implementation follows spec, not the other way around. Plans that change SKILL.md without a matching spec update task (ordered before the SKILL.md task) fail this guardrail.",
+        "description": "Any task that modifies a skill's behavior (SKILL.md changes) must first update the corresponding spec in docs/specs/<skill-name>.md. The spec is the source of truth — implementation follows spec, not the other way around. Plans that change SKILL.md without a matching spec update task (ordered before the SKILL.md task) fail this guardrail. Tuning-only changes (model, effort, timeouts, intervals, retry counts, caps — docs/cost-tiers.md §6) are not behaviour changes and need no spec task.",
         "severity": "error"
       },
       {

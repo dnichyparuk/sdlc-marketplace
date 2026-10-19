@@ -32,7 +32,7 @@ Use lowercase and hyphens only. Avoid vague names (`setup`, `utils`) — names s
 
 Create the behavioral specification at `docs/specs/<skill-name>.md` using `docs/spec-template.md` as the starting point.
 
-The spec defines **WHAT** the skill must do — testable requirements, quality gates, error handling, and integration points. SKILL.md (Step 3) defines **HOW** the skill implements these requirements. Each requirement uses a prefix scheme: R (requirement), A (argument), G (quality gate), P (prepare contract), E (error handling), C (constraint), I (integration).
+The spec defines **WHAT** the skill must do — testable requirements, quality gates, error handling, and integration points. SKILL.md (Step 3) defines **HOW** the skill implements these requirements. Each requirement uses a prefix scheme: R (requirement), A (argument), G (quality gate), P (prepare contract), E (error handling), C (constraint), I (integration). Requirements are grouped into the contract sections defined in `docs/spec-template.md`; ids are never renumbered, and tuning values (model, effort, timeouts, caps) stay out of the spec (`docs/cost-tiers.md` §6).
 
 Changes to SKILL.md should reference spec requirement numbers (e.g., "implements R3") to maintain traceability.
 
