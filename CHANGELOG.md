@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-19
+
+### Added
+- ship-sdlc: `state/ship.js pause [--reason] [--state-file]` sets `paused` in the ship state; `pipelineAdvancing` reports not advancing while it is set, so both continuation hooks stay silent; `begin-step` and `--resume` clear it (R-pause, #15)
+- ship-sdlc: prepare surfaces a Stop-hook cap exhaustion as a `warnings` entry and `resume.capExhausted`; `schemas/ship-state.schema.json` accepts `paused` (#15)
+- hooks: `resolveHookContext` in `lib/state.js` and `mainWorktreeFromFs` in `lib/worktree.js` give the hooks a spawn-free state dir, branch and session id (#15)
+
+### Changed
+- hooks: `pipeline-continue.js` matches `Bash` only, exits before any git spawn when no ship state exists, and nudges once per step transition with factual wording (`.pipeline-nudge-<slug>.json`) (#15)
+- hooks: `stop-plan-integrity.js` exits 2 with the warning on stderr when plan-integrity markers are missing and no longer scans the transcript or reads stdin (R20, R21, #15)
+- hooks: `stop-pipeline-continue.js` never modifies the ship ledger; at cap exhaustion it writes `.stop-cap-exhausted-<slug>.json` and stays silent for that step (R-cap-recovery, #15)
+- hooks: `session-start.js` sweeps `.pipeline-nudge-*` and `.stop-cap-exhausted-*` sidecars with the existing 24h stale sweep (#15)
+
+### Removed
+- hooks: the `PreCompact` hook, `pre-compact-save.js`, `stop-state-save.js` and the compact-recovery sidecar and its consumption; recovery relies on the ledger and the SessionStart banner (#15)
+
 ## [0.23.3] - 2026-10-19
 
 ### Fixed
