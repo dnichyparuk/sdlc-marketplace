@@ -18,7 +18,7 @@
  *                        step-list-equal | branch-migrate | resumed-completed |
  *                        emit-in-progress | review-gate-rows | ttl-days |
  *                        worktree-mismatch | after-execute | plan-no-tasks | after-commit-fail-gc |
- *                        rebase-emit | inline-fail-<step-with-dashes>
+ *                        rebase-emit | inline-fail-<step-with-dashes> | forced-cleanup
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
  *   --seed <name>        legacy | frozen | frozen-dryrun | frozen-branch | frozen-resumed | frozen-exec | none
@@ -151,8 +151,8 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     if (scenario === 'emit-in-progress') data.paused = { at: '2026-10-19T12:00:00.000Z', reason: 'fixture' };
     if (scenario === 'worktree-mismatch') data.worktree = path.dirname(projectRoot);
     if (scenario === 'rebase-emit') { data.flags.rebase = 'auto'; data.flags.auto = true; }
-    if (scenario.startsWith('inline-fail-')) {
-      const nm = scenario.slice('inline-fail-'.length);
+    if (scenario.startsWith('inline-fail-') || scenario === 'forced-cleanup') {
+      const nm = scenario === 'forced-cleanup' ? 'learnings-commit' : scenario.slice('inline-fail-'.length);
       data.flags.auto = true;
       if (!data.flags.steps.includes(nm)) data.flags.steps.push(nm);
       const e = data.steps.find(x => x.name === nm);
@@ -208,6 +208,11 @@ switch (scenario) {
     if (gate.status === 'step' && gate.step.id === 'review_gate') after('review_gate', `results/${answer}.json`);
     break;
   }
+  case 'forced-cleanup':
+    // learnings_commit fails (non-fatal) -> forced cleanup is emitted with the ledger kept.
+    after('learnings_commit', 'results/commit-fail.json');
+    after('cleanup', 'results/cleanup-ok.json');
+    break;
   case 'after-execute':
     after('dispatch_execute', resultRel || 'results/execute-ok.json');
     break;

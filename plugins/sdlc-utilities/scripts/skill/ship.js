@@ -1539,7 +1539,7 @@ function runAfter(stepArgs) {
       try {
         summary = JSON.parse(fs.readFileSync(sidecar, 'utf8'));
         fs.unlinkSync(sidecar);
-      } catch (_) { /* no sidecar (forced cleanup or older run): summary stays null */ }
+      } catch (_) { /* no sidecar (older run): summary stays null */ }
       return emit(createEnvelope('done', null, { ext: { summary } }));
     }
     return fail(`--after ${after}: state file not found: ${ledgerPath}`);
@@ -1551,6 +1551,12 @@ function runAfter(stepArgs) {
     return fail(`--after ${after}: state file unreadable: ${err.message}`);
   }
   const flags = ledger.flags || {};
+
+  // The ledger still exists after a forced cleanup or a contract violation: the summary
+  // sidecar was not consumed above, so remove it here (GC never prunes it).
+  if (after === 'cleanup') {
+    try { fs.unlinkSync(summarySidecarPath(ledgerPath)); } catch (_) { /* absent is fine */ }
+  }
 
   // 1b. Dry-run ledger: no step runs (P11).
   if (after === 'confirm_pipeline' && flags.dryRun === true) {

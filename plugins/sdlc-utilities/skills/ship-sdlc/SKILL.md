@@ -261,7 +261,7 @@ Dispatch every `will_run` step as computed by `ship.js`, even when the change lo
 Running a step and the `--after` call that records it are one uninterrupted sequence; do not end the turn between them (the Stop hook blocks such turns).
 
 1. `ENVELOPE_FILE` is the prepare output from Step 1 (first call). Loop:
-2. Parse `$ENVELOPE_FILE`. If `ext.todos` is present, call `TodoWrite` with `ext.todos.todos` and echo `ext.todos.marker`. Then: If `status === "done"`: `ext.reason` `edit` → the Step 4 edit path (the ledger is already deleted; re-run Step 1c); `cancel`, `paused` or `dry-run` → stop and print the reason; anything else → Step 6 with `ext.summary`. If `status === "error"` → print `error`, stop (state is preserved for `--resume`).
+2. Parse `$ENVELOPE_FILE`. If `ext.todos` is present, call `TodoWrite` with `ext.todos.todos` and echo `ext.todos.marker`. Then: If `status === "done"`: `ext.reason` `edit` → the Step 4 edit path (re-run Step 1c; `ship.js` has deleted the ledger when no step had run, otherwise it is kept); `cancel`, `paused` or `dry-run` → stop and print the reason; anything else → Step 6 with `ext.summary`. If `status === "error"` → print `error`, stop (state is preserved for `--resume`).
 3. Print `step.action`. If `step.data.todos` is present, call `TodoWrite` with it and echo `step.data.marker`.
 4. If `llm_decision` is non-null: resolve it — ask the user with `AskUserQuestion` using `prompt`/`options` (never in `--auto`; the script sets it to null there) — and put the answer in `output.answer`.
 5. Execute by `step.id` family:
