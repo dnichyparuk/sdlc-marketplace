@@ -338,7 +338,7 @@
 # ---------------------------------------------------------------------------
 
 # Positive: auto + advancing ship pipeline → permissionDecision:"deny", exit 0.
-- description: "block-askuserquestion-auto (#477): auto+advancing pipeline denies AskUserQuestion"
+- description: "block-askuserquestion-auto (R71): auto+advancing pipeline denies AskUserQuestion"
   vars:
     script_path: "repo://plugins/sdlc-utilities/hooks/block-askuserquestion-auto.js"
     script_cwd: "{{project_root}}"
@@ -358,7 +358,7 @@
         return true;
 
 # Negative control: auto=false (same in_progress step) → silent stdout, exit 0 (C18).
-- description: "block-askuserquestion-auto (#477): non-auto pipeline stays silent (C18)"
+- description: "block-askuserquestion-auto (R71): non-auto pipeline stays silent (C18)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/hooks/block-askuserquestion-auto.js"
     script_cwd: "{{project_root}}"
