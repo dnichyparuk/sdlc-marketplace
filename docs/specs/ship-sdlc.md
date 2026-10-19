@@ -254,13 +254,40 @@
 
 ### Step-emitter contract
 
-> Added as foundation for step-emitter migration. P-TRANS-1 transition map to be defined during script migration.
+> Added as foundation for step-emitter migration. Transition map: P-TRANS-1.
 
 - P-STEP-1: Script returns universal envelope with `status`, `step`, `llm_decision`, `state_file`, `progress`, and `ext` fields on every invocation
 - P-STEP-2: Script accepts `--after <step_id> --result-file <path> --state <state_file>` for subsequent invocations after the initial call
 - P-STEP-3: State file is created on first invocation, updated after each step, and cleaned up when status is `"done"`
-- P-TRANS-1: Step transition map — TBD (to be defined during script migration)
-- P-TRANS-2: Every `step.id` in the transition map has a corresponding `When step.id == X` section in SKILL.md
+- P-STEP-4: `history[]` and `currentStep` are persisted in the ship ledger (`schemas/ship-state.schema.json`), never in a tmp file
+- P-TRANS-1: Step transition map (R8). Each row names the step the script emits next and the condition that selects it:
+
+| from | to | when |
+|---|---|---|
+| (initial) | `confirm_pipeline` | always; `llm_decision: {type:"confirm", prompt:"Run this pipeline?", options:["yes","edit","cancel"]}` — `null` when `flags.auto` or `flags.dryRun`; the initial call emits it under `--dry-run` too, with `llm_decision: null` |
+| `confirm_pipeline` | `branch_prepare` | answer `yes` (or auto); `edit`/`cancel` → `done` with `ext.reason`; a ledger with `flags.dryRun` → `done` with `ext.reason: "dry-run"`, no step run |
+| `branch_prepare` | `dispatch_execute` | execute `will_run`; else next `will_run` step |
+| `dispatch_<s>` | (recording happens inside the `--after dispatch_<s>` call — no separate `record_` step) | — |
+| `dispatch_execute` | `stage_changes` | `data.commands: ["git add -A -- ':!.sdlc/'"]` (R8) |
+| `stage_changes` | `dispatch_commit` | commit `will_run` |
+| `dispatch_commit` | `dispatch_review` | review `will_run` |
+| `dispatch_review` | `review_gate` | always (W4.5: `ship.js` reads `review-summary.json`) |
+| `review_gate` | `dispatch_received_review` | `dispatchReceivedReview: true` |
+| `review_gate` | `rebase` | otherwise |
+| `dispatch_received_review` | `dispatch_commit_fixes` | `git status --porcelain` non-empty (script checks) |
+| `dispatch_commit_fixes` | `rebase` | — |
+| `rebase` | `dispatch_version` | script ran `git fetch` + `git merge-base --is-ancestor`; if rebase needed, `data.commands: ["git rebase origin/<default>"]`; on conflict the LLM reports `success:false` → script emits `rebase_conflict` with `llm_decision {options:["pause","skip","merge"]}` (interactive) or `status:"error"` + resume hint (`--auto`) |
+| `dispatch_version` | `verify_version_tag` | `data.commands: [verify-tag-ancestry.js …]`; no-op when `NEW_TAG`/`EXECUTE_BRANCH` unset — stays inline (R-progressive-disclosure, R-post-version-ancestry) |
+| `verify_version_tag` | `verify_openspec` → `archive_openspec` | per step status (W4.4 `openspec-step.js`) |
+| `archive_openspec` | `dispatch_pr` | — |
+| `dispatch_pr` | `verify_pipeline` → `await_remote_review` | opt-in steps; `data.commands` use the existing `verify-pipeline.js` / `await-remote-review.js` invocations |
+| `await_remote_review` | `learnings_commit` | — |
+| `learnings_commit` | `cleanup` | `data.commands: ["node state/ship.js cleanup-pipeline[ --force]"]` — script picks `--force` when any step is `failed` |
+| `cleanup` | `done` | `ext.summary` = Step 6 report data |
+| any `dispatch_<s>` with `success:false` | `status:"error"` | `error`: "<step> failed: <summary>. State preserved; re-run with --resume." |
+
+Skipped and conditional-not-met steps are not emitted as steps; the script records `skip --reason` itself and lists them in `progress`.
+- P-TRANS-2: Every `step.id` is covered either by a family rule in Step 5 item 5 or by a named judgment section.
 - C-STEP-1: The LLM MUST NOT skip steps or reorder the sequence — the script controls progression
 - C-STEP-2: The LLM MUST NOT read or modify the state file directly — it passes the path back to the script via `--state`
 - C-STEP-3: When `llm_decision` is null, the LLM executes the step without asking the user or making judgment calls
@@ -386,6 +413,8 @@
 - I15: `lib/config-migrations.js` — registry consumed by `verifyAndMigrate`; ship-sdlc does not import it directly.
 
 ## Appendix — history
+
+Reading P11: the initial call always emits `confirm_pipeline`, under `--dry-run` too, with `llm_decision: null`; answering it on a dry-run ledger ends the run with `ext.reason: "dry-run"`.
 
 ### Withdrawn
 

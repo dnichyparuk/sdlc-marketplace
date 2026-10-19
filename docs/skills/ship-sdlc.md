@@ -85,6 +85,8 @@ To omit the `archive-openspec` step from a single run: `--steps <csv>` listing t
 
 The pipeline runs up to 10 canonical steps sequentially (depending on which opt-in steps are configured). Two steps are conditional on the review verdict. In interactive mode (no `--auto`), received-review-sdlc and version-sdlc pause for human sign-off; in `--auto` mode both proceed without pausing (R20, R71). The final step (`learnings-commit`) is a no-op when no learnings were captured this run.
 
+A script sequences the pipeline. It emits one step at a time, the model runs that step, and the result goes back through `ship.js --after`, which records the step and picks the next one. Progress is saved in the pipeline's state file as each step starts and finishes, so an interrupted run can be picked up with `--resume`.
+
 ```
                           /ship-sdlc
                               |
@@ -236,10 +238,8 @@ plan-sdlc      (--auto if     (--committed)
 ship-sdlc surfaces live pipeline progress in the Claude Code task tray by
 issuing TodoWrite calls from the MAIN thread of `SKILL.md`. You'll see one
 todo per substep, transitioning `pending → in_progress → completed` as the
-pipeline advances. Step 5 uses the atomic `state/ship.js begin-step` and
-`state/ship.js complete-step` subcommands (R69, R70) — each call atomically
-records the state transition and renders the TodoWrite payload in a single
-operation. `complete-step` takes an `--outcome` flag reporting what the
+pipeline advances. Step 5 sends every step through `ship.js --after`, which
+records start and completion in the state file. The result's `success` reports what the
 dispatched agent returned; for the `version` step this is cross-checked
 against the actual repository state via `verify-side-effect` before the
 step is recorded as completed (R-b3), so a step cannot be marked done on
@@ -845,7 +845,7 @@ ship-sdlc also removes the intermediate prepare output file (`$PLAN_MODE_OUTPUT_
 |-----------------|-------------|
 | `.sdlc/local.json` | Developer-local config. Gitignored by `.sdlc/.gitignore` (created by `--init-config` via `ship-init.js`). |
 | `.sdlc/.gitignore` | Internal gitignore that prevents `.sdlc/` contents from being committed. Created by `--init-config` via `ship-init.js`. |
-| `.sdlc/execution/ship-*.json` | Pipeline state file. Created at start, deleted on successful completion, retained on failure for `--resume`. |
+| `.sdlc/execution/ship-*.json` | Pipeline state file. Holds each step's status plus the `history` and `currentStep` fields. Created at start, deleted on successful completion, retained on failure for `--resume`. |
 | Git commits | Feature commit (step 2) and optionally a review fix commit (step 5). |
 | Git tag | Created by version-sdlc if the version step runs. |
 | GitHub PR | Opened or updated by pr-sdlc as the final step. |

@@ -715,6 +715,7 @@ function cmdMigrate(opts) {
 // Main
 // ---------------------------------------------------------------------------
 
+if (require.main === module) {
 try {
   const opts = parseArgs(process.argv);
 
@@ -743,3 +744,6 @@ try {
   process.stderr.write(`Unexpected error: ${e.message}\n`);
   process.exit(2);
 }
+}
+
+module.exports = { startStepCore, completeStepCore };
