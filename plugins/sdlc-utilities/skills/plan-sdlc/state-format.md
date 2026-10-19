@@ -82,7 +82,7 @@ Each field inside `planIntegrity` is an ISO 8601 timestamp string. Absence of a 
 2. Reads the marker via `readState`.
 3. Evaluates all four `planIntegrity` keys and stats `planFilePath`.
 4. Calls `deleteState(path)` **regardless of integrity outcome** — the marker is single-use.
-5. Subsequent Stop events on the same branch engage the transcript-fallback path (R21) because no marker exists.
+5. Subsequent Stop events on the same branch find no marker and the hook exits 0 (R21).
 
 The `deleteState` call is wrapped in a try/catch; a failed unlink cannot break the hook's advisory-only exit-0 contract.
 

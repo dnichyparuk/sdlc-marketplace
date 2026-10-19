@@ -369,7 +369,7 @@ When `plan-sdlc` runs, it writes a per-branch plan integrity state file at `.sdl
 
 A sibling field `planFilePath` stores the absolute path to the plan file so the hook can stat it for non-empty content.
 
-The `stop-plan-integrity.js` Stop hook reads this state file at session end and warns when any checkpoint is missing or when the recorded plan file is absent or empty. If no state file exists but the transcript shows plan mode was active, the hook warns that `plan-sdlc` was not invoked. The hook is advisory-only and always exits 0. See [`hooks/stop-plan-integrity.js`](../../plugins/sdlc-utilities/hooks/stop-plan-integrity.js) and [issue #285](https://github.com/rnagrodzki/sdlc-marketplace/issues/285).
+The `stop-plan-integrity.js` Stop hook reads this state file at session end and warns when any checkpoint is missing or when the recorded plan file is absent or empty. The hook exits 2 with the warning on stderr when a checkpoint is missing, so the model sees it, and exits 0 on every other path. With no state file it exits 0 silently. See [`hooks/stop-plan-integrity.js`](../../plugins/sdlc-utilities/hooks/stop-plan-integrity.js) and [issue #285](https://github.com/rnagrodzki/sdlc-marketplace/issues/285).
 
 ## State Format
 
