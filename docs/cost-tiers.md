@@ -74,3 +74,7 @@ If a `model:` change later proves to degrade output quality below the contract's
 | Agent frontmatter `effort:` | The three Haiku orchestrators; none set today |
 | Review-dimension frontmatter `effort:` | Not read today; W6b.5 adds the schema field and the `review.js` pass-through |
 | Execute presets (Agent dispatch `effort` param) | First rung of the escalation ladder before a tier change |
+
+| Surface | Config A | Config B | Artifacts (n) | Tokens in/out (A, B) | Cost per completed task (A, B) | Completed (A, B) | Decision | Date |
+|---|---|---|---|---|---|---|---|---|
+| baseline (all surfaces) | installed sdlc 0.21.29 | - | 0 | unavailable | unavailable | unavailable | baseline: unavailable; installed sdlc 0.21.29 predates --usage (W1.1) | 2026-10-19 |
