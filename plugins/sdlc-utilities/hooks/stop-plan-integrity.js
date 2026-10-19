@@ -34,8 +34,12 @@ const MARKER_DESCRIPTIONS = {
 };
 
 try {
-  const { findStateFile, readState, deleteState, slugifyBranch } = require('../scripts/lib/state');
+  const { findStateFile, readState, deleteState, slugifyBranch, resolveHookContext } = require('../scripts/lib/state');
   const { exec } = require('../scripts/lib/git');
+
+  // Spawn-free gate: no state dir means no plan marker. No stdin is read.
+  const ctx = resolveHookContext(null);
+  if (ctx.stateDir && !fs.existsSync(ctx.stateDir)) process.exit(0);
 
   // -------------------------------------------------------------------------
   // 1. Get current branch
@@ -43,7 +47,7 @@ try {
 
   // SDLC_BRANCH_OVERRIDE allows test harnesses to inject a branch name without
   // requiring an embedded .git repo in fixture directories.
-  const branch = process.env.SDLC_BRANCH_OVERRIDE || exec('git branch --show-current');
+  const branch = ctx.branch || exec('git branch --show-current');
   if (!branch) process.exit(0);
 
   const branchSlug = slugifyBranch(branch);

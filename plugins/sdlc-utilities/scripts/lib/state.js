@@ -13,7 +13,7 @@ const path   = require('path');
 const crypto = require('crypto');
 const { exec }                   = require('./git');
 const { readSection, resolveSdlcRoot } = require('./config');
-const { resolveMainWorktree, resolveActiveWorktreeSafe } = require('./worktree');
+const { resolveMainWorktree, resolveActiveWorktreeSafe, mainWorktreeFromFs } = require('./worktree');
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -84,6 +84,68 @@ function resolveStateDir() {
   if (process.env.SDLC_STATE_DIR_OVERRIDE) return process.env.SDLC_STATE_DIR_OVERRIDE;
   const mainWorktree = resolveMainWorktree();
   return path.join(mainWorktree, '.sdlc', 'execution');
+}
+
+/**
+ * Read the checked-out branch of the worktree containing `cwd` from its HEAD
+ * file. Returns null when HEAD is detached, unreadable, or the `.git` layout is
+ * not unambiguous. Pure fs — never spawns, never throws.
+ */
+function branchFromHeadFile(cwd) {
+  try {
+    let dir = path.resolve(cwd);
+    for (;;) {
+      const dotGit = path.join(dir, '.git');
+      let st = null;
+      try { st = fs.statSync(dotGit); } catch (_) { /* keep walking */ }
+      if (st) {
+        let gitDir = null;
+        if (st.isDirectory()) gitDir = dotGit;
+        else if (st.isFile()) {
+          const m = /^gitdir:\s*(.+?)\s*$/m.exec(fs.readFileSync(dotGit, 'utf8'));
+          if (m) gitDir = path.resolve(dir, m[1]);
+        }
+        if (!gitDir) return null;
+        const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
+        const ref = /^ref: refs\/heads\/(.+)$/.exec(head);
+        return ref ? ref[1] : null;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) return null;
+      dir = parent;
+    }
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Cheap, spawn-free context for the hooks: `{ branch, branchSlug, stateDir, sessionId }`.
+ *   stateDir — SDLC_STATE_DIR_OVERRIDE, else `<main worktree>/.sdlc/execution`, else null.
+ *   branch   — SDLC_BRANCH_OVERRIDE, else the worktree's HEAD file when it names a branch, else null.
+ * A null field means "unknown": callers fall back to today's behaviour (a single
+ * `git branch --show-current`, `findStateFile`). Never throws, never spawns.
+ *
+ * @param {{session_id?: string}|null} payload  Parsed hook stdin payload, or null.
+ */
+function resolveHookContext(payload) {
+  let stateDir = null;
+  let branch = null;
+  try {
+    if (process.env.SDLC_STATE_DIR_OVERRIDE) {
+      stateDir = process.env.SDLC_STATE_DIR_OVERRIDE;
+    } else {
+      const mainWt = mainWorktreeFromFs(process.cwd());
+      if (mainWt) stateDir = path.join(mainWt, '.sdlc', 'execution');
+    }
+    branch = process.env.SDLC_BRANCH_OVERRIDE || branchFromHeadFile(process.cwd()) || null;
+  } catch (_) { /* leave unknowns null */ }
+  return {
+    branch,
+    branchSlug: branch ? slugifyBranch(branch) : null,
+    stateDir,
+    sessionId: (payload && payload.session_id) || null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1005,4 +1067,5 @@ module.exports = {
   pipelineAdvancing,
   claimSession,
   hookEnforcementAllowed,
+  resolveHookContext,
 };

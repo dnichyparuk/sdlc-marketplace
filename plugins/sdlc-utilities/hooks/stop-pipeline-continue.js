@@ -75,20 +75,27 @@ function main() {
   //     `payload.session_id` is read further down by the R73 gate (e).
   if (payload.stop_hook_active === true) process.exit(0);
 
-  let slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, exec;
+  let slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, resolveHookContext, exec;
   try {
-    ({ slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir } = require('../scripts/lib/state'));
+    ({ slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, resolveHookContext } = require('../scripts/lib/state'));
     ({ exec } = require('../scripts/lib/git'));
   } catch {
     process.exit(0);
   }
 
-  // Resolve current branch. If none, exit 0 silently.
-  let branch;
-  try {
-    branch = exec('git branch --show-current');
-  } catch {
-    process.exit(0);
+  // Spawn-free gate: no state dir means no pipeline. Falls through when unknown.
+  const ctx = resolveHookContext(payload);
+  if (ctx.stateDir && !fs.existsSync(ctx.stateDir)) process.exit(0);
+
+  // Resolve current branch (HEAD file first; one git call only as the fallback,
+  // e.g. detached HEAD). If none, exit 0 silently.
+  let branch = ctx.branch;
+  if (!branch) {
+    try {
+      branch = exec('git branch --show-current');
+    } catch {
+      process.exit(0);
+    }
   }
   if (!branch) process.exit(0);
 

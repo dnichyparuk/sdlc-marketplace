@@ -42,29 +42,34 @@ function main() {
   // the in_progress decision. `payload.session_id` IS required — the R73 gate
   // below reads it to confirm this session owns the pipeline.
 
-  let slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, exec;
+  let slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, resolveHookContext, exec;
   try {
-    ({ slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir } = require('../scripts/lib/state'));
+    ({ slugifyBranch, findStateFile, readState, pipelineAdvancing, hookEnforcementAllowed, resolveStateDir, resolveHookContext } = require('../scripts/lib/state'));
     ({ exec } = require('../scripts/lib/git'));
-    // Early gate (spawns nothing): no state dir, or no ship-* entry in it, means
-    // no pipeline — skip the git spawns below. Falls through when the dir is unknown.
-    const { mainWorktreeFromFs } = require('../scripts/lib/worktree');
-    const mainWt = process.env.SDLC_STATE_DIR_OVERRIDE ? null : mainWorktreeFromFs(process.cwd());
-    const earlyDir = process.env.SDLC_STATE_DIR_OVERRIDE || (mainWt && path.join(mainWt, '.sdlc', 'execution'));
-    if (earlyDir) {
-      if (!fs.existsSync(earlyDir)) process.exit(0);
-      if (!fs.readdirSync(earlyDir).some((e) => e.startsWith('ship-'))) process.exit(0);
+  } catch {
+    process.exit(0);
+  }
+
+  // Early gate (spawns nothing): no state dir, or no ship-* entry in it, means
+  // no pipeline — skip the git spawn below. Falls through when the dir is unknown.
+  const ctx = resolveHookContext(payload);
+  try {
+    if (ctx.stateDir) {
+      if (!fs.existsSync(ctx.stateDir)) process.exit(0);
+      if (!fs.readdirSync(ctx.stateDir).some((e) => e.startsWith('ship-'))) process.exit(0);
     }
   } catch {
     process.exit(0);
   }
 
   // 2. Resolve current branch. If none, exit 0 silently.
-  let branch;
-  try {
-    branch = exec('git branch --show-current');
-  } catch {
-    process.exit(0);
+  let branch = ctx.branch;
+  if (!branch) {
+    try {
+      branch = exec('git branch --show-current');
+    } catch {
+      process.exit(0);
+    }
   }
   if (!branch) process.exit(0);
 

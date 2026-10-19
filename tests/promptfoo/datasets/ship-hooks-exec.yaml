@@ -885,3 +885,46 @@
           if (run.stdout.trim() !== '') return `FAIL: hook ${i} expected silent, got ${run.stdout}`;
         }
         return true;
+
+# 26. W2.5: with no .sdlc/execution the hooks exit before any git spawn work.
+- description: "stop-pipeline-continue (W2.5): hooks in a repo without .sdlc/execution exit 0 silently"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,hooks)=>console.log(JSON.stringify([{hook:hooks[0],i:{stop_hook_active:false,session_id:"sess-fixture"}},{hook:hooks[1],i:{}},{hook:hooks[2],i:{tool_name:"Bash",session_id:"sess-fixture"}}].map(a=>cp.spawnSync("node",[a.hook],{input:JSON.stringify(a.i),cwd:process.cwd(),encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout,stderr:r.stderr,hasExecDir:fs.existsSync(process.cwd()+"/.sdlc/execution")})))))(require("child_process"),require("fs"),["stop-pipeline-continue.js","stop-plan-integrity.js","pipeline-continue.js"].map(f=>"{{repo_root}}/plugins/sdlc-utilities/hooks/"+f))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-config"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const runs = JSON.parse(r.stdout);
+        if (runs.length !== 3) return `FAIL: expected 3 runs, got ${runs.length}`;
+        for (const [i, run] of runs.entries()) {
+          if (run.hasExecDir) return 'FAIL: precondition, .sdlc/execution exists';
+          if (run.status !== 0) return `FAIL: hook ${i} exit ${run.status}`;
+          if (run.stdout.trim() !== '') return `FAIL: hook ${i} expected silent, got ${run.stdout}`;
+        }
+        return true;
+
+# 27. W2.5: ctx.stateDir === null fallback. Runs in a fresh mkdtemp dir that is not
+#     inside any git repository (proved in-test by `git rev-parse` failing), so
+#     resolveHookContext yields no stateDir/branch and each hook falls back to today's behaviour.
+- description: "stop-pipeline-continue (W2.5): no .git anywhere falls back and exits 0 silently"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,hooks)=>((d)=>console.log(JSON.stringify({gitStatus:cp.spawnSync("git",["rev-parse","--git-dir"],{cwd:d,encoding:"utf8"}).status,runs:[{hook:hooks[0],i:{stop_hook_active:false,session_id:"sess-fixture"}},{hook:hooks[1],i:{}},{hook:hooks[2],i:{tool_name:"Bash",session_id:"sess-fixture"}}].map(a=>cp.spawnSync("node",[a.hook],{input:JSON.stringify(a.i),cwd:d,encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout}))})))(fs.mkdtempSync(os.tmpdir()+"/nogit-")))(require("child_process"),require("fs"),require("os"),["stop-pipeline-continue.js","stop-plan-integrity.js","pipeline-continue.js"].map(f=>"{{repo_root}}/plugins/sdlc-utilities/hooks/"+f))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-config"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const out = JSON.parse(r.stdout);
+        if (out.gitStatus === 0) return 'FAIL: precondition, temp dir is inside a git repository';
+        for (const [i, run] of out.runs.entries()) {
+          if (run.status !== 0) return `FAIL: hook ${i} exit ${run.status}`;
+          if (run.stdout.trim() !== '') return `FAIL: hook ${i} expected silent, got ${run.stdout}`;
+        }
+        return true;
