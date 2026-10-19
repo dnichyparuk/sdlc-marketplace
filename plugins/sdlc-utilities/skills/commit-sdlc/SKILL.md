@@ -1,6 +1,6 @@
 ---
 name: commit-sdlc
-description: "Use this skill when committing staged changes, creating a git commit, or generating a commit message. Analyzes staged diff and recent commit history to generate a message matching the project's style. Stashes unstaged changes to isolate the commit, commits after user confirmation, and auto-restores the stash. Arguments: [--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--no-squash-wip] [--expected-branch <name>] [--force-default-branch]. Use --auto to skip interactive approval. Triggers on: commit changes, create commit, write commit message, git commit, smart commit, commit staged, stage and commit."
+description: "Use this skill when committing staged changes or generating a commit message that matches the project's style: stashes unstaged work, commits after confirmation, restores the stash. Arguments: [--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--no-squash-wip] [--expected-branch <name>] [--force-default-branch]. Triggers on: commit changes, create commit, commit message, git commit, commit staged."
 user-invocable: true
 argument-hint: "[--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--no-squash-wip] [--expected-branch <name>] [--force-default-branch]"
 model: inherit

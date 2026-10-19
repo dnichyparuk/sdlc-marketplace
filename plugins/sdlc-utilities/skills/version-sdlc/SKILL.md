@@ -1,8 +1,8 @@
 ---
 name: version-sdlc
-description: "Use this skill when bumping a project version, creating a git release tag, generating a changelog, or performing a full semantic release workflow, updating an existing changelog entry for the current version, or retagging the current version at HEAD. Consumes pre-computed context from skill/version.js and handles the complete release process. Use --changelog without a bump type to update the changelog for the already-tagged current version. Use --retag to move an existing tag to HEAD. Arguments: [major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--changelog] [--hotfix] [--retag] [--auto]. The positional `<label>` form (e.g. `version-sdlc rc`) is sugar for `--bump patch --pre <label>` and accepts any pre-release label matching `^[a-z][a-z0-9]*$`. Triggers on: version bump, create release, bump version, tag release, generate changelog, semantic versioning, semver bump, pre-release, release candidate, retag release. Use --auto to skip interactive approval prompts (release plan is still displayed)."
+description: "Use this skill when bumping a version, creating a release tag, generating or updating a changelog, retagging the current version at HEAD, or setting up versioning (--init). Arguments: [major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--changelog] [--hotfix] [--retag] [--auto]. A positional <label> (e.g. rc) means --bump patch --pre <label>. Triggers on: version bump, create release, tag release, changelog, semver, pre-release, retag."
 user-invocable: true
-argument-hint: "[major|minor|patch|<label>] [--pre <label>] [--changelog] [--hotfix] [--retag] [--auto]"
+argument-hint: "[major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--bump <type>] [--changelog] [--hotfix] [--retag] [--auto]"
 model: inherit
 ---
 
