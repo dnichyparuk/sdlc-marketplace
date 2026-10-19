@@ -803,20 +803,18 @@
         return true;
 
 # ---------------------------------------------------------------------------
-# cap-exhaustion (Task 6, #505 follow-up): the consecutive-block cap's state
-# MUTATION side-effect, not just its stdout/stderr behavior (already covered
-# by case 7 above). After STOP_BLOCK_CAP consecutive blocks the hook writes
-# the stalled step back to the state file as `failed` with
-# `failedReason: 'block-cap-exhausted'` — the sole exception to the hook's
-# otherwise non-mutating contract.
+# cap-exhaustion (Task 6, #505 follow-up; R-cap-recovery): the consecutive-block
+# cap's side-effect. After STOP_BLOCK_CAP consecutive blocks the hook writes
+# `.stop-cap-exhausted-<slug>.json` and stops blocking; the ledger is NOT
+# modified (the state CLI is its only writer).
 # ---------------------------------------------------------------------------
 
-# 23. Same 4-run sequence as case 7, but reads the persisted step back off the
-#     state file afterward instead of only asserting on stdout/stderr.
-- description: "cap-exhaustion: consecutive-block cap transitions step to failed with failedReason block-cap-exhausted"
+# 23. Same 4-run sequence as case 7, then reads the persisted step and the
+#     cap-exhausted sidecar back off disk.
+- description: "cap-exhaustion: consecutive-block cap leaves the step in_progress and writes the cap-exhausted sidecar"
   vars:
     script_path: "-e"
-    script_args: '((cp,fs,hook,statePath)=>(Array(4).fill(0).forEach(_=>cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})),console.log(JSON.stringify(JSON.parse(fs.readFileSync(statePath,"utf8")).steps.find(s=>s.name==="execute")))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_args: '((cp,fs,hook,statePath,sidePath)=>(Array(4).fill(0).forEach(_=>cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})),console.log(JSON.stringify({step:JSON.parse(fs.readFileSync(statePath,"utf8")).steps.find(s=>s.name==="execute"),sidecar:JSON.parse(fs.readFileSync(sidePath,"utf8"))}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json",process.cwd()+"/.sdlc/execution/.stop-cap-exhausted-feat-ship.json")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -824,8 +822,66 @@
       value: |
         const r = JSON.parse(output);
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
-        const step = JSON.parse(r.stdout);
-        if (!step) return 'FAIL: execute step not found in state file';
-        if (step.status !== 'failed') return `FAIL: status ${step.status}`;
-        if (step.failedReason !== 'block-cap-exhausted') return `FAIL: failedReason ${step.failedReason}`;
+        const out = JSON.parse(r.stdout);
+        if (!out.step) return 'FAIL: execute step not found in state file';
+        if (out.step.status !== 'in_progress') return `FAIL: status ${out.step.status}, ledger must not be modified`;
+        if (out.step.failedReason !== undefined) return `FAIL: failedReason ${out.step.failedReason}`;
+        if (out.sidecar.stepName !== 'execute') return `FAIL: sidecar stepName ${out.sidecar.stepName}`;
+        return true;
+
+# 23b. A 5th run after exhaustion prints nothing (the guard keeps the hook silent
+#      instead of blocking three more times).
+- description: "cap-exhaustion: fifth Stop run after exhaustion prints nothing"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,hook)=>console.log(JSON.stringify(Array(5).fill(0).map(_=>cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout})))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-inprogress"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const runs = JSON.parse(r.stdout);
+        if (runs.length !== 5) return `FAIL: expected 5 runs, got ${runs.length}`;
+        for (let i = 0; i < 3; i++) if (!/block/.test(runs[i].stdout)) return `FAIL: run ${i} did not block`;
+        if (runs[3].stdout.trim() !== '' || runs[4].stdout.trim() !== '') return `FAIL: runs 3/4 not silent: ${runs[3].stdout}|${runs[4].stdout}`;
+        return true;
+
+# 24. R-pause: `state/ship.js pause` makes the Stop hook silent.
+- description: "stop-pipeline-continue (R-pause): paused state stays silent"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,cli,hook,st)=>console.log(JSON.stringify([cp.spawnSync("node",[cli,"pause","--reason","test","--state-file",st],{encoding:"utf8"}),cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})].map(r=>({status:r.status,stdout:r.stdout})))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/ship.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-inprogress"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const [pause, hook] = JSON.parse(r.stdout);
+        if (pause.status !== 0) return `FAIL: pause exit ${pause.status}`;
+        if (JSON.parse(pause.stdout).paused !== true) return `FAIL: pause output ${pause.stdout}`;
+        if (hook.status !== 0) return `FAIL: hook exit ${hook.status}`;
+        if (hook.stdout.trim() !== '') return `FAIL: expected silent, got ${hook.stdout}`;
+        return true;
+
+# 25. R-pause: a state with `paused` set makes BOTH continuation hooks silent.
+- description: "stop-pipeline-continue (R-pause): state with paused set silences both hooks"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,stop,post,st)=>(fs.writeFileSync(st,JSON.stringify(Object.assign(JSON.parse(fs.readFileSync(st,"utf8")),{paused:{at:"2026-01-01T00:00:00.000Z",reason:null}}))),console.log(JSON.stringify([[stop,{stop_hook_active:false,session_id:"sess-fixture"}],[post,{tool_name:"Bash",session_id:"sess-fixture"}]].map(a=>cp.spawnSync("node",[a[0]],{input:JSON.stringify(a[1]),cwd:process.cwd(),encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout}))))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js","{{repo_root}}/plugins/sdlc-utilities/hooks/pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-inprogress"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const runs = JSON.parse(r.stdout);
+        for (const [i, run] of runs.entries()) {
+          if (run.status !== 0) return `FAIL: hook ${i} exit ${run.status}`;
+          if (run.stdout.trim() !== '') return `FAIL: hook ${i} expected silent, got ${run.stdout}`;
+        }
         return true;

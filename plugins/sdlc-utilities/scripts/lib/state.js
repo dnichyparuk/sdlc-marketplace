@@ -843,10 +843,12 @@ function summarizePriorWaveContext(state, opts = {}) {
  *   `step` — the step the hook names (in_progress step if present, else the
  *     pending step); null when not advancing.
  *   `index` — index of `step` in `steps[]`, or -1.
+ * Returns advancing:false when `data.paused` is set.
  * No I/O, no mutation.
  */
 function pipelineAdvancing(data) {
   const steps = data && Array.isArray(data.steps) ? data.steps : [];
+  if (data && data.paused) return { advancing: false, step: null, index: -1 };
   const inProgressIndex = steps.findIndex(s => s && s.status === 'in_progress');
   const inProgress = inProgressIndex >= 0 ? steps[inProgressIndex] : null;
   const failed = steps.some(s => s && s.status === 'failed');
@@ -901,6 +903,7 @@ function claimSession(prefix, branchSlug) {
   if (!state) return false;
 
   state.data.sessionId = sessionId;
+  delete state.data.paused; // --resume re-arms the hooks (R-pause)
   writeState(state.filePath, state.data);
   return true;
 }

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "startedAt": "2024-01-01T00:00:00.000Z",
+  "branch": "feat/test-plan-mode",
+  "flags": { "bump": "minor", "steps": ["execute", "commit", "review", "pr"] },
+  "steps": [
+    { "name": "execute", "status": "pending" },
+    { "name": "commit", "status": "pending" },
+    { "name": "review", "status": "pending" },
+    { "name": "received-review", "status": "pending", "condition": "review finds critical/high" },
+    { "name": "commit-fixes", "status": "pending", "condition": "received-review applies fixes" },
+    { "name": "version", "status": "pending" },
+    { "name": "pr", "status": "pending" }
+  ],
+  "decisions": [],
+  "deferredFindings": []
+}

@@ -41,7 +41,7 @@ const { spawnSync } = require('child_process');
 const LIB = path.join(__dirname, '..', 'lib');
 
 const { exec, checkGitState, detectBaseBranch, deriveWorkspace, parseRemoteOwner, probeGhAuth, formatAccountMismatch, probeRepoAccess, formatAccessDenied, getTagList } = require(path.join(LIB, 'git'));
-const { resolveMainWorktree, detectResumeState: detectResumeStateLib, readState, slugifyBranch, claimSession } = require(path.join(LIB, 'state'));
+const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, readState, slugifyBranch, claimSession } = require(path.join(LIB, 'state'));
 const { readSection, resolveSdlcRoot } = require(path.join(LIB, 'config'));
 const { writeOutput } = require(path.join(LIB, 'output'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
@@ -1478,6 +1478,17 @@ function main() {
 
   // Detect resume state
   const resume = detectResumeState(projectRoot, gitState.currentBranch);
+
+  // R-cap-recovery: the Stop hook records a stall in .stop-cap-exhausted-<slug>.json
+  // instead of mutating the ledger; surface it here when a pipeline is resumable.
+  try {
+    const exhausted = JSON.parse(fs.readFileSync(
+      path.join(resolveStateDir(), `.stop-cap-exhausted-${slugifyBranch(gitState.currentBranch)}.json`), 'utf8'));
+    if (exhausted && exhausted.stepName && resume && resume.found) {
+      warnings.push(`Step ${exhausted.stepName} stalled after 3 consecutive Stop blocks; resume with --resume or mark it failed`);
+      resume.capExhausted = { stepName: exhausted.stepName, at: exhausted.at };
+    }
+  } catch { /* absent or corrupt — no stall recorded */ }
 
   // R-implicit-resume (#359): when a fresh state file exists for the current
   // branch AND the user did NOT explicitly pass --resume, flip the resume
