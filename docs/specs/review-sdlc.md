@@ -116,6 +116,7 @@
 - P7: `plan_critique.over_broad_dimensions` (string[]) — dimensions reviewing too many files
 - P8: `plan_critique.uncovered_suggestions` (array) — suggested additional dimensions
 - P10: `dimensions[].slice_file` (string|null) — per-dimension slice file path (per R-manifest-index-slices). For each dispatched dimension (`status` ACTIVE/TRUNCATED), `review.js` writes `${diff_dir}/${name}.slice.json` containing `{ body, matched_files, file_context, warnings }` and sets `slice_file` to its absolute path. Non-dispatched dimensions (SKIPPED/QUEUED) have `slice_file: null`. The slice file is the sole carrier of the heavy per-dimension fields that the thin index (P5) omits — the orchestrator forwards this path to each subagent rather than reading the contents into its own context.
+- P11: `review-summary.json` `{schemaVersion, verdict, counts, dimensions, commentPath, branch}` written beside `review-comment.md` in `diff_dir` by the review-orchestrator (`counts` equals the summary table; `verdict` per the orchestrator's verdict thresholds). Before the skill removes `diff_dir`, it copies the file to `.sdlc/execution/review-summary-<slug>.json` (`<slug>` = the `Branch:` value with every character outside `[A-Za-z0-9-]` replaced by `-`, emitted by the orchestrator as the `Summary copy path:` line), so ship-sdlc can read it after cleanup (ship-sdlc R6).
 
 ## Failure handling and resume
 
