@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-20
+
+### Changed
+- feat: every `ship-sdlc` sub-skill step dispatches through its own agent file, `agents/ship-step-<step>.md` (execute, commit, review, received-review, version, pr), which pins `model`, `effort` and the preloaded skill; `skill/ship.js` reads model and effort from those files and emits `agent` on each dispatch step, and SKILL.md Step 5 dispatches with `subagent_type: step.data.agent` only (#9003)
+- feat: because a forked sub-skill cannot ask the user, interactive runs now ask in the main context before dispatch: `confirm_commit`, `confirm_commit_fixes`, `confirm_version` and `confirm_pr` (yes, skip or cancel), `execute_tier` when `--quality` is absent, `execute_state` (resume or restart) and `execute_gate` for a high-risk question; the forked sub-skill then runs with `--auto`; none of these are emitted under `--auto` (#9003)
+- feat: a question a sub-skill cannot ask comes back as `output.pendingQuestion`; ship carries a high-risk `yes` back to execute as `--resume --auto` (this approves every later high-risk gate in that run) and otherwise stops with the state kept and the commands to continue; `execute_handoff` records an execute run finished outside the pipeline, with `source: "user-attested"` when no execute state file exists (#9003)
+- changed: content previews (commit message, changelog draft, PR body, received-review plan) are not shown in interactive mode, and the `--auto` flag is now always part of the computed args of commit, commit-fixes, received-review, version and pr (#9003)
+- docs: `docs/specs/ship-sdlc.md` and `docs/specs/execute-plan-sdlc.md` state the per-step dispatch, the tier rule (ship asks), the pending-question stop and the P-TRANS-1 rows; `docs/cost-tiers.md` lists the six agents and the S1 = NO per-step shape; `docs/architecture.md`, `docs/skill-best-practices.md` and `docs/skills/ship-sdlc.md` describe per-step agents (#9003)
+- tests: 28 new exec cases for the agent fields, consent, tier, execute-state, pending-question and handoff branches, and a cost-tier fixture agent with `effort:` (#9003)
+
 ## [0.26.0] - 2026-10-19
 
 ### Changed
