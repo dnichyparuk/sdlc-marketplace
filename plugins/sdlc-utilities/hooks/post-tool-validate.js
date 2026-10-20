@@ -25,7 +25,7 @@
 
 const fs           = require('node:fs');
 const path         = require('node:path');
-const { execSync } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 
 // ---------------------------------------------------------------------------
 // Read stdin
@@ -97,13 +97,13 @@ const projectRoot = process.cwd();
 // ---------------------------------------------------------------------------
 
 try {
-  const fileArg = isPlan ? ` --file "${filePath}"` : '';
-  const cmd = `node "${validatorScript}" --project-root "${projectRoot}" --markdown${fileArg}`;
-  execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const args = [validatorScript, '--project-root', projectRoot, '--markdown'];
+  if (isPlan) args.push('--file', filePath);
+  execFileSync('node', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   // Exit 0 from validator — all good
   process.exit(0);
 } catch (err) {
-  // execSync throws when exit code is non-zero
+  // execFileSync throws when exit code is non-zero
   const stdout = (err.stdout || '').trim();
   const stderr = (err.stderr || '').trim();
   const findings = stdout || stderr;
