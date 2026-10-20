@@ -61,7 +61,7 @@ None.
 - R1: Default template has 8 mandatory sections: Summary, JIRA Ticket, Business Context, Business Benefits, Technical Design, Technical Impact, Changes Overview, Testing
 - R2: When `customTemplate` is present, parse its `## Heading` sections and use those instead of the default 8 sections
 - R11: In update mode, existing labels are preserved; only new labels are added via `--add-label`
-- R13: OpenSpec enrichment: when an active OpenSpec change is detected, use proposal.md for Business Context/Benefits and design.md for Technical Design
+- R13: OpenSpec enrichment: `skill/pr.js` reports `openspec: { detected, changeName, proposalPath, designPath }`, computed with `lib/openspec.js::detectActiveChanges` (`detected`: `openspec/config.yaml` exists; `changeName`: the change matched by the current branch, else the only active change, else null; each path is absolute, or null when the file does not exist). When `openspec.detected` is true, use proposal.md (`proposalPath`) for Business Context/Benefits and design.md (`designPath`, when non-null) for Technical Design; when `changeName` is non-null, the description carries the line `**OpenSpec:** openspec/changes/<changeName>/`. The skill does not search the project for OpenSpec files itself.
 
 ### Step-emitter contract
 
