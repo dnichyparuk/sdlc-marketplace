@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-20
+
+### Changed
+- feat: `review-orchestrator` writes `review-summary.json` (`schemas/review-summary.schema.json`: `verdict`, `counts`, `dimensions`) beside the review comment, `skill/review.js` emits `summary_copy_path` (main worktree, `resolveStateDir()`), and review-sdlc copies the file to `.sdlc/execution/review-summary-<branch-slug>.json` before it removes its temp dir (#9005)
+- feat: ship-sdlc's `review_gate` step reads the counts in that summary (new `ship.js review-gate --summary --threshold` and the in-process gate share one function) instead of parsing the verdict text; a missing, stale or malformed summary dispatches received-review-sdlc with a warning, never approves (#9005)
+- feat: `ship.js verify-side-effect` and `--after` verify the `commit` step (artifact sha is an existing commit and HEAD) and the `pr` step (`gh pr view` confirms the URL is OPEN or MERGED), next to the existing `version` tag check (#9005)
+- docs: `docs/specs/review-sdlc.md` is restructured into the contract sections (history in the appendix, ids unchanged); `docs/specs/ship-sdlc.md` R6 and R-b3 and `docs/skills/review-sdlc.md` describe the summary and its copy path (#9005)
+- tests: new `ship-review-gate-exec.yaml`, verify-side-effect cases for commit and pr, a `summary_copy_path` case, and the review_gate cases re-seeded to read a summary file (#9005)
+
 ## [0.27.0] - 2026-10-20
 
 ### Changed
