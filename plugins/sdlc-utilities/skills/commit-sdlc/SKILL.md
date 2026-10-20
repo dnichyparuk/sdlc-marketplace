@@ -179,20 +179,28 @@ Show `Amend:` instead of `Commit:` heading when `flags.amend` is true.
 
 **On `yes`:**
 
-0. **Subject gate (hard gate):** Always run — the WIP-prefix check applies even when `commitConfig` is null.
+0. **Message file, then subject gate (hard gate):** `<MSG_FILE>` is the Step 0 manifest path with `.json` replaced by `.msg`; substitute that absolute path, and the manifest path for `<COMMIT_CONTEXT_FILE>`, in every block below. Write the message with a quoted heredoc — the quotes around `SDLC_COMMIT_MSG` keep `$`, backticks and `"` literal — replacing the `<message>` line with `MESSAGE` exactly. If `MESSAGE` contains a line that is exactly `SDLC_COMMIT_MSG`, stop and report. Run each block without the list indentation: the closing `SDLC_COMMIT_MSG` must start its line. Every re-run of the gate (the Exit 1/Exit 2 **edit subject** options and **On edit**) first rewrites `<MSG_FILE>` with the heredoc block above, then runs the gate block.
 
    ```bash
-   node -e "
-     const subject = process.argv[2];
-     if (/^wip(\(|:)/.test(subject)) { process.exit(2); }
-     if (process.argv[1]) {
-       const pattern = new RegExp(process.argv[1]);
-       if (!pattern.test(subject)) { process.exit(1); }
-     }
-   " "<subjectPattern, or empty string when commitConfig/subjectPattern is unset>" "<subject line>"
+   cat > "<MSG_FILE>" <<'SDLC_COMMIT_MSG'
+   <message>
+   SDLC_COMMIT_MSG
+   ```
+
+   Then run the gate. It reads the subject (first line) from `<MSG_FILE>` and `commitConfig.subjectPattern` from the manifest. Always run it — the WIP-prefix check applies even when `commitConfig` is null.
+
+   ```bash
+   node -e '
+     const fs = require("fs");
+     const subject = fs.readFileSync(process.argv[2], "utf8").split("\n")[0];
+     const cfg = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).commitConfig || {};
+     if (/^wip(\(|:)/.test(subject)) process.exit(2);
+     if (cfg.subjectPattern && !new RegExp(cfg.subjectPattern).test(subject)) process.exit(1);
+   ' "<COMMIT_CONTEXT_FILE>" "<MSG_FILE>"
    ```
 
    - **Exit 0:** continue to step 1.
+   - **Exit 1 or 2 with `flags.auto` true:** do not call AskUserQuestion. Print `Subject gate rejected the subject (exit <code>): <reason>` — for 2 the reason is "internal WIP marker"; for 1 it is `commitConfig.subjectPatternError` if set, otherwise the pattern — run `rm -f "$COMMIT_CONTEXT_FILE" "<MSG_FILE>"`, and stop without committing. (C14, E8)
    - **Exit 2:** the subject starts with an internal WIP marker. Do not commit. Use AskUserQuestion with **edit subject** or **cancel** (no **harden** option).
    - **Exit 1:** keep the existing handling — show the error message from `commitConfig.subjectPatternError` if set, otherwise show the pattern itself as a fallback. Do **not** proceed with the commit. Use AskUserQuestion to offer:
      - **edit subject** — let the user revise the subject line to match the pattern; re-run the gate
@@ -200,18 +208,18 @@ Show `Amend:` instead of `Commit:` heading when `flags.amend` is true.
      - **cancel** — abort the commit
      Do not allow overriding this gate via a non-edit choice.
 
-1. **Link verification (issue #198, R12) — HARD GATE.** Before `git commit`, validate every URL embedded in the commit message body via the shared link validator. The script reads the body from stdin and auto-derives `expectedRepo` from `parseRemoteOwner(cwd)` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill MUST NOT construct ctx JSON.
+1. **Link verification (issue #198, R12) — HARD GATE.** Before `git commit`, validate every URL embedded in the commit message body via the shared link validator. The script reads the message from `<MSG_FILE>` and auto-derives `expectedRepo` from `parseRemoteOwner(cwd)` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill MUST NOT construct ctx JSON.
 
    ```bash
    # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-   printf '%s' "$message" | node "<PLUGIN_ROOT>/scripts/lib/links.js" --json
+   node "<PLUGIN_ROOT>/scripts/lib/links.js" --json --file "<MSG_FILE>"
    LINK_EXIT=$?
    ```
 
    On non-zero exit (`LINK_EXIT != 0`):
    - The script has already printed the violation list to stderr (URL, line, reason code, observed/expected detail).
    - Do NOT execute `git commit`. Surface the violation list verbatim to the user.
-   - Stop. Do not retry. Do not edit URLs without user input. Do not bypass.
+   - Run `rm -f "<MSG_FILE>"` and stop. Do not retry. Do not edit URLs without user input. Do not bypass.
 
    On zero exit, proceed to the stash + commit steps below. `SDLC_LINKS_OFFLINE=1` skips network reachability while keeping context-aware checks (GitHub identity match, Atlassian host match) — use in sandboxed CI.
 
@@ -219,19 +227,19 @@ Show `Amend:` instead of `Commit:` heading when `flags.amend` is true.
    ```bash
    git stash push --keep-index -m "commit-sdlc: temp stash"
    ```
-3. Execute the commit:
-   - If `flags.amend` is true: `git commit --amend -m "<message>"`
-   - Otherwise: `git commit -m "<message>"`
+3. Execute the commit, reading the message from the file (never from a shell argument):
+   - If `flags.amend` is true: `git commit --amend -F "<MSG_FILE>"`
+   - Otherwise: `git commit -F "<MSG_FILE>"`
 4. If stash was created in step 2:
    ```bash
    git stash pop
    ```
 
-**On `edit`:** Ask what to change, revise the message, and present again. Loop until explicit `yes` or `cancel`. Re-dispatching the orchestrator is not required for small wording tweaks — apply user-supplied edits to `MESSAGE` directly and re-validate against the subject-pattern gate before re-presenting.
+**On `edit`:** Ask what to change, revise the message, and present again. Loop until explicit `yes` or `cancel`. Re-dispatching the orchestrator is not required for small wording tweaks — apply user-supplied edits to `MESSAGE` directly, rewrite `<MSG_FILE>` with the message-file block below, and re-validate against the subject-pattern gate before re-presenting.
 
-**On `cancel`:** Abort without changes. Run `rm -f "$COMMIT_CONTEXT_FILE"` to clean up the manifest.
+**On `cancel`:** Abort without changes. Run `rm -f "$COMMIT_CONTEXT_FILE" "<MSG_FILE>"` to clean up the manifest.
 
-**Hook failure handling**: If `git commit` fails due to a pre-commit hook, the stash is still in place. Inform the user: "Pre-commit hook failed. Your unstaged changes are stashed (`git stash list` to see). Fix the hook issue, re-stage your changes, and re-run `/commit-sdlc`."
+**Hook failure handling**: If `git commit` fails due to a pre-commit hook, the stash is still in place. Inform the user: "Pre-commit hook failed. Your unstaged changes are stashed (`git stash list` to see). Fix the hook issue, re-stage your changes, and re-run `/commit-sdlc`." Run `rm -f "<MSG_FILE>"` (the next run writes a fresh one).
 
 ### Step 6 (CRITIQUE): Verify
 
@@ -247,7 +255,7 @@ Show the result:
 
 Omit the `Stash:` line if no stash was used.
 
-Run `rm -f "$COMMIT_CONTEXT_FILE"` to clean up the manifest.
+Run `rm -f "$COMMIT_CONTEXT_FILE" "<MSG_FILE>"` to clean up the manifest.
 
 ---
 
