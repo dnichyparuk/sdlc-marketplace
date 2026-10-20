@@ -3258,3 +3258,179 @@
         if (again.status === 'step' && ['execute_handoff', 'dispatch_execute'].includes(again.step.id)) return `FAIL: again ${again.step.id}`;
         if (again.status === 'error') return `FAIL: error ${again.error}`;
         return true;
+
+- description: "ship-step: openspec archive interactive incomplete emits the sync prompt of the OpenSpec steps file (W44-R2)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 1/3"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const fill = (md, v) => md.replace('`<name>`', v.name).replace('`<tasksTotal - tasksDone>`', v.left).replace('`<tasksDone>`', v.done).replace('`<tasksTotal>`', v.total);
+        const env = o.calls[o.calls.length - 1].envelope;
+        if (env.status !== 'step' || env.step.id !== 'archive_openspec') return `FAIL: ${env.status} ${env.step && env.step.id} ${env.error || ''}`;
+        const d = env.llm_decision;
+        if (!d || JSON.stringify(d.options) !== JSON.stringify(['sync-and-archive', 'archive-anyway', 'abort'])) return `FAIL: options ${JSON.stringify(d)}`;
+        if (!o.mdPrompts.incomplete) return 'FAIL: no incomplete prompt line in openspec-steps.md';
+        const want = fill(o.mdPrompts.incomplete, { name: 'add-auth', left: 2, done: 1, total: 3 });
+        if (d.prompt !== want) return `FAIL: prompt ${JSON.stringify(d.prompt)} !== ${JSON.stringify(want)}`;
+        const cmd = env.step.data.commands[0];
+        if (!/^node "[^"]+\/openspec-step\.js" archive --change "add-auth" --decision <decision>$/.test(cmd)) return `FAIL: command ${cmd}`;
+        const scripts = Object.values(o.commandScripts);
+        if (scripts.length === 0 || !scripts.every(v => v === true)) return `FAIL: commandScripts ${JSON.stringify(o.commandScripts)}`;
+        return true;
+
+- description: "ship-step: openspec archive interactive all-done emits the archive prompt of the OpenSpec steps file (W44-R2)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 3/3 --os-validate ok"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const fill = (md, v) => md.replace('`<name>`', v.name).replace('`<tasksTotal - tasksDone>`', v.left).replace('`<tasksDone>`', v.done).replace('`<tasksTotal>`', v.total);
+        const env = o.calls[o.calls.length - 1].envelope;
+        if (env.status !== 'step' || env.step.id !== 'archive_openspec') return `FAIL: ${env.status} ${env.step && env.step.id} ${env.error || ''}`;
+        const d = env.llm_decision;
+        if (!d || JSON.stringify(d.options) !== JSON.stringify(['archive', 'abort'])) return `FAIL: options ${JSON.stringify(d)}`;
+        if (!o.mdPrompts.allDone) return 'FAIL: no all-done prompt line in openspec-steps.md';
+        const want = fill(o.mdPrompts.allDone, { name: 'add-auth', left: 0, done: 3, total: 3 });
+        if (d.prompt !== want) return `FAIL: prompt ${JSON.stringify(d.prompt)} !== ${JSON.stringify(want)}`;
+        if (!/ --decision <decision>$/.test(env.step.data.commands[0])) return `FAIL: command ${env.step.data.commands[0]}`;
+        return true;
+
+- description: "ship-step: openspec archive all-done with failed validation emits no prompt"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 3/3 --os-validate fail"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[o.calls.length - 1].envelope;
+        if (env.status !== 'step' || env.step.id !== 'archive_openspec') return `FAIL: ${env.status} ${env.step && env.step.id} ${env.error || ''}`;
+        if (env.llm_decision !== null) return `FAIL: llm_decision ${JSON.stringify(env.llm_decision)}`;
+        if (!env.step.data.commands[0].endsWith('--decision anyway')) return `FAIL: command ${env.step.data.commands[0]}`;
+        return true;
+
+- description: "ship-step: openspec archive under --auto emits no prompt and --decision anyway --auto (R-archive-sync-4)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 1/3 --auto-seed"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[o.calls.length - 1].envelope;
+        if (env.status !== 'step' || env.step.id !== 'archive_openspec') return `FAIL: ${env.status} ${env.step && env.step.id} ${env.error || ''}`;
+        if (env.llm_decision !== null) return `FAIL: llm_decision ${JSON.stringify(env.llm_decision)}`;
+        if (!env.step.data.commands[0].endsWith('--decision anyway --auto')) return `FAIL: command ${env.step.data.commands[0]}`;
+        return true;
+
+- description: "ship-step: openspec archive on an already-archived change emits no prompt"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-archived"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[o.calls.length - 1].envelope;
+        if (env.status !== 'step' || env.step.id !== 'archive_openspec') return `FAIL: ${env.status} ${env.step && env.step.id} ${env.error || ''}`;
+        if (env.llm_decision !== null) return `FAIL: llm_decision ${JSON.stringify(env.llm_decision)}`;
+        if (!env.step.data.commands[0].endsWith('--decision anyway')) return `FAIL: command ${env.step.data.commands[0]}`;
+        return true;
+
+- description: "ship-step: openspec abort leaves archive-openspec in_progress and resume re-emits it (W44-R3)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 1/3 --os-answer abort --os-resume"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const abort = o.calls[1];
+        if (!abort || abort.envelope.status !== 'done') return `FAIL: abort ${abort && abort.envelope.status} ${abort && abort.envelope.error || ''}`;
+        if (!abort.envelope.ext || abort.envelope.ext.reason !== 'cancel') return `FAIL: reason ${JSON.stringify(abort.envelope.ext)}`;
+        if (abort.exitCode !== 0) return `FAIL: abort exit ${abort.exitCode}`;
+        const last = o.calls[o.calls.length - 1].envelope;
+        if (!last.step || last.step.id !== 'archive_openspec') return `FAIL: last ${last.status} ${last.step && last.step.id} ${last.error || ''}`;
+        if (o.calls.slice(2).some(c => c.args[0] === '--after' && c.args[1] === 'archive_openspec')) return 'FAIL: archive_openspec answered after the abort';
+        if (o.ledgerExists !== true) return 'FAIL: ledger deleted';
+        if (o.ledger.stepStatuses['archive-openspec'] !== 'in_progress') return `FAIL: archive-openspec ${o.ledger.stepStatuses['archive-openspec']}`;
+        return true;
+
+- description: "ship-step: openspec archive records resultText as the step result (W44-R4)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 1/3 --os-answer result"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.ledger.stepStatuses['archive-openspec'] !== 'completed') return `FAIL: archive-openspec ${o.ledger.stepStatuses['archive-openspec']}`;
+        if (o.ledger.stepResults['archive-openspec'] !== 'archived add-auth (synced 2 tasks)') return `FAIL: result ${JSON.stringify(o.ledger.stepResults['archive-openspec'])}`;
+        return true;
+
+- description: "ship-step: openspec verify_openspec emits the quoted validate command (W44-R6)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-verify --os-tasks 1/3"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const env = o.calls[o.calls.length - 1].envelope;
+        if (env.status !== 'step' || env.step.id !== 'verify_openspec') return `FAIL: ${env.status} ${env.step && env.step.id} ${env.error || ''}`;
+        if (!/^node "[^"]+\/openspec-step\.js" validate --change "add-auth"$/.test(env.step.data.commands[0])) return `FAIL: command ${env.step.data.commands[0]}`;
+        if (env.llm_decision !== null) return `FAIL: llm_decision ${JSON.stringify(env.llm_decision)}`;
+        return true;
+
+- description: "ship-step: openspec invalid change name returns status error (W44-R6)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-change ../x"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[o.calls.length - 1];
+        if (c.envelope.status !== 'error') return `FAIL: status ${c.envelope.status}`;
+        if (!String(c.envelope.error).includes('not shell-safe')) return `FAIL: error ${c.envelope.error}`;
+        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
+        return true;
+
+- description: "ship-step: openspec change name with shell metacharacters returns status error (W44-R6)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-change a;b"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[o.calls.length - 1];
+        if (c.envelope.status !== 'error') return `FAIL: status ${c.envelope.status}`;
+        if (!String(c.envelope.error).includes('not shell-safe')) return `FAIL: error ${c.envelope.error}`;
+        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
+        return true;

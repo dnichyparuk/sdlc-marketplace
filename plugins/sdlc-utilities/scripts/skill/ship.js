@@ -52,7 +52,7 @@ const { writeOutput } = require(path.join(LIB, 'output'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { VALID_STEPS, BUILT_IN_DEFAULTS, CANONICAL_STEPS, RESERVED_STEPS } = require(path.join(LIB, 'ship-fields'));
 const { gcStateFiles, gcTempdirs, gcOutputDir } = require(path.join(LIB, 'state'));
-const { detectActiveChanges, isArchived } = require(path.join(LIB, 'openspec'));
+const { detectActiveChanges, isArchived, getTaskCounts, validateChangeStrict } = require(path.join(LIB, 'openspec'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { PRE_RELEASE_LABEL_RE } = require(path.join(LIB, 'version'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
@@ -1233,8 +1233,44 @@ const EXECUTE_STATE_SCRIPT   = path.join(__dirname, '..', 'state', 'execute.js')
 const VERIFY_TAG_SCRIPT      = path.join(__dirname, '..', 'util', 'verify-tag-ancestry.js');
 const VERIFY_PIPELINE_SCRIPT = path.join(__dirname, 'verify-pipeline.js');
 const AWAIT_REVIEW_SCRIPT    = path.join(__dirname, 'await-remote-review.js');
+const OPENSPEC_STEP_SCRIPT   = path.join(__dirname, 'openspec-step.js');
+// W44-R6: the change name is quoted inside an emitted shell command, so only these characters pass.
+const OPENSPEC_CHANGE_RE     = /^[A-Za-z0-9._-]+$/;
 const STAGE_COMMAND = "git add -A -- ':!.sdlc/'";
 const LEARNINGS_COMMIT_COMMAND = 'git diff --quiet -- .sdlc/learnings/log.md || { git add .sdlc/learnings/log.md && git commit -m "chore(ship-sdlc): capture pipeline learnings" && { git push || echo "push failed (non-fatal)" >&2; }; }';
+
+/**
+ * W44-R2 (a): the archive_openspec prompt and --decision are fixed at emission, from fresh
+ * reads of the active worktree (R-archive-sync-2). Prompts mirror openspec-steps.md.
+ * Returns { decision: 'anyway'|'<decision>', llmDecision: object|null }.
+ */
+function archiveDecision(change, auto) {
+  const none = { decision: 'anyway', llmDecision: null };
+  if (auto) return none;
+  const root = resolveActiveWorktreeSafe();
+  if (isArchived(root, change)) return none;
+  const { tasksDone: done, tasksTotal: total, error } = getTaskCounts(root, change);
+  if (error) return none; // the script halts on its own read
+  if (done < total) {
+    return {
+      decision: '<decision>',
+      llmDecision: {
+        type: 'choice',
+        prompt: `OpenSpec change "${change}" has ${total - done} incomplete task(s) (${done}/${total} done).`,
+        options: ['sync-and-archive', 'archive-anyway', 'abort'],
+      },
+    };
+  }
+  if (!validateChangeStrict(root, change).ok) return none; // the script halts on its own validation
+  return {
+    decision: '<decision>',
+    llmDecision: {
+      type: 'choice',
+      prompt: `OpenSpec change "${change}" passed validation with all ${total} task(s) already complete. Archive now?`,
+      options: ['archive', 'abort'],
+    },
+  };
+}
 
 /**
  * progress.total: will_run steps (cleanup included) plus conditional steps whose
@@ -1644,13 +1680,21 @@ function pickNextStep(after, ctx) {
         break;
       }
       case 'verify_openspec':
-      case 'archive_openspec':
-        data = {
-          change: flags.openspecChange || (flags.openspecContext && flags.openspecContext.branchMatch) || null,
-          args: cs.args,
-          commands: [],
-        };
+      case 'archive_openspec': {
+        const change = flags.openspecChange || (flags.openspecContext && flags.openspecContext.branchMatch) || null;
+        if (!change || !OPENSPEC_CHANGE_RE.test(change)) {
+          return { error: `${id}: openspec change name not shell-safe: ${JSON.stringify(change)}` };
+        }
+        data = { change, args: cs.args, commands: [] };
+        if (id === 'verify_openspec') {
+          data.commands = [`node "${OPENSPEC_STEP_SCRIPT}" validate --change "${change}"`];
+          break;
+        }
+        const a = archiveDecision(change, flags.auto);
+        data.commands = [`node "${OPENSPEC_STEP_SCRIPT}" archive --change "${change}" --decision ${a.decision}${flags.auto ? ' --auto' : ''}`];
+        llmDecision = a.llmDecision;
         break;
+      }
       case 'verify_pipeline':
       case 'await_remote_review':
         data = { commands: [`node "${id === 'verify_pipeline' ? VERIFY_PIPELINE_SCRIPT : AWAIT_REVIEW_SCRIPT}" ${cs.args} --state-file "${ledgerPath}"`] };
@@ -1728,8 +1772,8 @@ function pickNextStep(after, ctx) {
       review_gate: 'Apply the review gate: ask the user when llm_decision is set; otherwise report the result.',
       rebase: 'Run data.commands (none when the branch is up to date). On a rebase conflict run `git rebase --abort` first, then report success:false.',
       verify_version_tag: 'Run data.commands (a no-op when empty) to verify the release tag ancestry.',
-      verify_openspec: 'Run the verify-openspec judgment section of reference.md for data.change and report its outcome.',
-      archive_openspec: 'Run the archive-openspec judgment section of reference.md for data.change and report its outcome.',
+      verify_openspec: 'Run data.commands and report success:true with its JSON verdict (non-blocking; see openspec-steps.md).',
+      archive_openspec: 'Resolve llm_decision when set, then run data.commands per openspec-steps.md (no command on abort) and report the result.',
       verify_pipeline: 'Run data.commands and handle its JSON verdict per the verify-pipeline section of reference.md.',
       await_remote_review: 'Run data.commands and handle its JSON verdict per the await-remote-review section of reference.md.',
       learnings_commit: 'Run data.commands, then report the result.',
@@ -1864,6 +1908,8 @@ function runAfter(stepArgs) {
 
   // 4. Record the finished step.
   const name = STEP_ID_TO_LEDGER_NAME[after];
+  // W44-R3: abort leaves archive-openspec in_progress so --resume re-emits it (R-archive-sync-3).
+  const archiveAbort = after === 'archive_openspec' && answer === 'abort';
   let success = result.success === true;
   let failureText = output.summary;
   if (name && STEP_SIDE_EFFECTS[name] === 'tag' && success) {
@@ -1899,7 +1945,7 @@ function runAfter(stepArgs) {
   const pq = after.startsWith('dispatch_') && !success ? validPendingQuestion(output.pendingQuestion) : null;
   const ext = {};
   const recorded = new Set();
-  if (name && !pq) {
+  if (name && !pq && !archiveAbort) {
     const entry = ledger.steps.find(s => s.name === name);
     if (entry && entry.status === 'pending') shipState.startStepCore(ledger, name);
     // Usage is reported by dispatched sub-agents only; inline steps carry none.
@@ -1909,7 +1955,9 @@ function runAfter(stepArgs) {
       usage = parsedUsage.ok ? parsedUsage.value : undefined;
       if (!parsedUsage.ok) warnings.push(`${name}: usage absent or invalid (${parsedUsage.error}); not recorded.`);
     }
-    const res = shipState.completeStepCore(ledger, name, success ? output.summary : failureText, success ? 'success' : 'failure', usage);
+    // W44-R4: archive_openspec records the script's resultText.
+    const okText = after === 'archive_openspec' && typeof output.resultText === 'string' ? output.resultText : output.summary;
+    const res = shipState.completeStepCore(ledger, name, success ? okText : failureText, success ? 'success' : 'failure', usage);
     if (!res.ok) return fail(`--after ${after}: ${res.error} in the ledger.`);
     // A failed execute lists one todo per plan task (HEAD's `--event execute --fail-step execute`).
     const failTasks = !success && name === 'execute' ? readPlanTasks(flags.planFile) : [];
@@ -2012,6 +2060,9 @@ function runAfter(stepArgs) {
       return finish(createEnvelope('done', null, { ext: { ...ext, reason: answer }, stateFile: ledgerPath, progress: progress() }));
     }
     return failStep(`confirm_pipeline: unknown answer "${answer}" (expected yes, edit or cancel).`);
+  }
+  if (archiveAbort) {
+    return finish(createEnvelope('done', null, { ext: { ...ext, reason: 'cancel' }, stateFile: ledgerPath, progress: progress() }));
   }
   if (after === 'rebase_conflict' && answer === 'pause') {
     ledger.paused = { at: new Date().toISOString(), reason: 'rebase conflict' };

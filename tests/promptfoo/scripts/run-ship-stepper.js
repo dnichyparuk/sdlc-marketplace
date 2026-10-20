@@ -19,7 +19,8 @@
  *                        emit-in-progress | review-gate-rows | ttl-days |
  *                        worktree-mismatch | after-execute | plan-no-tasks | after-commit-fail-gc |
  *                        rebase-emit | inline-fail-<step-with-dashes> | forced-cleanup |
- *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff | after-pr
+ *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff | after-pr |
+ *                        openspec
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
  *   --seed <name>        legacy | frozen | frozen-dryrun | frozen-branch | frozen-resumed | frozen-exec | frozen-pending | none
@@ -39,13 +40,22 @@
  *   --summary-stale      review-gate: the summary predates the review step's startedAt (treated as missing)
  *   --in-worktree        review-gate: run ship.js from a linked worktree of the fixture repo
  *   --gh-pr-url <url>    stub `gh pr view` reports an OPEN PR with this url (default: `gh pr view` fails)
+ *   --os-change <n>      (openspec) change name written to flags.openspecChange (default: add-auth)
+ *   --os-tasks <d>/<t>   (openspec) tasks.md gets <d> done and <t>-<d> open task lines (default: 1/3)
+ *   --os-validate ok|fail  (openspec) stub `openspec validate` exits 0 or 1 (default: ok)
+ *   --os-archived        (openspec) write the change under openspec/changes/archive/2026-01-01-<n>/
+ *   --os-verify          (openspec) also make verify-openspec runnable
+ *   --os-answer abort|result  (openspec) answer archive_openspec with results/os-abort.json or results/os-result.json
+ *   --os-resume          (openspec) after the abort: --after confirm_pipeline (yes), then walk to the next archive_openspec
  *
  * A successful dispatch_commit / dispatch_commit_fixes result without artifacts.commit gets the fixture
  * repo's HEAD sha injected (W4.6: ship.js cross-checks the reported commit against HEAD).
  *
  * Output JSON (one line):
- *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, otherFiles }
- *   ledger = { stepStatuses, history, stepReasons, currentStep, flagsKeys, flags, paused } | null
+ *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, otherFiles,
+ *     summarySidecars, commandScripts, stopCapExists, mdPrompts: { incomplete, allDone } }
+ *   ledger = { stepStatuses, history, stepReasons, currentStep, flagsKeys, flags, paused, stepResults } | null
+ *   mdPrompts = the two "> OpenSpec change" prompt lines of ship-sdlc/openspec-steps.md, without the leading "> "
  */
 
 'use strict';
@@ -64,6 +74,10 @@ let answer = 'yes';
 let execSeed = 'none';
 let quality = null;
 let summaryRel = null;
+let osChange = 'add-auth';
+let osTasks = '1/3';
+let osValidate = 'ok';
+let osAnswer = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
@@ -75,6 +89,10 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--exec-seed' && args[i + 1]) execSeed = args[++i];
   else if (args[i] === '--quality' && args[i + 1]) quality = args[++i];
   else if (args[i] === '--summary' && args[i + 1]) summaryRel = args[++i];
+  else if (args[i] === '--os-change' && args[i + 1]) osChange = args[++i];
+  else if (args[i] === '--os-tasks' && args[i + 1]) osTasks = args[++i];
+  else if (args[i] === '--os-validate' && args[i + 1]) osValidate = args[++i];
+  else if (args[i] === '--os-answer' && args[i + 1]) osAnswer = args[++i];
 }
 
 // Locate repo root with skill/ship.js.
@@ -172,11 +190,13 @@ function clearLedgers() {
   for (const f of ledgerFiles()) fs.unlinkSync(path.join(execDir, f));
 }
 
-// Answer each emitted step with yes.json (decisions) or generic-ok.json until done.
-function walk(env0) {
+// Answer each emitted step with yes.json (decisions) or generic-ok.json until done
+// (or, with stopAt, until that step is emitted, left unanswered).
+function walk(env0, stopAt = null, max = 12) {
   let envelope = env0;
-  for (let i = 0; i < 12 && envelope && envelope.status === 'step'; i++) {
+  for (let i = 0; i < max && envelope && envelope.status === 'step'; i++) {
     const id = envelope.step.id;
+    if (id === stopAt) break;
     const decision = id === 'confirm_pipeline' || id === 'review_gate' || id.startsWith('confirm_');
     envelope = after(id, id === 'execute_tier' ? 'results/tier-balanced.json' : decision ? `results/${answer}.json` : 'results/generic-ok.json');
   }
@@ -198,6 +218,16 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
       for (const nm of ['execute', 'commit', 'review', 'version']) { const e = data.steps.find(x => x.name === nm); if (e) e.status = 'completed'; }
     }
     if (scenario === 'resume-twice') { const e = data.steps.find(x => x.name === 'execute'); if (e) e.status = 'completed'; }
+    if (scenario === 'openspec') {
+      data.flags.openspecChange = osChange;
+      const runnable = ['archive-openspec', ...(process.argv.includes('--os-verify') ? ['verify-openspec'] : [])];
+      for (const nm of runnable) {
+        if (!data.flags.steps.includes(nm)) data.flags.steps.push(nm);
+        const x = data.steps.find(s => s.name === nm); if (x) { x.status = 'pending'; delete x.reason; }
+      }
+      for (const nm of ['execute', 'commit', 'review', 'version']) { const e = data.steps.find(x => x.name === nm); if (e) e.status = 'completed'; }
+      for (const nm of ['received-review', 'commit-fixes']) { const e = data.steps.find(x => x.name === nm); if (e) { e.status = 'skipped'; e.reason = 'fixture'; } }
+    }
     if (scenario === 'review-gate-rows' && result && result.threshold) data.flags.reviewThreshold = result.threshold;
     if (process.argv.includes('--summary-stale')) { const e = data.steps.find(x => x.name === 'review'); if (e) e.startedAt = new Date().toISOString(); }
     if (scenario === 'emit-in-progress') data.paused = { at: '2026-10-19T12:00:00.000Z', reason: 'fixture' };
@@ -387,6 +417,33 @@ switch (scenario) {
     after('confirm_commit', 'results/cancel.json');
     after('confirm_pipeline', 'results/yes.json');
     break;
+  case 'openspec': {
+    // OpenSpec change in the project root, a stub `openspec` CLI on PATH, and the two answer files.
+    if (/^[A-Za-z0-9._-]+$/.test(osChange)) {
+      const [done, total] = osTasks.split('/').map(Number);
+      const changeDir = process.argv.includes('--os-archived')
+        ? path.join(projectRoot, 'openspec', 'changes', 'archive', `2026-01-01-${osChange}`)
+        : path.join(projectRoot, 'openspec', 'changes', osChange);
+      fs.mkdirSync(changeDir, { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, 'openspec', 'config.yaml'), 'schema: spec-driven\n');
+      fs.writeFileSync(path.join(changeDir, 'proposal.md'), `# ${osChange}\n\n## Why\n\nFixture change.\n`);
+      const lines = [];
+      for (let i = 1; i <= total; i++) lines.push(`- [${i <= done ? 'x' : ' '}] Task ${i}`);
+      fs.writeFileSync(path.join(changeDir, 'tasks.md'), `## 1. Tasks\n\n${lines.join('\n')}\n`);
+    }
+    fs.mkdirSync(path.join(projectRoot, 'results'), { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, 'results', 'os-abort.json'), JSON.stringify({ success: true, output: { answer: 'abort', summary: 'aborted' } }));
+    fs.writeFileSync(path.join(projectRoot, 'results', 'os-result.json'), JSON.stringify({ success: true, output: { status: 'synced-and-archived', resultText: 'archived add-auth (synced 2 tasks)', summary: 'ignored' } }));
+    fs.writeFileSync(path.join(stubDir, 'openspec'), `#!/bin/sh\nif [ "$1" = "validate" ]; then exit ${osValidate === 'fail' ? 1 : 0}; fi\nexit 0\n`, { mode: 0o755 });
+    after('verify_version_tag', 'results/generic-ok.json');
+    if (osAnswer === 'abort' || osAnswer === 'result') {
+      after('archive_openspec', `results/os-${osAnswer}.json`);
+      if (osAnswer === 'abort' && process.argv.includes('--os-resume')) {
+        walk(after('confirm_pipeline', 'results/yes.json'), 'archive_openspec', 8);
+      }
+    }
+    break;
+  }
   default:
     if (scenario.startsWith('inline-fail-')) {
       after(scenario.slice('inline-fail-'.length).replace(/-/g, '_'), resultRel || 'results/commit-fail.json');
@@ -410,8 +467,17 @@ if (data) {
     flagsKeys: Object.keys(data.flags || {}),
     flags: data.flags || {},
     paused: data.paused !== undefined,
+    stepResults: Object.fromEntries((data.steps || []).filter(s => s.result !== undefined).map(s => [s.name, s.result])),
   };
 }
+
+// The two "> OpenSpec change" prompt lines of openspec-steps.md (incomplete, all-done).
+const osPromptLines = (() => {
+  try {
+    return fs.readFileSync(path.join(repoRoot, 'plugins', 'sdlc-utilities', 'skills', 'ship-sdlc', 'openspec-steps.md'), 'utf8')
+      .split('\n').filter(l => l.startsWith('> OpenSpec change')).map(l => l.slice(2));
+  } catch (_) { return []; }
+})();
 
 // Existence of every script path named in an emitted command (`node "<path>" …`),
 // so assertions can check absolute paths without filesystem access.
@@ -437,4 +503,8 @@ console.log(JSON.stringify({
   summarySidecars: (() => { try { return fs.readdirSync(execDir).filter(f => f.startsWith('.summary-')); } catch (_) { return []; } })(),
   commandScripts,
   stopCapExists: fs.existsSync(path.join(execDir, '.stop-cap-exhausted-feat-ship.json')),
+  mdPrompts: {
+    incomplete: osPromptLines.find(l => l.includes('incomplete')) || null,
+    allDone: osPromptLines.find(l => l.includes('passed validation')) || null,
+  },
 }));

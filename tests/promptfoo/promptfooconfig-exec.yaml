@@ -41,6 +41,7 @@ tests:
   - file://datasets/markdown-to-adf-exec.yaml
   - file://datasets/openspec-lib-exec.yaml
   - file://datasets/openspec-enrich-exec.yaml
+  - file://datasets/openspec-step-exec.yaml
   - file://datasets/jira-sdlc-exec.yaml
   - file://datasets/jira-sdlc-guardrail-exec.yaml
   - file://datasets/state-gc-migrate-exec.yaml

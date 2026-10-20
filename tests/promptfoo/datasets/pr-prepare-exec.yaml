@@ -414,3 +414,32 @@
       value: '"commits": []'
     - type: not-icontains
       value: '"changedFiles": []'
+
+- description: "pr-prepare: openspec field reports no OpenSpec in a plain project (W4.4)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pr-no-config"
+  assert:
+    - type: icontains
+      value: '"openspec": {'
+    - type: javascript
+      value: |
+        const m = /"openspec": \{[^}]*\}/.exec(output);
+        if (!m) return 'FAIL: no openspec block';
+        return /"detected": false/.test(m[0]) && /"changeName": null/.test(m[0]) ? true : `FAIL: ${m[0]}`;
+
+- description: "pr-prepare: openspec field names the branch-matched change and its proposal (W4.4)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-detect-diff"
+  assert:
+    - type: javascript
+      value: |
+        const m = /"openspec": \{[^}]*\}/.exec(output);
+        if (!m) return 'FAIL: no openspec block';
+        const ok = /"changeName": "my-change"/.test(m[0])
+          && /"proposalPath": "[^"]*openspec\/changes\/my-change\/proposal\.md"/.test(m[0])
+          && /"designPath": null/.test(m[0]);
+        return ok ? true : `FAIL: ${m[0]}`;

@@ -1100,8 +1100,8 @@
       value: >
         The walkthrough proceeds through the common ship path (execute, commit,
         review, version, pr) WITHOUT actually performing a Read of either of the
-        two companions entry-modes.md or reference.md. Those are on-demand
-        companions gated on --gc/--init-config/dry-run or a failure/edge case —
+        companions entry-modes.md, reference.md or openspec-steps.md. Those are on-demand
+        companions gated on --gc/--init-config/dry-run, a failure/edge case or an OpenSpec step —
         none of which apply to a no-flag run, so neither should be read. Merely
         noting that a companion WOULD be read under a flag that is not present
         (e.g. "no --gc, so the entry-modes.md gc handler is skipped") is correct

@@ -57,6 +57,7 @@ const { loadPrTemplate } = require(path.join(LIB, 'pr-template'));
 const { jiraKeyRegex } = require(path.join(LIB, 'jira-keys'));
 const { validateExpectedBranch } = require(path.join(LIB, 'branch-guard'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
+const { detectActiveChanges } = require(path.join(LIB, 'openspec'));
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -138,6 +139,32 @@ function detectJiraTicket(branchName, commits) {
 // ---------------------------------------------------------------------------
 // PR mode detection
 // ---------------------------------------------------------------------------
+
+/**
+ * OpenSpec context for PR enrichment (R13). Never throws: any failure reports "not detected".
+ * changeName: the branch-matched change, else the only active change, else null.
+ * @param {string} root
+ * @returns {{detected: boolean, changeName: string|null, proposalPath: string|null, designPath: string|null}}
+ */
+function prOpenspec(root) {
+  try {
+    const det = detectActiveChanges(root);
+    const changeName = det.branchMatch || (det.activeChanges.length === 1 ? det.activeChanges[0].name : null);
+    const existing = (file) => {
+      if (!changeName) return null;
+      const p = path.join(root, 'openspec', 'changes', changeName, file);
+      return fs.existsSync(p) ? p : null;
+    };
+    return {
+      detected: det.present,
+      changeName,
+      proposalPath: existing('proposal.md'),
+      designPath: existing('design.md'),
+    };
+  } catch (_) {
+    return { detected: false, changeName: null, proposalPath: null, designPath: null };
+  }
+}
 
 /**
  * Determine whether to create or update a PR based on the --update flag
@@ -528,6 +555,9 @@ function main() {
   // .claude/pr-template.md (deprecated) — see lib/pr-template.js.
   const customTemplate = loadPrTemplate(projectRoot);
 
+  // R13: OpenSpec context for enrichment; never blocks PR creation.
+  const openspec = prOpenspec(activeRoot);
+
   // Build output
   const result = {
     mode,
@@ -564,6 +594,7 @@ function main() {
     warnings,
     errors,
     branchGuard,
+    openspec,
   };
 
   writeOutput(result, 'pr-context', 0);
