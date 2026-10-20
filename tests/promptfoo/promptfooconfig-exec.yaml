@@ -25,6 +25,7 @@ tests:
   - file://datasets/pr-prepare-exec.yaml
   - file://datasets/pr-recover-gh-account-exec.yaml
   - file://datasets/ship-prepare-exec.yaml
+  - file://datasets/ship-review-gate-exec.yaml
   - file://datasets/ship-sdlc-exec.yaml
   - file://datasets/ship-todos-exec.yaml
   - file://datasets/harden-prepare-exec.yaml

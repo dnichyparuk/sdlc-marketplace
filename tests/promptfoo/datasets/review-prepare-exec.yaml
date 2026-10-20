@@ -85,3 +85,14 @@
     # not zero (which is what a HEAD-relative bug computed from the main worktree would yield)
     - type: icontains
       value: '"changed_files_count": 1'
+
+- description: "review-prepare (summary_copy_path): manifest emits an absolute review-summary copy path under the state dir, slugged from the branch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--committed --base main"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    # summary_copy_path is absolute and ends with .sdlc/execution/review-summary-<slug>.json (slug of feature/cwd-test)
+    - type: regex
+      value: '"summary_copy_path": "/[^"]*/\.sdlc/execution/review-summary-feature-cwd-test\.json"'

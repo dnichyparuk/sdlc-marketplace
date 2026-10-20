@@ -19,7 +19,7 @@
  *                        emit-in-progress | review-gate-rows | ttl-days |
  *                        worktree-mismatch | after-execute | plan-no-tasks | after-commit-fail-gc |
  *                        rebase-emit | inline-fail-<step-with-dashes> | forced-cleanup |
- *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff
+ *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff | after-pr
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
  *   --seed <name>        legacy | frozen | frozen-dryrun | frozen-branch | frozen-resumed | frozen-exec | frozen-pending | none
@@ -34,6 +34,14 @@
  *   --auto-seed          Patch data.flags.auto = true into the seed (any scenario)
  *   --other-exec         Also copy seed/execute-complete.json to a second branch's execute state file (es2)
  *   --walk               (handoff) walk the remaining steps to cleanup
+ *   --summary <name>     review-gate: copy fixtures-fs/review-summaries/<name> to the main
+ *                        worktree's .sdlc/execution/review-summary-feat-ship.json before the scenario runs
+ *   --summary-stale      review-gate: the summary predates the review step's startedAt (treated as missing)
+ *   --in-worktree        review-gate: run ship.js from a linked worktree of the fixture repo
+ *   --gh-pr-url <url>    stub `gh pr view` reports an OPEN PR with this url (default: `gh pr view` fails)
+ *
+ * A successful dispatch_commit / dispatch_commit_fixes result without artifacts.commit gets the fixture
+ * repo's HEAD sha injected (W4.6: ship.js cross-checks the reported commit against HEAD).
  *
  * Output JSON (one line):
  *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, otherFiles }
@@ -55,6 +63,7 @@ let seed = 'none';
 let answer = 'yes';
 let execSeed = 'none';
 let quality = null;
+let summaryRel = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
@@ -65,6 +74,7 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--answer' && args[i + 1]) answer = args[++i];
   else if (args[i] === '--exec-seed' && args[i + 1]) execSeed = args[++i];
   else if (args[i] === '--quality' && args[i + 1]) quality = args[++i];
+  else if (args[i] === '--summary' && args[i + 1]) summaryRel = args[++i];
 }
 
 // Locate repo root with skill/ship.js.
@@ -88,12 +98,14 @@ const SEED_TS = '20261019T120000Z';
 
 // Stub `gh` so the initial call's auth preflight passes offline.
 const stubDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'ship-stepper-gh-'));
-fs.writeFileSync(path.join(stubDir, 'gh'), '#!/bin/sh\necho "Logged in to github.com account fixture"\nexit 0\n', { mode: 0o755 });
-const env = { ...process.env, PATH: stubDir + path.delimiter + (process.env.PATH || '') };
+fs.writeFileSync(path.join(stubDir, 'gh'), '#!/bin/sh\nif [ "$1" = "pr" ] && [ "$2" = "view" ]; then\n  if [ -n "$STUB_PR_URL" ]; then echo "{\\"url\\":\\"$STUB_PR_URL\\",\\"state\\":\\"OPEN\\"}"; exit 0; fi\n  exit 1\nfi\necho "Logged in to github.com account fixture"\nexit 0\n', { mode: 0o755 });
+const ghPrIdx = args.indexOf('--gh-pr-url');
+const env = { ...process.env, PATH: stubDir + path.delimiter + (process.env.PATH || ''), ...(ghPrIdx >= 0 ? { STUB_PR_URL: args[ghPrIdx + 1] } : {}) };
 delete env.SDLC_STATE_DIR_OVERRIDE;
 
 const calls = [];
 let statePath = null;
+let runCwd = projectRoot;
 
 function sh(cmd) {
   return spawnSync('sh', ['-c', cmd], { cwd: projectRoot, env, encoding: 'utf8', timeout: 8000 });
@@ -108,7 +120,7 @@ function ledgerFiles() {
 }
 
 function ship(shipArgs) {
-  const res = spawnSync('node', [shipScript, ...shipArgs], { cwd: projectRoot, env, encoding: 'utf8', timeout: 8000 });
+  const res = spawnSync('node', [shipScript, ...shipArgs], { cwd: runCwd, env, encoding: 'utf8', timeout: 8000 });
   const out = (res.stdout || '').trim();
   let envelope = null;
   if (out && !out.includes('\n') && fs.existsSync(out)) envelope = readJson(out);
@@ -128,8 +140,23 @@ function initial(extra = []) {
   return ship([...planArgs, ...extra]);
 }
 
+// W4.6: a successful commit result reports the fixture repo's HEAD sha (not deterministic, so injected here).
+function withHeadSha(file) {
+  const r = readJson(file);
+  if (!r || r.success !== true) return file;
+  r.output = r.output || {};
+  r.output.artifacts = r.output.artifacts || {};
+  if (r.output.artifacts.commit) return file;
+  r.output.artifacts.commit = sh('git rev-parse HEAD').stdout.trim();
+  const out = path.join(stubDir, 'with-sha-' + path.basename(file));
+  fs.writeFileSync(out, JSON.stringify(r));
+  return out;
+}
+
 function after(id, rel) {
-  return ship(['--after', id, '--result-file', path.join(projectRoot, rel), '--state', statePath || '']);
+  let file = path.join(projectRoot, rel);
+  if (id === 'dispatch_commit' || id === 'dispatch_commit_fixes') file = withHeadSha(file);
+  return ship(['--after', id, '--result-file', file, '--state', statePath || '']);
 }
 
 function seedLedger(name, patch) {
@@ -172,6 +199,7 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     }
     if (scenario === 'resume-twice') { const e = data.steps.find(x => x.name === 'execute'); if (e) e.status = 'completed'; }
     if (scenario === 'review-gate-rows' && result && result.threshold) data.flags.reviewThreshold = result.threshold;
+    if (process.argv.includes('--summary-stale')) { const e = data.steps.find(x => x.name === 'review'); if (e) e.startedAt = new Date().toISOString(); }
     if (scenario === 'emit-in-progress') data.paused = { at: '2026-10-19T12:00:00.000Z', reason: 'fixture' };
     if (scenario === 'worktree-mismatch') data.worktree = path.dirname(projectRoot);
     if (scenario === 'rebase-emit') { data.flags.rebase = 'auto'; data.flags.auto = true; }
@@ -184,6 +212,18 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     }
     if (scenario === 'plan-no-tasks') data.flags.planFile = path.join(projectRoot, 'plan-notasks.md');
   });
+}
+if (summaryRel) {
+  // review-gate: the copy review-sdlc leaves in the main worktree's .sdlc/execution/ (P11).
+  fs.mkdirSync(execDir, { recursive: true });
+  const dest = path.join(execDir, 'review-summary-feat-ship.json');
+  fs.copyFileSync(path.join(repoRoot, 'tests', 'promptfoo', 'fixtures-fs', 'review-summaries', summaryRel), dest);
+  const t = new Date(Date.now() + (process.argv.includes('--summary-stale') ? -3600000 : 60000));
+  fs.utimesSync(dest, t, t);
+}
+if (process.argv.includes('--in-worktree')) {
+  runCwd = path.join(path.dirname(projectRoot), 'wt-' + path.basename(projectRoot));
+  sh(`git worktree add -q -b wt-review "${runCwd}"`);
 }
 const late = process.argv.includes('--late-exec');
 if (execSeed !== 'none' && !late) {
@@ -242,6 +282,9 @@ switch (scenario) {
     // learnings_commit fails (non-fatal) -> forced cleanup is emitted with the ledger kept.
     after('learnings_commit', 'results/commit-fail.json');
     after('cleanup', 'results/cleanup-ok.json');
+    break;
+  case 'after-pr':
+    after('dispatch_pr', resultRel);
     break;
   case 'after-execute':
     after('dispatch_execute', resultRel || 'results/execute-ok.json');

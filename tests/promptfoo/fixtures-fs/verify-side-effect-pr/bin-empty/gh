@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Stub `gh` for the verify-side-effect pr cases: prints nothing (no PR confirmed).
+exit 0

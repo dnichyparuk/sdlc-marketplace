@@ -1,0 +1,1 @@
+{ "schemaVersion": 1, "verdict": "APPROVED WITH NOTES", "counts": { "critical": 0, "high": 0, "medium": 3, "low": 0, "info": 0 }, "dimensions": [ { "name": "code-quality", "status": "ACTIVE", "findings": 3 } ], "commentPath": "/tmp/diff/review-comment.md", "branch": "feat/ship" }

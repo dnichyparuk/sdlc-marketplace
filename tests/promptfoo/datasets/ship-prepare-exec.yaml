@@ -1697,7 +1697,7 @@
 - description: "ship verify-side-effect (R-b3): step without side-effect → no-side-effect pass-through"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
-    script_args: "verify-side-effect --step commit"
+    script_args: "verify-side-effect --step review"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/verify-tag-ancestry"
   assert:
@@ -1705,6 +1705,70 @@
       value: '"landed": true'
     - type: contains
       value: '"reason": "no-side-effect"'
+
+# W4.6: commit (HEAD sha) and pr (gh pr view) side-effects. The commit sha is not deterministic,
+# so a wrapper resolves HEAD of the generated verify-tag-ancestry repo; the pr cases use a stub gh.
+- description: "verify-side-effect: commit with the HEAD sha → landed:true"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-verify-side-effect-commit.js"
+    script_args: ""
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"sideEffect": "head-commit"'
+    - type: contains
+      value: '"landed": true'
+    - type: contains
+      value: '"head":'
+
+- description: "verify-side-effect: commit with a short HEAD sha → landed:true"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-verify-side-effect-commit.js"
+    script_args: "--short"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"landed": true'
+
+- description: "verify-side-effect: commit with an unknown sha → landed:false"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step commit --expected deadbeef"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"landed": false'
+    - type: contains
+      value: '"expected": "deadbeef"'
+
+- description: "verify-side-effect: pr whose URL gh confirms → landed:true"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step pr --expected https://example/pr/1"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin-ok"
+    project_root: "file://fixtures-fs/verify-side-effect-pr"
+  assert:
+    - type: contains
+      value: '"sideEffect": "pr-url"'
+    - type: contains
+      value: '"landed": true'
+
+- description: "verify-side-effect: pr that gh does not confirm → landed:false"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step pr --expected https://example/pr/1"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin-empty"
+    project_root: "file://fixtures-fs/verify-side-effect-pr"
+  assert:
+    - type: contains
+      value: '"landed": false'
+    - type: contains
+      value: '"sideEffect": "pr-url"'
 
 # --- --usage accounting on ship steps (W1.1) ---
 # Driven through run-ship-begin-complete.js (finalUsage = persisted step.usage).
@@ -2003,6 +2067,53 @@
         if (o.ledger.stepStatuses.commit !== 'failed') return `FAIL: commit ${o.ledger.stepStatuses.commit}`;
         return true;
 
+- description: "ship-step: (w46) --after dispatch_commit whose reported commit is not HEAD returns error and records commit failed"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-commit-fail --seed frozen --result results/commit-wrong-sha.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (!/commit "deadbeef" is not HEAD/.test(e.error)) return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.commit !== 'failed') return `FAIL: commit ${o.ledger.stepStatuses.commit}`;
+        return true;
+
+- description: "ship-step: (w46) --after dispatch_pr whose URL gh confirms records pr completed"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-pr --seed frozen --result results/pr-ok.json --gh-pr-url https://example/pr/1"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status === 'error') return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.pr !== 'completed') return `FAIL: pr ${o.ledger.stepStatuses.pr}`;
+        return true;
+
+- description: "ship-step: (w46) --after dispatch_pr whose URL gh cannot confirm returns error and records pr failed"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-pr --seed frozen --result results/pr-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (!/PR "https:\/\/example\/pr\/1" not confirmed by gh/.test(e.error)) return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.pr !== 'failed') return `FAIL: pr ${o.ledger.stepStatuses.pr}`;
+        return true;
+
 - description: "ship-step: (l) --after dispatch_version with a tag missing from git returns error and records version failed"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
@@ -2096,7 +2207,7 @@
 - description: "ship-step: (rf2) the rebase step action tells the model to run git rebase --abort on a conflict, in every mode"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario rebase-emit --seed frozen --result results/review-approved.json"
+    script_args: "--project-root {{project_root}} --scenario rebase-emit --seed frozen --result results/review-approved.json --summary approved-0.json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -2273,7 +2384,7 @@
 - description: "ship-step: (q) review_gate threshold row critical — 1 critical dispatches received-review"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -2290,7 +2401,7 @@
 - description: "ship-step: (q) review_gate threshold row high — 2 high dispatches received-review"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-high.json"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-high.json --summary high-2.json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -2306,7 +2417,7 @@
 - description: "ship-step: (q) review_gate threshold row medium — 1 medium dispatches received-review"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-medium.json"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-medium.json --summary medium-1.json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -2322,7 +2433,7 @@
 - description: "ship-step: (q) review_gate threshold row low — 3 low findings dispatch received-review"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-low.json"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-low.json --summary low-3.json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -2338,7 +2449,7 @@
 - description: "ship-step: (q) review_gate APPROVED verdict does not dispatch received-review"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-approved.json"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-approved.json --summary approved-0.json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -2354,7 +2465,7 @@
 - description: "ship-step: (q) review_gate below-threshold findings (2 medium, threshold high) do not dispatch"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-approved-notes.json"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-approved-notes.json --summary medium-2.json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -2369,7 +2480,7 @@
         if (!(next.progress.skipped || []).includes('rebase')) return `FAIL: rebase skip (flags.rebase=skip) is not recorded in progress.skipped: ${JSON.stringify(next.progress)}`;
         return true;
 
-- description: "ship-step: (q) review_gate unparseable verdict dispatches received-review with a warnings line"
+- description: "ship-step: (q) review_gate missing review summary dispatches received-review with a warnings line"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-unparseable.json --answer generic-ok"
@@ -2381,7 +2492,7 @@
         const o = JSON.parse(output);
         const [gate, next] = o.calls.map(c => c.envelope);
         if (gate.llm_decision !== null) return `FAIL: llm_decision ${JSON.stringify(gate.llm_decision)}`;
-        if (!(gate.ext.warnings || []).some(w => /unparseable/.test(w))) return `FAIL: warnings ${JSON.stringify(gate.ext.warnings)}`;
+        if (!(gate.ext.warnings || []).some(w => /review summary missing or malformed/.test(w))) return `FAIL: warnings ${JSON.stringify(gate.ext.warnings)}`;
         if (next.step.id !== 'confirm_received_review') return `FAIL: next ${next.step.id}`;
         return true;
 
@@ -2690,7 +2801,7 @@
 - description: "ship-step: (cf6) review_gate yes dispatches received-review directly and its prompt names the --auto args"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -2704,7 +2815,7 @@
         if (o.calls.some(c => c.envelope.step && c.envelope.step.id === 'confirm_received_review')) return 'FAIL: confirm_received_review emitted after a review_gate yes';
         return true;
 
-- description: "ship-step: (cf7) unparseable verdict (no review_gate answer) emits confirm_received_review"
+- description: "ship-step: (cf7) missing review summary (no review_gate answer) emits confirm_received_review"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-unparseable.json --answer generic-ok"

@@ -1,0 +1,116 @@
+# W4.5 — `ship.js review-gate` (R6; review-sdlc P11): the review_gate decision is read from
+# review-summary.json. CLI cases use fixtures-fs/review-summaries; the in-process cases drive
+# the review_gate step through run-ship-stepper.js (summary copied to the main worktree's
+# .sdlc/execution/, as review-sdlc leaves it).
+- description: "review-gate: threshold high with 1 high finding dispatches received-review"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "review-gate --summary {{project_root}}/high-1.json --threshold high"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-summaries"
+  assert:
+    - type: contains
+      value: '"dispatchReceivedReview": true'
+    - type: contains
+      value: '"summaryFound": true'
+    - type: contains
+      value: '"verdict": "APPROVED WITH NOTES"'
+
+- description: "review-gate: threshold high with only 3 medium findings does not dispatch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "review-gate --summary {{project_root}}/medium-3.json --threshold high"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-summaries"
+  assert:
+    - type: contains
+      value: '"dispatchReceivedReview": false'
+    - type: contains
+      value: '"medium": 3'
+
+- description: "review-gate: nonexistent summary dispatches received-review and reports summaryFound false"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "review-gate --summary /nonexistent/review-summary.json --threshold high"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-summaries"
+  assert:
+    - type: contains
+      value: '"dispatchReceivedReview": true'
+    - type: contains
+      value: '"summaryFound": false'
+    - type: contains
+      value: 'review summary missing or malformed'
+
+- description: "review-gate: malformed JSON summary dispatches received-review"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "review-gate --summary {{project_root}}/malformed.json --threshold high --auto"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-summaries"
+  assert:
+    - type: contains
+      value: '"dispatchReceivedReview": true'
+    - type: contains
+      value: '"summaryFound": false'
+
+- description: "review-gate: threshold critical with 1 critical finding reports the counts"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "review-gate --summary {{project_root}}/critical-1.json --threshold critical"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-summaries"
+  assert:
+    - type: contains
+      value: '"dispatchReceivedReview": true'
+    - type: contains
+      value: '"critical": 1'
+
+# In-process review_gate step: the summary sits under the main worktree while ship runs from a
+# linked worktree (ruling w3-plan W4.5-R3: same state-dir resolution as review.js's summary_copy_path).
+- description: "review-gate: worktree-style root — summary under the main worktree is found from a linked worktree"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-high.json --summary high-1.json --in-worktree"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const gate = o.calls[o.calls.length - 2].envelope;
+        if (gate.step.id !== 'review_gate') return `FAIL: gate ${JSON.stringify(gate)}`;
+        if (gate.step.data.summaryFound !== true || gate.step.data.dispatchReceivedReview !== true) return `FAIL: data ${JSON.stringify(gate.step.data)}`;
+        return true;
+
+- description: "review-gate: stale summary (older than the review step) counts as missing and dispatches with a warning"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-medium.json --summary medium-3.json --summary-stale"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const gate = o.calls[0].envelope;
+        if (gate.step.id !== 'review_gate') return `FAIL: gate ${JSON.stringify(gate)}`;
+        if (gate.step.data.summaryFound !== false || gate.step.data.dispatchReceivedReview !== true) return `FAIL: data ${JSON.stringify(gate.step.data)}`;
+        if (!(gate.ext.warnings || []).some(w => /review summary missing or malformed/.test(w))) return `FAIL: warnings ${JSON.stringify(gate.ext.warnings)}`;
+        return true;
+
+- description: "review-gate: missing summary file dispatches with a warning and no interactive prompt"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-approved.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [gate, next] = o.calls.map(c => c.envelope);
+        if (gate.step.data.summaryFound !== false || gate.step.data.dispatchReceivedReview !== true) return `FAIL: data ${JSON.stringify(gate.step.data)}`;
+        if (gate.llm_decision !== null) return `FAIL: llm_decision ${JSON.stringify(gate.llm_decision)}`;
+        if (!(gate.ext.warnings || []).some(w => /review summary missing or malformed/.test(w))) return `FAIL: warnings ${JSON.stringify(gate.ext.warnings)}`;
+        return true;

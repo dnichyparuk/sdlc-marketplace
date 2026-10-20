@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Stub `gh` for the verify-side-effect pr cases: `gh pr view <url> --json url,state` reports an open PR.
+if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
+  echo "{\"url\":\"$3\",\"state\":\"OPEN\"}"
+  exit 0
+fi
+exit 1

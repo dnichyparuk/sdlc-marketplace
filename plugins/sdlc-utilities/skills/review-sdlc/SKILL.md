@@ -104,6 +104,8 @@ counts and is insufficient.
 2. Parse the summary to extract:
 
    - `comment_file` — absolute path to `${diff_dir}/review-comment.md`
+   - `summary_file` — absolute path to `${diff_dir}/review-summary.json`
+   - `summary_copy_path` — absolute path where the summary is kept for ship-sdlc (the `Summary copy path:` line)
    - `pr.exists` (boolean), `pr.owner`, `pr.repo`, `pr.number`
    - `verdict` — one of `CHANGES REQUESTED`, `APPROVED WITH NOTES`, `APPROVED`
    - `scope` — scope label from the summary
@@ -231,9 +233,11 @@ If verdict is **APPROVED**: skip — nothing to fix.
 
 ## Step 6 — Cleanup
 
-The diff directory is removed here:
+The diff directory is removed here. First copy the review summary to its
+`summary_copy_path` so ship-sdlc can read it after the cleanup (P11):
 
 ```bash
+mkdir -p "$(dirname "{summary_copy_path}")" && cp "{summary_file}" "{summary_copy_path}"
 rm -rf "{diff_dir}"
 ```
 

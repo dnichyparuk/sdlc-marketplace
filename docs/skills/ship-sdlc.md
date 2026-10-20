@@ -245,8 +245,9 @@ records start and completion in the state file. The result's `success` reports w
 dispatched agent returned; for the `version` step this is cross-checked
 against the actual repository state via `verify-side-effect` before the
 step is recorded as completed (R-b3), so a step cannot be marked done on
-a false self-report. Other steps record the agent's reported outcome
-without an independent side-effect check (R-b2):
+a false self-report. `commit`, `commit-fixes` and `pr` are cross-checked the
+same way (git HEAD; `gh pr view`). Other steps record the agent's reported
+outcome without an independent side-effect check (R-b2):
 
 - **commit** — stash unstaged, generate message, commit, restore stash
 - **review** — dispatch review dimensions, collect verdicts
