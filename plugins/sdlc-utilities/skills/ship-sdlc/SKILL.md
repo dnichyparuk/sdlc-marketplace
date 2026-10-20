@@ -188,7 +188,7 @@ The pipeline table is generated from the `steps` array in the `skill/ship.js` ou
 
 | Step | Skill | Status | Args | Pause |
 |------|-------|--------|------|-------|
-| 1 | execute-plan-sdlc | will_run | `--plan "<path>"` (from `context.planFile`, R-PLANFILE), plus `--quality <X>` if user passed `--quality` to ship | no |
+| 1 | execute-plan-sdlc | will_run | `--plan "<path>"` (from `context.planFile`, R-PLANFILE), plus `--quality <X>` from `--quality` or, in interactive runs, the `execute_tier` answer | no |
 | 2 | commit-sdlc | will_run | `--auto` | no |
 | 3 | review-sdlc | will_run | `--committed` | no |
 | 4 | received-review-sdlc | conditional | (if crit/high) | YES |
@@ -205,12 +205,12 @@ Not all sub-skills support `--auto`. This table is the source of truth:
 
 | Sub-skill | --auto support | Behavior when ship runs with --auto |
 |-----------|---------------|--------------------------------------|
-| execute-plan-sdlc | Yes | `--auto` forwarded so the plan-hash mismatch branch is non-interactive. Forwards `--quality <X>` only when the user explicitly passed `--quality` to ship; otherwise no quality flag is forwarded and execute-plan-sdlc applies its own selection logic. (Renamed from `--preset` in #190 to disambiguate from ship's step-selection semantics.) |
-| commit-sdlc | Yes | `--auto` forwarded. Skips commit approval prompt. |
+| execute-plan-sdlc | Yes | `--auto` forwarded only when ship runs with `--auto` (`--quality` then required). In interactive runs ship asks the tier (`execute_tier`) and about an existing execute state file (`execute_state`) before dispatch; a high-risk question comes back as a pending question (`execute_gate`). (Renamed from `--preset` in #190 to disambiguate from ship's step-selection semantics.) |
+| commit-sdlc | Yes | `--auto` always forwarded. Skips commit approval prompt; interactive runs ask `confirm_commit` / `confirm_commit_fixes` first. |
 | review-sdlc | No | No interactive prompts to skip — runs fully automatically already. |
-| received-review-sdlc | Yes | `--auto` forwarded. Skips Step 10 consent prompt and Step 12 reply/resolve prompt. Critique gates and verification still run. Only "will fix" items auto-implemented; threads for "will fix" items auto-resolved. |
-| version-sdlc | Yes | `--auto` forwarded. Skips release plan approval prompt. Pre-condition checks and critique gates still run. |
-| pr-sdlc | Yes | `--auto` forwarded. Skips PR approval prompt. |
+| received-review-sdlc | Yes | `--auto` always forwarded. Skips Step 10 consent prompt and Step 12 reply/resolve prompt; interactive consent is `review_gate` (or `confirm_received_review` when `review_gate` did not ask). Critique gates and verification still run. Only "will fix" items auto-implemented; threads for "will fix" items auto-resolved. |
+| version-sdlc | Yes | `--auto` always forwarded. Skips release plan approval prompt; interactive runs ask `confirm_version` first. Pre-condition checks and critique gates still run. |
+| pr-sdlc | Yes | `--auto` always forwarded. Skips PR approval prompt; interactive runs ask `confirm_pr` first. |
 
 ---
 
@@ -261,13 +261,14 @@ Dispatch every `will_run` step as computed by `ship.js`, even when the change lo
 Running a step and the `--after` call that records it are one uninterrupted sequence; do not end the turn between them (the Stop hook blocks such turns).
 
 1. `ENVELOPE_FILE` is the prepare output from Step 1 (first call). Loop:
-2. Parse `$ENVELOPE_FILE`. If `ext.todos` is present, call `TodoWrite` with `ext.todos.todos` and echo `ext.todos.marker`. Then: If `status === "done"`: `ext.reason` `edit` → the Step 4 edit path (re-run Step 1c; `ship.js` has deleted the ledger when no step had run, otherwise it is kept); `cancel`, `paused` or `dry-run` → stop and print the reason; anything else → Step 6 with `ext.summary`. If `status === "error"` → print `error`, stop (state is preserved for `--resume`).
+2. Parse `$ENVELOPE_FILE`. If `ext.todos` is present, call `TodoWrite` with `ext.todos.todos` and echo `ext.todos.marker`. Then: If `status === "done"`: `ext.reason` `edit` → the Step 4 edit path (re-run Step 1c; `ship.js` has deleted the ledger when no step had run, otherwise it is kept); `cancel`, `paused` or `dry-run` → stop and print the reason; `pending-question` → print `ext.pendingQuestion.prompt` with its options, then each line of `ext.commands` in order, and stop; anything else → Step 6 with `ext.summary`. If `status === "error"` → print `error`, stop (state is preserved for `--resume`).
 3. Print `step.action`. If `step.data.todos` is present, call `TodoWrite` with it and echo `step.data.marker`.
 4. If `llm_decision` is non-null: resolve it — ask the user with `AskUserQuestion` using `prompt`/`options` (never in `--auto`; the script sets it to null there) — and put the answer in `output.answer`.
 5. Execute by `step.id` family:
-   - `dispatch_*`: `Agent(subagent_type: "general-purpose", model: step.data.model, prompt: "<step.data.invocation>\nBranch: <branch>\nPrior results: <one line>\nInvoke the skill with the Skill tool and return a structured result:\n(1) status — success or failure\n(2) result summary — 2-3 lines\n(3) artifacts — commit hash, tag, PR URL, verdict, etc.\n(4) any warnings or issues encountered\n\nThe arguments above decide whether this run is unattended. With `--auto`, follow the skill's `--auto` rules and do not ask the user anything. Without `--auto`, keep every approval prompt the skill defines; if you cannot ask the user, stop before the gated action and return status failure with the pending question in (4). Before reporting success on a step that edited source files, run the project's real check (tests, type-check or build) and include its result in (2).")`, adding `effort: step.data.effort` only when `step.data.effort` is present (likewise `isolation: step.data.isolation`, R-agent-isolation-script-driven). Take `(1)–(4)` from the return into `output` and the token counts the Agent return reports into `output.usage` (`{"source":"unavailable"}` when the harness exposes none; never estimate). (R-subagent-brief)
+   - `dispatch_*`: `Agent(subagent_type: step.data.agent, prompt: "<step.data.invocation>\nBranch: <branch>\nPrior results: <one line>")`, adding `isolation: step.data.isolation` only when it is present (R-agent-isolation-script-driven). The agent file preloads the skill, pins its model, and carries the unattended brief and the return items (R-subagent-brief). Take `(1)–(4)` from the return into `output` and the token counts the Agent return reports into `output.usage` (`{"source":"unavailable"}` when the harness exposes none; never estimate). When (1) is failure and (4) names a question the sub-skill could not ask, set `output.pendingQuestion` to `{"prompt": "<the question>", "options": ["<option keyword>", …]}` using the option keywords the sub-skill listed.
    - `stage_changes`, `rebase`, `verify_version_tag`, `verify_openspec`, `archive_openspec`, `verify_pipeline`, `await_remote_review`, `learnings_commit`, `cleanup`: run each command in `step.data.commands` with Bash, in order; `success` = every command exited 0; capture the command's JSON stdout into `output`. For `verify_openspec` and `archive_openspec` (empty `commands`) the reference.md section is the procedure: run it and report its outcome as `success`/`output`. Report `success: false` when the procedure halts the pipeline (`archive_openspec` validation failure or abort, `verify_pipeline` abort): `ship.js` then returns `status: "error"`; `learnings_commit`, `verify_openspec` and `await_remote_review` never halt.
    - `branch_prepare`: run `step.data.commands`, then continue.
+   - decision steps (`confirm_*`, `execute_tier`, `execute_state`, `execute_gate`, `execute_handoff`): nothing to run; the answer from item 4 is the result (`success: true`, `output.answer`).
 6. Run `mktemp` and note the printed path; write `{step_id, success, output, error}` to that path with the Write tool (no shell quoting of agent text), then run `node "<PLUGIN_ROOT>/scripts/skill/ship.js" --after <step.id> --result-file <tmp> --state <state_file>`; set `ENVELOPE_FILE` to the path it prints (the path is printed also when the exit code is non-zero; a non-zero exit is handled like `status: "error"` in item 2); `rm -f <tmp>`; go to 2.
 
 Judgment sections (read only when the step id matches): `review_gate` interactive choice (defer = collect findings for the summary); `rebase_conflict` (the `rebase` step already ran `git rebase --abort`; pause → stop with state; skip → continue to version; merge → run `git merge origin/<default>`, on conflict abort and pause); `verify_openspec`, `archive_openspec`, `verify_pipeline`, `await_remote_review`, `learnings_commit`: read the matching section of `./reference.md` (archive_openspec prompts: texts in W4.4).
@@ -332,7 +333,7 @@ Step  Skill                 Result
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Decisions log:
-  - Steps resolved: [execute, commit, review, archive-openspec, pr] (from config default; --quality not forwarded to execute-plan-sdlc — user did not pass --quality)
+  - Steps resolved: [execute, commit, review, archive-openspec, pr] (from config default; --quality balanced forwarded to execute-plan-sdlc — chosen at execute_tier)
   - Version step skipped (from config default, bump type: patch)
   - Review found 2 medium issues — below threshold, deferred
   - PR created as draft (from --draft flag)
@@ -344,6 +345,8 @@ Deferred review findings (2 medium):
 
 State file cleaned up: .sdlc/execution/ship-<branch>-<epoch>.json deleted
 ```
+
+An `execute` row whose summary entry has `source: "user-attested"` is reported as `[done] finished outside the pipeline (user-attested)`.
 
 If OpenSpec was detected in Step 1f and the `verify-openspec` step ran, append the verdict result:
   `→ OpenSpec verify: <satisfied|unsatisfied> — <summary>`

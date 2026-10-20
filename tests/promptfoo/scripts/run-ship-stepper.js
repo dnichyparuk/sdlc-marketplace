@@ -18,18 +18,25 @@
  *                        step-list-equal | branch-migrate | resumed-completed |
  *                        emit-in-progress | review-gate-rows | ttl-days |
  *                        worktree-mismatch | after-execute | plan-no-tasks | after-commit-fail-gc |
- *                        rebase-emit | inline-fail-<step-with-dashes> | forced-cleanup
+ *                        rebase-emit | inline-fail-<step-with-dashes> | forced-cleanup |
+ *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
- *   --seed <name>        legacy | frozen | frozen-dryrun | frozen-branch | frozen-resumed | frozen-exec | none
+ *   --seed <name>        legacy | frozen | frozen-dryrun | frozen-branch | frozen-resumed | frozen-exec | frozen-pending | none
  *                        (copies seed/ledger-<name>.json to .sdlc/execution/ship-<slug>-<ts>.json)
  *   --exec-seed <name>   complete | missing | noplanned | none
  *                        (copies seed/execute-<name>.json to .sdlc/execution/execute-feat-ship-<ts>.json)
- *   --answer <a>         yes | edit | cancel — answer file used for confirm_pipeline/review_gate
+ *   --answer <a>         yes | edit | cancel | skip — answer file used for confirm_pipeline/review_gate/confirm_*
+ *   --quality <q>        Patch data.flags.quality into the seed
+ *   --again              Rerun `--after confirm_pipeline` (yes) at the end of the scenario
+ *   --commit             (pending) seed commit in_progress
+ *   --late-exec          (handoff) copy the execute seed after the first call
+ *   --auto-seed          Patch data.flags.auto = true into the seed (any scenario)
+ *   --walk               (handoff) walk the remaining steps to cleanup
  *
  * Output JSON (one line):
- *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles }
- *   ledger = { stepStatuses, history, currentStep, flagsKeys, flags, paused } | null
+ *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, otherFiles }
+ *   ledger = { stepStatuses, history, stepReasons, currentStep, flagsKeys, flags, paused } | null
  */
 
 'use strict';
@@ -46,6 +53,7 @@ let resultRel = null;
 let seed = 'none';
 let answer = 'yes';
 let execSeed = 'none';
+let quality = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
@@ -55,6 +63,7 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--seed' && args[i + 1]) seed = args[++i];
   else if (args[i] === '--answer' && args[i + 1]) answer = args[++i];
   else if (args[i] === '--exec-seed' && args[i + 1]) execSeed = args[++i];
+  else if (args[i] === '--quality' && args[i + 1]) quality = args[++i];
 }
 
 // Locate repo root with skill/ship.js.
@@ -140,13 +149,27 @@ function walk(env0) {
   let envelope = env0;
   for (let i = 0; i < 12 && envelope && envelope.status === 'step'; i++) {
     const id = envelope.step.id;
-    envelope = after(id, ['confirm_pipeline', 'review_gate'].includes(id) ? `results/${answer}.json` : 'results/generic-ok.json');
+    const decision = id === 'confirm_pipeline' || id === 'review_gate' || id.startsWith('confirm_');
+    envelope = after(id, id === 'execute_tier' ? 'results/tier-balanced.json' : decision ? `results/${answer}.json` : 'results/generic-ok.json');
   }
 }
 
 if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-days'].includes(scenario)) {
   const result = resultRel ? readJson(path.join(projectRoot, resultRel)) : null;
   seedLedger(seed, (data) => {
+    if (quality) data.flags.quality = quality;
+    if (scenario === 'pending' && process.argv.includes('--commit')) { const e = data.steps.find(x => x.name === 'commit'); if (e) e.status = 'in_progress'; }
+    if (process.argv.includes('--auto-seed')) data.flags.auto = true; // any scenario (v3, eh6)
+    if (scenario === 'handoff' && process.argv.includes('--walk')) { data.flags.steps = ['execute']; for (const s of data.steps) if (s.name !== 'execute' && s.status === 'pending') s.status = 'skipped'; }
+    if (scenario === 'emit-in-progress') data.flags.auto = true;
+    if (scenario === 'confirm-pr') {
+      for (const nm of ['verify-pipeline', 'await-remote-review']) {
+        if (!data.flags.steps.includes(nm)) data.flags.steps.push(nm);
+        const x = data.steps.find(s => s.name === nm); if (x) { x.status = 'pending'; delete x.reason; } else data.steps.push({ name: nm, status: 'pending' });
+      }
+      for (const nm of ['execute', 'commit', 'review', 'version']) { const e = data.steps.find(x => x.name === nm); if (e) e.status = 'completed'; }
+    }
+    if (scenario === 'resume-twice') { const e = data.steps.find(x => x.name === 'execute'); if (e) e.status = 'completed'; }
     if (scenario === 'review-gate-rows' && result && result.threshold) data.flags.reviewThreshold = result.threshold;
     if (scenario === 'emit-in-progress') data.paused = { at: '2026-10-19T12:00:00.000Z', reason: 'fixture' };
     if (scenario === 'worktree-mismatch') data.worktree = path.dirname(projectRoot);
@@ -161,7 +184,8 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     if (scenario === 'plan-no-tasks') data.flags.planFile = path.join(projectRoot, 'plan-notasks.md');
   });
 }
-if (execSeed !== 'none') {
+const late = process.argv.includes('--late-exec');
+if (execSeed !== 'none' && !late) {
   fs.mkdirSync(execDir, { recursive: true });
   fs.copyFileSync(path.join(projectRoot, 'seed', `execute-${execSeed}.json`), path.join(execDir, `execute-feat-ship-${SEED_TS}.json`));
 }
@@ -266,6 +290,54 @@ switch (scenario) {
     initial(['--dry-run']);
     initial();
     break;
+  case 'after-stage': {
+    const c = after('stage_changes', 'results/generic-ok.json');
+    if (c.status === 'step' && c.step.id.startsWith('confirm_')) after(c.step.id, `results/${answer}.json`);
+    break;
+  }
+  case 'tier': {
+    const c = after('confirm_pipeline', 'results/yes.json');
+    if (c.status === 'step' && c.step.id === 'execute_tier') after('execute_tier', resultRel || 'results/tier-balanced.json');
+    if (process.argv.includes('--again')) after('confirm_pipeline', 'results/yes.json');
+    break;
+  }
+  case 'exec-state': {
+    const c = after('confirm_pipeline', 'results/yes.json');
+    if (c.status === 'step' && c.step.id === 'execute_state') after('execute_state', resultRel);
+    if (process.argv.includes('--again')) after('confirm_pipeline', 'results/yes.json');
+    break;
+  }
+  case 'pending': {
+    // --result: the dispatch result; --answer: the execute_gate answer file name, or none
+    const c = after(process.argv.includes('--commit') ? 'dispatch_commit' : 'dispatch_execute', resultRel);
+    if (c.status === 'step' && c.step.id === 'execute_gate' && answer !== 'none') after('execute_gate', `results/${answer}.json`);
+    break;
+  }
+  case 'handoff': {
+    const c = after('confirm_pipeline', 'results/yes.json');
+    if (late && execSeed !== 'none') {
+      fs.mkdirSync(execDir, { recursive: true });
+      fs.copyFileSync(path.join(projectRoot, 'seed', `execute-${execSeed}.json`), path.join(execDir, `execute-feat-ship-${SEED_TS}.json`));
+    }
+    if (c.status === 'step' && c.step.id === 'execute_handoff' && resultRel) after('execute_handoff', resultRel);
+    if (process.argv.includes('--again')) after('confirm_pipeline', 'results/yes.json');
+    if (process.argv.includes('--walk')) walk(calls[calls.length - 1].envelope);
+    break;
+  }
+  case 'confirm-pr':
+    after('archive_openspec', 'results/generic-ok.json');
+    if (calls[calls.length - 1].envelope.step && calls[calls.length - 1].envelope.step.id === 'confirm_pr') after('confirm_pr', `results/${answer}.json`);
+    break;
+  case 'auto-walk':
+    clearLedgers();
+    initial(['--steps', 'commit,review', '--auto']);
+    walk(after('confirm_pipeline', 'results/yes.json'));
+    break;
+  case 'resume-twice':
+    after('stage_changes', 'results/generic-ok.json');
+    after('confirm_commit', 'results/cancel.json');
+    after('confirm_pipeline', 'results/yes.json');
+    break;
   default:
     if (scenario.startsWith('inline-fail-')) {
       after(scenario.slice('inline-fail-'.length).replace(/-/g, '_'), resultRel || 'results/commit-fail.json');
@@ -283,7 +355,8 @@ const data = finalPath ? readJson(finalPath) : null;
 if (data) {
   ledger = {
     stepStatuses: Object.fromEntries((data.steps || []).map(s => [s.name, s.status])),
-    history: (data.history || []).map(h => ({ step: h.step, result: h.result })),
+    history: (data.history || []).map(h => ({ step: h.step, result: h.result, source: h.data && h.data.source })),
+    stepReasons: Object.fromEntries((data.steps || []).filter(s => s.reason).map(s => [s.name, s.reason])),
     currentStep: data.currentStep === undefined ? null : data.currentStep,
     flagsKeys: Object.keys(data.flags || {}),
     flags: data.flags || {},
@@ -310,6 +383,8 @@ console.log(JSON.stringify({
   ledger,
   ledgerExists: Boolean(data),
   ledgerFiles: ledgerFiles(),
+  execFiles: (() => { try { return fs.readdirSync(execDir).filter(f => /^execute-/.test(f)); } catch (_) { return []; } })(),
+  otherFiles: (() => { try { return fs.readdirSync(execDir).filter(f => !/^execute-/.test(f)); } catch (_) { return []; } })(),
   summarySidecars: (() => { try { return fs.readdirSync(execDir).filter(f => f.startsWith('.summary-')); } catch (_) { return []; } })(),
   commandScripts,
   stopCapExists: fs.existsSync(path.join(execDir, '.stop-cap-exhausted-feat-ship.json')),

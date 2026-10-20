@@ -85,6 +85,8 @@ frozen_ledger false pending pending > seed/ledger-frozen.json
 frozen_ledger true pending pending > seed/ledger-frozen-dryrun.json
 frozen_ledger false completed completed > seed/ledger-frozen-resumed.json
 frozen_ledger false in_progress pending > seed/ledger-frozen-exec.json
+# execute in_progress after a pending question from dispatch_execute (cases eh1-eh7).
+frozen_ledger false in_progress pending | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);j.history=[{step:"dispatch_execute",result:"failed",data:{summary:"stopped before a high-risk wave",pendingQuestion:{prompt:"Wave 1 contains high-risk task(s): Task 2. Approve execution?",options:["yes","skip","cancel"]}},timestamp:"2026-10-19T12:00:00.000Z"}];process.stdout.write(JSON.stringify(j,null,2))})' > seed/ledger-frozen-pending.json
 
 # Execute state files (cases t-v): the wrapper copies seed/execute-<name>.json to
 # .sdlc/execution/execute-feat-ship-20261019T120000Z.json, where
@@ -168,6 +170,11 @@ EOF
 echo '{"success":true,"output":{"answer":"yes","summary":"confirmed"}}' > results/yes.json
 echo '{"success":true,"output":{"answer":"edit","summary":"edit requested"}}' > results/edit.json
 echo '{"success":true,"output":{"answer":"cancel","summary":"cancelled"}}' > results/cancel.json
+echo '{"success":true,"output":{"answer":"skip","summary":"skip"}}' > results/skip.json
+echo '{"success":true,"output":{"answer":"balanced","summary":"balanced"}}' > results/tier-balanced.json
+echo '{"success":true,"output":{"answer":"fast","summary":"fast"}}' > results/tier-bad.json
+echo '{"success":true,"output":{"answer":"resume","summary":"resume"}}' > results/resume.json
+echo '{"success":true,"output":{"answer":"restart","summary":"restart"}}' > results/restart.json
 echo '{"success":true,"output":{"summary":"ok","usage":{"inputTokens":10,"outputTokens":5,"model":"haiku"}}}' > results/generic-ok.json
 echo '{"success":true,"output":{"summary":"branch created","artifacts":{"branch":"feat/add-widget-support"}}}' > results/branch-prepare-ok.json
 echo '{"success":true,"output":{"summary":"committed abc1234","usage":{"inputTokens":120,"outputTokens":40,"model":"haiku"}}}' > results/commit-ok.json
@@ -175,6 +182,14 @@ echo '{"success":false,"output":{"summary":"pre-commit hook failed"}}' > results
 echo '{"success":true,"output":{"summary":"released v9.9.9","artifacts":{"tag":"v9.9.9"}}}' > results/version-tag-missing.json
 echo '{"success":true,"output":{"summary":"pipeline cleaned up"}}' > results/cleanup-ok.json
 echo '{"success":true,"output":{"summary":"2 tasks done","usage":{"inputTokens":900,"outputTokens":300,"model":"opus"}}}' > results/execute-ok.json
+# Pending questions and their answers (cases pq1-pq6, eh1-eh7).
+echo '{"success":false,"output":{"summary":"stopped before a high-risk wave","pendingQuestion":{"prompt":"Wave 1 contains high-risk task(s): Task 2. Approve execution?","options":["yes","skip","cancel"]}}}' > results/execute-pending-highrisk.json
+echo '{"success":false,"output":{"summary":"guardrail violation","pendingQuestion":{"prompt":"Wave 2 would violate guardrail no-scope-creep. Override?","options":["override","harden","cancel"]}}}' > results/execute-pending-guardrail.json
+echo '{"success":false,"output":{"summary":"needs approval","pendingQuestion":{"prompt":"Approve the commit message?","options":["approve","edit","cancel"]}}}' > results/commit-pending.json
+echo '{"success":true,"output":{"answer":"yes — approve this and all remaining high-risk tasks in this run","summary":"approved"}}' > results/gate-yes.json
+echo '{"success":true,"output":{"answer":"stop — continue in execute-plan-sdlc directly","summary":"stop"}}' > results/gate-stop.json
+echo '{"success":true,"output":{"answer":"finished","summary":"finished"}}' > results/handoff-finished.json
+echo '{"success":true,"output":{"answer":"not finished","summary":"not finished"}}' > results/handoff-not-finished.json
 
 # Review verdicts: one file per R6 threshold-table row (`threshold` is read by the
 # wrapper and written into the seeded ledger's flags.reviewThreshold), plus

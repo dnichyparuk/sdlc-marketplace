@@ -19,6 +19,7 @@ Same as real doc.
 | Agent | Model | Rationale |
 |---|---|---|
 | example-agent | haiku | Fixture row |
+| ship-step-example | sonnet | Fixture row |
 
 ## 5. Dispatch-Site Overrides
 
