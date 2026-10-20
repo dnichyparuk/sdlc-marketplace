@@ -867,6 +867,7 @@ To keep the resident context footprint of the loaded skill small, `ship-sdlc/SKI
 | `reference.md` | A pipeline-level failure, the Learning Capture step, or an edge-case lookup | Error Recovery, DO NOT, Gotchas, and Learning Capture reference material. |
 | `config-format.md` | `--init-config` walkthrough | Config schema and walkthrough questions. |
 | `state-format.md` | Resume from a saved state file | Ship state-file schema. |
+| `openspec-steps.md` | `verify_openspec` or `archive_openspec` is the current step | The two OpenSpec step procedures: the `openspec-step.js` commands, the archive prompts and the answer-to-decision mapping. |
 
 The post-version ancestry HARD GATE stays inline in SKILL.md (it must not be gated behind an on-demand Read). There is no cwd-assertion diagnostic — workspace is auto-detected (R60), so running from any cwd or branch is valid.
 

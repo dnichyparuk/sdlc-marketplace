@@ -270,7 +270,7 @@ Deterministic checks performed by `plugins/sdlc-utilities/scripts/ci/validate-pl
 - I1: `skill/plan.js` — context detection (OpenSpec, guardrails, branch matching)
 - I2: `execute-plan-sdlc` — consumes the plan this skill produces
 - I3: `ship-sdlc` — can invoke execute-plan-sdlc with this plan
-- I4: OpenSpec — optional spec-driven planning via `--spec` or `--from-openspec`
+- I4: OpenSpec — optional spec-driven planning via `--spec` or `--from-openspec`; the Step 0 OpenSpec block reads the project's OpenSpec state (`detected`, `changeName`, `matchedBy`, `activeChanges`) from `scripts/skill/openspec-step.js detect`
 - I5: Plan reviewer subagent — cross-model review for plans with 5+ tasks
 - I6: ExitPlanMode — called at handoff when plan mode is active
 - I7: plan-sdlc writes `<!-- ref:<ref> -->` HTML comments to source tasks.md exactly once per line (idempotent, additive). The Markdown rendering of tasks.md is unchanged (HTML comments are invisible).
