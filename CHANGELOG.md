@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-20
+
+### Changed
+- feat: new `scripts/skill/openspec-step.js` (`detect`, `flip`, `validate`, `archive`) owns every OpenSpec action of the pipeline, one JSON line each; ship-sdlc emits real commands for `verify_openspec` and `archive_openspec` and asks the archive question through `llm_decision`, and the model reads the procedure from the new `skills/ship-sdlc/openspec-steps.md` only when one of those steps is current (`reference.md` no longer carries OpenSpec text)
+- feat: execute-plan-sdlc flips OpenSpec checkboxes through `openspec-step.js flip`, plan-sdlc reads detection through `openspec-step.js detect`, and `pr.js` reports an `openspec` field (`detected`, `changeName`, `proposalPath`, `designPath`) that pr-sdlc uses instead of Glob calls
+- docs: `docs/specs/pr-sdlc.md` is restructured into the ten contract sections (history in the appendix, ids unchanged); the ship, execute and plan specs and the ship skill page describe the OpenSpec script
+- tests: new `openspec-step-exec.yaml` (18 cases) plus ten `ship-step` and two `pr-prepare` cases (#9006)
+
 ## [0.28.0] - 2026-10-20
 
 ### Changed
