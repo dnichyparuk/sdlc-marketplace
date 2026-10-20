@@ -47,17 +47,39 @@ One row per agent in `plugins/sdlc-utilities/agents/`.
 | harden-orchestrator | haiku | low | Manifest → JSON |
 | plan-explore-orchestrator | sonnet | - | Fans out discovery subagents and critiques findings |
 | review-orchestrator | sonnet | - | Cross-dimension critique + dedup reasoning; dimension subagents use per-dimension `model:` |
+| ship-step-execute | opus | high | Runs execute-plan-sdlc for ship; plan execution and recovery need the strongest tier |
+| ship-step-commit | haiku | low | Runs commit-sdlc for ship (also commit-fixes); mechanical, message drafting goes to commit-orchestrator |
+| ship-step-review | sonnet | medium | Runs review-sdlc for ship; dimension agents carry their own models |
+| ship-step-received-review | sonnet | medium | Runs received-review-sdlc for ship; triage and fixes at today's ship tier |
+| ship-step-version | sonnet | low | Runs version-sdlc for ship; scripted release steps with verification gates |
+| ship-step-pr | sonnet | low | Runs pr-sdlc for ship; description drafting from a prepared context |
 
 ## 5. Dispatch-Site Overrides
 
 Files where per-call `model:` is computed at runtime and **wins over frontmatter**:
 
-- `plugins/sdlc-utilities/scripts/skill/ship.js` — passes per-step `model:` for each pipeline phase.
+- `plugins/sdlc-utilities/scripts/skill/ship.js` — reads `model`/`effort` from `agents/ship-step-*.md`.
 - `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` — per-task `model:` is chosen from task complexity (Trivial → haiku, Standard → sonnet, Complex → opus) by the executor. A prepare-script subcommand may replace this later (W5.2); update this line when it exists.
 - `plugins/sdlc-utilities/scripts/skill/review.js` — passes per-dimension `model:` resolved from each dimension file's own frontmatter.
 - `plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md` — cross-model plan-reviewer rule (sonnet reviews opus-authored plans, and vice versa) at 5+ tasks.
 
-When ship-sdlc invokes a sub-skill, the sub-skill's frontmatter `model:` is shadowed by the per-step value computed in `ship.js`. Consumers should not assume frontmatter applies inside a pipeline.
+When ship-sdlc dispatches a sub-skill, the sub-skill runs inside its `ship-step-*` agent: the agent file's `model:` and `effort:` apply, not the sub-skill's frontmatter. Consumers should not assume the sub-skill's frontmatter applies inside a pipeline.
+
+### Ship per-step dispatch
+
+Spike S1 (§7) answered NO: a forked sub-skill cannot ask the user. So ship asks in the main context before each dispatch, and the forked sub-skill runs with `--auto`. Content previews (commit message, changelog draft, PR body, received-review plan) are not shown in interactive mode under S1 = NO.
+
+| Step | Agent | Main-context decision before dispatch (interactive only) | Arguments ship adds |
+|---|---|---|---|
+| execute | ship-step-execute | `execute_handoff` (resume after a stop), `execute_state` (state file found), `execute_tier` (no `--quality`); `execute_gate` after a high-risk pending question | `--quality <tier>`; `--resume`; `--resume --auto` after `execute_gate` yes |
+| commit | ship-step-commit | `confirm_commit` | `--auto` |
+| review | ship-step-review | none | `--committed` |
+| received-review | ship-step-received-review | `review_gate` (`confirm_received_review` when `review_gate` did not ask) | `--auto` |
+| commit-fixes | ship-step-commit | `confirm_commit_fixes` | `--auto` |
+| version | ship-step-version | `confirm_version` | `--bump <type> --auto` |
+| pr | ship-step-pr | `confirm_pr` | `--auto` |
+
+A question a sub-skill still cannot ask comes back as `output.pendingQuestion`. Ship carries a high-risk `yes` back to execute; for any other answer it stops with the state kept and prints the commands to continue.
 
 ### Execute quality presets
 
