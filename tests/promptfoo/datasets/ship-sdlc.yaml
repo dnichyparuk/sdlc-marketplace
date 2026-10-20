@@ -705,20 +705,20 @@
     skill_path: "plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md"
     project_context: "file://fixtures/ship-pipeline-ready.md"
     user_request: >
-      The prepare script output includes a `commit-sdlc` step with `dispatchMode: 'agent'`,
-      `model: 'haiku'`, `isolation: null`, and `status: 'will_run'`. Walk through what
+      The step envelope is a `dispatch_commit` step whose data has `agent: 'sdlc:ship-step-commit'`,
+      `model: 'haiku'`, `effort: 'low'`, `isolation: null`, and `status: 'will_run'`. Walk through what
       ship-sdlc does in Step 5 for this step, citing the `dispatch_*` family rule (Step 5 item 5).
   assert:
     - type: regex
       value: "(Agent|agent)"
     - type: icontains
-      value: "model"
+      value: "sdlc:ship-step-commit"
     - type: llm-rubric
       value: >
         ship-sdlc Step 5 dispatches the commit-sdlc step as an Agent (Agent tool)
-        with model: step.model ('haiku') and no isolation parameter (since
-        step.isolation is null). The response cites dispatchMode === 'agent' as
-        the reason. It does NOT use the Skill tool for this step.
+        with subagent_type: step.data.agent ('sdlc:ship-step-commit'), no model or
+        effort parameter (the agent file pins them) and no isolation parameter (since
+        step.data.isolation is null). It does NOT use the Skill tool for this step.
 
 - description: "ship-sdlc (issue #366): execute resume path uses Agent tool with --resume arg"
   vars:
@@ -740,6 +740,43 @@
         with args from step.data.invocation plus '--resume'. The response cites
         dispatchMode === 'agent' as the dispatch channel. It does NOT describe
         invoking execute via the Skill tool for the resume path.
+
+- description: "ship-sdlc: pending question from a sub-agent is recorded as output.pendingQuestion"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md"
+    project_context: "file://fixtures/ship-pipeline-ready.md"
+    user_request: >
+      The dispatch_execute agent returned: (1) failure (4) "Stopped before Wave 2: Wave 2
+      contains high-risk task(s). Approve execution? Options: yes | skip | cancel".
+      What result does ship-sdlc write for the --after dispatch_execute call?
+  assert:
+    - type: icontains
+      value: "pendingQuestion"
+    - type: llm-rubric
+      value: >
+        The result file has success false and output.pendingQuestion with a prompt and the
+        options ["yes","skip","cancel"] (the option keywords). ship-sdlc does not ask the
+        user itself here; ship.js decides the next step from the result.
+
+- description: "ship-sdlc: pending question stop prints the question and both continue commands"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md"
+    project_context: "file://fixtures/ship-pipeline-ready.md"
+    user_request: >
+      ship.js returned status "done" with ext.reason "pending-question",
+      ext.pendingQuestion {"prompt":"Wave 2 would violate guardrail no-scope-creep. Override?",
+      "options":["override","harden","cancel"]} and ext.commands
+      ["/sdlc:execute-plan-sdlc --plan \"/abs/plan.md\" --resume", "/sdlc:ship-sdlc --resume"].
+      What does ship-sdlc do?
+  assert:
+    - type: icontains
+      value: "/sdlc:execute-plan-sdlc --plan"
+    - type: icontains
+      value: "/sdlc:ship-sdlc --resume"
+    - type: llm-rubric
+      value: >
+        ship-sdlc prints the pending question with its options, then the two commands in
+        order, and stops; it does not answer the question itself and does not dispatch anything.
 
 # ---------------------------------------------------------------------------
 # Workspace auto-detection (#378, #379) — workspace is derived (branch/continue),

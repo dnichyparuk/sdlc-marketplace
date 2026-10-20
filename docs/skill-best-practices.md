@@ -401,7 +401,7 @@ Set `disable-model-invocation: true` alongside `user-invocable: false` to fully 
 
 ### Context Isolation via Agent Dispatch
 
-The harness does not support frontmatter-driven context forking for skills. To achieve context isolation (protecting the main conversation from intermediate output), use the `Agent` tool dispatch pattern in the skill body:
+Skills may run in a forked context via `context: fork` + `agent:` frontmatter; the plugin uses per-step agent files for ship so model, effort and tools are declared, not narrated. To achieve context isolation (protecting the main conversation from intermediate output), use the `Agent` tool dispatch pattern in the skill body:
 
 1. Skill gathers user input and runs prepare scripts in the main context
 2. Skill dispatches a subagent via the `Agent` tool with the heavy computation

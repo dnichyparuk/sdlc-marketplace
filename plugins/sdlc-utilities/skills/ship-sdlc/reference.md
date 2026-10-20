@@ -36,7 +36,7 @@ Each sub-skill has its own error recovery. ship-sdlc does not duplicate their re
 - Proceed past a failed sub-skill — stop, save state, inform user
 - Copy example args from this document when dispatching sub-skill Agents — use the `invocation` field from the skill/ship.js output, which contains the exact computed args
 - Add `--steps` flags not present in the user's original invocation. Pipeline composition derives from CLI `--steps` > config `ship.steps[]` > built-in defaults. Legacy `--preset` and `--skip` are hard-removed (#190); passing them produces an error.
-- Dispatch pipeline step Agents without `model: step.model` — the model field is computed by skill/ship.js from each skill's spec. Omitting it defaults all steps to opus.
+- Dispatch pipeline step Agents with any other `subagent_type`, or with `model`/`effort` parameters. Dispatch with `subagent_type: step.data.agent`; the agent file pins model and effort.
 - Add, remove, or change the `isolation` parameter on Agent dispatches — isolation comes verbatim from `step.data.isolation`. Adding `isolation: "worktree"` when `step.data.isolation` is null causes hidden Agent SDK worktrees that conflict with `--workspace branch` (issue #350).
 - Ignore cleanup validation failures — if `state/ship.js cleanup` exits with code 1, the pipeline contract was violated. Surface the violation and preserve state.
 - Skip the post-version ancestry HARD GATE. The check is the only safeguard against tags landing on orphaned commits (issue #349). The gate is a no-op when `NEW_TAG` is unset — do not pre-empt it by skipping it when you believe the version step succeeded on the right branch.

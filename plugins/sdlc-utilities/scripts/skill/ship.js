@@ -55,6 +55,7 @@ const { gcStateFiles, gcTempdirs, gcOutputDir } = require(path.join(LIB, 'state'
 const { detectActiveChanges, isArchived } = require(path.join(LIB, 'openspec'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { PRE_RELEASE_LABEL_RE } = require(path.join(LIB, 'version'));
+const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
 
 const VALID_QUALITY = ['full', 'balanced', 'minimal'];
 
@@ -426,6 +427,23 @@ function mergeFlags(cli, config) {
 // Step computation
 // ---------------------------------------------------------------------------
 
+// W4.3: agents/ship-step-*.md pin model and effort; validate-cost-tiers.js checks the model against docs/cost-tiers.md §4.
+const AGENTS_DIR = path.join(__dirname, '..', '..', 'agents');
+const stepAgentCache = {};
+
+/**
+ * `{ agent, model, effort }` of agents/ship-step-<file>.md, read once per process.
+ * @throws {Error} when the file is missing or its frontmatter lacks model or effort
+ */
+function stepAgent(file) {
+  if (!stepAgentCache[file]) {
+    const fm = parseSimpleYaml(extractFrontmatter(fs.readFileSync(path.join(AGENTS_DIR, `ship-step-${file}.md`), 'utf8')) || '');
+    if (!fm.model || !fm.effort) throw new Error(`agents/ship-step-${file}.md: frontmatter lacks model or effort`);
+    stepAgentCache[file] = { agent: `sdlc:ship-step-${file}`, model: fm.model, effort: fm.effort };
+  }
+  return stepAgentCache[file];
+}
+
 function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile } = {}) {
   // Steps[] is the canonical source of truth for which top-level steps run.
   // A step IS skipped when it is NOT in flags.steps. The provenance for an
@@ -450,7 +468,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'execute',
       skill: 'execute-plan-sdlc',
-      model: 'opus',
+      ...stepAgent('execute'),
       status: (!flags.hasPlan || !isIn('execute')) ? 'skipped' : 'will_run',
       skipSource: !flags.hasPlan && isIn('execute')
         ? 'none'
@@ -499,11 +517,11 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'commit',
       skill: 'commit-sdlc',
-      model: 'haiku',
+      ...stepAgent('commit'),
       status: isIn('commit') ? 'will_run' : 'skipped',
       skipSource: skipSource('commit'),
       args: [
-        flags.auto ? '--auto' : '',
+        '--auto',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
       reason: isIn('commit') ? 'pending (will check after execute)' : 'not in steps[]',
@@ -514,7 +532,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'review',
       skill: 'review-sdlc',
-      model: 'sonnet',
+      ...stepAgent('review'),
       status: isIn('review') ? 'will_run' : 'skipped',
       skipSource: skipSource('review'),
       args: '--committed',
@@ -526,10 +544,10 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'received-review',
       skill: 'received-review-sdlc',
-      model: 'sonnet',
+      ...stepAgent('received-review'),
       status: 'conditional',
       skipSource: 'none',
-      args: flags.auto ? '--auto' : '',
+      args: '--auto',
       reason: 'triggered by review verdict (critical/high findings)',
       pause: !flags.auto,
       isolation: null,
@@ -538,11 +556,11 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'commit-fixes',
       skill: 'commit-sdlc',
-      model: 'haiku',
+      ...stepAgent('commit'),
       status: 'conditional',
       skipSource: 'none',
       args: [
-        flags.auto ? '--auto' : '',
+        '--auto',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
       reason: 'triggered if review fixes applied',
@@ -553,7 +571,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'version',
       skill: 'version-sdlc',
-      model: 'sonnet',
+      ...stepAgent('version'),
       // Version always runs when in steps[] regardless of checkout (issue #378,
       // #379): tags are repo-global and writable from any worktree, so there is
       // no worktree-mode auto-skip.
@@ -565,7 +583,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       // when the version skill consults conventional-commit suggestions.
       args: [
         `--bump ${flags.bump || 'patch'}`,
-        flags.auto ? '--auto' : '',
+        '--auto',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
       reason: !isIn('version') ? 'not in steps[]' : 'in steps[]',
@@ -677,13 +695,13 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'pr',
       skill: 'pr-sdlc',
-      model: 'sonnet',
+      ...stepAgent('pr'),
       status: isIn('pr') ? 'will_run' : 'skipped',
       skipSource: skipSource('pr'),
       // No skip-version-check label (issue #378, #379): version always runs in
       // all checkouts now, so the worktree-mode auto-skip label is gone.
       args: [
-        flags.auto ? '--auto' : '',
+        '--auto',
         flags.draft ? '--draft' : '',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
@@ -1134,17 +1152,30 @@ const STEP_ID_TO_LEDGER_NAME = {
   learnings_commit:         'learnings-commit',
 };
 
-// P-TRANS-1 row order. rebase_conflict is emitted only by `--after rebase`.
+// P-TRANS-1 row order. rebase_conflict is emitted only by `--after rebase`, execute_gate only by `--after dispatch_execute`.
 const STEP_ORDER = [
-  'confirm_pipeline', 'branch_prepare', 'dispatch_execute', 'stage_changes',
-  'dispatch_commit', 'dispatch_review', 'review_gate', 'dispatch_received_review',
-  'dispatch_commit_fixes', 'rebase', 'rebase_conflict', 'dispatch_version',
-  'verify_version_tag', 'verify_openspec', 'archive_openspec', 'dispatch_pr',
-  'verify_pipeline', 'await_remote_review', 'learnings_commit', 'cleanup',
+  'confirm_pipeline', 'branch_prepare',
+  'execute_handoff', 'execute_state', 'execute_tier', 'dispatch_execute', 'execute_gate', 'stage_changes',
+  'confirm_commit', 'dispatch_commit', 'dispatch_review', 'review_gate',
+  'confirm_received_review', 'dispatch_received_review',
+  'confirm_commit_fixes', 'dispatch_commit_fixes', 'rebase', 'rebase_conflict',
+  'confirm_version', 'dispatch_version', 'verify_version_tag', 'verify_openspec', 'archive_openspec',
+  'confirm_pr', 'dispatch_pr', 'verify_pipeline', 'await_remote_review', 'learnings_commit', 'cleanup',
 ];
 
 // Steps whose result carries an answer, not an outcome.
-const DECISION_STEPS = ['confirm_pipeline', 'review_gate', 'rebase_conflict'];
+const DECISION_STEPS = [
+  'confirm_pipeline', 'review_gate', 'rebase_conflict',
+  'execute_handoff', 'execute_state', 'execute_tier', 'execute_gate',
+  'confirm_commit', 'confirm_received_review', 'confirm_commit_fixes', 'confirm_version', 'confirm_pr',
+];
+// W4.3 consent steps (S1 = NO): the main context asks before the forked sub-skill runs with --auto.
+const CONFIRM_TARGETS = {
+  confirm_commit: 'commit', confirm_received_review: 'received-review',
+  confirm_commit_fixes: 'commit-fixes', confirm_version: 'version', confirm_pr: 'pr',
+};
+// Interactive-only decisions, emitted when their target step is about to run (never via historySuccess).
+const DECISION_TARGETS = { ...CONFIRM_TARGETS, execute_handoff: 'execute', execute_state: 'execute', execute_tier: 'execute' };
 // Inline steps whose failure halts the pipeline: archive_openspec (R25, R-archive-sync-3:
 // validation failure or abort) and verify_pipeline (R45: abort). Other inline steps
 // (verify_openspec, await_remote_review, learnings_commit) stay non-fatal.
@@ -1261,6 +1292,69 @@ function lastHistory(ledger, id) {
   return null;
 }
 
+/** Latest `id` history entry recorded after the latest `sinceId` entry, or null. */
+function historyAfter(ledger, id, sinceId) {
+  for (let i = ledger.history.length - 1; i >= 0; i--) {
+    if (ledger.history[i].step === sinceId) return null;
+    if (ledger.history[i].step === id) return ledger.history[i];
+  }
+  return null;
+}
+
+/** Mark a ledger step skipped with a reason (no-op when the step is absent). */
+function skipEntry(ledger, name, reason) {
+  const e = ledger.steps.find(s => s.name === name);
+  if (e) { e.status = 'skipped'; e.completedAt = new Date().toISOString(); e.reason = reason; }
+}
+
+/**
+ * `{prompt, options}` when `v` is a well-formed pending question (SKILL.md Step 5 fills it from return item (4)), else null.
+ * `options` may be `[]` when the sub-agent listed none: the question then takes the stop path, never `execute_gate`.
+ */
+function validPendingQuestion(v) {
+  if (!v || typeof v !== 'object' || typeof v.prompt !== 'string' || !v.prompt.trim()) return null;
+  if (!Array.isArray(v.options) || !v.options.every(o => typeof o === 'string')) return null;
+  return { prompt: v.prompt, options: v.options };
+}
+
+const EXECUTE_GATE_YES = 'yes — approve this and all remaining high-risk tasks in this run';
+const EXECUTE_GATE_STOP = 'stop — continue in execute-plan-sdlc directly';
+
+/**
+ * `'yes'` or `'stop'` when `answer` is exactly an offered `execute_gate` option (its label or its key word), else null.
+ * Free text such as "yes, but only task 3" is never approval (ruling w2-declines item 3).
+ */
+function executeGateChoice(answer) {
+  if (answer === EXECUTE_GATE_YES || answer === 'yes') return 'yes';
+  if (answer === EXECUTE_GATE_STOP || answer === 'stop') return 'stop';
+  return null;
+}
+
+/** execute-plan-sdlc's high-risk gate is the only question offering both `yes` and `skip` (SKILL.md 5a). */
+function isHighRiskGate(pq) {
+  const keys = pq.options.map(o => o.trim().toLowerCase().split(/\s+/)[0]);
+  return keys.includes('yes') && keys.includes('skip');
+}
+
+/**
+ * L23 completeness gate, moved unchanged from runAfter step 4.
+ * @returns {{ ok: true } | { ok: false, exitCode: number, text: string }}
+ */
+function runCompletenessGate(branch) {
+  if (!fs.existsSync(EXECUTE_STATE_SCRIPT)) {
+    return { ok: false, exitCode: 2, text: 'Cannot locate execute.js — completeness gate cannot run (exit 2).' };
+  }
+  const r = spawnSync('node', [EXECUTE_STATE_SCRIPT, 'verify-completeness', '--branch', branch], { encoding: 'utf8', timeout: 10000 });
+  if (r.error || r.status !== 0) {
+    return {
+      ok: false,
+      exitCode: r.error || r.status == null ? 2 : r.status,
+      text: `execute-plan-sdlc returned but planned tasks are unaccounted. Pipeline halted (verify-completeness exit ${r.error ? 'error' : r.status}): ${(r.stderr || '').trim()}`,
+    };
+  }
+  return { ok: true };
+}
+
 /** `### Task N:` headings of the plan file; [] when it cannot be read. */
 function readPlanTasks(planFile) {
   try { return parsePlanTasks(fs.readFileSync(planFile, 'utf8')); } catch { return []; }
@@ -1318,8 +1412,10 @@ function buildSummary(ledger) {
     }
   }
   const pr = lastHistory(ledger, 'dispatch_pr');
+  const handoff = lastHistory(ledger, 'execute_handoff');
+  const attested = !!(handoff && handoff.data && handoff.data.source === 'user-attested');
   return {
-    steps: (ledger.steps || []).map(s => ({ name: s.name, status: s.status })),
+    steps: (ledger.steps || []).map(s => ({ name: s.name, status: s.status, ...(attested && s.name === 'execute' ? { source: 'user-attested' } : {}) })),
     usage,
     prUrl: (pr && pr.data && pr.data.artifacts && pr.data.artifacts.prUrl) || null,
   };
@@ -1363,9 +1459,10 @@ function pickNextStep(after, ctx) {
   const runnable = (name) => { const cs = stepOf(name); return !!cs && cs.status === 'will_run' && !isDone(name); };
 
   for (const id of STEP_ORDER.slice(STEP_ORDER.indexOf(after) + 1)) {
-    if (id === 'rebase_conflict') continue;
+    if (id === 'rebase_conflict' || id === 'execute_gate') continue;
     const name = STEP_ID_TO_LEDGER_NAME[id];
-    const cs = name ? stepOf(name) : null;
+    const target = DECISION_TARGETS[id];
+    const cs = name ? stepOf(name) : (target ? stepOf(target) : null);
     let data;
     let planTasks;
     let llmDecision = null;
@@ -1381,6 +1478,12 @@ function pickNextStep(after, ctx) {
           skipped.push(name);
           continue;
         }
+      }
+    } else if (target) {
+      if (flags.auto || !cs || cs.status === 'skipped' || isDone(target)) continue;
+      if (cs.status === 'conditional') {
+        const reason = unmetCondition(target, ledger);
+        if (reason) { skipEntry(ledger, target, reason); skipped.push(target); continue; }
       }
     } else if (historySuccess(ledger, id)) {
       continue;
@@ -1412,7 +1515,7 @@ function pickNextStep(after, ctx) {
           warnings.push(`Review verdict missing or unparseable (${JSON.stringify(d.verdict)}); dispatching received-review-sdlc.`);
         } else if (d.met && !flags.auto) {
           const found = SEVERITIES.filter(s => d.counts[s] > 0).map(s => `${d.counts[s]} ${s}`).join(', ');
-          llmDecision = { type: 'choice', prompt: `Review found ${found}. Dispatch received-review-sdlc now?`, options: ['yes', 'defer'] };
+          llmDecision = { type: 'choice', prompt: `Review found ${found}. Dispatch received-review-sdlc now with "${stepOf('received-review').args}"? It runs unattended and applies the fixes without showing its plan.`, options: ['yes', 'defer'] };
         }
         break;
       }
@@ -1467,13 +1570,53 @@ function pickNextStep(after, ctx) {
         };
         break;
       }
+      case 'execute_handoff': {
+        const e = entryOf('execute');
+        const last = lastHistory(ledger, 'dispatch_execute');
+        const pq = last && last.data ? validPendingQuestion(last.data.pendingQuestion) : null;
+        if (!e || e.status !== 'in_progress' || !pq || readState('execute', slugifyBranch(ledger.branch))) continue;
+        data = { pendingQuestion: pq };
+        llmDecision = { type: 'choice', prompt: 'Did execute-plan-sdlc finish the plan outside the pipeline?', options: ['finished', 'not finished'] };
+        break;
+      }
+      case 'execute_state': {
+        const e = entryOf('execute');
+        const found = readState('execute', slugifyBranch(ledger.branch));
+        if ((e && e.status === 'in_progress') || !found) continue;
+        data = { stateFile: found.filePath };
+        llmDecision = { type: 'choice', prompt: 'An execute-plan-sdlc state file exists for this branch. Resume it, or restart from scratch?', options: ['resume', 'restart'] };
+        break;
+      }
+      case 'execute_tier':
+        if (flags.quality) continue;
+        data = {};
+        llmDecision = { type: 'choice', prompt: 'Which quality tier should execute-plan-sdlc use? The answer is forwarded as --quality.', options: ['full', 'balanced', 'minimal'] };
+        break;
+      case 'confirm_received_review': {
+        const gate = historyAfter(ledger, 'review_gate', 'dispatch_review');
+        if (gate && gate.data && gate.data.answer === 'yes') continue; // review_gate's yes is the consent (ruling w2-handoff item 2)
+      }
+      // falls through
+      case 'confirm_commit':
+      case 'confirm_commit_fixes':
+      case 'confirm_version':
+      case 'confirm_pr':
+        data = { step: cs.name, skill: cs.skill, args: cs.args };
+        llmDecision = { type: 'choice', prompt: `Run ${cs.skill} (${cs.name}) now with "${cs.args}"? It runs unattended, without its own approval prompt.`, options: ['yes', 'skip', 'cancel'] };
+        break;
       default: // dispatch_*
-        data = { skill: cs.skill, args: cs.args, invocation: cs.invocation, model: cs.model, ...(cs.effort ? { effort: cs.effort } : {}), ...(cs.isolation ? { isolation: cs.isolation } : {}) };
+        data = { skill: cs.skill, args: cs.args, invocation: cs.invocation, agent: cs.agent, model: cs.model, ...(cs.effort ? { effort: cs.effort } : {}), ...(cs.isolation ? { isolation: cs.isolation } : {}) };
         if (id === 'dispatch_execute') {
           // L22: a resumed run (execute in_progress with an execute state file) forwards --resume only.
           const exec0 = entryOf('execute');
-          if (exec0 && exec0.status === 'in_progress' && readState('execute', slugifyBranch(ledger.branch))) {
-            data.args = `${cs.args} --resume`;
+          const hasState = !!readState('execute', slugifyBranch(ledger.branch));
+          const st = historyAfter(ledger, 'execute_state', 'dispatch_execute');
+          const gate = historyAfter(ledger, 'execute_gate', 'dispatch_execute');
+          const gateYes = !!(gate && gate.data && executeGateChoice(gate.data.answer) === 'yes');
+          const resume = gateYes || (hasState && ((exec0 && exec0.status === 'in_progress') || (st && st.data && st.data.answer === 'resume')));
+          const extra = [resume ? '--resume' : '', gateYes && !flags.auto ? '--auto' : ''].filter(Boolean);
+          if (extra.length > 0) {
+            data.args = `${cs.args} ${extra.join(' ')}`;
             data.invocation = `skill: "${cs.skill}", args: "${data.args}"`;
           }
           planTasks = readPlanTasks(flags.planFile);
@@ -1495,13 +1638,21 @@ function pickNextStep(after, ctx) {
       await_remote_review: 'Run data.commands and handle its JSON verdict per the await-remote-review section of reference.md.',
       learnings_commit: 'Run data.commands, then report the result.',
       cleanup: 'Run data.commands to finish the pipeline, then report the result.',
+      execute_handoff: 'Ask the user with llm_decision, then report the answer.',
+      execute_state: 'Ask the user with llm_decision, then report the answer.',
+      execute_tier: 'Ask the user with llm_decision, then report the answer.',
+      confirm_commit: 'Ask the user with llm_decision, then report the answer.',
+      confirm_received_review: 'Ask the user with llm_decision, then report the answer.',
+      confirm_commit_fixes: 'Ask the user with llm_decision, then report the answer.',
+      confirm_version: 'Ask the user with llm_decision, then report the answer.',
+      confirm_pr: 'Ask the user with llm_decision, then report the answer.',
     };
     const isDispatch = id.startsWith('dispatch_');
     return {
       step: {
         id,
         action: isDispatch ? `Dispatch ${cs.skill} as a sub-agent with data.invocation, then report its result.` : ACTIONS[id],
-        tool_hints: isDispatch ? ['Agent'] : (id === 'review_gate' ? ['AskUserQuestion'] : ['Bash']),
+        tool_hints: isDispatch ? ['Agent'] : (DECISION_STEPS.includes(id) ? ['AskUserQuestion'] : ['Bash']),
         data,
       },
       planTasks,
@@ -1583,6 +1734,13 @@ function runAfter(stepArgs) {
     ledger.branch = newBranch;
   }
 
+  // Q15: the tier answer is frozen in ledger.flags.quality before the steps are recomputed.
+  if (after === 'execute_tier') {
+    const tier = typeof output.answer === 'string' ? output.answer : null;
+    if (!VALID_QUALITY.includes(tier)) return fail(`execute_tier: unknown answer "${tier}" (expected full, balanced or minimal).`);
+    flags.quality = tier;
+  }
+
   // 2. Recompute the step plan from the frozen flags.
   const steps = computeSteps(flags, flags.sources, {
     openspecContext: flags.openspecContext,
@@ -1622,22 +1780,14 @@ function runAfter(stepArgs) {
   // L23/L27: completeness gate; any non-zero exit halts and becomes the process exit code.
   let failExitCode;
   if (name === 'execute' && success) {
-    if (!fs.existsSync(EXECUTE_STATE_SCRIPT)) {
-      success = false;
-      failExitCode = 2;
-      failureText = 'Cannot locate execute.js — completeness gate cannot run (exit 2).';
-    } else {
-      const r = spawnSync('node', [EXECUTE_STATE_SCRIPT, 'verify-completeness', '--branch', ledger.branch], { encoding: 'utf8', timeout: 10000 });
-      if (r.error || r.status !== 0) {
-        success = false;
-        failExitCode = r.error || r.status == null ? 2 : r.status;
-        failureText = `execute-plan-sdlc returned but planned tasks are unaccounted. Pipeline halted (verify-completeness exit ${r.error ? 'error' : r.status}): ${(r.stderr || '').trim()}`;
-      }
-    }
+    const g = runCompletenessGate(ledger.branch);
+    if (!g.ok) { success = false; failExitCode = g.exitCode; failureText = g.text; }
   }
+  // ruling w2-pending: a dispatch failure that carries a question is not a step failure.
+  const pq = after.startsWith('dispatch_') && !success ? validPendingQuestion(output.pendingQuestion) : null;
   const ext = {};
   const recorded = new Set();
-  if (name) {
+  if (name && !pq) {
     const entry = ledger.steps.find(s => s.name === name);
     if (entry && entry.status === 'pending') shipState.startStepCore(ledger, name);
     // Usage is reported by dispatched sub-agents only; inline steps carry none.
@@ -1658,6 +1808,22 @@ function runAfter(stepArgs) {
         : renderTodos(ledger, { event: 'step', currentStep: name, failStep: name });
     if (success) recorded.add(name);
   }
+  // R-INVARIANT-COMPLETENESS scope (ruling w2-handoff): execute finished outside the pipeline.
+  let handoffFail = null;
+  if (after === 'execute_handoff' && answer === 'finished') {
+    const found = readState('execute', slugifyBranch(ledger.branch));
+    const gate = found ? runCompletenessGate(ledger.branch) : { ok: true };
+    if (!gate.ok) {
+      shipState.completeStepCore(ledger, 'execute', gate.text, 'failure');
+      handoffFail = gate;
+      success = false;
+    } else {
+      shipState.completeStepCore(ledger, 'execute', 'finished outside the pipeline', 'success');
+      if (!found) output.source = 'user-attested';
+      ext.todos = markCompleted(ledger, 'execute');
+      recorded.add('execute');
+    }
+  }
   ledger.history.push({
     step: after,
     result: result.success === undefined ? 'unknown' : (success ? 'success' : 'failed'),
@@ -1675,8 +1841,41 @@ function runAfter(stepArgs) {
     sweepStateFiles(flags);
     return finish(createEnvelope('error', null, { error: message, stateFile: ledgerPath, progress: progress(), ext }), exitCode);
   };
+  const pendingStop = (question, viaExecute) => {
+    ledger.paused = { at: new Date().toISOString(), reason: 'pending question' };
+    const commands = [
+      ...(viaExecute ? [`/sdlc:execute-plan-sdlc --plan "${flags.planFile}" --resume`] : []),
+      '/sdlc:ship-sdlc --resume',
+    ];
+    return finish(createEnvelope('done', null, {
+      ext: { ...ext, reason: 'pending-question', pendingQuestion: question, commands },
+      stateFile: ledgerPath, progress: progress(),
+    }));
+  };
 
   // Failure rows.
+  if (pq) {
+    if (after === 'dispatch_execute' && !flags.auto && flags.quality && isHighRiskGate(pq)) {
+      ledger.currentStep = 'execute_gate';
+      return finish(createEnvelope('step', {
+        id: 'execute_gate',
+        action: 'Ask the user with llm_decision, then report the answer.',
+        tool_hints: ['AskUserQuestion'],
+        data: { pendingQuestion: pq },
+      }, {
+        llmDecision: {
+          type: 'choice',
+          prompt: `execute-plan-sdlc asks: ${pq.prompt} Ship can only carry "yes" back: execute then re-runs with --resume --auto, which approves this and every later high-risk gate in this run and suppresses its other prompts.`,
+          options: [EXECUTE_GATE_YES, EXECUTE_GATE_STOP],
+        },
+        stateFile: ledgerPath, progress: progress(), ext,
+      }));
+    }
+    return pendingStop(pq, after === 'dispatch_execute');
+  }
+  if (handoffFail) {
+    return failStep(`execute failed: ${handoffFail.text}. State preserved; re-run with --resume.`, handoffFail.exitCode);
+  }
   if (!success && !DECISION_STEPS.includes(after)) {
     if (after === 'rebase' && !flags.auto) {
       ledger.currentStep = 'rebase_conflict';
@@ -1706,9 +1905,47 @@ function runAfter(stepArgs) {
     ledger.paused = { at: new Date().toISOString(), reason: 'rebase conflict' };
     return finish(createEnvelope('done', null, { ext: { ...ext, reason: 'paused' }, stateFile: ledgerPath, progress: progress() }));
   }
+  if (CONFIRM_TARGETS[after]) {
+    const target = CONFIRM_TARGETS[after];
+    if (answer === 'cancel') {
+      return finish(createEnvelope('done', null, { ext: { ...ext, reason: 'cancel' }, stateFile: ledgerPath, progress: progress() }));
+    }
+    if (answer === 'skip') {
+      const reason = `skipped by the user at ${after}`;
+      skipEntry(ledger, target, reason);
+      skipped.push(target);
+      if (target === 'pr') {
+        for (const dep of ['verify-pipeline', 'await-remote-review']) {
+          const e = ledger.steps.find(s => s.name === dep);
+          if (e && e.status === 'pending') { skipEntry(ledger, dep, 'pr skipped by the user'); skipped.push(dep); }
+        }
+      }
+    } else if (answer !== 'yes') {
+      return failStep(`${after}: unknown answer "${answer}" (expected yes, skip or cancel).`);
+    }
+  }
+  if (after === 'execute_state') {
+    if (answer === 'restart') {
+      const found = readState('execute', slugifyBranch(ledger.branch));
+      if (found) deleteState(found.filePath); // ruling w2-handoff item 6: this branch's execute state file only
+    } else if (answer !== 'resume') {
+      return failStep(`execute_state: unknown answer "${answer}" (expected resume or restart).`);
+    }
+  }
+  let from = after;
+  if (after === 'execute_gate') {
+    const last = lastHistory(ledger, 'dispatch_execute');
+    // Exact option match only: anything else (free text included) takes the stop path (ruling w2-declines item 3).
+    if (executeGateChoice(answer) === 'yes') from = 'execute_tier';
+    else return pendingStop(last.data.pendingQuestion, true);
+  }
+  if (after === 'execute_handoff' && answer !== 'finished') {
+    if (answer === 'not finished') return pendingStop(lastHistory(ledger, 'dispatch_execute').data.pendingQuestion, true);
+    return failStep(`execute_handoff: unknown answer "${answer}" (expected finished or not finished).`);
+  }
 
   // 5. Pick the next step.
-  const next = pickNextStep(after, { ledger, flags, steps, ledgerPath, recorded, skipped });
+  const next = pickNextStep(from, { ledger, flags, steps, ledgerPath, recorded, skipped });
   if (next.error) return failStep(next.error);
   if (next.done) {
     return finish(createEnvelope('done', null, { ext: { ...ext, summary: buildSummary(ledger) }, stateFile: ledgerPath, progress: progress() }));
