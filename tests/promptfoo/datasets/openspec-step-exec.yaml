@@ -1,0 +1,284 @@
+# Script execution tests for skill/openspec-step.js (detect | flip | validate | archive).
+# No LLM. Cases 1-5, 11 and 12 call the script directly; the rest go through
+# tests/promptfoo/scripts/run-openspec-step.js, which makes several script calls per case
+# and reads `git log` after an archive. The stub `openspec` CLI lives in the
+# project-openspec-step-archive fixture (bin/), put on PATH with script_stub_bin.
+
+- description: "openspec-step: detect on an active change reports it (single-active)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/openspec-step.js"
+    script_args: "detect --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-active"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.detected !== true || o.changeName !== 'add-auth' || o.matchedBy !== 'single-active') return `FAIL: ${output}`;
+        if (JSON.stringify(o.activeChanges) !== JSON.stringify(['add-auth'])) return `FAIL activeChanges: ${output}`;
+        if (typeof o.proposalPath !== 'string' || !o.proposalPath.endsWith('openspec/changes/add-auth/proposal.md')) return `FAIL proposalPath: ${output}`;
+        if (o.designPath !== null) return `FAIL designPath: ${output}`;
+        if (!Array.isArray(o.specPaths) || o.specPaths.length !== 1) return `FAIL specPaths: ${output}`;
+        return true;
+
+- description: "openspec-step: detect output keys are the item's keys plus activeChanges (W44-R7)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/openspec-step.js"
+    script_args: "detect --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-active"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const want = ['detected','changeName','isArchived','tasksDone','tasksTotal','matchedBy','proposalPath','designPath','specPaths','activeChanges'];
+        if (JSON.stringify(Object.keys(o)) !== JSON.stringify(want)) return `FAIL: ${Object.keys(o).join(',')}`;
+        return true;
+
+- description: "openspec-step: detect --change on an archived change reports isArchived"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/openspec-step.js"
+    script_args: "detect --change add-auth --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-archived-change"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isArchived !== true || o.matchedBy !== 'flag') return `FAIL: ${output}`;
+        return true;
+
+- description: "openspec-step: detect matches the change through the branch diff"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/openspec-step.js"
+    script_args: "detect --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-detect-diff"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.changeName !== 'my-change' || o.matchedBy !== 'branch') return `FAIL: ${output}`;
+        return true;
+
+- description: "openspec-step: detect without OpenSpec reports detected false"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/openspec-step.js"
+    script_args: "detect --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pr-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.detected !== false || o.changeName !== null || !Array.isArray(o.activeChanges) || o.activeChanges.length !== 0) return `FAIL: ${output}`;
+        return true;
+
+- description: "openspec-step: flip flips a task, then reports already-done"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario flip-twice --change feat-x --ref alpha-custom"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/openspec-marktaskdone/with-ref"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [a, b] = o.calls;
+        if (!a || !b) return `FAIL: ${output}`;
+        if (a.exitCode !== 0 || b.exitCode !== 0) return `FAIL exit: ${output}`;
+        if (a.json.flipped !== true || a.json.ref !== 'alpha-custom' || a.json.reason !== 'ok') return `FAIL first: ${output}`;
+        if (b.json.flipped !== false || b.json.reason !== 'already-done') return `FAIL second: ${output}`;
+        return true;
+
+- description: "openspec-step: archive --decision anyway archives and commits"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario archive --change add-auth --decision anyway --uncheck 2 --twice"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [a, b] = o.calls;
+        if (!a || !b) return `FAIL: ${output}`;
+        if (a.exitCode !== 0 || a.json.status !== 'archived' || a.json.commitMade !== true) return `FAIL first: ${output}`;
+        if (a.json.resultText !== 'archived add-auth, 2 task(s) left incomplete') return `FAIL resultText: ${output}`;
+        if (o.lastSubject !== 'chore(openspec): archive add-auth') return `FAIL subject: ${output}`;
+        if (JSON.stringify(o.archived) !== JSON.stringify(['2026-01-01-add-auth'])) return `FAIL archived: ${output}`;
+        if (b.json.status !== 'archived' || b.json.reason !== 'already archived' || b.json.commitMade !== false || b.json.resultText !== 'archived add-auth') return `FAIL second: ${output}`;
+        if (o.commitCount !== 2) return `FAIL commitCount: ${output}`;
+        return true;
+
+- description: "openspec-step: archive --decision sync syncs then archives"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario archive --change add-auth --decision sync --uncheck 2"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.json.status !== 'synced-and-archived' || !a.json.taskCounts || a.json.taskCounts.synced !== 2) return `FAIL status: ${output}`;
+        if (a.json.resultText !== 'archived add-auth (synced 2 tasks)' || a.json.commitMade !== true) return `FAIL result: ${output}`;
+        return true;
+
+- description: "openspec-step: archive --decision cancel exits 1 without archiving"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario archive --change add-auth --decision cancel"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.exitCode !== 1 || a.json.status !== 'cancelled' || a.json.commitMade !== false) return `FAIL call: ${output}`;
+        if (o.commitCount !== 1 || o.archived.length !== 0) return `FAIL repo: ${output}`;
+        return true;
+
+- description: "openspec-step: archive with all tasks done records the plain result"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario archive --change add-auth --decision anyway"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.json.status !== 'archived' || a.json.resultText !== 'archived add-auth') return `FAIL result: ${output}`;
+        if (!a.json.validation || a.json.validation.ok !== true) return `FAIL validation: ${output}`;
+        return true;
+
+- description: "openspec-step: validate reports ok through the CLI"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/openspec-step.js"
+    script_args: "validate --change add-auth --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.ok !== true || o.cliAvailable !== true) return `FAIL: ${output}`;
+        return true;
+
+# The script exits 2 before resolving a root, so no --project-root is passed. The
+# provider appends stderr on a non-zero exit, hence icontains rather than JSON.parse.
+- description: "openspec-step: usage error prints an error line"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/openspec-step.js"
+    script_args: "bogus"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-active"
+  assert:
+    - type: icontains
+      value: '"error"'
+
+- description: "openspec-step: validate exits 1 when the CLI reports failure"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario validate --change add-auth --stub-validate fail"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.exitCode !== 1 || a.json.ok !== false || a.json.cliAvailable !== true) return `FAIL: ${output}`;
+        return true;
+
+- description: "openspec-step: archive halts when validation fails"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario archive --change add-auth --decision anyway --stub-validate fail"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.exitCode !== 1 || a.json.status !== 'halted' || !a.json.validation || a.json.validation.ok !== false || a.json.commitMade !== false) return `FAIL call: ${output}`;
+        if (o.archived.length !== 0 || o.commitCount !== 1) return `FAIL repo: ${output}`;
+        return true;
+
+- description: "openspec-step: archive halts without the openspec CLI"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario archive --change add-auth --decision anyway --no-cli"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.exitCode !== 1 || a.json.status !== 'halted' || !a.json.validation || a.json.validation.cliAvailable !== false || a.json.commitMade !== false) return `FAIL: ${output}`;
+        return true;
+
+- description: "openspec-step: flip with an empty --line and a title flips the task"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario flip-empty-line"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/openspec-marktaskdone/with-ref"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.exitCode !== 0 || a.json.flipped !== true || a.json.ref !== 'alpha-custom' || a.json.reason !== 'ok') return `FAIL: ${output}`;
+        return true;
+
+- description: "openspec-step: flip on an unknown ref reports not-found and exits 0"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario flip-twice --change feat-x --ref nope"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/openspec-marktaskdone/with-ref"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.exitCode !== 0 || a.json.flipped !== false || a.json.reason !== 'not-found') return `FAIL: ${output}`;
+        return true;
+
+- description: "openspec-step: detect with two active changes leaves changeName null"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario detect-two"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-active"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.json.changeName !== null || a.json.matchedBy !== null) return `FAIL: ${output}`;
+        if (JSON.stringify([...a.json.activeChanges].sort()) !== JSON.stringify(['add-auth', 'second'])) return `FAIL activeChanges: ${output}`;
+        return true;

@@ -474,7 +474,7 @@
     project_context: "file://fixtures/execute-openspec-flip.md"
     user_request: >
       Wave 1 completes with t1 DONE. t1 has openspec-task.ref = create-resourceindicator-component-ab12cd.
-      markTaskDone returns { changed: false, reason: 'not-found', line: null }. What happens?
+      The openspec-step.js flip call (markTaskDone) returns { flipped: false, ref: 'create-resourceindicator-component-ab12cd', reason: 'not-found' }. What happens?
       Does the pipeline abort? What is logged?
   assert:
     - type: not-icontains

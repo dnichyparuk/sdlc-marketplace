@@ -21,15 +21,13 @@ Write an implementation plan from requirements, a spec, or a user description. P
 
 **OpenSpec integration (opt-in — requires `--spec` flag or explicit spec path):**
 
-**Hook context fast-path:** If the session-start system-reminder contains an `OpenSpec active:` line, use its data (change name, branch match status, delta spec count) to skip the initial `Glob for openspec/config.yaml` and change directory scanning. If the line is absent or the user switched branches since session start, fall back to the existing Glob-based detection. The hook context is a session-start snapshot — treat it as a hint, not as authoritative.
-
-1. Glob for `openspec/config.yaml`. If absent, skip this entire block — no OpenSpec in this project.
+1. Run `node "<PLUGIN_ROOT>/scripts/skill/openspec-step.js" detect` (substitute `<PLUGIN_ROOT>` from the `sdlc plugin root:` context line) and keep its JSON as `openspecDetect`. If `openspecDetect.detected` is false, skip this entire block — no OpenSpec in this project.
 2. **Gate check:** If `openspec/config.yaml` exists but neither `--spec` flag was passed NOR the user provided a path into `openspec/changes/`:
    a. **Classify the request:** Determine whether the user's task involves functional changes (new features, behavior modifications, API changes, new integrations, capability additions) vs non-functional changes (refactoring, config, docs, CI/CD, dependency updates, formatting, infrastructure).
    b. **Non-functional changes:** Print:
       > OpenSpec detected — pass `--spec` to include spec context in planning.
       Then skip the rest of this block. `openspecContext` remains empty.
-   c. **Functional changes:** Check whether an active OpenSpec change already covers this work — Glob `openspec/changes/*/proposal.md` (exclude `archive/`), and if any exist, try matching against the current git branch name. If a match is found, treat it as if the user passed `--spec` and continue to step 3. If no match, use AskUserQuestion:
+   c. **Functional changes:** Check whether an active OpenSpec change already covers this work — a match is `openspecDetect.matchedBy === "branch"` (the change is `openspecDetect.changeName`). If a match is found, treat it as if the user passed `--spec` and continue to step 3. If no match, use AskUserQuestion:
       > This looks like a functional change. This project uses OpenSpec for spec-driven development.
       >
       > Options:
@@ -43,7 +41,7 @@ Write an implementation plan from requirements, a spec, or a user description. P
       - On **2** (recommended default — implements R63): Do NOT prompt the user further at this gate (R22 single-touchpoint). Set `openspecInlineGenerate = true`. `openspecContext` stays empty, so OpenSpec enrichment, Gate A, and openspec-task annotations do not activate — artifact authoring is deferred to Step 4 (OpenSpec Appendix generation), where exploration and decomposition data are available. Skip the rest of the OpenSpec block (steps 3–6 — there is no on-disk change to load). Continue with standard planning.
       - On **3**: Re-run the OpenSpec loading logic (steps 3–6) to resolve and load the active change.
 3. If the user provided a spec file path pointing into `openspec/changes/<name>/`, extract `<name>` as the active change.
-4. Otherwise, Glob `openspec/changes/*/proposal.md` (exclude `archive/`). If exactly one non-archived change exists, use it. If multiple, try matching change directory names against the current git branch name. If still ambiguous, use AskUserQuestion:
+4. Otherwise, use `openspecDetect.changeName` when it is non-null (`matchedBy` `branch` or `single-active`). If it is null and `openspecDetect.activeChanges` has more than one entry, use AskUserQuestion:
    > Multiple active OpenSpec changes found. Which one are you working on?
    List the change names as options.
 5. Once the active change is identified, Read in parallel:

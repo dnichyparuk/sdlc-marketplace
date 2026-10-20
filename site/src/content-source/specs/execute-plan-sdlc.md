@@ -305,7 +305,7 @@
 - I10: `review-sdlc` — common follow-up after execution
 - I11: OpenSpec — optional spec context for spec compliance review when plan is OpenSpec-sourced
 - I12: `lib/openspec.js` — `validateChangeStrict` helper for post-pipeline archive suggestion gating
-- I13: `lib/openspec.js::markTaskDone` — mutator called per completed-and-grouped plan task to flip OpenSpec `tasks.md` checkboxes (R37).
+- I13: `scripts/skill/openspec-step.js flip` (wraps `lib/openspec.js::markTaskDone`) — mutator called per completed-and-grouped plan task to flip OpenSpec `tasks.md` checkboxes (R37).
 
 ## Appendix — history
 

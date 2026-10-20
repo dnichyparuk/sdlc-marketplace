@@ -33,7 +33,7 @@ scripts/
 | setup-sdlc | `skill/setup.js`, `skill/guardrails.js` |
 | version-sdlc | `skill/version.js` |
 | execute-plan-sdlc | `state/execute.js`, `util/worktree-create.js` |
-| ship-sdlc | `util/ship-init.js`, `skill/ship.js`, `state/ship.js` |
+| ship-sdlc | `util/ship-init.js`, `skill/ship.js`, `state/ship.js`, `skill/openspec-step.js` |
 
 ## Shared Modules (`lib/`)
 

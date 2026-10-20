@@ -176,14 +176,8 @@ Using data from `PR_CONTEXT_JSON`, draft all sections of the active PR template 
 
 **OpenSpec enrichment (automatic when detected):**
 
-**Hook context fast-path:** If the session-start system-reminder contains an `OpenSpec active:` line, use its data (change name, branch match status, delta spec count) to skip the `Glob for openspec/config.yaml` and change directory scanning. If the line is absent or the user switched branches since session start, fall back to the existing Glob-based detection. The hook context is a session-start snapshot — treat it as a hint, not as authoritative.
-
-1. Glob for `openspec/config.yaml`. If absent, skip this block entirely.
-2. Identify the active change: Glob `openspec/changes/*/proposal.md` (exclude `archive/`). If one matches, use it. If multiple, match against `PR_CONTEXT_JSON.currentBranch`. If ambiguous, skip — do not ask during PR creation.
-3. If an active change is found, Read in parallel:
-   - `proposal.md` — use intent and scope to pre-fill **Business Context** and **Business Benefits** (reduces need for AskUserQuestion clarification)
-   - `design.md` (if exists) — use architectural approach for **Technical Design** section
-4. Add to the PR description, below the title: `**OpenSpec:** openspec/changes/<name>/`
+If `PR_CONTEXT_JSON.openspec.detected`, Read `proposalPath` and `designPath` (when non-null) in parallel and use them to pre-fill Business Context/Benefits and Technical Design.
+When `PR_CONTEXT_JSON.openspec.changeName` is non-null, add to the PR description, below the title: `**OpenSpec:** openspec/changes/<PR_CONTEXT_JSON.openspec.changeName>/`
 
 When OpenSpec context provides business rationale, use it directly instead of asking the user. Still ask if the proposal is too vague to fill Business Context/Benefits confidently.
 

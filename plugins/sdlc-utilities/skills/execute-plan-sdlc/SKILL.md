@@ -656,29 +656,25 @@ Algorithm:
 2. For each `(ref, siblings)` in `refToTaskIds`:
    - Skip if `ref` ∈ `flippedRefs` (already attempted this run — idempotent).
    - Skip if `siblings` is NOT a subset of `completedOpenspecTaskIds` (at least one sibling is still pending, failed, or blocked — leaves the OpenSpec checkbox `- [ ]` per R37).
-   - Otherwise, look up the `openspec-task` block for any one sibling (all siblings share `change`/`ref`/`line`/`title`) and call `markTaskDone(change, ref, { line, title })` via inline Node.js:
+   - Otherwise, look up the `openspec-task` block for any one sibling (all siblings share `change`/`ref`/`line`/`title`) and call `markTaskDone(change, ref, { line, title })` through `openspec-step.js flip` (leave `<line>` empty when the block has none; inside each single-quoted value write every `'` as `'\''`):
 
      ```bash
      # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
-     # Pass arguments as env vars to avoid shell injection from LLM-generated task titles
+     # Assign each value to a shell variable on its own line, single-quoted, then pass the variables
+     # as double-quoted arguments: this avoids shell injection from LLM-generated task titles
      # (titles may contain ", `, $(...), or newlines that would break inline interpolation).
-     OPENSPEC_LIB="<PLUGIN_ROOT>/scripts/lib/openspec.js" \
-     OPENSPEC_CHANGE='<change>' \
-     OPENSPEC_REF='<ref>' \
-     OPENSPEC_LINE='<line>' \
-     OPENSPEC_TITLE='<title>' \
-     node -e "
-     const { markTaskDone } = require(process.env.OPENSPEC_LIB);
-     const line = process.env.OPENSPEC_LINE ? Number(process.env.OPENSPEC_LINE) : undefined;
-     const r = markTaskDone(process.env.OPENSPEC_CHANGE, process.env.OPENSPEC_REF, { line, title: process.env.OPENSPEC_TITLE });
-     console.log(JSON.stringify(r));
-     "
+     OPENSPEC_CHANGE='<change>'
+     OPENSPEC_REF='<ref>'
+     OPENSPEC_LINE='<line>'
+     OPENSPEC_TITLE='<title>'
+     node "<PLUGIN_ROOT>/scripts/skill/openspec-step.js" flip --change "$OPENSPEC_CHANGE" --ref "$OPENSPEC_REF" --line "$OPENSPEC_LINE" --title "$OPENSPEC_TITLE"
      ```
    - Add `ref` to `flippedRefs` regardless of the outcome (single-fire per run; idempotency in `markTaskDone` handles a future `--resume`).
-   - Interpret the result:
-     - `{ changed: true }` — no action.
-     - `{ changed: false, reason: 'already-done' }` — no action; OpenSpec already showed it as done (e.g., resumed run, user manual edit).
-     - `{ changed: false, reason: 'not-found' }` or `{ changed: false, reason: 'io-error' }` — append to `.sdlc/learnings/log.md` (one line: `## <YYYY-MM-DD> — execute-plan-sdlc markTaskDone failed: change=<change> ref=<ref> reason=<reason>`) and add `{ change, ref, reason }` to an in-memory `openspecSyncWarnings` array surfaced by Step 9 REPORT. Pipeline continues — this is non-blocking per R39/E14.
+   - Interpret the JSON result `{ flipped, ref, reason }`:
+     - `{ flipped: true, reason: 'ok' }` — no action.
+     - `{ flipped: false, reason: 'already-done' }` — no action; OpenSpec already showed it as done (e.g., resumed run, user manual edit).
+     - `{ flipped: false, reason: 'not-found' }` or `{ flipped: false, reason: 'io-error' }` — append to `.sdlc/learnings/log.md` (one line: `## <YYYY-MM-DD> — execute-plan-sdlc markTaskDone failed: change=<change> ref=<ref> reason=<reason>`) and add `{ change, ref, reason }` to an in-memory `openspecSyncWarnings` array surfaced by Step 9 REPORT. Pipeline continues — this is non-blocking per R39/E14.
+     - A non-zero exit or output that is not this JSON (for example a usage error, exit 2) is handled like `io-error`.
 
 Wave abort on `markTaskDone` failure is FORBIDDEN.
 
