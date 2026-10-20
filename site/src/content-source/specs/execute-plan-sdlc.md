@@ -8,7 +8,7 @@
 ## Inputs and flags
 
 - A1: plan file path — path to the plan file (positional; REQUIRED — the plan document must be supplied explicitly, it is never inferred from conversation context)
-- A2: `--quality full|balanced|minimal` — model tier (quality preset); selects the model assignment mapping for dispatched agents and skips the interactive selection prompt (default: interactive prompt). Independent of ship-sdlc step selection (see `ship-sdlc.md` A2). When invoked from ship-sdlc, `--quality` is forwarded only when the user explicitly passed `--quality` to ship; otherwise execute-plan-sdlc applies its own selection logic.
+- A2: `--quality full|balanced|minimal` — model tier (quality preset); selects the model assignment mapping for dispatched agents and skips the interactive selection prompt (default: interactive prompt). Independent of ship-sdlc step selection (see `ship-sdlc.md` A2). When invoked from ship-sdlc, `--quality` is forwarded when the user passed it to ship or chose a tier at ship's `execute_tier` prompt (R-tier-prompt-invariant); ship never invents a tier.
 - A3: `--resume` — resume execution from a saved state file (default: false)
 - A4 (workspace auto-detection): There is no workspace flag. Workspace is derived (see R16), never selected — `--workspace` is a removed flag and is rejected. The internal `--branch <name>` flag (R30) is the only branch-related input, and it is set by ship-sdlc in pipeline mode, never by users.
 - A5: `--rebase auto|prompt|skip` — rebase onto default branch before execution (default: skip)
