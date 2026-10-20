@@ -273,7 +273,7 @@
     - type: icontains
       value: "Refusing"
     - type: not-icontains
-      value: "git commit -m"
+      value: "git commit -F"
     - type: llm-rubric
       value: >
         The response stops before creating any commit. It prints the error message from prepare

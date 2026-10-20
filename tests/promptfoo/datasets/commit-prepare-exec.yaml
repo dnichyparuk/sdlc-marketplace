@@ -437,3 +437,13 @@
       value: |
         const o = JSON.parse(output);
         return o.flags && o.flags.forceDefaultBranch === true;
+
+# W8.1 / C14 — the commit message reaches git, the subject gate and the link check only
+# through a message file. The wrapper extracts the heredoc block, the gate block and the
+# `git commit -F` command from commit-sdlc/SKILL.md and runs them on a hostile message.
+- description: "commit-literal-message: message with quotes, $() and backticks is committed literally and the gate reads it from the file"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-commit-literal-message.js"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.gateExit === 0 && o.literal === true && o.pwned === false && o.wipGateExit === 2"
