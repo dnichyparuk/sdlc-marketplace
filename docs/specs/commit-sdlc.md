@@ -109,6 +109,7 @@ None.
 - E5: `git commit` fails (pre-commit hook) → show hook output, inform user stash is still in place, provide recovery instructions (no error report)
 - E6: `git commit` fails (other) → show error, invoke error-report-sdlc
 - E7: `git stash pop` conflict → warn user, suggest manual resolution (no error report)
+- E8: Subject gate exit 1 or 2 under `--auto` → print the reason, remove the manifest and the message file, stop without committing (no prompt, no error report).
 
 ## Invariants and constraints
 
@@ -125,6 +126,7 @@ None.
 - C11: Must not re-derive data the prepare script already computes via shell commands, tool calls, or LLM inference — script output is the sole source for all factual context, preserving deterministic behavior
 - C12: Must not commit on `defaultBranch` in `--auto` mode unless `--force-default-branch` is also set.
 - C13: Must not write the manifest to `os.tmpdir()`; the manifest must persist until the orchestrator subagent has finished consuming it.
+- C14: The commit message reaches the shell only through a message file written with a quoted heredoc; `git commit -F`, the subject gate and the link check (R12) read that file. The message and subject are never interpolated into a shell argument.
 
 ## Integration
 
