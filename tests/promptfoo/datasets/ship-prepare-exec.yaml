@@ -1697,7 +1697,7 @@
 - description: "ship verify-side-effect (R-b3): step without side-effect → no-side-effect pass-through"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
-    script_args: "verify-side-effect --step commit"
+    script_args: "verify-side-effect --step review"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/verify-tag-ancestry"
   assert:
