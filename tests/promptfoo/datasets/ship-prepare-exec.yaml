@@ -2564,7 +2564,7 @@
         if (taskTodos.length !== 2) return `FAIL: plan-task todos ${JSON.stringify(taskTodos)}`;
         return true;
 
-- description: "ship-step: (u2) --after dispatch_execute with no execute state file halts too (any non-zero exit, L23)"
+- description: "ship-step: (u2) --after dispatch_execute with no execute state file (R5 small-plan path: no state is ever written) records execute completed and emits stage_changes"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --result results/execute-ok.json"
@@ -2576,10 +2576,32 @@
         const o = JSON.parse(output);
         const c = o.calls[0];
         const e = c.envelope;
-        if (e.status !== 'error') return `FAIL: status ${e.status}`;
-        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
-        if (!/verify-completeness exit 1\b/.test(e.error)) return `FAIL: error ${e.error}`;
-        if (o.ledger.stepStatuses.execute !== 'failed') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e).slice(0, 400)}`;
+        if (e.status !== 'step' || e.step.id !== 'stage_changes') return `FAIL: next ${e.status} ${e.step && e.step.id}`;
+        if (o.ledger.stepStatuses.execute !== 'completed') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        const h = o.ledger.history[o.ledger.history.length - 1];
+        if (!h || h.step !== 'dispatch_execute' || h.result !== 'success' || h.completenessGate !== 'no-execute-state') return `FAIL: history ${JSON.stringify(o.ledger.history)}`;
+        return true;
+
+- description: "ship-step: (u4) --after dispatch_execute after the wave path's own verify and R14 cleanup records execute completed and emits stage_changes"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --exec-seed complete --exec-cleanup --result results/execute-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (!o.execPreGate || o.execPreGate.verifyExit !== 0 || o.execPreGate.cleanupExit !== 0) return `FAIL: execPreGate ${JSON.stringify(o.execPreGate)}`;
+        if (o.execFiles.length !== 0) return `FAIL: execute state left ${JSON.stringify(o.execFiles)}`;
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e).slice(0, 400)}`;
+        if (e.status !== 'step' || e.step.id !== 'stage_changes') return `FAIL: next ${e.status} ${e.step && e.step.id}`;
+        if (o.ledger.stepStatuses.execute !== 'completed') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        const h = o.ledger.history[o.ledger.history.length - 1];
+        if (!h || h.step !== 'dispatch_execute' || h.result !== 'success' || h.completenessGate !== 'no-execute-state') return `FAIL: history ${JSON.stringify(o.ledger.history)}`;
         return true;
 
 - description: "ship-step: (u3) --after dispatch_execute with an execute state file lacking plannedTaskIds returns error with exit 2"
