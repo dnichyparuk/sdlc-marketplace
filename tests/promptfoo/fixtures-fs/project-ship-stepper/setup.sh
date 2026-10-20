@@ -188,6 +188,9 @@ echo '{"success":false,"output":{"summary":"guardrail violation","pendingQuestio
 echo '{"success":false,"output":{"summary":"needs approval","pendingQuestion":{"prompt":"Approve the commit message?","options":["approve","edit","cancel"]}}}' > results/commit-pending.json
 echo '{"success":true,"output":{"answer":"yes — approve this and all remaining high-risk tasks in this run","summary":"approved"}}' > results/gate-yes.json
 echo '{"success":true,"output":{"answer":"stop — continue in execute-plan-sdlc directly","summary":"stop"}}' > results/gate-stop.json
+# Review fixes (ruling w2-declines): free text is never approval; a pending question may carry no options.
+echo '{"success":true,"output":{"answer":"yes, but only task 3","summary":"free text"}}' > results/gate-freetext.json
+echo '{"success":false,"output":{"summary":"stopped before a high-risk wave","pendingQuestion":{"prompt":"Wave 1 contains high-risk task(s): Task 2. Approve execution?","options":[]}}}' > results/execute-pending-noopts.json
 echo '{"success":true,"output":{"answer":"finished","summary":"finished"}}' > results/handoff-finished.json
 echo '{"success":true,"output":{"answer":"not finished","summary":"not finished"}}' > results/handoff-not-finished.json
 

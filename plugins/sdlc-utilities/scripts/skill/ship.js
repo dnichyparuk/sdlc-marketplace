@@ -1307,11 +1307,27 @@ function skipEntry(ledger, name, reason) {
   if (e) { e.status = 'skipped'; e.completedAt = new Date().toISOString(); e.reason = reason; }
 }
 
-/** `{prompt, options}` when `v` is a well-formed pending question (SKILL.md Step 5 fills it from return item (4)), else null. */
+/**
+ * `{prompt, options}` when `v` is a well-formed pending question (SKILL.md Step 5 fills it from return item (4)), else null.
+ * `options` may be `[]` when the sub-agent listed none: the question then takes the stop path, never `execute_gate`.
+ */
 function validPendingQuestion(v) {
   if (!v || typeof v !== 'object' || typeof v.prompt !== 'string' || !v.prompt.trim()) return null;
-  if (!Array.isArray(v.options) || v.options.length === 0 || !v.options.every(o => typeof o === 'string')) return null;
+  if (!Array.isArray(v.options) || !v.options.every(o => typeof o === 'string')) return null;
   return { prompt: v.prompt, options: v.options };
+}
+
+const EXECUTE_GATE_YES = 'yes — approve this and all remaining high-risk tasks in this run';
+const EXECUTE_GATE_STOP = 'stop — continue in execute-plan-sdlc directly';
+
+/**
+ * `'yes'` or `'stop'` when `answer` is exactly an offered `execute_gate` option (its label or its key word), else null.
+ * Free text such as "yes, but only task 3" is never approval (ruling w2-declines item 3).
+ */
+function executeGateChoice(answer) {
+  if (answer === EXECUTE_GATE_YES || answer === 'yes') return 'yes';
+  if (answer === EXECUTE_GATE_STOP || answer === 'stop') return 'stop';
+  return null;
 }
 
 /** execute-plan-sdlc's high-risk gate is the only question offering both `yes` and `skip` (SKILL.md 5a). */
@@ -1596,7 +1612,7 @@ function pickNextStep(after, ctx) {
           const hasState = !!readState('execute', slugifyBranch(ledger.branch));
           const st = historyAfter(ledger, 'execute_state', 'dispatch_execute');
           const gate = historyAfter(ledger, 'execute_gate', 'dispatch_execute');
-          const gateYes = !!(gate && gate.data && typeof gate.data.answer === 'string' && gate.data.answer.startsWith('yes'));
+          const gateYes = !!(gate && gate.data && executeGateChoice(gate.data.answer) === 'yes');
           const resume = gateYes || (hasState && ((exec0 && exec0.status === 'in_progress') || (st && st.data && st.data.answer === 'resume')));
           const extra = [resume ? '--resume' : '', gateYes && !flags.auto ? '--auto' : ''].filter(Boolean);
           if (extra.length > 0) {
@@ -1850,7 +1866,7 @@ function runAfter(stepArgs) {
         llmDecision: {
           type: 'choice',
           prompt: `execute-plan-sdlc asks: ${pq.prompt} Ship can only carry "yes" back: execute then re-runs with --resume --auto, which approves this and every later high-risk gate in this run and suppresses its other prompts.`,
-          options: ['yes — approve this and all remaining high-risk tasks in this run', 'stop — continue in execute-plan-sdlc directly'],
+          options: [EXECUTE_GATE_YES, EXECUTE_GATE_STOP],
         },
         stateFile: ledgerPath, progress: progress(), ext,
       }));
@@ -1919,9 +1935,9 @@ function runAfter(stepArgs) {
   let from = after;
   if (after === 'execute_gate') {
     const last = lastHistory(ledger, 'dispatch_execute');
-    if (typeof answer === 'string' && answer.startsWith('yes')) from = 'execute_tier';
-    else if (typeof answer === 'string' && answer.startsWith('stop')) return pendingStop(last.data.pendingQuestion, true);
-    else return failStep(`execute_gate: unknown answer "${answer}" (expected yes or stop).`);
+    // Exact option match only: anything else (free text included) takes the stop path (ruling w2-declines item 3).
+    if (executeGateChoice(answer) === 'yes') from = 'execute_tier';
+    else return pendingStop(last.data.pendingQuestion, true);
   }
   if (after === 'execute_handoff' && answer !== 'finished') {
     if (answer === 'not finished') return pendingStop(lastHistory(ledger, 'dispatch_execute').data.pendingQuestion, true);

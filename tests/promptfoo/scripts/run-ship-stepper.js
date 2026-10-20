@@ -32,6 +32,7 @@
  *   --commit             (pending) seed commit in_progress
  *   --late-exec          (handoff) copy the execute seed after the first call
  *   --auto-seed          Patch data.flags.auto = true into the seed (any scenario)
+ *   --other-exec         Also copy seed/execute-complete.json to a second branch's execute state file (es2)
  *   --walk               (handoff) walk the remaining steps to cleanup
  *
  * Output JSON (one line):
@@ -188,6 +189,11 @@ const late = process.argv.includes('--late-exec');
 if (execSeed !== 'none' && !late) {
   fs.mkdirSync(execDir, { recursive: true });
   fs.copyFileSync(path.join(projectRoot, 'seed', `execute-${execSeed}.json`), path.join(execDir, `execute-feat-ship-${SEED_TS}.json`));
+}
+
+if (process.argv.includes('--other-exec')) {
+  fs.mkdirSync(execDir, { recursive: true });
+  fs.copyFileSync(path.join(projectRoot, 'seed', 'execute-complete.json'), path.join(execDir, `execute-other-branch-${SEED_TS}.json`));
 }
 
 switch (scenario) {

@@ -2817,7 +2817,7 @@
 - description: "ship-step: (es2) execute_state restart deletes only this branch's execute state file and drops --resume"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario exec-state --seed frozen --exec-seed complete --quality balanced --result results/restart.json"
+    script_args: "--project-root {{project_root}} --scenario exec-state --seed frozen --exec-seed complete --other-exec --quality balanced --result results/restart.json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -2828,7 +2828,8 @@
         if (st.step.id !== 'execute_state') return `FAIL: first ${st.step && st.step.id}`;
         if (!next || next.status !== 'step' || next.step.id !== 'dispatch_execute') return `FAIL: next ${next && next.status} ${next && next.step && next.step.id}`;
         if (/--resume/.test(next.step.data.args)) return `FAIL: --resume present: ${next.step.data.args}`;
-        if (o.execFiles.length !== 0) return `FAIL: execute state file kept: ${o.execFiles}`;
+        if (o.execFiles.includes('execute-feat-ship-20261019T120000Z.json')) return `FAIL: this branch's execute state file kept: ${o.execFiles}`;
+        if (JSON.stringify(o.execFiles) !== JSON.stringify(['execute-other-branch-20261019T120000Z.json'])) return `FAIL: second branch's execute state file did not survive: ${o.execFiles}`;
         if (!o.otherFiles.includes('ship-feat-ship-20261019T120000Z.json')) return `FAIL: other files touched: ${o.otherFiles}`;
         return true;
 
@@ -2907,6 +2908,48 @@
         const cmds = d.ext.commands || [];
         if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+\/plan\.md" --resume$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
         if (!d.ext.pendingQuestion || !d.ext.pendingQuestion.prompt.includes('Wave 1 contains high-risk task(s)')) return `FAIL: pendingQuestion ${JSON.stringify(d.ext.pendingQuestion)}`;
+        if (!o.ledger.paused) return 'FAIL: ledger.paused not set';
+        if (o.ledger.stepStatuses.execute !== 'in_progress') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        return true;
+
+- description: "ship-step: (pq7) a high-risk pending question with no options takes the stop path with both commands, not a plain failure"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --quality balanced --result results/execute-pending-noopts.json --answer none"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.calls.length !== 1) return `FAIL: calls ${o.calls.length}`;
+        const d = o.calls[0].envelope;
+        if (d.status !== 'done' || d.ext.reason !== 'pending-question') return `FAIL: ${d.status} ${d.ext && d.ext.reason} ${d.error || ''}`;
+        if (JSON.stringify(d.ext.pendingQuestion.options) !== '[]') return `FAIL: pendingQuestion ${JSON.stringify(d.ext.pendingQuestion)}`;
+        const cmds = d.ext.commands || [];
+        if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+" --resume$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
+        if (!o.ledger.paused) return 'FAIL: ledger.paused not set';
+        if (o.ledger.stepStatuses.execute !== 'in_progress') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        return true;
+
+- description: "ship-step: (pq8) a free-text high-risk answer \"yes, but only task 3\" takes the stop path, never --resume --auto"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --exec-seed complete --quality balanced --result results/execute-pending-highrisk.json --answer gate-freetext"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.calls.length !== 2) return `FAIL: calls ${o.calls.length}`;
+        const d = o.calls[1].envelope;
+        if (d.status !== 'done' || o.calls[1].exitCode !== 0) return `FAIL: ${d.status} exit ${o.calls[1].exitCode} ${d.error || ''}`;
+        if (d.ext.reason !== 'pending-question') return `FAIL: reason ${d.ext.reason}`;
+        const redispatch = o.calls.filter(c => c.envelope.step && c.envelope.step.id === 'dispatch_execute');
+        if (redispatch.length !== 0) return `FAIL: dispatch_execute re-emitted: ${redispatch[0].envelope.step.data.args}`;
+        const cmds = d.ext.commands || [];
+        if (cmds.length !== 2 || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
         if (!o.ledger.paused) return 'FAIL: ledger.paused not set';
         if (o.ledger.stepStatuses.execute !== 'in_progress') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
         return true;
