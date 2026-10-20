@@ -180,7 +180,7 @@
 
 ### Review routing
 
-- R6: The review-gate dispatch decision is computed by `scripts/skill/ship.js` at the `review_gate` step from the counts in `review-summary.json` (review-sdlc P11, copied to `.sdlc/execution/review-summary-<slug>.json`) and `flags.reviewThreshold`, which the same script resolves. Verdict outcomes (`CHANGES REQUESTED`, `APPROVED WITH NOTES`, `APPROVED`) are inputs; the dispatch decision (invoke `received-review-sdlc` vs collect-and-defer) reads `flags.reviewThreshold` exclusively — no hardcoded count thresholds. In `--auto` mode, dispatch is automatic; `received-review-sdlc --auto` is forwarded.
+- R6: The review-gate dispatch decision is computed by `scripts/skill/ship.js` at the `review_gate` step from the counts in `review-summary.json` (review-sdlc P11, copied to the main worktree's `.sdlc/execution/review-summary-<slug>.json`, resolved with `resolveStateDir()`; a file older than the ledger's `review` step start counts as missing) and `flags.reviewThreshold`, which the same script resolves. Verdict outcomes (`CHANGES REQUESTED`, `APPROVED WITH NOTES`, `APPROVED`) are inputs; the dispatch decision (invoke `received-review-sdlc` vs collect-and-defer) reads `flags.reviewThreshold` exclusively — no hardcoded count thresholds. In `--auto` mode, dispatch is automatic; `received-review-sdlc --auto` is forwarded.
   - Acceptance: dispatch decision read from `ship.js review-gate` output, never from conversation text; a missing, stale or malformed summary dispatches received-review-sdlc with a warning.
 - R40: `flags.reviewThreshold` enum `{critical, high, medium, low}` controls minimum severity that dispatches `received-review-sdlc`:
   - `critical` → trigger on any critical finding
