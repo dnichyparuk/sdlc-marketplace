@@ -14,7 +14,7 @@ On-demand companion for `ship-sdlc/SKILL.md` (implements R-progressive-disclosur
 | Network error (gh API) | Auto-retry via `retryExec` (3 attempts with exponential backoff). If exhausted, record failure + print resume instruction (see below) | No — transient |
 | State file write fails | Warn and continue — state persistence is best-effort | No |
 | Resume state file corrupt | Warn, start fresh | No |
-| Review verdict unparseable | `ship.js` dispatches received-review-sdlc and adds a `warnings` line (`review_gate`) | No |
+| Review summary missing or malformed | `ship.js` dispatches received-review-sdlc and adds a `warnings` line (`review_gate`) | No |
 | Sub-skill times out | Stop pipeline, save state, inform user to `--resume` | No — transient |
 
 **Resume instruction format** (printed on step failure after retries exhausted or on any unrecoverable step error):
@@ -47,7 +47,7 @@ Each sub-skill has its own error recovery. ship-sdlc does not duplicate their re
 
 **Staging gap after execute.** execute-plan-sdlc creates and modifies files but does not stage them. ship-sdlc must run `git add -A -- ':!.sdlc/'` between execute and commit. Missing this produces an empty commit.
 
-**Verdict detection is text-based.** Parse the conversation for a line matching `Verdict: <VERDICT>`. The review-sdlc orchestrator always emits this. If the conversation is compacted between review and verdict parsing, the verdict may be lost — a missing or unparseable verdict makes `review_gate` dispatch received-review-sdlc with a warning.
+**Review gate reads `review-summary.json`.** `ship.js` decides the `review_gate` from the review summary file that review-sdlc copies to `.sdlc/execution/`; a missing, stale or malformed file makes `review_gate` dispatch received-review-sdlc with a warning.
 
 **received-review-sdlc supports `--auto`.** When `--auto` is forwarded, both the Step 10 consent prompt and the Step 12 reply/resolve prompt are skipped. "Will fix" items are auto-implemented and their threads are auto-resolved via in-thread replies. "Disagree" and "won't fix" items are displayed but not auto-implemented; their threads are replied to but left open for the reviewer. Critique gates and verification still run. Without `--auto`, the pipeline pauses for human approval at both gates.
 

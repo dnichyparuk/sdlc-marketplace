@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/rnagrodzki/sdlc-marketplace/main/schemas/review-summary.schema.json",
+  "title": "Review Summary",
+  "description": "Validates review-summary.json written by the review-orchestrator beside review-comment.md (review-sdlc P11) and read by ship.js review-gate",
+  "type": "object",
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "verdict": { "enum": ["APPROVED", "APPROVED WITH NOTES", "CHANGES REQUESTED"] },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 },
+        "info": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["critical", "high", "medium", "low", "info"],
+      "additionalProperties": false
+    },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "status": { "enum": ["ACTIVE", "TRUNCATED", "SKIPPED"] },
+          "findings": { "type": "integer", "minimum": 0 }
+        },
+        "required": ["name", "status", "findings"]
+      }
+    },
+    "commentPath": { "type": "string" },
+    "branch": { "type": "string" }
+  },
+  "required": ["schemaVersion", "verdict", "counts", "dimensions", "commentPath", "branch"]
+}

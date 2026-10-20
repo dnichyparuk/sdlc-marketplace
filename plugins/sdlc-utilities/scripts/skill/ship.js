@@ -1364,24 +1364,80 @@ function historySuccess(ledger, id) {
   return ledger.history.some(h => h.step === id && h.result === 'success');
 }
 
+const REVIEW_SUMMARY_MISSING = 'review summary missing or malformed — dispatching received-review to be safe';
+const REVIEW_VERDICTS = ['APPROVED', 'APPROVED WITH NOTES', 'CHANGES REQUESTED'];
+
+/** Absolute path of the review-summary copy for a branch (same slug rule and state dir as review.js's `summary_copy_path`). */
+function reviewSummaryPath(branch) {
+  return path.join(resolveStateDir(), `review-summary-${slugifyBranch(branch || 'nobranch')}.json`);
+}
+
 /**
- * L12: parse the review verdict line of the latest dispatch_review result and
- * apply the R6 threshold table with flags.reviewThreshold. A missing or
- * unparseable verdict counts as met (dispatch plus a warning).
+ * W4.5: the one review-gate decision (R6). Reads `review-summary.json`
+ * (schemas/review-summary.schema.json) and applies the `reviewThreshold`
+ * table: critical → any critical; high → critical or high; medium → + medium;
+ * low → any finding except info. A missing, stale (mtime before `notBefore`)
+ * or malformed file dispatches received-review-sdlc (C17: never approve on a
+ * missing summary).
+ */
+function reviewGateFromSummary(summaryPath, threshold, opts = {}) {
+  const missing = { dispatchReceivedReview: true, reason: REVIEW_SUMMARY_MISSING, counts: null, verdict: null, summaryFound: false };
+  let doc;
+  try {
+    const st = fs.statSync(summaryPath);
+    if (opts.notBefore && st.mtimeMs < opts.notBefore) return missing;
+    doc = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+  } catch { return missing; }
+  const c = doc && doc.counts;
+  const valid = doc && typeof doc === 'object' && REVIEW_VERDICTS.includes(doc.verdict) && c && typeof c === 'object'
+    && [...SEVERITIES, 'info'].every(k => Number.isInteger(c[k]) && c[k] >= 0);
+  if (!valid) return missing;
+  const counts = { critical: c.critical, high: c.high, medium: c.medium, low: c.low, info: c.info };
+  const met = SEVERITIES.slice(0, SEVERITIES.indexOf(threshold) + 1).some(k => counts[k] > 0);
+  return {
+    dispatchReceivedReview: met,
+    reason: met ? `findings at or above reviewThreshold (${threshold})` : `no findings at or above reviewThreshold (${threshold})`,
+    counts, verdict: doc.verdict, summaryFound: true,
+  };
+}
+
+/**
+ * `review-gate --threshold critical|high|medium|low [--summary <path>] [--auto]`
+ *
+ * Prints the decision of reviewGateFromSummary as JSON and exits 0. `--auto`
+ * is accepted and does not change the output (only ship's `llm_decision`
+ * differs). Without `--summary` the current branch's copy is read.
+ */
+function reviewGateCli(argv) {
+  const args = argv.slice(3);
+  let summary = null;
+  let threshold = BUILT_IN_DEFAULTS.reviewThreshold;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--summary' && args[i + 1]) summary = args[++i];
+    else if (args[i] === '--threshold' && args[i + 1]) threshold = args[++i];
+  }
+  if (!SEVERITIES.includes(threshold)) threshold = BUILT_IN_DEFAULTS.reviewThreshold;
+  if (!summary) summary = reviewSummaryPath(exec('git branch --show-current', { cwd: process.cwd() }) || '');
+  const r = reviewGateFromSummary(summary, threshold);
+  if (!r.summaryFound) process.stderr.write(`review-gate: ${REVIEW_SUMMARY_MISSING}\n`);
+  process.stdout.write(JSON.stringify(r, null, 2) + '\n');
+  process.exit(0);
+}
+
+/**
+ * Decision for the `review_gate` step: the summary file is the only source
+ * (no verdict-string fallback). The summary must not predate the ledger's
+ * `review` step.
  */
 function reviewGateDecision(ledger) {
   const threshold = SEVERITIES.includes(ledger.flags.reviewThreshold)
     ? ledger.flags.reviewThreshold
     : BUILT_IN_DEFAULTS.reviewThreshold;
-  const entry = lastHistory(ledger, 'dispatch_review');
-  const verdict = entry && entry.data && entry.data.artifacts ? entry.data.artifacts.verdict : undefined;
-  if (typeof verdict !== 'string' || !/CHANGES REQUESTED|APPROVED WITH NOTES|APPROVED/.test(verdict)) {
-    return { parseable: false, threshold, verdict: verdict === undefined ? null : verdict, counts: null, met: true };
-  }
-  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
-  for (const m of verdict.matchAll(/(\d+) (critical|high|medium|low)/g)) counts[m[2]] += Number(m[1]);
-  const met = SEVERITIES.slice(0, SEVERITIES.indexOf(threshold) + 1).some(s => counts[s] > 0);
-  return { parseable: true, threshold, verdict, counts, met };
+  const review = ledger.steps.find(s => s.name === 'review');
+  const notBefore = review && review.startedAt ? Date.parse(review.startedAt) : 0;
+  const summaryPath = reviewSummaryPath(ledger.branch);
+  const r = reviewGateFromSummary(summaryPath, threshold, { notBefore });
+  return { parseable: r.summaryFound, threshold, verdict: r.verdict, counts: r.counts, met: r.dispatchReceivedReview, summaryFound: r.summaryFound, summaryPath, reason: r.reason };
 }
 
 /** Reason a conditional step's condition is not met, or null when it is met. */
@@ -1510,9 +1566,9 @@ function pickNextStep(after, ctx) {
       case 'review_gate': {
         if (!recorded.has('review')) continue;
         const d = reviewGateDecision(ledger);
-        data = { verdict: d.verdict, threshold: d.threshold, counts: d.counts, dispatchReceivedReview: d.met };
+        data = { verdict: d.verdict, threshold: d.threshold, counts: d.counts, dispatchReceivedReview: d.met, summaryFound: d.summaryFound, summaryPath: d.summaryPath };
         if (!d.parseable) {
-          warnings.push(`Review verdict missing or unparseable (${JSON.stringify(d.verdict)}); dispatching received-review-sdlc.`);
+          warnings.push(`${REVIEW_SUMMARY_MISSING} (${d.summaryPath}).`);
         } else if (d.met && !flags.auto) {
           const found = SEVERITIES.filter(s => d.counts[s] > 0).map(s => `${d.counts[s]} ${s}`).join(', ');
           llmDecision = { type: 'choice', prompt: `Review found ${found}. Dispatch received-review-sdlc now with "${stepOf('received-review').args}"? It runs unattended and applies the fixes without showing its plan.`, options: ['yes', 'defer'] };
@@ -1994,6 +2050,11 @@ function main() {
   // so none of the config/gh/worktree setup below runs.
   if (process.argv[2] === 'verify-side-effect') {
     return verifySideEffect(process.argv);
+  }
+
+  // review-gate subcommand (W4.5): the review_gate decision from review-summary.json.
+  if (process.argv[2] === 'review-gate') {
+    return reviewGateCli(process.argv);
   }
 
   // P-STEP-2: every call after the initial one is `--after <id> --result-file <p> --state <ledger>`.

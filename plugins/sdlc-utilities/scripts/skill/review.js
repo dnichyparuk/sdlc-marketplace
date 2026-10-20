@@ -45,6 +45,7 @@ const {
 } = require(path.join(LIB, 'git'));
 const { readSection, writeLocalConfig, resolveSdlcRoot } = require(path.join(LIB, 'config'));
 const { writeOutput } = require(path.join(LIB, 'output'));
+const { resolveStateDir, slugifyBranch } = require(path.join(LIB, 'state'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { getPluginVersion } = require(path.join(LIB, 'config-version'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
@@ -666,6 +667,8 @@ function main() {
       suggested_dimensions:  critique.uncoveredSuggestions.length,
     },
     diff_dir: tmpDir,
+    // Where the skill copies review-summary.json for ship-sdlc (P11); ship.js reads the same path.
+    summary_copy_path: path.join(resolveStateDir(), `review-summary-${slugifyBranch(gitState.currentBranch || 'nobranch')}.json`),
   };
 
   writeOutput(manifest, 'review-manifest');

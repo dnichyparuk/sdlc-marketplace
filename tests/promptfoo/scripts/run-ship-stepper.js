@@ -34,6 +34,10 @@
  *   --auto-seed          Patch data.flags.auto = true into the seed (any scenario)
  *   --other-exec         Also copy seed/execute-complete.json to a second branch's execute state file (es2)
  *   --walk               (handoff) walk the remaining steps to cleanup
+ *   --summary <name>     review-gate: copy fixtures-fs/review-summaries/<name> to the main
+ *                        worktree's .sdlc/execution/review-summary-feat-ship.json before the scenario runs
+ *   --summary-stale      review-gate: the summary predates the review step's startedAt (treated as missing)
+ *   --in-worktree        review-gate: run ship.js from a linked worktree of the fixture repo
  *
  * Output JSON (one line):
  *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, otherFiles }
@@ -55,6 +59,7 @@ let seed = 'none';
 let answer = 'yes';
 let execSeed = 'none';
 let quality = null;
+let summaryRel = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
@@ -65,6 +70,7 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--answer' && args[i + 1]) answer = args[++i];
   else if (args[i] === '--exec-seed' && args[i + 1]) execSeed = args[++i];
   else if (args[i] === '--quality' && args[i + 1]) quality = args[++i];
+  else if (args[i] === '--summary' && args[i + 1]) summaryRel = args[++i];
 }
 
 // Locate repo root with skill/ship.js.
@@ -94,6 +100,7 @@ delete env.SDLC_STATE_DIR_OVERRIDE;
 
 const calls = [];
 let statePath = null;
+let runCwd = projectRoot;
 
 function sh(cmd) {
   return spawnSync('sh', ['-c', cmd], { cwd: projectRoot, env, encoding: 'utf8', timeout: 8000 });
@@ -108,7 +115,7 @@ function ledgerFiles() {
 }
 
 function ship(shipArgs) {
-  const res = spawnSync('node', [shipScript, ...shipArgs], { cwd: projectRoot, env, encoding: 'utf8', timeout: 8000 });
+  const res = spawnSync('node', [shipScript, ...shipArgs], { cwd: runCwd, env, encoding: 'utf8', timeout: 8000 });
   const out = (res.stdout || '').trim();
   let envelope = null;
   if (out && !out.includes('\n') && fs.existsSync(out)) envelope = readJson(out);
@@ -172,6 +179,7 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     }
     if (scenario === 'resume-twice') { const e = data.steps.find(x => x.name === 'execute'); if (e) e.status = 'completed'; }
     if (scenario === 'review-gate-rows' && result && result.threshold) data.flags.reviewThreshold = result.threshold;
+    if (process.argv.includes('--summary-stale')) { const e = data.steps.find(x => x.name === 'review'); if (e) e.startedAt = new Date().toISOString(); }
     if (scenario === 'emit-in-progress') data.paused = { at: '2026-10-19T12:00:00.000Z', reason: 'fixture' };
     if (scenario === 'worktree-mismatch') data.worktree = path.dirname(projectRoot);
     if (scenario === 'rebase-emit') { data.flags.rebase = 'auto'; data.flags.auto = true; }
@@ -184,6 +192,18 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     }
     if (scenario === 'plan-no-tasks') data.flags.planFile = path.join(projectRoot, 'plan-notasks.md');
   });
+}
+if (summaryRel) {
+  // review-gate: the copy review-sdlc leaves in the main worktree's .sdlc/execution/ (P11).
+  fs.mkdirSync(execDir, { recursive: true });
+  const dest = path.join(execDir, 'review-summary-feat-ship.json');
+  fs.copyFileSync(path.join(repoRoot, 'tests', 'promptfoo', 'fixtures-fs', 'review-summaries', summaryRel), dest);
+  const t = new Date(Date.now() + (process.argv.includes('--summary-stale') ? -3600000 : 60000));
+  fs.utimesSync(dest, t, t);
+}
+if (process.argv.includes('--in-worktree')) {
+  runCwd = path.join(path.dirname(projectRoot), 'wt-' + path.basename(projectRoot));
+  sh(`git worktree add -q -b wt-review "${runCwd}"`);
 }
 const late = process.argv.includes('--late-exec');
 if (execSeed !== 'none' && !late) {
