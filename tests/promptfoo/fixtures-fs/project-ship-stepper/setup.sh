@@ -180,6 +180,8 @@ echo '{"success":true,"output":{"summary":"branch created","artifacts":{"branch"
 echo '{"success":true,"output":{"summary":"committed abc1234","usage":{"inputTokens":120,"outputTokens":40,"model":"haiku"}}}' > results/commit-ok.json
 echo '{"success":false,"output":{"summary":"pre-commit hook failed"}}' > results/commit-fail.json
 echo '{"success":true,"output":{"summary":"released v9.9.9","artifacts":{"tag":"v9.9.9"}}}' > results/version-tag-missing.json
+echo '{"success":true,"output":{"summary":"committed deadbeef","artifacts":{"commit":"deadbeef"}}}' > results/commit-wrong-sha.json
+echo '{"success":true,"output":{"summary":"PR opened","artifacts":{"prUrl":"https://example/pr/1"}}}' > results/pr-ok.json
 echo '{"success":true,"output":{"summary":"pipeline cleaned up"}}' > results/cleanup-ok.json
 echo '{"success":true,"output":{"summary":"2 tasks done","usage":{"inputTokens":900,"outputTokens":300,"model":"opus"}}}' > results/execute-ok.json
 # Pending questions and their answers (cases pq1-pq6, eh1-eh7).

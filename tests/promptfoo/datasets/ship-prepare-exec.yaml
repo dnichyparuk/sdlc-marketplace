@@ -1706,6 +1706,70 @@
     - type: contains
       value: '"reason": "no-side-effect"'
 
+# W4.6: commit (HEAD sha) and pr (gh pr view) side-effects. The commit sha is not deterministic,
+# so a wrapper resolves HEAD of the generated verify-tag-ancestry repo; the pr cases use a stub gh.
+- description: "verify-side-effect: commit with the HEAD sha → landed:true"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-verify-side-effect-commit.js"
+    script_args: ""
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"sideEffect": "head-commit"'
+    - type: contains
+      value: '"landed": true'
+    - type: contains
+      value: '"head":'
+
+- description: "verify-side-effect: commit with a short HEAD sha → landed:true"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-verify-side-effect-commit.js"
+    script_args: "--short"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"landed": true'
+
+- description: "verify-side-effect: commit with an unknown sha → landed:false"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step commit --expected deadbeef"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"landed": false'
+    - type: contains
+      value: '"expected": "deadbeef"'
+
+- description: "verify-side-effect: pr whose URL gh confirms → landed:true"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step pr --expected https://example/pr/1"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin-ok"
+    project_root: "file://fixtures-fs/verify-side-effect-pr"
+  assert:
+    - type: contains
+      value: '"sideEffect": "pr-url"'
+    - type: contains
+      value: '"landed": true'
+
+- description: "verify-side-effect: pr that gh does not confirm → landed:false"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step pr --expected https://example/pr/1"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin-empty"
+    project_root: "file://fixtures-fs/verify-side-effect-pr"
+  assert:
+    - type: contains
+      value: '"landed": false'
+    - type: contains
+      value: '"sideEffect": "pr-url"'
+
 # --- --usage accounting on ship steps (W1.1) ---
 # Driven through run-ship-begin-complete.js (finalUsage = persisted step.usage).
 
@@ -2001,6 +2065,53 @@
         if (e.status !== 'error') return `FAIL: status ${e.status}`;
         if (!/commit failed: pre-commit hook failed\. State preserved; re-run with --resume\./.test(e.error)) return `FAIL: error ${e.error}`;
         if (o.ledger.stepStatuses.commit !== 'failed') return `FAIL: commit ${o.ledger.stepStatuses.commit}`;
+        return true;
+
+- description: "ship-step: (w46) --after dispatch_commit whose reported commit is not HEAD returns error and records commit failed"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-commit-fail --seed frozen --result results/commit-wrong-sha.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (!/commit "deadbeef" is not HEAD/.test(e.error)) return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.commit !== 'failed') return `FAIL: commit ${o.ledger.stepStatuses.commit}`;
+        return true;
+
+- description: "ship-step: (w46) --after dispatch_pr whose URL gh confirms records pr completed"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-pr --seed frozen --result results/pr-ok.json --gh-pr-url https://example/pr/1"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status === 'error') return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.pr !== 'completed') return `FAIL: pr ${o.ledger.stepStatuses.pr}`;
+        return true;
+
+- description: "ship-step: (w46) --after dispatch_pr whose URL gh cannot confirm returns error and records pr failed"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-pr --seed frozen --result results/pr-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'error') return `FAIL: status ${e.status}`;
+        if (!/PR "https:\/\/example\/pr\/1" not confirmed by gh/.test(e.error)) return `FAIL: error ${e.error}`;
+        if (o.ledger.stepStatuses.pr !== 'failed') return `FAIL: pr ${o.ledger.stepStatuses.pr}`;
         return true;
 
 - description: "ship-step: (l) --after dispatch_version with a tag missing from git returns error and records version failed"

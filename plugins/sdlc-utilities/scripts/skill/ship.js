@@ -1053,11 +1053,37 @@ function detectResumeState(_projectRoot, currentBranch) {
 // verify-side-effect subcommand (R-b3, issue #478 — F-ship-step-status-integrity-guard-8)
 // ---------------------------------------------------------------------------
 
-// Steps whose completion has an objective, externally-observable side-effect.
-// Only `version` is wired today: its side-effect is the release git tag. The
-// pr/commit steps are a documented extension point (see the ship-sdlc SKILL.md
-// per-step completion block) but are intentionally NOT implemented here.
-const STEP_SIDE_EFFECTS = { version: 'tag' };
+// Steps whose completion has an objective, externally-observable side-effect:
+// version → the release git tag, commit → the HEAD commit, pr → the PR URL.
+const STEP_SIDE_EFFECTS = { version: 'tag', commit: 'head-commit', pr: 'pr-url' };
+
+/**
+ * commit side-effect: `sha` (short or full) names an existing commit and is the
+ * current HEAD. Git only; fails closed on an empty/odd value or any git error.
+ */
+function checkHeadCommit(sha, cwd) {
+  const git = (...a) => spawnSync('git', a, { cwd, encoding: 'utf8', timeout: 8000 });
+  if (typeof sha !== 'string' || !/^[0-9a-fA-F]{4,40}$/.test(sha)) return { landed: false, head: null };
+  const head = git('rev-parse', 'HEAD');
+  const headSha = head.status === 0 ? head.stdout.trim() : null;
+  if (!headSha) return { landed: false, head: null };
+  const exists = git('cat-file', '-e', `${sha}^{commit}`);
+  return { landed: exists.status === 0 && headSha.toLowerCase().startsWith(sha.toLowerCase()), head: headSha };
+}
+
+/**
+ * pr side-effect: `gh pr view <url>` reports the same URL in state OPEN or
+ * MERGED. gh only; an unavailable or unauthenticated gh is `gh-unavailable`.
+ */
+function checkPrUrl(url, cwd) {
+  if (typeof url !== 'string' || !url) return { landed: false };
+  const res = spawnSync('gh', ['pr', 'view', url, '--json', 'url,state'], { cwd, encoding: 'utf8', timeout: 15000 });
+  if (res.error || res.status !== 0) return { landed: false, reason: 'gh-unavailable' };
+  let pr;
+  try { pr = JSON.parse(res.stdout); } catch { return { landed: false, reason: 'pr-not-confirmed' }; }
+  const ok = pr && pr.url === url && ['OPEN', 'MERGED'].includes(pr.state);
+  return ok ? { landed: true } : { landed: false, reason: 'pr-not-confirmed' };
+}
 
 /**
  * `verify-side-effect --step <name> [--expected <tag>]`
@@ -1070,7 +1096,8 @@ const STEP_SIDE_EFFECTS = { version: 'tag' };
  * #498 used). Emits a single JSON object on stdout and exits 0 when the
  * side-effect landed, 1 when it did not. Steps without a defined side-effect
  * emit `{ landed: true, reason: 'no-side-effect' }` (exit 0) so callers are
- * uniform.
+ * uniform. `commit` (expected: sha) and `pr` (expected: URL) are checked the same
+ * way against git HEAD and `gh pr view`; every tool error is `landed:false`.
  *
  * @param {string[]} argv  process.argv (argv[2] === 'verify-side-effect')
  */
@@ -1096,6 +1123,19 @@ function verifySideEffect(argv) {
     // No defined side-effect for this step — uniform pass-through so the
     // caller can invoke verify-side-effect for every step without branching.
     emit({ step, landed: true, reason: 'no-side-effect' }, 0);
+    return;
+  }
+
+  if (sideEffect === 'head-commit') {
+    const c = checkHeadCommit(expected, resolveActiveWorktreeSafe());
+    emit({ step, sideEffect, landed: c.landed, expected: expected || null, head: c.head }, c.landed ? 0 : 1);
+    return;
+  }
+  if (sideEffect === 'pr-url') {
+    const c = checkPrUrl(expected, resolveActiveWorktreeSafe());
+    const out = { step, sideEffect, landed: c.landed, expected: expected || null };
+    if (c.reason) out.reason = c.reason;
+    emit(out, c.landed ? 0 : 1);
     return;
   }
 
@@ -1831,6 +1871,22 @@ function runAfter(stepArgs) {
     if (!tag || !getTagList(resolveActiveWorktreeSafe()).includes(tag)) {
       success = false;
       failureText = `version tag "${tag || ''}" was not found in the git tag list`;
+    }
+  }
+  // W4.6: commit/commit-fixes and pr are cross-checked like version (git HEAD; gh pr view).
+  const sideKey = name === 'commit-fixes' ? 'commit' : name;
+  if (sideKey && success && STEP_SIDE_EFFECTS[sideKey] === 'head-commit') {
+    const sha = output.artifacts && output.artifacts.commit;
+    if (!checkHeadCommit(sha, resolveActiveWorktreeSafe()).landed) {
+      success = false;
+      failureText = `commit "${sha || ''}" is not HEAD`;
+    }
+  } else if (sideKey && success && STEP_SIDE_EFFECTS[sideKey] === 'pr-url') {
+    const url = output.artifacts && output.artifacts.prUrl;
+    const c = checkPrUrl(url, resolveActiveWorktreeSafe());
+    if (!c.landed) {
+      success = false;
+      failureText = `PR "${url || ''}" not confirmed by gh (${c.reason || 'no-url'})`;
     }
   }
   // L23/L27: completeness gate; any non-zero exit halts and becomes the process exit code.

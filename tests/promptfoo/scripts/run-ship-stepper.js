@@ -19,7 +19,7 @@
  *                        emit-in-progress | review-gate-rows | ttl-days |
  *                        worktree-mismatch | after-execute | plan-no-tasks | after-commit-fail-gc |
  *                        rebase-emit | inline-fail-<step-with-dashes> | forced-cleanup |
- *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff
+ *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff | after-pr
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
  *   --seed <name>        legacy | frozen | frozen-dryrun | frozen-branch | frozen-resumed | frozen-exec | frozen-pending | none
@@ -38,6 +38,10 @@
  *                        worktree's .sdlc/execution/review-summary-feat-ship.json before the scenario runs
  *   --summary-stale      review-gate: the summary predates the review step's startedAt (treated as missing)
  *   --in-worktree        review-gate: run ship.js from a linked worktree of the fixture repo
+ *   --gh-pr-url <url>    stub `gh pr view` reports an OPEN PR with this url (default: `gh pr view` fails)
+ *
+ * A successful dispatch_commit / dispatch_commit_fixes result without artifacts.commit gets the fixture
+ * repo's HEAD sha injected (W4.6: ship.js cross-checks the reported commit against HEAD).
  *
  * Output JSON (one line):
  *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, otherFiles }
@@ -94,8 +98,9 @@ const SEED_TS = '20261019T120000Z';
 
 // Stub `gh` so the initial call's auth preflight passes offline.
 const stubDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'ship-stepper-gh-'));
-fs.writeFileSync(path.join(stubDir, 'gh'), '#!/bin/sh\necho "Logged in to github.com account fixture"\nexit 0\n', { mode: 0o755 });
-const env = { ...process.env, PATH: stubDir + path.delimiter + (process.env.PATH || '') };
+fs.writeFileSync(path.join(stubDir, 'gh'), '#!/bin/sh\nif [ "$1" = "pr" ] && [ "$2" = "view" ]; then\n  if [ -n "$STUB_PR_URL" ]; then echo "{\\"url\\":\\"$STUB_PR_URL\\",\\"state\\":\\"OPEN\\"}"; exit 0; fi\n  exit 1\nfi\necho "Logged in to github.com account fixture"\nexit 0\n', { mode: 0o755 });
+const ghPrIdx = args.indexOf('--gh-pr-url');
+const env = { ...process.env, PATH: stubDir + path.delimiter + (process.env.PATH || ''), ...(ghPrIdx >= 0 ? { STUB_PR_URL: args[ghPrIdx + 1] } : {}) };
 delete env.SDLC_STATE_DIR_OVERRIDE;
 
 const calls = [];
@@ -135,8 +140,23 @@ function initial(extra = []) {
   return ship([...planArgs, ...extra]);
 }
 
+// W4.6: a successful commit result reports the fixture repo's HEAD sha (not deterministic, so injected here).
+function withHeadSha(file) {
+  const r = readJson(file);
+  if (!r || r.success !== true) return file;
+  r.output = r.output || {};
+  r.output.artifacts = r.output.artifacts || {};
+  if (r.output.artifacts.commit) return file;
+  r.output.artifacts.commit = sh('git rev-parse HEAD').stdout.trim();
+  const out = path.join(stubDir, 'with-sha-' + path.basename(file));
+  fs.writeFileSync(out, JSON.stringify(r));
+  return out;
+}
+
 function after(id, rel) {
-  return ship(['--after', id, '--result-file', path.join(projectRoot, rel), '--state', statePath || '']);
+  let file = path.join(projectRoot, rel);
+  if (id === 'dispatch_commit' || id === 'dispatch_commit_fixes') file = withHeadSha(file);
+  return ship(['--after', id, '--result-file', file, '--state', statePath || '']);
 }
 
 function seedLedger(name, patch) {
@@ -262,6 +282,9 @@ switch (scenario) {
     // learnings_commit fails (non-fatal) -> forced cleanup is emitted with the ledger kept.
     after('learnings_commit', 'results/commit-fail.json');
     after('cleanup', 'results/cleanup-ok.json');
+    break;
+  case 'after-pr':
+    after('dispatch_pr', resultRel);
     break;
   case 'after-execute':
     after('dispatch_execute', resultRel || 'results/execute-ok.json');
