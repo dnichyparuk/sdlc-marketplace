@@ -536,11 +536,11 @@ Prunes every state file whose branch is absent from `git branch --list`, regardl
 
 ## Post-execute completeness gate
 
-After `execute-plan-sdlc` returns and before ship-sdlc advances to the commit step, ship-sdlc runs a blocking invariant check: `state/execute.js verify-completeness`. This gate ensures that every task the execute agent was asked to complete is accounted for in the state file before the pipeline moves on.
+After `execute-plan-sdlc` returns and before ship-sdlc advances to the commit step, ship-sdlc runs a blocking invariant check when an execute state file exists: `state/execute.js verify-completeness`. This gate ensures that every task the execute agent was asked to complete is accounted for in the state file before the pipeline moves on.
 
 **What triggers it:**
 
-The gate runs automatically after every successful `execute-plan-sdlc` dispatch. It cannot be skipped.
+The gate runs after every successful `execute-plan-sdlc` dispatch that leaves an execute state file. When execute has already removed its state (its cleanup deletes it only after the same check passed) or never wrote one (small plans), ship records the execute step completed with `completenessGate: "no-execute-state"` in the ledger history and moves on.
 
 **Exit outcomes:**
 
