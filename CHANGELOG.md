@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - changed: content previews (commit message, changelog draft, PR body, received-review plan) are not shown in interactive mode, and the `--auto` flag is now always part of the computed args of commit, commit-fixes, received-review, version and pr (#9003)
 - docs: `docs/specs/ship-sdlc.md` and `docs/specs/execute-plan-sdlc.md` state the per-step dispatch, the tier rule (ship asks), the pending-question stop and the P-TRANS-1 rows; `docs/cost-tiers.md` lists the six agents and the S1 = NO per-step shape; `docs/architecture.md`, `docs/skill-best-practices.md` and `docs/skills/ship-sdlc.md` describe per-step agents (#9003)
 - tests: 28 new exec cases for the agent fields, consent, tier, execute-state, pending-question and handoff branches, and a cost-tier fixture agent with `effort:` (#9003)
+- changed: the `review_gate` prompt names received-review-sdlc and its computed args and says it runs unattended without showing its plan; its `yes` is received-review's consent, so `confirm_received_review` is emitted only when `review_gate` did not ask (#9003)
+- fix: return item (4) of the six `agents/ship-step-*.md` asks for the pending question and its answer options, one short keyword each, so `output.pendingQuestion` carries options; `validPendingQuestion` also accepts `options: []`, which takes the pending-question stop path (the question plus both commands) instead of a plain failure (#9003)
+- fix: `execute_gate` takes an answer only on an exact match with an offered option, so free text such as "yes, but only task 3" takes the stop path and never `--resume --auto` (#9003)
+- docs: `docs/specs/execute-plan-sdlc.md` A2 matches the ship-asks tier rule: `--quality` is forwarded when passed to ship or chosen at `execute_tier`, and ship never invents a tier (#9003)
+- tests: exec cases `pq7` (no options) and `pq8` (free-text answer), and `es2` now seeds a second branch's execute state file and asserts it survives a restart (#9003)
 
 ## [0.26.0] - 2026-10-19
 
