@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-10-21
+
+### Changed
+- fix: execute's state cleanup (`state/execute.js cleanup`) now runs the completeness check itself and refuses to delete an incomplete state: on exit 65 (planned tasks unaccounted) or 2 (no `plannedTaskIds`) it keeps the state file and exits with that code; ship-sdlc's completeness gate runs only when an execute state file exists, otherwise the execute step is recorded completed with `completenessGate: "no-execute-state"`, so ship no longer halts after every successful execute (W8.22, #9123)
+- fix: commit-sdlc's `--auto` path: a subject-gate rejection (exit 1 or 2) now stops without a prompt and without committing; the message reaches git, the subject gate and the link check only through a message file (`git commit -F`), never through a shell argument, so quotes, `$()` and backticks in a message are literal (W8.1)
+- fix: `post-tool-validate` runs the plan validator with an argv list (`execFileSync`), so a plan file name holding `$()` or backticks runs no shell (W8.21, #9122)
+- docs: `docs/specs/commit-sdlc.md` is restructured into the ten contract sections (history in the appendix, ids unchanged), with C14 and E8 added (W3.5); the ship and execute specs and the ship and execute skill pages describe the verifying cleanup and the scoped completeness gate
+- tests: new `run-execute-cleanup-verify.js` cases (four `cleanup-verify` cases), ship-step case (u4) and a reworked (u2), `commit-literal-message` and `post-tool-validate-argv` cases
+
 ## [0.29.0] - 2026-10-20
 
 ### Changed
