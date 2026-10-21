@@ -15,6 +15,9 @@ defaultTest:
   options:
     transformVars: "file://scripts/extract-skill-content.js"
 
+extensions:
+  - file://scripts/fixture-copies-cleanup.js:afterAll
+
 tests:
   - file://datasets/sdlc-plugin-discovery-exec.yaml
   - file://datasets/sdlc-dimensions-exec.yaml

@@ -18,7 +18,48 @@
  *                  to `os.tmpdir()` (e.g., jira-sdlc-debug dumps per R21.2).
  */
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
+
+// spawnSync's limits, kept so every case sees the same outcome as before.
+const TIMEOUT_MS = 30_000;
+const MAX_BUFFER = 1024 * 1024; // spawnSync default maxBuffer, bytes per stream
+
+
+// Async stand-in for spawnSync('node', args, { timeout, encoding: 'utf8', input }):
+// resolves (never rejects) with the same { stdout, stderr, status, signal, error } record.
+function runNode(args, { cwd, env, input }) {
+  return new Promise((resolve) => {
+    const out = { stdout: '', stderr: '' };
+    const bytes = { stdout: 0, stderr: 0 };
+    let error;
+    const child = spawn('node', args, { cwd, env, stdio: 'pipe' });
+    const fail = (code) => {
+      if (!error) error = new Error(`spawnSync node ${code}`);
+      child.kill('SIGTERM');
+    };
+    const timer = setTimeout(() => fail('ETIMEDOUT'), TIMEOUT_MS);
+    for (const name of ['stdout', 'stderr']) {
+      child[name].setEncoding('utf8');
+      child[name].on('data', (chunk) => {
+        out[name] += chunk;
+        bytes[name] += Buffer.byteLength(chunk, 'utf8');
+        if (bytes[name] > MAX_BUFFER) fail('ENOBUFS');
+      });
+    }
+    child.on('error', (err) => {
+      if (!error) error = new Error(`spawnSync node ${err.code}`);
+    });
+    // Always end stdin (EOF), as spawnSync does; ignore EPIPE when the child exits first.
+    child.stdin.on('error', () => {});
+    if (input !== undefined) child.stdin.end(input); else child.stdin.end();
+    child.on('close', (code, signal) => {
+      clearTimeout(timer);
+      // spawnSync reports status null whenever it reports an error.
+      resolve({ stdout: out.stdout, stderr: out.stderr, status: error ? null : code, signal, error });
+    });
+  });
+}
+
 
 class HookRunnerProvider {
   id() {
@@ -51,13 +92,7 @@ class HookRunnerProvider {
       if (extra && typeof extra === 'object') Object.assign(env, extra);
     }
 
-    const result = spawnSync('node', [scriptPath, ...scriptArgs], {
-      input: stdinData,
-      timeout: 30_000,
-      encoding: 'utf8',
-      cwd,
-      env,
-    });
+    const result = await runNode([scriptPath, ...scriptArgs], { cwd, env, input: stdinData });
 
     const output = JSON.stringify({
       stdout: result.stdout || '',

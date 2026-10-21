@@ -20,11 +20,51 @@
  */
 const path = require('path');
 const fs = require('fs');
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 
 // Matches paths created by lib/output.js#createOutputFile via os.tmpdir() on macOS/Linux:
 //   /tmp/...,  /var/folders/.../...  (macOS),  /private/var/...  (macOS canonicalized)
 const TMP_PATH_RE = /^(?:\/(?:tmp|var|private)\/.+|.+\/\.sdlc\/execution\/out\/.+)\.json$/;
+
+// spawnSync's limits, kept so every case sees the same outcome as before.
+const TIMEOUT_MS = 30_000;
+const MAX_BUFFER = 1024 * 1024; // spawnSync default maxBuffer, bytes per stream
+
+
+// Async stand-in for spawnSync('node', args, { timeout, encoding: 'utf8', input }):
+// resolves (never rejects) with the same { stdout, stderr, status, signal, error } record.
+function runNode(args, { cwd, env, input }) {
+  return new Promise((resolve) => {
+    const out = { stdout: '', stderr: '' };
+    const bytes = { stdout: 0, stderr: 0 };
+    let error;
+    const child = spawn('node', args, { cwd, env, stdio: 'pipe' });
+    const fail = (code) => {
+      if (!error) error = new Error(`spawnSync node ${code}`);
+      child.kill('SIGTERM');
+    };
+    const timer = setTimeout(() => fail('ETIMEDOUT'), TIMEOUT_MS);
+    for (const name of ['stdout', 'stderr']) {
+      child[name].setEncoding('utf8');
+      child[name].on('data', (chunk) => {
+        out[name] += chunk;
+        bytes[name] += Buffer.byteLength(chunk, 'utf8');
+        if (bytes[name] > MAX_BUFFER) fail('ENOBUFS');
+      });
+    }
+    child.on('error', (err) => {
+      if (!error) error = new Error(`spawnSync node ${err.code}`);
+    });
+    // Always end stdin (EOF), as spawnSync does; ignore EPIPE when the child exits first.
+    child.stdin.on('error', () => {});
+    if (input !== undefined) child.stdin.end(input); else child.stdin.end();
+    child.on('close', (code, signal) => {
+      clearTimeout(timer);
+      // spawnSync reports status null whenever it reports an error.
+      resolve({ stdout: out.stdout, stderr: out.stderr, status: error ? null : code, signal, error });
+    });
+  });
+}
 
 function maybeReadTmpFile(stdout, scriptPassthrough) {
   if (scriptPassthrough === true) return stdout;
@@ -97,13 +137,7 @@ class ScriptRunnerProvider {
         : JSON.stringify(vars.script_stdin);
     }
 
-    const result = spawnSync('node', [scriptPath, ...scriptArgs], {
-      timeout: 30_000,
-      encoding: 'utf8',
-      cwd,
-      env,
-      input: scriptStdin,
-    });
+    const result = await runNode([scriptPath, ...scriptArgs], { cwd, env, input: scriptStdin });
 
     const rawStdout = result.stdout ?? '';
     const stderr = (result.stderr ?? '').trim();

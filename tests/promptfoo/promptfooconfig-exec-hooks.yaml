@@ -13,6 +13,9 @@ defaultTest:
   options:
     transformVars: "file://scripts/extract-skill-content.js"
 
+extensions:
+  - file://scripts/fixture-copies-cleanup.js:afterAll
+
 tests:
   - file://datasets/hook-stop-plan-integrity-exec.yaml
   - file://datasets/ship-hooks-exec.yaml
