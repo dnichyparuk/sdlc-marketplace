@@ -1,6 +1,10 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+
+const execFileAsync = promisify(execFile);
 
 // Resolve paths relative to repo root (three levels up from tests/promptfoo/scripts/)
 const REPO_ROOT = path.resolve(__dirname, '../../..');
@@ -47,13 +51,17 @@ module.exports = async function transformVars(vars) {
     const relativePath = vars.project_root.replace('file://fixtures-fs/', 'tests/promptfoo/fixtures-fs/');
     const sourceDir = path.join(REPO_ROOT, relativePath);
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'promptfoo-fixture-'));
-    fs.cpSync(sourceDir, tmpDir, { recursive: true });
+    // Registry read by scripts/fixture-copies-cleanup.js (afterAll hook, exec configs only).
+    (globalThis.__sdlcFixtureCopies ??= new Set()).add(tmpDir);
+    await fs.promises.cp(sourceDir, tmpDir, { recursive: true });
 
     // Auto-run fixture setup script if present (initializes git state, stages files, etc.)
     const setupScript = path.join(tmpDir, 'setup.sh');
     if (fs.existsSync(setupScript)) {
-      const { execSync } = require('child_process');
-      execSync(`bash "${setupScript}"`, { cwd: tmpDir, timeout: 10_000, stdio: 'pipe' });
+      const setup = execFileAsync('bash', [setupScript], { cwd: tmpDir, timeout: 10_000 });
+      setup.child.stdin.on('error', () => {}); // ignore EPIPE, as in the providers
+      setup.child.stdin.end(); // EOF at once, as the old synchronous call gave
+      await setup;
     }
 
     result.project_root = tmpDir;
