@@ -221,6 +221,46 @@
       value: "const r = JSON.parse(output); r.ok === true && r.totalPlanned === 4 && r.totalAccounted === 4"
 
 # ---------------------------------------------------------------------------
+# state/execute.js cleanup — verifying cleanup (R14)
+# ---------------------------------------------------------------------------
+
+- description: "execute-plan-sdlc/cleanup-verify: a state file with a missing task is kept and cleanup exits 65"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-execute-cleanup-verify.js"
+    script_args: "--seed missing --fixture {{project_root}}"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.exitCode === 65 && r.kept === true && r.stderr.includes('T3')"
+
+- description: "execute-plan-sdlc/cleanup-verify: an all-done state file is deleted and cleanup exits 0"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-execute-cleanup-verify.js"
+    script_args: "--seed all-done --fixture {{project_root}}"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.exitCode === 0 && r.kept === false"
+
+- description: "execute-plan-sdlc/cleanup-verify: a state file without plannedTaskIds is kept and cleanup exits 2"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-execute-cleanup-verify.js"
+    script_args: "--seed noplanned --fixture {{project_root}}"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.exitCode === 2 && r.kept === true"
+
+- description: "execute-plan-sdlc/cleanup-verify: no state file exits 0"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-execute-cleanup-verify.js"
+    script_args: "--seed none --fixture {{project_root}}"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.exitCode === 0"
+
+# ---------------------------------------------------------------------------
 # state/execute.js wave-split subcommand
 # ---------------------------------------------------------------------------
 

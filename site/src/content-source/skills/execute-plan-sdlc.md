@@ -412,7 +412,7 @@ After all waves complete, `state/execute.js verify-completeness` checks that eve
 {"missingIds": ["T5"], "totalPlanned": 8, "totalAccounted": 7}
 ```
 
-The pipeline **halts before the commit step** on exit 65 — it does not silently advance. This gate is also wired into `ship-sdlc`'s execute-step finalization.
+The pipeline **halts before the commit step** on exit 65 — it does not silently advance. This gate is also wired into `ship-sdlc`'s execute-step finalization. `state/execute.js cleanup` runs the same check and keeps the state file when it fails.
 
 ---
 

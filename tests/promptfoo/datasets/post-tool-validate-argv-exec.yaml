@@ -1,0 +1,10 @@
+# Exec test case for plugins/sdlc-utilities/hooks/post-tool-validate.js: the hook
+# runs the validator with an argv list, so a plan file name holding shell syntax
+# reaches the validator literally and runs no shell. Deterministic — no LLM involved.
+
+- description: "post-tool-validate-argv: a plan path holding $() and backticks reaches the validator literally and runs no shell"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-argv.js"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.pwned === false && o.runs.length === 2 && o.runs.every(r => r.exitCode === 2 && !r.notFound && r.findings)"

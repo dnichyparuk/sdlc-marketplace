@@ -27,6 +27,7 @@
  *   0 = success
  *   1 = state file not found (read/cleanup)
  *   2 = unexpected error
+ *   65 = cleanup/verify-completeness: planned tasks unaccounted (cleanup keeps the state file)
  */
 
 'use strict';
@@ -737,6 +738,13 @@ function cmdCleanup(opts) {
     process.exit(0);
   }
 
+  // R14: verifying cleanup; a state whose completeness check fails is kept for --resume.
+  const v = completenessOf(found.data);
+  if (v.code !== 0) {
+    writeCompleteness(v);
+    process.stderr.write(`Error: state file kept (completeness check failed): ${found.filePath}\n`);
+    process.exit(v.code);
+  }
   deleteState(found.filePath);
   process.exit(0);
 }
@@ -1024,8 +1032,6 @@ function cmdWaveSplit(opts) {
  * Implements R-INVARIANT-COMPLETENESS, T9, #432.
  */
 function cmdVerifyCompleteness(opts) {
-  const ACCOUNTED_STATUSES = new Set(['completed', 'failed', 'skipped-dependency']);
-
   // Resolve state
   let found = null;
 
@@ -1049,7 +1055,18 @@ function cmdVerifyCompleteness(opts) {
     }
   }
 
-  const { data } = found;
+  const v = completenessOf(found.data);
+  writeCompleteness(v);
+  process.exit(v.code);
+}
+
+/**
+ * Pure R-INVARIANT-COMPLETENESS verdict over one execute state object, shared by
+ * verify-completeness and the verifying cleanup (R14). Prints nothing, never exits.
+ * @returns {{code: 0, out: object} | {code: 65, err: object} | {code: 2, err: string}}
+ */
+function completenessOf(data) {
+  const ACCOUNTED_STATUSES = new Set(['completed', 'failed', 'skipped-dependency']);
 
   // Collect all task entries across waves
   const waves = Array.isArray(data.waves) ? data.waves : [];
@@ -1079,10 +1096,7 @@ function cmdVerifyCompleteness(opts) {
     // Cannot verify without planned task ID list — plannedTaskIds missing means the state is
     // structurally incomplete (pre-#432 state or corrupted init). Hard-fail so ship-sdlc does
     // not silently advance past an unverifiable execute step (R-INVARIANT-COMPLETENESS, #432).
-    process.stderr.write(
-      'ERROR: verify-completeness cannot find plannedTaskIds in state — invariant check cannot run. Use --resume on a fresh execute run, or re-run without --resume to start over.\n'
-    );
-    process.exit(2);
+    return { code: 2, err: 'ERROR: verify-completeness cannot find plannedTaskIds in state — invariant check cannot run. Use --resume on a fresh execute run, or re-run without --resume to start over.\n' };
   }
 
   // Normalize IDs for comparison (R-IDNORM): strip leading T/t so "T1" == "1".
@@ -1107,14 +1121,16 @@ function cmdVerifyCompleteness(opts) {
   const totalPlanned  = plannedIds.length;
   const totalAccounted = accountedIds.length;
 
-  if (missingIds.length === 0) {
-    process.stdout.write(JSON.stringify({ ok: true, totalPlanned, totalAccounted }) + '\n');
-    process.exit(0);
-  }
+  if (missingIds.length === 0) return { code: 0, out: { ok: true, totalPlanned, totalAccounted } };
 
   // Incomplete — exit 65 (BSD EX_DATAERR) with structured stderr JSON
-  process.stderr.write(JSON.stringify({ missingIds, totalPlanned, totalAccounted }) + '\n');
-  process.exit(65);
+  return { code: 65, err: { missingIds, totalPlanned, totalAccounted } };
+}
+
+/** Write a completenessOf verdict exactly as verify-completeness always has. */
+function writeCompleteness(v) {
+  if (v.code === 0) process.stdout.write(JSON.stringify(v.out) + '\n');
+  else process.stderr.write(typeof v.err === 'string' ? v.err : JSON.stringify(v.err) + '\n');
 }
 
 /**

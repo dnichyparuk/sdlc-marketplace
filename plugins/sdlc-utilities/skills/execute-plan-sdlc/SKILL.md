@@ -646,7 +646,7 @@ The verb rejects unknown keys, non-objects, and empty objects with exit 2 — it
 
 The `state/execute.js` verb surface is unchanged — only the SKILL.md call-site shape shifts (writes happen after wave-runner returns, driven by `WAVE_SUMMARY` data), plus the optional `--files-added` / `--verify-token` / `--decisions` flags documented in the table above.
 
-On successful completion: `node "$STATE_SCRIPT" cleanup`
+On successful completion: `node "$STATE_SCRIPT" cleanup` (verifying cleanup, R14: see **State file cleanup** in Step 9 for its exit handling)
 
 **5d-bis — OpenSpec task flip (implements R37, R39, I13, E14 — Fixes #414).** After `task-done` state writes for this wave, before the `wave-done` state write, flip OpenSpec checkboxes for refs whose plan-task siblings have all reached DONE / DONE_WITH_CONCERNS. This step runs in execute-plan-sdlc main context ONLY — never from inside the wave-runner Agent or per-task sub-agents (cite R37). When `refToTaskIds` is empty (plan has no `openspec-task` blocks), skip this step entirely (zero new behavior).
 
@@ -830,7 +830,7 @@ Branch:   <EXECUTE_NEW_BRANCH>
 ```
 There is no `Worktree:` line — execute-plan-sdlc never creates a worktree. When `EXECUTE_NEW_BRANCH` is unset (the derive yielded `continue` — a linked worktree or an existing feature branch), emit nothing.
 
-**State file cleanup:** On successful completion (all tasks completed), delete the execution state file. Print:
+**State file cleanup:** On successful completion (all tasks completed), delete the execution state file with `node "$STATE_SCRIPT" cleanup`. It re-runs the completeness check and deletes the file only when it passes. On a non-zero exit the state is kept: report the stderr and stop as in Step 5f. Print:
 `State file cleaned up.`
 
 On failure or interruption (not all tasks completed), preserve the state file. Print:

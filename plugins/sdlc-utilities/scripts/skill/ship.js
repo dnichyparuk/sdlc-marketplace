@@ -41,7 +41,7 @@ const { spawnSync } = require('child_process');
 const LIB = path.join(__dirname, '..', 'lib');
 
 const { exec, checkGitState, detectBaseBranch, deriveWorkspace, parseRemoteOwner, probeGhAuth, formatAccountMismatch, probeRepoAccess, formatAccessDenied, getTagList } = require(path.join(LIB, 'git'));
-const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, readState, slugifyBranch, claimSession, writeState, deleteState, migrateBranchSlug, listBranches, readTtlDaysFromConfig } = require(path.join(LIB, 'state'));
+const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, findStateFile, readState, slugifyBranch, claimSession, writeState, deleteState, migrateBranchSlug, listBranches, readTtlDaysFromConfig } = require(path.join(LIB, 'state'));
 const { parseArgs: parseStepArgs, createEnvelope } = require(path.join(LIB, 'stepper'));
 const shipState = require(path.join(__dirname, '..', 'state', 'ship'));
 const { stepTransition, markCompleted, renderTodos, parsePlanTasks } = require(path.join(LIB, 'ship-todos'));
@@ -1935,11 +1935,16 @@ function runAfter(stepArgs) {
       failureText = `PR "${url || ''}" not confirmed by gh (${c.reason || 'no-url'})`;
     }
   }
-  // L23/L27: completeness gate; any non-zero exit halts and becomes the process exit code.
+  // L23/L27: completeness gate when an execute state file exists; any non-zero exit halts and becomes the process exit code.
   let failExitCode;
   if (name === 'execute' && success) {
-    const g = runCompletenessGate(ledger.branch);
-    if (!g.ok) { success = false; failExitCode = g.exitCode; failureText = g.text; }
+    // R-INVARIANT-COMPLETENESS scope: execute's verifying R14 cleanup (or the R5 small-plan path) leaves no state to check.
+    if (findStateFile('execute', slugifyBranch(ledger.branch))) {
+      const g = runCompletenessGate(ledger.branch);
+      if (!g.ok) { success = false; failExitCode = g.exitCode; failureText = g.text; }
+    } else {
+      output.completenessGate = 'no-execute-state';
+    }
   }
   // ruling w2-pending: a dispatch failure that carries a question is not a step failure.
   const pq = after.startsWith('dispatch_') && !success ? validPendingQuestion(output.pendingQuestion) : null;

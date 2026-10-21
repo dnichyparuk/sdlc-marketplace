@@ -29,7 +29,7 @@
 
 ## State model
 
-- R14: State persistence after every wave via `state/execute.js`; cleanup on success, preserve on failure for `--resume`
+- R14: State persistence after every wave via `state/execute.js`; cleanup on success, preserve on failure for `--resume`. In this verifying cleanup, `state/execute.js cleanup` runs the R-INVARIANT-COMPLETENESS check itself and deletes the state file only when the check exits 0; on exit 65 or 2 it keeps the file and exits with that code.
 - R40: The state file written by `state/execute.js init` MUST contain the real, resolved `planPath` and a computed `planHash` (a content hash of the plan file bytes) — both non-null on every run that reaches initialization. The caller (`execute-plan-sdlc/SKILL.md`, Step 1 LOAD) computes `planHash` — via `shasum -a 256 "$PLAN_FILE" | cut -d' ' -f1` over the plan file's bytes — and passes it to `state/execute.js init` as `--plan-hash`; `state/execute.js` is a pure recorder and MUST NOT compute or validate the hash itself. This makes R15's resume-time plan-hash verification reachable: a state file with a `null` `planHash` at init makes R15's mismatch check a permanent no-op, since there is nothing to compare the resumed plan's hash against.
   - Acceptance: exec tests in `tests/promptfoo/datasets/execute-plan-sdlc-overflow-exec.yaml` — `state/execute.js init (R40): records the real resolved planPath, not a null placeholder`, `state/execute.js init (R40): planHash is a non-null content hash of the plan file bytes`.
 - R32: execute-plan-sdlc MUST NOT read, write, rename, or otherwise touch any `ship-*` state file under `.sdlc/execution/`. The `state/ship.js` script MUST NOT be invoked from anywhere inside this skill or its agent prompts. ship-sdlc owns the entire `ship-*` state lifecycle.
@@ -100,7 +100,7 @@
 10. REPORT — summary with task count, waves, retries, verification status, guardrail results
    - **Script:** `state/execute.js cleanup` (on success) or state preserved (on failure)
    - **Params:** none (operates on current branch's state file)
-   - **Output:** state file removed on success; preserved on failure for `--resume`
+   - **Output:** state file removed on success, and only when the completeness check passes (R14); preserved on failure for `--resume`
 
 ### Classification and waves
 
@@ -211,7 +211,7 @@
 - R11: Spec compliance review after each wave for non-trivial tasks (skip for Speed quality tier — `--quality full`)
 - R18: Execution guardrails: pre-wave (error-severity only) and post-wave (all severities); error violations block, warning violations report only
 - R19: `--auto` mode: auto-approve high-risk gates, no resume prompt, but never auto-override error-severity guardrail violations
-- R-INVARIANT-COMPLETENESS: At execute-step finalization, `state/execute.js verify-completeness --run-id <id>` MUST exit 0 if and only if `set(plannedTaskIds) ⊆ ⋃ tasks where status ∈ {DONE, FAILED, SKIPPED-DEPENDENCY}`. On any mismatch it MUST exit 65 and write `{missingIds, totalPlanned, totalAccounted}` to stderr as JSON. `ship-sdlc` MUST gate the execute step on this exit code before advancing to commit. Testable assertion: "When one task ID is absent from completed/failed/skipped, `verify-completeness` exits 65 and stderr JSON contains the missing ID."
+- R-INVARIANT-COMPLETENESS: At execute-step finalization, `state/execute.js verify-completeness --run-id <id>` MUST exit 0 if and only if `set(plannedTaskIds) ⊆ ⋃ tasks where status ∈ {DONE, FAILED, SKIPPED-DEPENDENCY}`. On any mismatch it MUST exit 65 and write `{missingIds, totalPlanned, totalAccounted}` to stderr as JSON. `ship-sdlc` MUST gate the execute step on this exit code before advancing to commit whenever the state file still exists when execute returns (ship R-INVARIANT-COMPLETENESS, Scope). R14's verifying cleanup and the R5 small-plan path leave no state file; ship then advances without the check. Testable assertion: "When one task ID is absent from completed/failed/skipped, `verify-completeness` exits 65 and stderr JSON contains the missing ID."
 
 - R-IDNORM: Task IDs in plan files are numeric (e.g., `1`, `2`, `3`). The `parseWaveSummary` function and `verify-completeness` block MUST normalize IDs before set comparisons by stripping a single leading `T` or `t` character (case-insensitive) and trimming whitespace. After normalization, IDs with the same numeric value MUST be treated as equal. Normalization is comparison-only — persisted IDs in state files retain their wire form. Examples that show `T<n>`-prefixed IDs in SKILL.md, wave-runner-template.md, or classifying-and-waving-tasks.md MUST use numeric-only IDs to match the plan parser's canonical output.
 

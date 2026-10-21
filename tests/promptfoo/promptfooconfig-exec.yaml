@@ -76,3 +76,4 @@ tests:
   - file://datasets/execute-plan-sdlc-context-producer-exec.yaml
   - file://datasets/execute-plan-sdlc-liveness-exec.yaml
   - file://datasets/dimension-to-instructions-exec.yaml
+  - file://datasets/post-tool-validate-argv-exec.yaml

@@ -27,6 +27,8 @@
  *                        (copies seed/ledger-<name>.json to .sdlc/execution/ship-<slug>-<ts>.json)
  *   --exec-seed <name>   complete | missing | noplanned | none
  *                        (copies seed/execute-<name>.json to .sdlc/execution/execute-feat-ship-<ts>.json)
+ *   --exec-cleanup       (after-execute) runs `state/execute.js verify-completeness --branch feat/ship` and then
+ *                        `state/execute.js cleanup --branch feat/ship` in the fixture after seeding, as execute's Step 5f and R14 do
  *   --answer <a>         yes | edit | cancel | skip — answer file used for confirm_pipeline/review_gate/confirm_*
  *   --quality <q>        Patch data.flags.quality into the seed
  *   --again              Rerun `--after confirm_pipeline` (yes) at the end of the scenario
@@ -52,9 +54,10 @@
  * repo's HEAD sha injected (W4.6: ship.js cross-checks the reported commit against HEAD).
  *
  * Output JSON (one line):
- *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, otherFiles,
+ *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, execPreGate, otherFiles,
  *     summarySidecars, commandScripts, stopCapExists, mdPrompts: { incomplete, allDone } }
  *   ledger = { stepStatuses, history, stepReasons, currentStep, flagsKeys, flags, paused, stepResults } | null
+ *   history entry = { step, result, source, completenessGate }; execPreGate = { verifyExit, cleanupExit } | null
  *   mdPrompts = the two "> OpenSpec change" prompt lines of ship-sdlc/openspec-steps.md, without the leading "> "
  */
 
@@ -260,6 +263,15 @@ if (execSeed !== 'none' && !late) {
   fs.mkdirSync(execDir, { recursive: true });
   fs.copyFileSync(path.join(projectRoot, 'seed', `execute-${execSeed}.json`), path.join(execDir, `execute-feat-ship-${SEED_TS}.json`));
 }
+// --exec-cleanup: execute's own Step 5f check, then its verifying R14 cleanup, before ship's --after call.
+// Same env as the ship.js calls (R-F7: env drops SDLC_STATE_DIR_OVERRIDE), so all read one state dir.
+let execPreGate = null;
+if (process.argv.includes('--exec-cleanup')) {
+  const execScript = path.join(repoRoot, 'plugins', 'sdlc-utilities', 'scripts', 'state', 'execute.js');
+  const verify = spawnSync('node', [execScript, 'verify-completeness', '--branch', 'feat/ship'], { cwd: projectRoot, env });
+  const cleanup = spawnSync('node', [execScript, 'cleanup', '--branch', 'feat/ship'], { cwd: projectRoot, env });
+  execPreGate = { verifyExit: verify.status, cleanupExit: cleanup.status };
+}
 
 if (process.argv.includes('--other-exec')) {
   fs.mkdirSync(execDir, { recursive: true });
@@ -461,7 +473,7 @@ const data = finalPath ? readJson(finalPath) : null;
 if (data) {
   ledger = {
     stepStatuses: Object.fromEntries((data.steps || []).map(s => [s.name, s.status])),
-    history: (data.history || []).map(h => ({ step: h.step, result: h.result, source: h.data && h.data.source })),
+    history: (data.history || []).map(h => ({ step: h.step, result: h.result, source: h.data && h.data.source, completenessGate: h.data && h.data.completenessGate })),
     stepReasons: Object.fromEntries((data.steps || []).filter(s => s.reason).map(s => [s.name, s.reason])),
     currentStep: data.currentStep === undefined ? null : data.currentStep,
     flagsKeys: Object.keys(data.flags || {}),
@@ -499,6 +511,7 @@ console.log(JSON.stringify({
   ledgerExists: Boolean(data),
   ledgerFiles: ledgerFiles(),
   execFiles: (() => { try { return fs.readdirSync(execDir).filter(f => /^execute-/.test(f)); } catch (_) { return []; } })(),
+  execPreGate,
   otherFiles: (() => { try { return fs.readdirSync(execDir).filter(f => !/^execute-/.test(f)); } catch (_) { return []; } })(),
   summarySidecars: (() => { try { return fs.readdirSync(execDir).filter(f => f.startsWith('.summary-')); } catch (_) { return []; } })(),
   commandScripts,
