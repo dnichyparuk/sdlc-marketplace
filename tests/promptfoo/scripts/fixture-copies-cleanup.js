@@ -12,7 +12,10 @@ async function afterAll() {
     try {
       await fs.promises.rm(p, { recursive: true, force: true });
       removed++;
-    } catch (_) { /* never throw: a failing hook fails the whole eval */ }
+    } catch (err) {
+      // never throw: a failing hook fails the whole eval; log so a leaked copy leaves a trace
+      console.error(`fixture-copies-cleanup: failed to remove ${p}: ${err.message}`);
+    }
   }
   console.error(`fixture-copies-cleanup: removed ${removed}`);
 }
