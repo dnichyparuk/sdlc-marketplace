@@ -1,0 +1,21 @@
+schema_version: "1.1"
+name: ship-dry-run
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: prepare-manifest-written
+    type: file_exists
+    path: .sdlc/execution/out/ship-prepare-*.json
+  - name: no-ledger
+    type: file_exists
+    path: .sdlc/execution/ship-*.json
+    exists: false
+  - name: no-commit
+    type: regex
+    target: { source: file, path: .git/logs/HEAD }
+    pattern: '\tcommit: '
+    match: not_contains
+  - name: no-tag
+    type: file_exists
+    path: .git/refs/tags/*
+    exists: false

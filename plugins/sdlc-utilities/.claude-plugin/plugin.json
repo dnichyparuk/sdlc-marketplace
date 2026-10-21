@@ -4,5 +4,8 @@
   "version": "0.29.1",
   "author": {
     "name": "rnagrodzki"
+  },
+  "experimental": {
+    "evals": "evals"
   }
 }

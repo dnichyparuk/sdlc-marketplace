@@ -1,0 +1,20 @@
+schema_version: "1.1"
+name: ship-review-zero-findings
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: review-summary-written
+    type: file_exists
+    path: .sdlc/execution/review-summary-eval-ship.json
+  - name: summary-verdict-valid
+    type: regex
+    target: { source: file, path: .sdlc/execution/review-summary-eval-ship.json }
+    pattern: '"verdict"\s*:\s*"(APPROVED|APPROVED WITH NOTES|CHANGES REQUESTED)"'
+  - name: no-critical-findings
+    type: regex
+    target: { source: file, path: .sdlc/execution/review-summary-eval-ship.json }
+    pattern: '"counts"\s*:\s*\{[^}]*"critical"\s*:\s*0\b'
+  - name: no-high-findings
+    type: regex
+    target: { source: file, path: .sdlc/execution/review-summary-eval-ship.json }
+    pattern: '"counts"\s*:\s*\{[^}]*"high"\s*:\s*0\b'

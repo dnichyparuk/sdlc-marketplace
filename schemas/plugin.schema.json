@@ -23,6 +23,17 @@
         }
       },
       "required": ["name"]
+    },
+    "experimental": {
+      "type": "object",
+      "properties": {
+        "evals": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$",
+          "description": "Eval suite directory for claude plugin eval, relative to the plugin root (plain directory names)"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": ["name", "description", "version"],

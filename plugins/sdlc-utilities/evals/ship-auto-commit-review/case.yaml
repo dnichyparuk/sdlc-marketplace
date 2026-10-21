@@ -1,0 +1,20 @@
+schema_version: "1.1"
+name: ship-auto-commit-review
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: commit-made
+    type: regex
+    target: { source: file, path: .git/logs/HEAD }
+    pattern: '\tcommit: '
+  - name: review-summary-written
+    type: file_exists
+    path: .sdlc/execution/review-summary-eval-ship.json
+  - name: ledger-cleaned-up
+    type: file_exists
+    path: .sdlc/execution/ship-*.json
+    exists: false
+  - name: no-cap-exhaustion
+    type: file_exists
+    path: .sdlc/execution/.stop-cap-exhausted-eval-ship.json
+    exists: false
