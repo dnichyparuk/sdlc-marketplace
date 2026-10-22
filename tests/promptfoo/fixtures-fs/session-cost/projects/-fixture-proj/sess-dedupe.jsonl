@@ -1,0 +1,6 @@
+{"type":"user","sessionId":"sess-dedupe","timestamp":"2026-10-22T00:00:00Z","message":{"role":"user","content":"hello"}}
+{"type":"assistant","sessionId":"sess-dedupe","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_d1","role":"assistant","model":"test-model-a","usage":{"input_tokens":1000,"output_tokens":100}}}
+{"type":"assistant","sessionId":"sess-dedupe","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_d1","role":"assistant","model":"test-model-a","usage":{"input_tokens":1000,"output_tokens":500}}}
+{"type":"assistant","sessionId":"sess-dedupe","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_d1","role":"assistant","model":"test-model-a","usage":{"input_tokens":1000,"output_tokens":200}}}
+{"type":"assistant","sessionId":"sess-dedupe","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_d2","role":"assistant","model":"<synthetic>","usage":{"input_tokens":7,"output_tokens":7}}}
+{"type":"api-request-blob","message":{"role":"assistant","content":[]}}

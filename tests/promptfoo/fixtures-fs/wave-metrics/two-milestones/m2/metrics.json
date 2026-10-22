@@ -1,0 +1,14 @@
+[
+  {
+    "schema": "sdlc-wave-metrics-1",
+    "milestone": "M2",
+    "items": ["W2.1"],
+    "hours": {"net": 2, "ownerWait": 0},
+    "plan": {"plannerStops": 0, "arbCheck": {"B": 0}},
+    "exec": {"execStops": 0, "executorResets": 0, "gateBypasses": 1, "d15Deletes": 0},
+    "review": {"findings": {"low": 1}, "fixed": 1, "declined": 0, "declineRecheck": {"real": 0}, "fixRounds": 1},
+    "gate": {"orchGateFirstTry": true, "behaviouralRuns": 2},
+    "arbiter": {"overturns": 0},
+    "cost": {"usd": "3.000000000000"}
+  }
+]

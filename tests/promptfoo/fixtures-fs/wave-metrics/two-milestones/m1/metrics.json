@@ -1,0 +1,26 @@
+[
+  {
+    "schema": "sdlc-wave-metrics-1",
+    "milestone": "M1",
+    "items": ["W1.1", "W1.2"],
+    "hours": {"net": 1.25, "ownerWait": 0},
+    "plan": {"plannerStops": 0, "arbCheck": {"B": 2}},
+    "exec": {"execStops": 1, "executorResets": 0, "gateBypasses": 0, "d15Deletes": 0},
+    "review": {"findings": {"high": 1, "low": 2}, "fixed": 1, "declined": 2, "declineRecheck": {"real": 0}, "fixRounds": 1},
+    "gate": {"orchGateFirstTry": true, "behaviouralRuns": 1},
+    "arbiter": {"overturns": 0},
+    "cost": {"usd": "1.500000000000"}
+  },
+  {
+    "schema": "sdlc-wave-metrics-1",
+    "milestone": "M1",
+    "items": ["W1.3"],
+    "hours": {"net": 0.5, "ownerWait": 1.5},
+    "plan": {"plannerStops": 1, "arbCheck": {"B": 0}},
+    "exec": {"execStops": 2, "executorResets": 1, "gateBypasses": 0, "d15Deletes": 0},
+    "review": {"findings": {"medium": 4}, "fixed": "not recorded", "declined": 4, "declineRecheck": {"real": 1}, "fixRounds": 0},
+    "gate": {"orchGateFirstTry": false, "behaviouralRuns": 0},
+    "arbiter": {"overturns": 1},
+    "cost": {"usd": "0.250000000000"}
+  }
+]

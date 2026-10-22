@@ -1,0 +1,256 @@
+# Script execution tests for plugins/sdlc-utilities/scripts/ci/session-cost.js and
+# plugins/sdlc-utilities/scripts/ci/wave-metrics.js (W1.13).
+# Every session-cost case runs the same command against the synthetic fixture in
+# fixtures-fs/session-cost and asserts on its own tag. The wave-metrics cases run
+# against fixtures-fs/wave-metrics. No real transcripts are read.
+
+- description: "session-cost: duplicate message ids count once with the largest usage, and synthetic messages are dropped"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        const t = d.tags.dedupe;
+        return t.messages === 1 && t.tokens.input === 1000 && t.tokens.output === 500 && t.usd === '0.006000000000';
+
+- description: "session-cost: 5m and 1h cache writes are priced in separate columns"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        const t = d.tags.cache;
+        return t.tokens.cacheWrite5m === 1001000 && t.tokens.cacheWrite1h === 1000000 && t.unsplitCacheWriteLines === 1 && t.usd === '3.251250000000';
+
+- description: "session-cost: subagent transcripts are booked under their parent tag"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        const t = d.tags.subagent;
+        return t.sessions === 1 && t.messages === 2 && t.usd === '2.000000000000';
+
+- description: "session-cost: aux- tags are excluded from total"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        const toPico = (s) => BigInt(s.replace('.', ''));
+        const sum = Object.values(d.tags).reduce((acc, t) => acc + toPico(t.usd), 0n);
+        const miss = d.unpriced.find((u) => u.model === 'test-model-missing' && u.reason === 'model not in price table');
+        return !('aux-check' in d.tags)
+          && d.aux.tags['aux-check'].usd === '1.000000000000'
+          && d.total.usd === '13.953253750000'
+          && toPico(d.total.usd) === sum
+          && !!miss && miss.messages === 1 && miss.tokens.input === 500;
+
+- description: "session-cost: a tiered model at 100000 prompt tokens uses the first tier"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.tags['tier-le'].usd === '0.074000000000';
+
+- description: "session-cost: a tiered model above 100000 prompt tokens uses the second tier"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.tags['tier-gt'].usd === '0.222003750000';
+
+- description: "session-cost: fast-mode messages use the fast price block"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.tags.fast.usd === '4.200000000000' && d.tags.fast.unpricedMessages === 0;
+
+- description: "session-cost: US-only inference applies the geo multiplier"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.tags.geo.usd === '3.200000000000';
+
+- description: "session-cost: unknown speed, geo, service tier and fast without a fast block go to unpriced"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        const expected = ['inference_geo: eu', 'service_tier: priority', 'speed: turbo', 'model not in price table', 'fast: no fast price for model'].sort();
+        return d.tags.fallback.usd === '1.000000000000'
+          && d.tags.fallback.unpricedMessages === 5
+          && d.total.complete === false
+          && JSON.stringify(d.unpriced.map((u) => u.reason).sort()) === JSON.stringify(expected);
+
+- description: "wave-metrics: two milestones give two summed rows"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/wave-metrics.js"
+    project_root: "file://fixtures-fs/wave-metrics/two-milestones"
+    script_args: "--root {{project_root}} --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        const m1 = {
+          'Milestone': 'M1', 'Waves': '2', 'Items': '3', 'Sum net h': '1.75', 'Sum owner-wait h': '1.5',
+          'Plan stops': '1', 'Exec stops': '3', 'Executor resets': '1',
+          'Review findings total / fixed / declined / REAL': '7 / 1 (1 of 2 waves) / 6 / 1',
+          'Fix rounds': '1', 'Orch gate first-try': '1/2', 'Arb plan-check blocking items': '2',
+          'Arbiter overturns': '1', 'Gate bypasses': '0', 'D15 deletes': '0', 'Behavioural runs': '1',
+          'Cost USD': '1.750000000000',
+        };
+        const m2 = {
+          'Milestone': 'M2', 'Waves': '1', 'Items': '1', 'Sum net h': '2', 'Sum owner-wait h': '0',
+          'Plan stops': '0', 'Exec stops': '0', 'Executor resets': '0',
+          'Review findings total / fixed / declined / REAL': '1 / 1 / 0 / 0',
+          'Fix rounds': '1', 'Orch gate first-try': '1/1', 'Arb plan-check blocking items': '0',
+          'Arbiter overturns': '0', 'Gate bypasses': '1', 'D15 deletes': '0', 'Behavioural runs': '2',
+          'Cost USD': '3.000000000000',
+        };
+        const eq = (a, b) => Object.keys(a).length === 17 && Object.keys(b).length === 17 && Object.keys(b).every((k) => a[k] === b[k]);
+        return d.length === 2 && eq(d[0], m1) && eq(d[1], m2);
+
+- description: "wave-metrics: a not recorded field gives the (k of n waves) marker"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/wave-metrics.js"
+    project_root: "file://fixtures-fs/wave-metrics/not-recorded"
+    script_args: "--root {{project_root}} --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        const nr = 'not recorded';
+        const m3 = {
+          'Milestone': 'M3', 'Waves': '3', 'Items': nr, 'Sum net h': '3.3 (2 of 3 waves)', 'Sum owner-wait h': nr,
+          'Plan stops': nr, 'Exec stops': nr, 'Executor resets': nr,
+          'Review findings total / fixed / declined / REAL': nr + ' / ' + nr + ' / ' + nr + ' / ' + nr,
+          'Fix rounds': nr, 'Orch gate first-try': nr, 'Arb plan-check blocking items': nr,
+          'Arbiter overturns': nr, 'Gate bypasses': nr, 'D15 deletes': nr, 'Behavioural runs': nr,
+          'Cost USD': nr,
+        };
+        const a = d[0];
+        return d.length === 1 && Object.keys(a).length === 17 && Object.keys(m3).every((k) => a[k] === m3[k]);
+
+- description: "session-cost: a session id with no transcript is reported by tag"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions-missing.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: icontains
+      value: "session not found: gone: sess-nope"
+
+- description: "session-cost: an unparsable transcript line is reported with file and line"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions-badjson.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: icontains
+      value: "sess-badjson.jsonl:2: invalid JSON"
+
+- description: "session-cost: a null model row in the price table names the model"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices-null-row.json --json"
+  assert:
+    - type: icontains
+      value: "invalid price row for model test-model-a"
+
+- description: "session-cost: a missing --sessions file is an IO error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
+    project_root: "file://fixtures-fs/session-cost"
+    script_args: "--sessions {{project_root}}/no-such.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
+  assert:
+    - type: icontains
+      value: "no-such.json"
+
+- description: "wave-metrics: a malformed cost.usd is rejected, not dropped"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/wave-metrics.js"
+    project_root: "file://fixtures-fs/wave-metrics/bad-cost"
+    script_args: "--root {{project_root}} --json"
+  assert:
+    - type: icontains
+      value: "cost.usd"
+    - type: icontains
+      value: "wave 1a: cost.usd is not a decimal string: $2"
+
+- description: "wave-metrics: a non-object record is rejected"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/wave-metrics.js"
+    project_root: "file://fixtures-fs/wave-metrics/null-record"
+    script_args: "--root {{project_root}} --json"
+  assert:
+    - type: icontains
+      value: "record 0 is not an object"
+
+- description: "wave-metrics: a missing --root directory is an IO error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/wave-metrics.js"
+    project_root: "file://fixtures-fs/wave-metrics"
+    script_args: "--root {{project_root}}/no-such-root --json"
+  assert:
+    - type: icontains
+      value: "directory not found"
+
+- description: "wave-metrics: default output is a markdown table"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/wave-metrics.js"
+    project_root: "file://fixtures-fs/wave-metrics/two-milestones"
+    script_args: "--root {{project_root}}"
+  assert:
+    - type: icontains
+      value: "| Milestone | Waves | Items |"
+    - type: icontains
+      value: "| M1 | 2 | 3 |"
+    - type: icontains
+      value: "| M2 | 1 | 1 |"
+
+- description: "wave-metrics: a cost usd of not recorded stays not recorded"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/wave-metrics.js"
+    project_root: "file://fixtures-fs/wave-metrics/cost-not-recorded"
+    script_args: "--root {{project_root}} --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.length === 1 && d[0]['Cost USD'] === '1.500000000000 (1 of 2 waves)';

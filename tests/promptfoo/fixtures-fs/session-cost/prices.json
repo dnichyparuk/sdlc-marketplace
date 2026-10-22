@@ -1,0 +1,27 @@
+{
+  "source": "test fixture",
+  "retrieved": "2026-10-22",
+  "unit": "USD per million tokens",
+  "geoMultiplier": { "us": 1.1 },
+  "quotes": ["test fixture: not real prices"],
+  "models": {
+    "test-model-a": {
+      "input": 1,
+      "output": 10,
+      "cacheRead": 0.1,
+      "cacheWrite5m": 1.25,
+      "cacheWrite1h": 2,
+      "fast": {
+        "input": 2,
+        "output": 20,
+        "cacheMultipliers": { "cacheWrite5m": 1.25, "cacheWrite1h": 2, "cacheRead": 0.1 }
+      }
+    },
+    "test-model-tiered": {
+      "tiers": [
+        { "maxPromptTokens": 100000, "input": 1, "output": 10, "cacheRead": 0.1, "cacheWrite5m": 1.25, "cacheWrite1h": 2 },
+        { "input": 3, "output": 30, "cacheRead": 0.3, "cacheWrite5m": 3.75, "cacheWrite1h": 6 }
+      ]
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"type":"assistant","sessionId":"sess-tier-le","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_t1","role":"assistant","model":"test-model-tiered","usage":{"input_tokens":60000,"cache_read_input_tokens":40000,"output_tokens":1000}}}

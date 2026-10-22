@@ -1,0 +1,4 @@
+[
+  {"schema":"sdlc-wave-metrics-1","milestone":"M1","wave":"1a","cost":{"usd":"not recorded"}},
+  {"schema":"sdlc-wave-metrics-1","milestone":"M1","wave":"1b","cost":{"usd":"1.5"}}
+]

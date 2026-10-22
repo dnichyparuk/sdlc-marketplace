@@ -1,0 +1,1 @@
+{"type":"assistant","sessionId":"sess-parent","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_p1","role":"assistant","model":"test-model-a","usage":{"input_tokens":1000000}}}

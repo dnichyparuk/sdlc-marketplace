@@ -1,0 +1,24 @@
+[
+  {
+    "schema": "sdlc-wave-metrics-1",
+    "milestone": "M3",
+    "hours": {"net": 1.1, "ownerWait": "not recorded"},
+    "gate": {"behaviouralRuns": "not recorded"},
+    "cost": "not recorded"
+  },
+  {
+    "schema": "sdlc-wave-metrics-1",
+    "milestone": "M3",
+    "hours": {"net": 2.2, "ownerWait": "not recorded"},
+    "gate": {"behaviouralRuns": "not recorded"},
+    "cost": {"evalRunsUsd": "1.2627", "sessions": "not recorded"},
+    "evalSpendUsd": 1.26
+  },
+  {
+    "schema": "sdlc-wave-metrics-1",
+    "milestone": "M3",
+    "hours": {"net": "not recorded", "ownerWait": "not recorded"},
+    "gate": {"behaviouralRuns": "not recorded"},
+    "cost": "not recorded"
+  }
+]
