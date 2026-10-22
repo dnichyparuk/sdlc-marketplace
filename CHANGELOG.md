@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-22
+
+### Added
+- feat: new `scripts/ci/session-cost.js` reads Claude Code session transcripts (main transcripts and `subagents/*.jsonl`) for a tag-to-sessions map and prices them per model: one usage per message id (largest token sum), `<synthetic>` messages dropped, 5m and 1h cache writes in separate columns, USD in integer pico-dollars, optional per-model price `tiers` chosen per message by prompt size, an Opus 5.5 `fast` block and a `geoMultiplier` of `us: 1.1`; models and modifiers with no published price go to `unpriced` with a reason and counts, `aux-` tags stay out of `total`, and output tokens are labelled a floor (#9011)
+- feat: new `scripts/ci/wave-metrics.js` reads every `m*/metrics.json` (schema `sdlc-wave-metrics-1`) and prints one markdown row per milestone with the 16 summary columns plus `Cost USD`; a field that holds `not recorded` gives the `<sum> (<k> of <n> waves)` marker and nothing is estimated (#9011)
+- feat: new `scripts/ci/session-prices.json` is the bundled price table; every figure is copied from https://platform.claude.com/docs/en/about-claude/pricing, retrieved 2026-10-22, with that URL and date stored in the file (#9011)
+- tests: new `session-cost-exec.yaml` dataset with 11 exec cases (fixtures under `fixtures-fs/session-cost/` and `fixtures-fs/wave-metrics/`), registered in `promptfooconfig-exec.yaml`; `scripts/README.md` lists both scripts (#9011)
+
 ## [0.30.0] - 2026-10-21
 
 ### Changed
