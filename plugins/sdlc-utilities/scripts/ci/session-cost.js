@@ -136,14 +136,14 @@ function readJson(file) {
 function pricePico(value, label) {
   if (value === NOT_RECORDED) return null;
   const pico = typeof value === 'number' ? toPico(String(value)) : null;
-  if (pico === null || pico % MTOK !== 0n) throw new CliError(`invalid price ${label}`);
+  if (pico === null || pico % MTOK !== 0n) throw new CliError(`invalid price ${label}: ${JSON.stringify(value)} (plain decimal USD/MTok, whole pico per token)`);
   return pico / MTOK;
 }
 
 /** Multiplier -> exact fraction numerator over 10^12. */
 function multiplierPico(value, label) {
   const pico = typeof value === 'number' ? toPico(String(value)) : null;
-  if (pico === null) throw new CliError(`invalid price ${label}`);
+  if (pico === null) throw new CliError(`invalid price ${label}: ${JSON.stringify(value)} (plain decimal)`);
   return pico;
 }
 
@@ -190,6 +190,9 @@ function buildRateTable(prices) {
 
   const table = {};
   for (const [model, row] of Object.entries(models)) {
+    if (row === null || typeof row !== 'object' || Array.isArray(row)) {
+      throw new CliError(`invalid price row for model ${model}: expected an object`);
+    }
     const tierRows = Array.isArray(row.tiers) ? row.tiers : [row];
     const tiers = tierRows.map((t) => ({
       max: typeof t.maxPromptTokens === 'number' ? t.maxPromptTokens : Infinity,

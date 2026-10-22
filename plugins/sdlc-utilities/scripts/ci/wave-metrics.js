@@ -15,7 +15,8 @@
  *
  * Exit codes:
  *   0 - table printed (zero metrics files: header only, or [])
- *   1 - a record has a schema other than sdlc-wave-metrics-1, or no milestone
+ *   1 - a record is not an object, has a schema other than sdlc-wave-metrics-1,
+ *       no milestone, or a cost.usd string that is not a plain decimal
  *   2 - usage error, missing root, unreadable or invalid metrics file
  *
  * Money sums reuse toPico / formatPico from ./session-cost.
@@ -127,12 +128,19 @@ function loadRecords(root) {
     }
     if (!Array.isArray(data)) throw new ExitError(2, `${file}: not a JSON array`);
     data.forEach((rec, i) => {
-      const schema = rec && rec.schema;
+      if (rec === null || typeof rec !== 'object' || Array.isArray(rec)) {
+        throw new ExitError(1, `${file}: record ${i} is not an object`);
+      }
+      const schema = rec.schema;
       if (schema !== SCHEMA) {
         throw new ExitError(1, `${file}: record ${i} schema ${JSON.stringify(schema)}`);
       }
       if (typeof rec.milestone !== 'string' || rec.milestone === '') {
         throw new ExitError(1, `${file}: record ${i} milestone ${JSON.stringify(rec.milestone)}`);
+      }
+      const usd = get(rec, ['cost', 'usd']);
+      if (typeof usd === 'string' && toPico(usd) === null) {
+        throw new ExitError(1, `${file}: record ${i} cost.usd ${JSON.stringify(usd)} is not a plain decimal`);
       }
       records.push(rec);
     });
@@ -226,11 +234,11 @@ function buildRows(records) {
 // Entry point
 // ---------------------------------------------------------------------------
 
-try {
+function main() {
   const { root, json, help } = parseArgs(process.argv);
   if (help) {
     process.stdout.write(`${usageText()}\n`);
-    process.exit(0);
+    return 0;
   }
 
   const rows = buildRows(loadRecords(root));
@@ -242,8 +250,14 @@ try {
     const out = [line(HEADERS), `|${HEADERS.map(() => '---').join('|')}|`, ...rows.map(line)];
     process.stdout.write(`${out.join('\n')}\n`);
   }
-  process.exit(0);
-} catch (err) {
-  process.stderr.write(`wave-metrics.js error: ${err.message}\n`);
-  process.exit(err.exitCode || 2);
+  return 0;
+}
+
+if (require.main === module) {
+  try {
+    process.exit(main());
+  } catch (err) {
+    process.stderr.write(`wave-metrics.js error: ${err.message}\n`);
+    process.exit(err.exitCode || 2);
+  }
 }
