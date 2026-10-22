@@ -211,7 +211,7 @@
     - type: icontains
       value: "cost.usd"
     - type: icontains
-      value: "is not a plain decimal"
+      value: "wave 1a: cost.usd is not a decimal string: $2"
 
 - description: "wave-metrics: a non-object record is rejected"
   vars:
@@ -243,3 +243,14 @@
       value: "| M1 | 2 | 3 |"
     - type: icontains
       value: "| M2 | 1 | 1 |"
+
+- description: "wave-metrics: a cost usd of not recorded stays not recorded"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/wave-metrics.js"
+    project_root: "file://fixtures-fs/wave-metrics/cost-not-recorded"
+    script_args: "--root {{project_root}} --json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.length === 1 && d[0]['Cost USD'] === '1.500000000000 (1 of 2 waves)';

@@ -16,7 +16,8 @@
  * Exit codes:
  *   0 - table printed (zero metrics files: header only, or [])
  *   1 - a record is not an object, has a schema other than sdlc-wave-metrics-1,
- *       no milestone, or a cost.usd string that is not a plain decimal
+ *       no milestone, or a cost.usd string that is neither a plain decimal nor
+ *       "not recorded"
  *   2 - usage error, missing root, unreadable or invalid metrics file
  *
  * Money sums reuse toPico / formatPico from ./session-cost.
@@ -139,8 +140,8 @@ function loadRecords(root) {
         throw new ExitError(1, `${file}: record ${i} milestone ${JSON.stringify(rec.milestone)}`);
       }
       const usd = get(rec, ['cost', 'usd']);
-      if (typeof usd === 'string' && toPico(usd) === null) {
-        throw new ExitError(1, `${file}: record ${i} cost.usd ${JSON.stringify(usd)} is not a plain decimal`);
+      if (typeof usd === 'string' && usd !== NOT_RECORDED && toPico(usd) === null) {
+        throw new ExitError(1, `${file}: wave ${rec.wave === undefined ? `(record ${i})` : rec.wave}: cost.usd is not a decimal string: ${usd}`);
       }
       records.push(rec);
     });
