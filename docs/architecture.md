@@ -63,6 +63,7 @@ Each plugin has its own `.claude-plugin/plugin.json` that declares:
 - **name** and **description** — Identification
 - **version** — Semantic version for tracking updates
 - **author** — Who maintains this plugin
+- **experimental.evals** — Optional; the directory of the local `claude plugin eval` smoke suite (`"evals"` in this plugin)
 
 ### Name Resolution
 
@@ -190,7 +191,7 @@ Issue [#180](https://github.com/rnagrodzki/sdlc-marketplace/issues/180) (replaci
 
 ## Testing
 
-All testing uses [promptfoo](https://promptfoo.dev/) — a framework for evaluating LLM outputs. Two configurations cover different test types:
+All testing uses [promptfoo](https://promptfoo.dev/) — a framework for evaluating LLM outputs — except the local `claude plugin eval` smoke suite in `plugins/sdlc-utilities/evals/` (owner-approved exception, 2026-10-20/21; local and pre-release only, never in CI; see `tests/promptfoo/README.md`). Two promptfoo configurations cover different test types:
 
 ### Behavioral Tests (`promptfooconfig.yaml`)
 

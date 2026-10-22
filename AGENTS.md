@@ -44,6 +44,8 @@ scripts/                     # Node.js helper scripts (optional; invoked via Bas
 
 This project uses **promptfoo** for all testing — both behavioral skill tests and script execution tests. Do not introduce `node:test`, Jest, Mocha, or other unit test frameworks.
 
+One exception, approved by the owner (2026-10-20/21): the local `claude plugin eval` smoke suite in `plugins/sdlc-utilities/evals/` (declared by `experimental.evals` in `plugin.json`; see `tests/promptfoo/README.md`). It is local and pre-release only, never in CI, and it spends credentials, so every run is user-initiated.
+
 Two promptfoo configurations exist:
 - `tests/promptfoo/promptfooconfig.yaml` — behavioral tests (LLM-evaluated skill behavior via claude-cli provider)
 - `tests/promptfoo/promptfooconfig-exec.yaml` — script execution tests (no LLM, runs scripts against fixture directories)
