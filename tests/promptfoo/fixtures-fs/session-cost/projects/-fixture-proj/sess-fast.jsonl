@@ -1,0 +1,1 @@
+{"type":"assistant","sessionId":"sess-fast","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_f1","role":"assistant","model":"test-model-a","usage":{"speed":"fast","input_tokens":1000000,"output_tokens":100000,"cache_read_input_tokens":1000000}}}

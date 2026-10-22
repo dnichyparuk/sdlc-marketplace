@@ -20,6 +20,15 @@ scripts/
 - **state/** — named after the pipeline they persist (e.g., `execute.js`, `ship.js`)
 - **util/** — descriptive action names
 
+### CI Scripts (`ci/`)
+
+Besides the `validate-*` validators, `ci/` holds two read-only reporting scripts for the orchestration:
+
+| Script | Purpose |
+|--------|---------|
+| `session-cost.js` | Prices Claude Code session transcripts per tag from `session-prices.json` (cited pricing page); unpriced tokens are listed, never guessed |
+| `wave-metrics.js` | Sums `m*/metrics.json` wave records into the milestone summary table (`--json` for rows as objects) |
+
 ## Skill-to-Script Mapping
 
 | Skill | Scripts |

@@ -1,0 +1,6 @@
+{"type":"assistant","sessionId":"sess-fallback","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_u1","role":"assistant","model":"test-model-a","usage":{"speed":"turbo","input_tokens":1000}}}
+{"type":"assistant","sessionId":"sess-fallback","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_u2","role":"assistant","model":"test-model-a","usage":{"inference_geo":"eu","input_tokens":1000}}}
+{"type":"assistant","sessionId":"sess-fallback","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_u3","role":"assistant","model":"test-model-a","usage":{"service_tier":"priority","input_tokens":1000}}}
+{"type":"assistant","sessionId":"sess-fallback","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_u4","role":"assistant","model":"test-model-tiered","usage":{"speed":"fast","input_tokens":1000}}}
+{"type":"assistant","sessionId":"sess-fallback","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_u5","role":"assistant","model":"test-model-missing","usage":{"input_tokens":500}}}
+{"type":"assistant","sessionId":"sess-fallback","timestamp":"2026-10-22T00:00:00Z","message":{"id":"msg_u6","role":"assistant","model":"test-model-a","usage":{"input_tokens":1000000}}}
