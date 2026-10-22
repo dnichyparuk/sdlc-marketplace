@@ -1,0 +1,14 @@
+schema_version: "1.1"
+name: crlf-checkout
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: one-new-commit
+    type: regex
+    target: { source: file, path: .git/logs/HEAD }
+    pattern: '\tcommit: '
+    match: "count:1"
+  - name: subject-matches-pattern
+    type: regex
+    target: { source: file, path: .git/COMMIT_EDITMSG }
+    pattern: '^(feat|fix|docs|chore)(\([a-z0-9-]+\))?: \S'

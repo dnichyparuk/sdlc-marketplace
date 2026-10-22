@@ -1,0 +1,20 @@
+schema_version: "1.1"
+name: review-dry-run
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: manifest-written
+    type: file_exists
+    path: .sdlc/execution/out/review-manifest-*.json
+  - name: no-review-summary
+    type: file_exists
+    path: .sdlc/execution/review-summary-*.json
+    exists: false
+  - name: nothing-at-top-level
+    type: file_exists
+    path: "*"
+    exists: false
+  - name: nothing-under-docs
+    type: file_exists
+    path: "docs/**"
+    exists: false

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-21
+
+### Changed
+- feat: new local eval smoke suite under `plugins/sdlc-utilities/evals/` for `claude plugin eval`: seven cases (`commit-auto`, `review-dry-run`, `ship-dry-run`, `execute-two-task`, `ship-auto-commit-review`, `ship-review-zero-findings`, `crlf-checkout`), each a `prompt.md` and a `case.yaml` with file-based graders (state files and git, not text), built from throwaway fixture repos by `evals/_fixture/build-fixture-repo.js` and per-case `scaffold.sh`; the `ship-review-zero-findings` case checks the review-summary file for the zero-findings gate (#9129)
+- feat: `plugin.json` declares the suite with the new `experimental.evals` field (`"evals": "evals"`), and `schemas/plugin.schema.json` is extended to accept `experimental.evals`; `.gitignore` ignores `plugins/sdlc-utilities/evals/results/`
+- docs: `tests/promptfoo/README.md` gains an "Eval smoke suite (local, pre-release)" section (invocation, defaults, cost warning, never in CI)
+- tests: `claude plugin eval` is not wired into CI; the two checks (`commit-auto`, `ship-review-zero-findings`) ran directly in headless `claude -p` runs graded by their own graders, because the `claude plugin eval` harness run waits for a host with a sandbox (bubblewrap and socat; #9150)
+
 ## [0.29.1] - 2026-10-21
 
 ### Changed

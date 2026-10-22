@@ -2,6 +2,7 @@
 .claude/worktrees/
 tests/promptfoo/.promptfoo-data/
 .evidences/
+plugins/sdlc-utilities/evals/results/
 
 .claude/learnings/log.md
 
