@@ -59,7 +59,7 @@ One row per agent in `plugins/sdlc-utilities/agents/`.
 Files where per-call `model:` is computed at runtime and **wins over frontmatter**:
 
 - `plugins/sdlc-utilities/scripts/skill/ship.js` — reads `model`/`effort` from `agents/ship-step-*.md`.
-- `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` — per-task `model:` is chosen from task complexity (Trivial → haiku, Standard → sonnet, Complex → opus) by the executor. A prepare-script subcommand may replace this later (W5.2); update this line when it exists.
+- `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` — per-task `model:` is chosen from task complexity (Trivial → haiku, Standard → sonnet, Complex → opus) by the executor. `plugins/sdlc-utilities/scripts/skill/execute.js` emits the classification floor and wave structure; the per-task model is still chosen here.
 - `plugins/sdlc-utilities/scripts/skill/review.js` — passes per-dimension `model:` resolved from each dimension file's own frontmatter.
 - `plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md` — cross-model plan-reviewer rule (sonnet reviews opus-authored plans, and vice versa) at 5+ tasks.
 
