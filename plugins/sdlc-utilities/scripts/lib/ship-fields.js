@@ -26,10 +26,10 @@ const CANONICAL_STEPS = ['execute', 'commit', 'review', 'version', 'verify-opens
 // `skill/ship.js` rejects any of these names with a clear error.
 const RESERVED_STEPS = ['cleanup'];
 
-// Hard ceiling for `ship.executeWaveTimeout` (R57, R-WAVE-DEADLINE).
-// Single enforcement point: the questionnaire `max`, the JSON Schema
-// `maximum`, and the user docs all restate this number and name this
-// constant as their source.
+// Hard ceiling for execute-plan-sdlc's wave timeout (`execute.waveTimeout`,
+// legacy `ship.executeWaveTimeout`; R57, R-WAVE-DEADLINE). Single enforcement
+// point, imported by scripts/skill/execute.js; the JSON Schema `maximum` and
+// the user docs restate this number and name this constant as their source.
 const MAX_WAVE_TIMEOUT_SECONDS = 3600; // Monitor.timeout_ms caps at 3600000 ms
 
 const SHIP_FIELDS = [
@@ -149,27 +149,6 @@ const SHIP_FIELDS = [
     description: 'Logins (case-insensitive) whose reviews satisfy the gate. (R56, R57)',
     when: { stepInActiveSteps: 'await-remote-review' },
   },
-  {
-    name: 'executeWaveTimeout',
-    label: 'execute wave deadline (seconds)',
-    type: 'number',
-    options: null,
-    default: 1800,
-    min: 60,
-    max: MAX_WAVE_TIMEOUT_SECONDS,
-    description: 'Maximum seconds a single wave may run before stalled tasks are terminated. (R57, R-WAVE-DEADLINE)',
-    when: { stepInActiveSteps: 'execute' },
-  },
-  {
-    name: 'executeWaveInterval',
-    label: 'execute wave liveness poll interval (seconds)',
-    type: 'number',
-    options: null,
-    default: 60,
-    min: 10,
-    description: 'Seconds between wave liveness poll attempts. (R57, R-WAVE-LIVENESS)',
-    when: { stepInActiveSteps: 'execute' },
-  },
 ];
 
 // Derived: values legally allowed in ship.steps[] (and as members of the
@@ -204,8 +183,6 @@ const BUILT_IN_DEFAULTS = {
   awaitRemoteReviewTimeout: 600,
   awaitRemoteReviewInterval: 60,
   awaitRemoteReviewers: ['copilot'],
-  executeWaveTimeout: 1800,
-  executeWaveInterval: 60,
 };
 
 module.exports = { SHIP_FIELDS, VALID_SKIP, VALID_STEPS, BUILT_IN_DEFAULTS, CANONICAL_STEPS, RESERVED_STEPS, MAX_WAVE_TIMEOUT_SECONDS };

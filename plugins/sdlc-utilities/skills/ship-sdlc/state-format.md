@@ -71,9 +71,6 @@ Captures the effective flags after defaults and config are applied, so a resumed
   "awaitRemoteReviewTimeout": 600,
   "awaitRemoteReviewInterval": 60,
   "awaitRemoteReviewers": ["copilot"],
-  "executeWaveTimeout": 1800,
-  "executeWaveInterval": 60,
-  "executeCommitWaves": false,
   "planModeBlocked": false,
   "skipConfigCheck": false,
   "sources": {
@@ -89,9 +86,6 @@ Captures the effective flags after defaults and config are applied, so a resumed
     "awaitRemoteReviewTimeout": "default",
     "awaitRemoteReviewInterval": "default",
     "awaitRemoteReviewers": "default",
-    "executeWaveTimeout": "default",
-    "executeWaveInterval": "default",
-    "executeCommitWaves": "default",
     "workspace": "derived"
   }
 }
@@ -276,9 +270,6 @@ If multiple state files exist for the same branch (from multiple failed attempts
     "awaitRemoteReviewTimeout": 600,
     "awaitRemoteReviewInterval": 60,
     "awaitRemoteReviewers": ["copilot"],
-    "executeWaveTimeout": 1800,
-    "executeWaveInterval": 60,
-    "executeCommitWaves": false,
     "planModeBlocked": false,
     "skipConfigCheck": false,
     "sources": {
@@ -294,9 +285,6 @@ If multiple state files exist for the same branch (from multiple failed attempts
       "awaitRemoteReviewTimeout": "default",
       "awaitRemoteReviewInterval": "default",
       "awaitRemoteReviewers": "default",
-      "executeWaveTimeout": "default",
-      "executeWaveInterval": "default",
-      "executeCommitWaves": "default",
       "workspace": "derived"
     }
   },
