@@ -250,6 +250,16 @@
     - type: javascript
       value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='planParseError' && e.check==='PF3' && e.taskId===2)"
 
+- description: "execute-prepare: (n2) duplicate task numbers report planParseError PF2"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-dup.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.length===1 && o.errors[0].id==='planParseError' && o.errors[0].check==='PF2' && o.waves.length===0"
+
 # ---------------------------------------------------------------------------
 # Workspace: branch type from the plan title, --branch, linked worktree
 # ---------------------------------------------------------------------------

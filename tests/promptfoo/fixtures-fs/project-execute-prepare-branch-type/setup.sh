@@ -122,6 +122,39 @@ cat > plan-bad.md <<'EOF'
 - Create: `src/two.js`
 EOF
 
+cat > plan-dup.md <<'EOF'
+# Dup plan Implementation Plan
+
+**Goal:** Fixture plan with two tasks numbered 1.
+**Architecture:** Two independent source files.
+**Source:** conversation context
+**Verification:** npm test
+
+---
+
+## Tasks
+
+### Task 1: First
+
+**Complexity:** Standard
+**Risk:** Low
+**Depends on:** none
+**Verify:** tests
+
+**Files:**
+- Create: `src/one.js`
+
+### Task 1: Second
+
+**Complexity:** Standard
+**Risk:** Low
+**Depends on:** none
+**Verify:** tests
+
+**Files:**
+- Create: `src/two.js`
+EOF
+
 # wave_task <n> <complexity> <risk> <depends>: one task of plan-waves.md.
 wave_task() {
   cat <<EOF

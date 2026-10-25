@@ -290,6 +290,11 @@ function validatePlan(tasks) {
     }
   }
   const ids = new Set(tasks.map(t => t.id));
+  if (ids.size !== tasks.length) {
+    const dupes = [...new Set(tasks.map(t => t.id).filter((id, i, all) => all.indexOf(id) !== i))];
+    errors.push({ id: 'planParseError', check: 'PF2', message: `Duplicate task number(s): ${dupes.join(', ')}.` });
+    return errors;
+  }
   for (const t of tasks) {
     for (const dep of t.dependsOn) {
       if (!ids.has(dep)) {
