@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - feat: new prepare script `scripts/skill/execute.js` (W5.2) resolves execute-plan-sdlc's flags, config, quality tier, plan, classification floor, waves, guardrails, workspace, resume state and OpenSpec data in one call, and the shared parser `scripts/lib/plan-parse.js` (moved out of `ci/validate-plan-format.js`, whose behaviour is unchanged) feeds it; `state/execute.js wave-start` now returns the wave `manifest` (`--manifest-json`) and execute-plan-sdlc Step 1 reads the prepare output instead of running `node -e` blocks (#9013)
-- feat: new `execute` keys in `.sdlc/config.json`, all in the schema: `dispatchBudget`, `commitWaves`, `waveTimeout`, `waveInterval`, `rebase`, `waveRunnerMinPlanTasks` and `specReviewer` (next to the existing `guardrails`); precedence is CLI, then `execute.*`, then the legacy ship keys, then the default (#9013)
+- feat: new `execute` keys in `.sdlc/config.json`, all in the schema: `commitWaves`, `waveTimeout`, `waveInterval`, `rebase`, `waveRunnerMinPlanTasks` and `specReviewer` (next to the existing `guardrails`); precedence is CLI, then `execute.*`, then the legacy ship keys, then the default (#9013)
 - feat: standalone execute-plan-sdlc now runs the config-version migration check like the other skills; `--skip-config-check` or `SDLC_SKIP_CONFIG_CHECK=1` skips it (#9013)
 
 ### Changed
