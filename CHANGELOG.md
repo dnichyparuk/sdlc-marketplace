@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat: behaviour change for ship users: ship-sdlc no longer forwards the execute tunables (`--wave-timeout`, `--wave-interval`, `--commit-waves`, `--rebase`); it passes execute only `--plan`, `--auto` and `--quality`; execute reads its own `execute.*` config, with `ship.executeWaveTimeout` and `ship.executeWaveInterval` in `.sdlc/local.json` kept as deprecated fallbacks; setup no longer prompts for the wave tunables (#9013)
 - feat: execute-plan-sdlc now rejects unknown flags (`invalidFlag`) and stops at prepare on a plan with a missing or invalid `**Complexity:**` or `**Risk:**` or with one task or fewer (`planParseError`); `invalidFlag`, `planParseError` and (under `--auto`) `invalidQuality` stop the run (#9013)
 - docs: `docs/specs/execute-plan-sdlc.md` gains the Prepare script contract (P1-P9, C13-C16) and the Q16 rewording; `docs/specs/ship-sdlc.md` A3 follows; `docs/cost-tiers.md` and `scripts/README.md` name `skill/execute.js` (#9013)
+- docs: user docs for execute and ship are updated in a later release (W5.5) (#9013)
 
 ### Removed
 - tests: the behavioural case in `ship-sdlc.yaml` that asserted ship's forwarding of commit-waves to execute is deleted with its fixture, because the forwarding is gone; exec coverage replaces it (not-forwarded cases in `ship-prepare-exec.yaml`); a validated behavioural replacement is follow-up #9159 (#9013)
