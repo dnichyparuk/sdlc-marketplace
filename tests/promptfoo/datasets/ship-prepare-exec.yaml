@@ -696,12 +696,11 @@
           && o.flags.awaitRemoteReviewers[0] === 'copilot'
 
 # ---------------------------------------------------------------------------
-# Issue #506 / R57 / R-WAVE-DEADLINE — ship.executeWaveTimeout and
-# ship.executeWaveInterval resolve config-or-default and are forwarded to
-# execute-plan-sdlc on the execute step's invocation.
+# W5.2 — execute tunables are no longer resolved or forwarded by ship;
+# execute-plan-sdlc's prepare script reads them from its own config.
 # ---------------------------------------------------------------------------
 
-- description: "ship-prepare: executeWaveTimeout falls back to BUILT_IN_DEFAULTS when cfg.ship is empty (R57, #506)"
+- description: "ship-prepare: flags output carries no execute tunables (W5.2)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
@@ -711,15 +710,12 @@
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        return o.flags.executeWaveTimeout === 1800
-          && o.flags.executeWaveInterval === 60
-          && o.flags.sources.executeWaveTimeout === 'default'
-          && o.flags.sources.executeWaveInterval === 'default'
+        return ['executeWaveTimeout','executeWaveInterval','executeCommitWaves'].every(k => !(k in o.flags)) && !('executeWaveTimeout' in o.flags.sources)
 
-- description: "ship-prepare: execute step forwards --wave-timeout from resolved config (R57, #506)"
+- description: "ship-prepare: execute step args carry only --plan, --auto and --quality (W5.2)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
-    script_args: "--has-plan"
+    script_args: "--has-plan --auto --quality balanced"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
   assert:
@@ -727,12 +723,7 @@
       value: |
         const o = JSON.parse(output);
         const execute = (o.steps || []).find(s => s.name === 'execute');
-        return execute !== undefined
-          && typeof execute.invocation === 'string'
-          && o.flags.executeWaveTimeout === 1800
-          && o.flags.executeWaveInterval === 60
-          && execute.invocation.includes('--wave-timeout 1800')
-          && execute.invocation.includes('--wave-interval 60');
+        return execute.args === '--auto --quality balanced' && !/--wave-|--commit-waves|--rebase/.test(execute.invocation)
 
 # ---------------------------------------------------------------------------
 # Issue #337 — Per-step isolation field (agent dispatch worktree isolation)
@@ -893,6 +884,19 @@
         const execute = (o.steps || []).find(s => s.name === 'execute');
         return execute !== undefined && (!execute.args || !execute.args.includes('--quality'));
 
+- description: "ship-prepare: --auto without --quality forwards no --quality to execute (Q16)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --auto"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const execute = (o.steps || []).find(s => s.name === 'execute');
+        return o.flags.quality === undefined && !execute.args.includes('--quality') && execute.args.includes('--auto');
+
 - description: "ship-prepare (issue #353): all steps include dispatchMode field (isolation invariant extended)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
@@ -993,23 +997,22 @@
       value: '"repoAccessProbed": false'
 
 # ---------------------------------------------------------------------------
-# Fixes #392 / R35 — ship.execute.commitWaves forwarding to execute step
+# W5.2 / R35 — ship.execute.commitWaves is no longer forwarded to execute
 # ---------------------------------------------------------------------------
 
-- description: "ship-prepare: execute.commitWaves=true forwards --commit-waves to execute step (#392)"
+- description: "ship-prepare: ship.execute.commitWaves=true is not forwarded to the execute step (W5.2)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-commit-waves-on"
   assert:
-    - type: icontains
+    - type: not-icontains
       value: "--commit-waves"
-    # Resolution provenance recorded on the merged flags
-    - type: icontains
-      value: '"executeCommitWaves": true'
+    - type: not-icontains
+      value: "executeCommitWaves"
 
-- description: "ship-prepare: execute.commitWaves=false omits --commit-waves from execute step (#392)"
+- description: "ship-prepare: ship.execute.commitWaves=false is not forwarded to the execute step (W5.2)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
@@ -1018,8 +1021,8 @@
   assert:
     - type: not-icontains
       value: "--commit-waves"
-    - type: icontains
-      value: '"executeCommitWaves": false'
+    - type: not-icontains
+      value: "executeCommitWaves"
 
 # version.preRelease forwarding (issue #394)
 # When version.preRelease is set in config and --bump was NOT passed on CLI,

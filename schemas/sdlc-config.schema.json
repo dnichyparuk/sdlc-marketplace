@@ -297,6 +297,42 @@
             "opus": { "type": "integer", "minimum": 1000 }
           },
           "additionalProperties": false
+        },
+        "commitWaves": {
+          "type": "boolean",
+          "default": false,
+          "description": "Commit each completed wave as a wip(execute) commit (R35)."
+        },
+        "waveTimeout": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 3600,
+          "default": 1800,
+          "description": "Per-wave wall-clock deadline in seconds (R-WAVE-DEADLINE). The maximum restates MAX_WAVE_TIMEOUT_SECONDS in plugins/sdlc-utilities/scripts/lib/ship-fields.js."
+        },
+        "waveInterval": {
+          "type": "integer",
+          "minimum": 10,
+          "default": 60,
+          "description": "Wave-runner Monitor poll interval in seconds (R-WAVE-LIVENESS)."
+        },
+        "rebase": {
+          "type": "string",
+          "enum": ["auto", "skip", "prompt"],
+          "default": "skip",
+          "description": "Rebase onto the default branch before execution (A5)."
+        },
+        "waveRunnerMinPlanTasks": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 9,
+          "description": "Plans with at least this many tasks dispatch workers through the wave-runner; smaller plans dispatch from execute's main context"
+        },
+        "specReviewer": {
+          "type": "string",
+          "enum": ["once", "per-wave"],
+          "default": "once",
+          "description": "How often the spec-compliance review runs."
         }
       },
       "additionalProperties": false

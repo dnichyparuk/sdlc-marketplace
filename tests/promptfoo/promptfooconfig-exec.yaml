@@ -78,6 +78,7 @@ tests:
   - file://datasets/execute-plan-sdlc-dispatch-resilience-exec.yaml
   - file://datasets/execute-plan-sdlc-context-producer-exec.yaml
   - file://datasets/execute-plan-sdlc-liveness-exec.yaml
+  - file://datasets/execute-prepare-exec.yaml
   - file://datasets/dimension-to-instructions-exec.yaml
   - file://datasets/post-tool-validate-argv-exec.yaml
   - file://datasets/session-cost-exec.yaml

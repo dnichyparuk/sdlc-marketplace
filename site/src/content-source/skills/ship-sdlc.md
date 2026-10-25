@@ -38,7 +38,7 @@ This skill is for **expert users working on projects with established quality gu
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--auto` | Non-interactive mode. No question is asked: `--auto` is forwarded to execute-plan-sdlc, and commit-sdlc, received-review-sdlc, version-sdlc and pr-sdlc always run with `--auto`. `--quality` is required. | Off |
+| `--auto` | Non-interactive mode. No question is asked: `--auto` is forwarded to execute-plan-sdlc, and commit-sdlc, received-review-sdlc, version-sdlc and pr-sdlc always run with `--auto`. `--quality` is optional: under `--auto` execute-plan-sdlc resolves the tier as `--quality`, then the resumed state, then `balanced`. | Off |
 | `--steps <csv>` | Comma-separated list of steps to run, fully replacing the resolved step list. Valid values: `execute`, `commit`, `review`, `version`, `verify-openspec` (opt-in, OpenSpec-gated), `archive-openspec`, `pr`, `verify-pipeline` (opt-in), `await-remote-review` (opt-in), `learnings-commit`. The single source of truth for pipeline composition is `ship.steps[]` in `.sdlc/local.json`; CLI `--steps` is a one-shot override. | From config or built-in defaults |
 | `--quick` | Run the project's quick step profile (`ship.quick` in `.sdlc/local.json`) instead of `ship.steps[]`. Useful for fast local iterations (e.g. execute+commit+pr without review or versioning). Mutually exclusive with `--steps` (R-quick-5). Requires `ship.quick` to be configured (R-quick-6). | Off |
 | `--quality <full\|balanced\|minimal>` | Forwarded to execute-plan-sdlc as `--quality` (model tier). In interactive runs without `--quality`, ship asks for the tier (`execute_tier`) before execute and forwards the answer; it never picks a tier itself. | Not set (asked in interactive runs) |
@@ -611,17 +611,17 @@ To migrate explicitly, run `/setup-sdlc --migrate`.
 | `awaitRemoteReviewTimeout` | `integer` (≥30) | `600` | Maximum seconds await-remote-review polls before giving up with a warning. (R57) |
 | `awaitRemoteReviewInterval` | `integer` (≥10) | `60` | Seconds between await-remote-review poll attempts. (R57) |
 | `awaitRemoteReviewers` | `string[]` (minItems 1) | `["copilot"]` | Logins (case-insensitive) whose reviews satisfy await-remote-review. When the login is `copilot`, the reviewer must also be a Bot. (R56, R57) |
-| `execute.commitWaves` | `boolean` | `false` | Forwards `--commit-waves` to the execute step. When `true`, execute-plan-sdlc commits each wave as `wip(execute): wave N — <titles>` after G9+G11 pass; commit-sdlc then squashes those WIP commits via soft-reset into the final feature commit. User-facing pipeline behavior is unchanged — WIPs accumulate, then squash. (Fixes #392 / R35.) |
+| `execute.commitWaves` | `boolean` | `false` | Read by execute-plan-sdlc itself; ship-sdlc does not forward `--commit-waves`. When `true`, execute-plan-sdlc commits each wave as `wip(execute): wave N — <titles>` after G9+G11 pass; commit-sdlc then squashes those WIP commits via soft-reset into the final feature commit. User-facing pipeline behavior is unchanged — WIPs accumulate, then squash. (Fixes #392 / R35.) |
 
 ### `version.preRelease` implicit `--bump` override (R63)
 
 `version.preRelease` lives in `.sdlc/config.json` (the project-shared `version` section, NOT in `.sdlc/local.json`'s `ship` section). When set to a valid label (e.g. `"rc"`, `"beta"`, matching `^[a-z][a-z0-9]*$`) and the user does NOT pass `--bump` on the CLI, ship-sdlc forwards it as `--bump <label>` to version-sdlc — equivalent to `--bump patch --pre <label>`. An explicit CLI `--bump` (any value, including `patch`) wins over the config value, allowing graduation out of the pre-release train (version-sdlc R16). See `docs/specs/ship-sdlc.md` R63 for the full rule.
 
-### `execute.commitWaves` Forwarding
+### `execute.commitWaves` Source
 
-When `execute.commitWaves: true` in `.sdlc/local.json` → `ship` section, `scripts/skill/ship.js` appends `--commit-waves` to the execute step's `step.invocation`. Resolution is centralized in the prepare script (per `scripts-over-llm-logic` and `flag-coherence-cross-skill` guardrails); SKILL.md cites `step.invocation` verbatim and never reads `config.execute.commitWaves` directly. The execute step then commits per-wave WIPs; the subsequent commit step (commit-sdlc) auto-detects them and squashes via soft-reset to fork-point — the final PR history shows a single feature commit, not the per-wave WIPs.
+ship-sdlc does not forward `--commit-waves`, `--wave-timeout`, `--wave-interval` or `--rebase`. It passes execute-plan-sdlc only `--plan`, `--auto` and `--quality`. execute-plan-sdlc reads its own `execute.*` config (`execute.commitWaves` in `.sdlc/config.json`) through its prepare script `scripts/skill/execute.js`; a legacy `ship.execute.commitWaves` in `.sdlc/local.json` is still honoured as a fallback. When `execute.commitWaves` is `true`, the execute step commits per-wave WIPs; the subsequent commit step (commit-sdlc) auto-detects them and squashes via soft-reset to fork-point, so the final PR history shows a single feature commit, not the per-wave WIPs.
 
-To opt out for a single run without editing config, the user can omit the field (or set it to `false`). There is no CLI override for ship-sdlc; the user-facing knob is `execute.commitWaves` in `.sdlc/local.json`.
+To opt out, omit the field (or set it to `false`) in `.sdlc/config.json`. There is no ship-sdlc CLI override; the user-facing knob is `execute.commitWaves`.
 
 ### Branch-verification guard
 

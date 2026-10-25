@@ -36,6 +36,7 @@ const fs   = require('node:fs');
 const path = require('node:path');
 
 const { resolveSdlcRoot } = require(path.join(__dirname, '..', 'lib', 'config'));
+const { extractField, stripFences, extractTasks } = require(path.join(__dirname, '..', 'lib', 'plan-parse'));
 
 // ---------------------------------------------------------------------------
 // CLI parsing
@@ -73,51 +74,6 @@ function parseArgs(argv) {
 // ---------------------------------------------------------------------------
 // Plan parsing helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Extract text after a bold field marker like **Goal:** from the content.
- * Returns the trimmed value or null if not found.
- */
-function extractField(content, fieldName) {
-  const re = new RegExp(`\\*\\*${fieldName}:\\*\\*\\s*(.+?)(?:\\n|$)`);
-  const match = content.match(re);
-  return match ? match[1].trim() : null;
-}
-
-/**
- * Strip fenced code blocks (```, ````, or longer) from content so checks that
- * scan for headings/patterns don't false-positive (or false-negative) on
- * example text inside a fence. Handles fences of 3+ backticks via a
- * backreference, so a 4-backtick fence can safely contain literal ``` text.
- */
-function stripFences(content) {
-  return content.replace(/^(`{3,})[^\n]*\n[\s\S]*?^\1`*[ \t]*$/gm, '');
-}
-
-/**
- * Split plan content into task blocks.
- * Returns array of { number, title, body } objects.
- */
-function extractTasks(content) {
-  const stripped = stripFences(content);
-  const tasks = [];
-  const taskRe = /^### Task (\d+):\s*(.+)$/gm;
-  let match;
-
-  const matches = [];
-  while ((match = taskRe.exec(stripped)) !== null) {
-    matches.push({ number: parseInt(match[1], 10), title: match[2].trim(), index: match.index });
-  }
-
-  for (let i = 0; i < matches.length; i++) {
-    const start = matches[i].index;
-    const end   = i + 1 < matches.length ? matches[i + 1].index : stripped.length;
-    const body  = stripped.slice(start, end);
-    tasks.push({ number: matches[i].number, title: matches[i].title, body });
-  }
-
-  return tasks;
-}
 
 /**
  * Parse a plan template file's "## Required Sections" list.

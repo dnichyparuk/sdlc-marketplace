@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-25
+
+### Added
+- feat: new prepare script `scripts/skill/execute.js` (W5.2) resolves execute-plan-sdlc's flags, config, quality tier, plan, classification floor, waves, guardrails, workspace, resume state and OpenSpec data in one call, and the shared parser `scripts/lib/plan-parse.js` (moved out of `ci/validate-plan-format.js`, whose behaviour is unchanged) feeds it; `state/execute.js wave-start` now returns the wave `manifest` (`--manifest-json`) and execute-plan-sdlc Step 1 reads the prepare output instead of running `node -e` blocks (#9013)
+- feat: new `execute` keys in `.sdlc/config.json`, all in the schema: `commitWaves`, `waveTimeout`, `waveInterval`, `rebase`, `waveRunnerMinPlanTasks` and `specReviewer` (next to the existing `guardrails`); precedence is CLI, then `execute.*`, then the legacy ship keys, then the default (#9013)
+- feat: standalone execute-plan-sdlc now runs the config-version migration check like the other skills; `--skip-config-check` or `SDLC_SKIP_CONFIG_CHECK=1` skips it (#9013)
+
+### Changed
+- feat: under `--auto` with no `--quality`, execute-plan-sdlc uses the tier from the resumed state, else `balanced`, and prints `Quality tier: balanced (default under --auto)` (Q16); under `--auto` an invalid `--quality` is the error `invalidQuality`; interactive runs are unchanged (#9013)
+- feat: behaviour change for ship users: ship-sdlc no longer forwards the execute tunables (`--wave-timeout`, `--wave-interval`, `--commit-waves`, `--rebase`); it passes execute only `--plan`, `--auto` and `--quality`; execute reads its own `execute.*` config, with `ship.executeWaveTimeout` and `ship.executeWaveInterval` in `.sdlc/local.json` kept as deprecated fallbacks; setup no longer prompts for the wave tunables (#9013)
+- feat: execute-plan-sdlc now rejects unknown flags (`invalidFlag`) and stops at prepare on a plan with a missing or invalid `**Complexity:**` or `**Risk:**` or with one task or fewer (`planParseError`); `invalidFlag`, `planParseError` and (under `--auto`) `invalidQuality` stop the run (#9013)
+- docs: `docs/specs/execute-plan-sdlc.md` gains the Prepare script contract (P1-P9, C13-C16) and the Q16 rewording; `docs/specs/ship-sdlc.md` A3 follows; `docs/cost-tiers.md` and `scripts/README.md` name `skill/execute.js` (#9013)
+- docs: the execute-plan-sdlc flags table and the skills-meta entry are updated in a later release (W5.5); the ship-sdlc forwarding and `--auto` docs are updated here (#9013)
+
+### Removed
+- tests: the behavioural case in `ship-sdlc.yaml` that asserted ship's forwarding of commit-waves to execute is deleted with its fixture, because the forwarding is gone; exec coverage replaces it (not-forwarded cases in `ship-prepare-exec.yaml`); a validated behavioural replacement is follow-up #9159 (#9013)
+
 ## [0.31.0] - 2026-10-22
 
 ### Added

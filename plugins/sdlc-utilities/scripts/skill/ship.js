@@ -369,48 +369,6 @@ function mergeFlags(cli, config) {
     sources.awaitRemoteReviewers = 'default';
   }
 
-  // executeWaveTimeout (integer 60-3600, default from BUILT_IN_DEFAULTS).
-  // Flat inside `ship`, not nested under `ship.execute` — same section as
-  // every other timeout knob. Forwarded to execute-plan-sdlc as
-  // `--wave-timeout` (R57, R-WAVE-DEADLINE).
-  if (cfg.executeWaveTimeout !== undefined) {
-    merged.executeWaveTimeout  = cfg.executeWaveTimeout;
-    sources.executeWaveTimeout = 'config';
-  } else {
-    merged.executeWaveTimeout  = BUILT_IN_DEFAULTS.executeWaveTimeout;
-    sources.executeWaveTimeout = 'default';
-  }
-
-  // executeWaveInterval (integer ≥10, default from BUILT_IN_DEFAULTS).
-  // Forwarded to execute-plan-sdlc as `--wave-interval` (R57, R-WAVE-LIVENESS).
-  if (cfg.executeWaveInterval !== undefined) {
-    merged.executeWaveInterval  = cfg.executeWaveInterval;
-    sources.executeWaveInterval = 'config';
-  } else {
-    merged.executeWaveInterval  = BUILT_IN_DEFAULTS.executeWaveInterval;
-    sources.executeWaveInterval = 'default';
-  }
-
-  // execute.commitWaves (boolean, default false) — Fixes #392 / R35.
-  // Forwarded to execute-plan-sdlc as `--commit-waves` when true. Resolved
-  // here (scripts-over-llm-logic guardrail) so SKILL.md only cites
-  // `step.invocation`, never raw `config.execute.commitWaves`.
-  const execCfg = (cfg && cfg.execute && typeof cfg.execute === 'object') ? cfg.execute : {};
-  if (execCfg.commitWaves === true) {
-    merged.executeCommitWaves  = true;
-    sources.executeCommitWaves = 'config';
-  } else if (execCfg.commitWaves === false) {
-    merged.executeCommitWaves  = false;
-    sources.executeCommitWaves = 'config';
-  } else {
-    merged.executeCommitWaves  = false;
-    sources.executeCommitWaves = 'default';
-    // Track non-boolean values so runValidation can emit a warning.
-    if (execCfg.commitWaves !== undefined) {
-      merged.commitWavesInvalidType = true;
-    }
-  }
-
   // Pass-through flags that don't come from config.
   merged.hasPlan          = cli.hasPlan;
   merged.dryRun           = cli.dryRun;
@@ -476,26 +434,6 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
           ? 'condition'
           : skipSource('execute'),
       args: [
-        // Forward --quality to execute-plan-sdlc only when the user
-        // explicitly passed --quality to ship. Otherwise execute-plan-sdlc
-        // applies its own selection logic (interactive or its own default).
-        flags.quality ? `--quality ${flags.quality}` : '',
-        // No --workspace forward (issue #378, #379): ship establishes the feature
-        // branch BEFORE dispatching execute, so execute's own deriveWorkspace yields
-        // `continue` (run in place). No workspace value crosses the boundary.
-        flags.rebase !== 'prompt' ? `--rebase ${flags.rebase}` : '',
-        // Forward --commit-waves when ship config sets execute.commitWaves:
-        // true. Pairs with commit-sdlc's wip(execute): squash path so the
-        // final feature commit subsumes per-wave WIP commits cleanly
-        // (Fixes #392 / R35).
-        flags.executeCommitWaves ? '--commit-waves' : '',
-        // Forward the wave liveness/deadline tunables resolved from
-        // ship.executeWaveTimeout / ship.executeWaveInterval. Always
-        // forwarded (they always resolve to config-or-default) — this
-        // invocation is the ONLY path by which execute-plan-sdlc learns the
-        // configured values (R57, R-WAVE-DEADLINE, R-WAVE-LIVENESS).
-        `--wave-timeout ${flags.executeWaveTimeout}`,
-        `--wave-interval ${flags.executeWaveInterval}`,
         // R-PLANFILE: forward the resolved plan file explicitly so
         // execute-plan-sdlc never has to infer it from conversation context
         // (fragile under compaction) — resolution is CLI-only (R72).
@@ -504,6 +442,12 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
         // deterministic non-interactive default under ship dispatch,
         // mirroring the resume-prompt's existing --auto handling.
         flags.auto ? '--auto' : '',
+        // Forward --quality only when the user passed it (or chose it at
+        // execute_tier); ship never synthesizes a tier — under --auto,
+        // execute-plan-sdlc resolves it (execute A6). Every other execute
+        // setting (rebase, commit-waves, wave tunables) is read by
+        // execute-plan-sdlc's own prepare script from its config.
+        flags.quality ? `--quality ${flags.quality}` : '',
       ].filter(Boolean).join(' '),
       reason: !flags.hasPlan
         ? 'no plan (--has-plan not set)'
@@ -997,12 +941,6 @@ function runValidation(flags, flagSources, steps, context) {
   // R-quick-6: --quick invoked with no ship.quick configured is a hard error.
   if (flags.quick && flagSources.steps === 'quick' && flags.steps.length === 0) {
     errors.push('No quick profile defined. Run `ship-sdlc --init-config` to set one.');
-  }
-
-  // execute.commitWaves must be a boolean; non-boolean values are silently
-  // treated as false — warn the user so they can correct the config.
-  if (flags.commitWavesInvalidType) {
-    warnings.push('execute.commitWaves in ship config is not a boolean — value ignored, defaulting to false. Set it to true or false explicitly.');
   }
 
   // Always note conditional pause
@@ -2636,18 +2574,6 @@ function main() {
       awaitRemoteReviewTimeout: flags.awaitRemoteReviewTimeout,
       awaitRemoteReviewInterval: flags.awaitRemoteReviewInterval,
       awaitRemoteReviewers: flags.awaitRemoteReviewers,
-      // R57 / R-WAVE-DEADLINE / R-WAVE-LIVENESS: wave tunables resolved at
-      // config-merge time and forwarded to the execute step's invocation as
-      // --wave-timeout / --wave-interval (see computeSteps). Surfaced here so
-      // downstream consumers can introspect the resolution without parsing
-      // step args.
-      executeWaveTimeout: flags.executeWaveTimeout,
-      executeWaveInterval: flags.executeWaveInterval,
-      // Fixes #392 / R35: execute.commitWaves resolved at config-merge time;
-      // forwarded as --commit-waves to the execute step's invocation (see
-      // computeSteps). Surfaced here so downstream consumers can introspect
-      // the resolution without parsing step args.
-      executeCommitWaves: flags.executeCommitWaves === true,
       planModeBlocked: flags.planModeBlocked || false,
       skipConfigCheck,
       sources: flagSources,

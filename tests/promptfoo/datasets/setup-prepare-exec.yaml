@@ -3,7 +3,7 @@
 # Covers: P7 shipFields emission, field shape, order, v2 schema migration (issues #152, #180),
 # and when-gate evaluation (issue #292).
 
-- description: "setup-prepare: emits shipFields with 15 entries (7 base + 8 R57 tunables, issue #292, #506)"
+- description: "setup-prepare: emits shipFields with 13 entries (7 base + 6 R57 tunables, W5.2)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
     script_cwd: "{{project_root}}"
@@ -12,9 +12,9 @@
     - type: icontains
       value: '"shipFields"'
     - type: javascript
-      value: "JSON.parse(output).shipFields.length === 15"
+      value: "JSON.parse(output).shipFields.length === 13"
 
-- description: "setup-prepare: shipFields order is stable (steps → reviewThreshold → 8 R57 tunables, issue #292, #506)"
+- description: "setup-prepare: shipFields order is stable (steps → reviewThreshold → 6 R57 tunables, W5.2)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
     script_cwd: "{{project_root}}"
@@ -23,7 +23,7 @@
     - type: javascript
       value: |
         const names = JSON.parse(output).shipFields.map(f => f.name);
-        const expected = ['steps','quick','bump','draft','auto','rebase','reviewThreshold','verifyPipelineTimeout','verifyPipelineInterval','verifyPipelineMaxIterations','awaitRemoteReviewTimeout','awaitRemoteReviewInterval','awaitRemoteReviewers','executeWaveTimeout','executeWaveInterval'];
+        const expected = ['steps','quick','bump','draft','auto','rebase','reviewThreshold','verifyPipelineTimeout','verifyPipelineInterval','verifyPipelineMaxIterations','awaitRemoteReviewTimeout','awaitRemoteReviewInterval','awaitRemoteReviewers'];
         return JSON.stringify(names) === JSON.stringify(expected)
 
 - description: "setup-prepare: shipFields entries have the full 6-key descriptor shape"

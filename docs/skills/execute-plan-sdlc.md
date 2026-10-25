@@ -47,7 +47,7 @@ The plan must contain at least 2 tasks with clear deliverables (files to create 
 
 ## Per-Wave WIP Commits (`--commit-waves`)
 
-When `--commit-waves` is set (CLI flag, or ship config `execute.commitWaves: true`), execute-plan-sdlc runs `git add -A && git commit -m "wip(execute): wave N — <titles>"` after each wave passes both G9 and G11. The commit subject is deterministic and truncated to 72 characters (with `…` appended on truncation). Hooks always run — `--no-verify` is never passed; a pre-commit hook failure escalates as a hard wave-level failure via Step 6 RECOVER.
+When `--commit-waves` is set (CLI flag, or the `execute.commitWaves: true` config key in `.sdlc/config.json`), execute-plan-sdlc runs `git add -A && git commit -m "wip(execute): wave N — <titles>"` after each wave passes both G9 and G11. The commit subject is deterministic and truncated to 72 characters (with `…` appended on truncation). Hooks always run — `--no-verify` is never passed; a pre-commit hook failure escalates as a hard wave-level failure via Step 6 RECOVER.
 
 **Soft-success path:** when a wave produces no diff (every change was reverted by a hook, or the wave was a no-op), `git commit` returns "nothing to commit" — execute persists `committedSha: null` in the state file and surfaces a single notice `Wave N produced no diff — no WIP commit recorded.` Execution continues to the next wave.
 

@@ -911,36 +911,6 @@
         NOT claim ship-sdlc fails fast / refuses to run on the default branch.
 
 # ---------------------------------------------------------------------------
-# Fixes #392 / R35 — execute.commitWaves forwarding behavior
-# ---------------------------------------------------------------------------
-
-- description: "ship-sdlc: pipeline table surfaces --commit-waves in execute step when execute.commitWaves: true (#392)"
-  vars:
-    skill_path: "plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md"
-    project_context: "file://fixtures/ship-commit-waves-forwarding.md"
-    user_request: >
-      Walk through how ship-sdlc renders the pipeline table for this configuration. Show the
-      execute step's invocation verbatim and explain how SKILL.md cites the --commit-waves
-      flag (does it read config.execute.commitWaves directly, or does it cite step.data.invocation
-      computed by scripts/skill/ship.js?).
-  assert:
-    - type: icontains
-      value: "--commit-waves"
-    - type: icontains
-      value: "step.data.invocation"
-    - type: not-icontains
-      value: "config.execute.commitWaves"
-    - type: llm-rubric
-      value: >
-        The response shows the execute step's invocation as
-        "execute-plan-sdlc --commit-waves" (or equivalent) and explicitly notes that
-        ship-sdlc SKILL.md passes step.data.invocation to the dispatch prompt — NOT
-        config.execute.commitWaves directly. Resolution is centralized in
-        scripts/skill/ship.js per the scripts-over-llm-logic and
-        flag-coherence-cross-skill guardrails. The response references the squash
-        path in commit-sdlc as the pair that produces the final clean PR history.
-
-# ---------------------------------------------------------------------------
 # R-post-version-ancestry (#349) — post-version tag ancestry HARD GATE
 # ---------------------------------------------------------------------------
 

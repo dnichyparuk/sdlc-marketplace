@@ -6,7 +6,7 @@
  *
  * Usage:
  *   node execute-state.js init        --branch <b> --quality <X> --total-tasks <n> [--planned-task-ids <json>] [--plan-path <p>] [--plan-hash <h>]
- *   node execute-state.js wave-start  --wave <n> [--tasks-json <json>] [--run-id <id>]
+ *   node execute-state.js wave-start  --wave <n> [--tasks-json <json>] [--manifest-json <json>] [--run-id <id>]
  *   node execute-state.js wave-done   --wave <n> [--decisions <json>] [--status <completed|partial>] [--timed-out] [--usage <json>]
  *   node execute-state.js wave-fail   --wave <n>
  *   node execute-state.js wave-committed --branch <b> --wave <n> --sha <sha>
@@ -42,7 +42,7 @@ const {
   listBranches, readTtlDaysFromConfig, summarizePriorWaveContext,
 } = require(path.join(LIB, 'state'));
 
-const { writeTaskFactSheet, taskFactSheetPath } = require(path.join(LIB, 'task-factsheet'));
+const { writeTaskFactSheet, taskFactSheetPath, normalizeTaskId } =require(path.join(LIB, 'task-factsheet'));
 const { splitWave, MaxSplitDepthExceededError } = require(path.join(LIB, 'wave-split'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { writeProgress, readProgress } = require(path.join(LIB, 'wave-progress'));
@@ -151,6 +151,8 @@ function parseArgs(argv) {
       result.phase = args[++i];
     } else if (a === '--read') {
       result.read = true;
+    } else if (a === '--manifest-json' && args[i + 1]) {
+      result.manifestJson = args[++i];
     }
   }
 
@@ -272,10 +274,55 @@ function cmdInit(opts) {
   }
 }
 
+// Wave manifest handed verbatim to the wave-runner. Stable fields first,
+// per-wave and per-run fields last (prompt-cache-hit-ratio). waveNumber comes
+// from --wave; escalationBudget is the constant 2 (R13).
+function buildWaveManifest(opts, runId, m, writtenPaths) {
+  return {
+    escalationBudget: 2,
+    qualityTier: m.qualityTier,
+    totalWaves: m.totalWaves,
+    waveTimeout: m.waveTimeout,
+    waveInterval: m.waveInterval,
+    guardrails: m.guardrails || [],
+    stateScript: path.resolve(__filename),
+    waveNumber: opts.wave,
+    runId,
+    expectedFiles: m.expectedFiles || [],
+    verificationHint: m.verificationHint ?? null,
+    tasks: (m.tasks || []).map(t => ({
+      id: t.id,
+      complexity: t.complexity,
+      risk: t.risk,
+      factSheetPath: writtenPaths.find(p => path.basename(p) === `task-${normalizeTaskId(t.id)}.md`) || null,
+      assignedModel: t.assignedModel,
+      effort: t.effort ?? null,
+      verifyToken: t.verifyToken ?? null,
+    })),
+  };
+}
+
 function cmdWaveStart(opts) {
   if (opts.wave == null || isNaN(opts.wave)) {
     process.stderr.write('Error: --wave is required\n');
     process.exit(2);
+  }
+  if (opts.manifestJson && !opts.tasksJson) {
+    process.stderr.write('Error: --manifest-json requires --tasks-json\n');
+    process.exit(2);
+  }
+  let manifestInput = null;
+  if (opts.manifestJson) {
+    try {
+      manifestInput = JSON.parse(opts.manifestJson);
+    } catch (e) {
+      process.stderr.write(`Error: --manifest-json is not valid JSON: ${e.message}\n`);
+      process.exit(2);
+    }
+    if (manifestInput === null || typeof manifestInput !== 'object' || Array.isArray(manifestInput)) {
+      process.stderr.write('Error: --manifest-json must be a JSON object\n');
+      process.exit(2);
+    }
   }
 
   const branch = resolveBranchOrExit(opts.branch);
@@ -340,7 +387,9 @@ function cmdWaveStart(opts) {
     // Always surface the derived runId (even when writtenPaths is empty, e.g. every
     // task entry was malformed) — callers rely on this as the single source of the
     // run id; SKILL.md no longer generates or passes one via --run-id (#506).
-    process.stdout.write(JSON.stringify({ runId, factSheets: writtenPaths }) + '\n');
+    const out = { runId, factSheets: writtenPaths };
+    if (manifestInput) out.manifest = buildWaveManifest(opts, runId, manifestInput, writtenPaths);
+    process.stdout.write(JSON.stringify(out) + '\n');
   }
 
   process.exit(0);

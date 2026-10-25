@@ -1,0 +1,393 @@
+# Exec test cases for the execute-plan-sdlc prepare script (skill/execute.js).
+# Tests run the real script against fixture directories — no LLM involved.
+# All descriptions start with "execute-prepare" so
+# `--filter-pattern "execute-prepare"` matches.
+#
+# Covered: flag resolution and provenance (CLI → execute config → legacy ship
+#   → default), quality resolution (A6), resume lookup and the R41 resume
+#   exemption, plan-file errors, the config-version check, the classification
+#   floor and wave build, workspace derivation and the OpenSpec mapping.
+
+# ---------------------------------------------------------------------------
+# Resume, plan argument and quality
+# ---------------------------------------------------------------------------
+
+- description: "execute-prepare: (c) a state file for the current branch reports resume.found with its completed waves"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.resume.found && o.resume.completedWaves.join()==='1' && o.resume.planPath==='plan.md' && o.errors.length===0"
+
+- description: "execute-prepare: (d) no plan argument exits 1 with missingPlanFile"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors[0].id==='missingPlanFile'"
+
+- description: "execute-prepare: (e) --auto without --quality resolves balanced with source default"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --auto --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.length===0 && o.flags.quality==='balanced' && o.flags.sources.quality==='default'"
+
+- description: "execute-prepare: (f) --auto --resume keeps the resumed state tier with source state"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--auto --resume --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.quality==='minimal' && o.flags.sources.quality==='state' && o.plan.path.endsWith('plan.md')"
+
+- description: "execute-prepare: (g) an interactive run without --quality gets no default tier"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.quality===null && o.flags.sources.quality===null && o.errors.length===0"
+
+- description: "execute-prepare: (h2) an interactive run with an invalid --quality warns and leaves the tier unset"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality bogus --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.length===0 && o.warnings.some(w=>String(w).includes('--quality')) && o.flags.quality===null"
+
+- description: "execute-prepare: (h) --auto --quality bogus reports invalidQuality"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --auto --quality bogus --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='invalidQuality') && o.flags.quality===null"
+
+- description: "execute-prepare: (i) a plan path that does not exist reports planFileNotFound"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan nope.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='planFileNotFound')"
+
+- description: "execute-prepare: --resume with state planPath non-null does not report missingPlanFile"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--resume --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); !o.errors.some(e=>e.id==='missingPlanFile') && o.resume.found && o.plan.path.endsWith('plan.md')"
+
+- description: "execute-prepare: --resume with state planPath null reports missingPlanFile"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--resume --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-nullplan"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).errors[0].id === 'missingPlanFile'"
+
+# ---------------------------------------------------------------------------
+# Flag provenance: CLI → execute config → legacy ship → default
+# ---------------------------------------------------------------------------
+
+- description: "execute-prepare: (j1) execute config keys resolve with source config and legacy ship keys with source legacy-ship"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/project-execute-prepare/plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-config"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); const f = o.flags, s = f.sources; f.waveTimeout===900 && s.waveTimeout==='config' && f.waveInterval===30 && s.waveInterval==='legacy-ship' && f.commitWaves===true && s.commitWaves==='config' && f.rebase==='auto' && s.rebase==='config' && f.waveRunnerMinPlanTasks===5 && s.waveRunnerMinPlanTasks==='config' && f.specReviewer==='per-wave' && s.specReviewer==='config' && o.guardrails[0].id==='g1'"
+
+- description: "execute-prepare: (j2) CLI flags override config with source cli"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/project-execute-prepare/plan.md --wave-timeout 120 --wave-interval 15 --rebase skip --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-config"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); const f = o.flags, s = f.sources; f.waveTimeout===120 && f.waveInterval===15 && f.rebase==='skip' && s.waveTimeout==='cli' && s.waveInterval==='cli' && s.rebase==='cli'"
+
+- description: "execute-prepare: (j3) legacy ship.execute.commitWaves is read with source legacy-ship"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/project-execute-prepare/plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-commit-waves-on"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.commitWaves===true && o.flags.sources.commitWaves==='legacy-ship' && o.flags.waveTimeout===1800 && o.flags.sources.waveTimeout==='default'"
+
+- description: "execute-prepare: (j4) an out-of-range --wave-timeout reports invalidFlag"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --wave-timeout 5 --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='invalidFlag' && e.flag==='--wave-timeout')"
+
+# ---------------------------------------------------------------------------
+# Config-version check
+# ---------------------------------------------------------------------------
+
+- description: "execute-prepare: (k1) a standalone run performs the config-version check"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+    script_env:
+      SDLC_SKIP_CONFIG_CHECK: "0"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.skipConfigCheck===false && o.migration!==null && 'project' in o.migration && 'local' in o.migration"
+
+- description: "execute-prepare: (k2) --skip-config-check skips the config-version check"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --skip-config-check --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.skipConfigCheck===true && o.migration===null"
+
+- description: "execute-prepare: (k4) an already-current config is not migrated again"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/project-execute-prepare/plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-config"
+    script_env:
+      SDLC_SKIP_CONFIG_CHECK: "0"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.migration.project.migrated===false && o.migration.local.migrated===false && o.errors.length===0"
+
+- description: "execute-prepare: (k3) SDLC_SKIP_CONFIG_CHECK=1 skips the config-version check"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+    script_env:
+      SDLC_SKIP_CONFIG_CHECK: "1"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.skipConfigCheck===true && o.migration===null"
+
+# ---------------------------------------------------------------------------
+# Classification floor and waves
+# ---------------------------------------------------------------------------
+
+- description: "execute-prepare: (a) a 4-task plan builds 2 waves and splits the two tasks that share a file"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves.length===2 && o.waves[0].taskIds.join()==='1,4' && o.waves[1].taskIds.join()==='2,3' && o.waves[0].cap===4 && o.classificationFloor.find(f=>f.id===1).fileCount===2 && o.openspec.specsDir===null"
+
+- description: "execute-prepare: (b) wave expectedFiles is the union of Create, Modify and Test paths"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves[0].expectedFiles.join()==='src/a.js,tests/a.test.js,src/d.js' && o.waves[0].verificationHint==='tests' && o.waves[1].expectedFiles.join()==='src/a.js,src/c.js' && o.waves[1].verificationHint===null && o.workspace.decision==='branch'"
+
+- description: "execute-prepare: (q) a 6-task plan splits a wave over the weighted cap and spreads High-risk tasks"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-waves.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves.map(w=>w.taskIds.join()).join(';')==='1,2;3,4;5;6' && o.waves.every(w=>w.cap===4)"
+
+- description: "execute-prepare: (n) a task without Complexity reports planParseError PF3"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-bad.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='planParseError' && e.check==='PF3' && e.taskId===2)"
+
+- description: "execute-prepare: (n2) duplicate task numbers report planParseError PF2"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-dup.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.length===1 && o.errors[0].id==='planParseError' && o.errors[0].check==='PF2' && o.waves.length===0"
+
+# ---------------------------------------------------------------------------
+# Workspace: branch type from the plan title, --branch, linked worktree
+# ---------------------------------------------------------------------------
+
+- description: "execute-prepare: (l1) an H1 title with fix suggests a fix/ branch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-fix.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.workspace.suggestedBranch==='fix/fix-login-redirect'"
+
+- description: "execute-prepare: (l2) an H1 title with bug suggests a fix/ branch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-bug.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.workspace.suggestedBranch==='fix/bug-in-token-refresh'"
+
+- description: "execute-prepare: (l3) an H1 title with docs suggests a docs/ branch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-docs.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.workspace.suggestedBranch==='docs/docs-refresh-for-setup'"
+
+- description: "execute-prepare: (l4) an H1 title with refactor suggests a refactor/ branch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-refactor.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.workspace.suggestedBranch==='refactor/refactor-state-helpers'"
+
+- description: "execute-prepare: (l5) an H1 title with chore suggests a chore/ branch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-chore.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.workspace.suggestedBranch==='chore/chore-bump-fixtures'"
+
+- description: "execute-prepare: (l6) an H1 title with no keyword suggests a feat/ branch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-feature.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.workspace.suggestedBranch==='feat/add-webhook-signing' && o.workspace.decision==='branch' && o.workspace.inLinkedWorktree===false && o.waves.every(w=>w.cap===null)"
+
+- description: "execute-prepare: (l7) --branch skips derivation and continues in place"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-feature.md --branch feat/x --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.workspace.decision==='continue' && o.workspace.suggestedBranch===null && o.flags.branch==='feat/x'"
+
+- description: "execute-prepare: (l8) a run from a linked worktree continues in place"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-feature.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}/.wt"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.workspace.inLinkedWorktree===true && o.workspace.decision==='continue' && o.workspace.currentBranch==='feat/wt' && o.workspace.suggestedBranch===null && o.errors.length===0 && o.plan.path.endsWith('/.wt/plan-feature.md')"
+
+- description: "execute-prepare: (l9) a relative --plan run from a linked worktree reads the worktree's copy"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-wt-only.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}/.wt"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.length===0 && o.plan.path.endsWith('/.wt/plan-wt-only.md') && o.plan.tasks.length===2"
+
+# ---------------------------------------------------------------------------
+# OpenSpec mapping
+# ---------------------------------------------------------------------------
+
+- description: "execute-prepare: (o) an OpenSpec-sourced plan maps its openspec-task refs"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan-openspec.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-branch-type"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.openspec.specsDir==='openspec/changes/demo/specs' && o.openspec.specFiles.join()==='openspec/changes/demo/specs/demo.md' && JSON.stringify(o.openspec.refToTaskIds)==='{\"add-demo-abc123\":[1]}'"
+
+# ---------------------------------------------------------------------------
+# wave-start --manifest-json
+# ---------------------------------------------------------------------------
+
+- description: "execute-prepare: (p1) wave-start --manifest-json emits the manifest with fact-sheet paths, stateScript and runId"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: 'wave-start --wave 2 --tasks-json [{"id":"2","title":"Beta"}] --manifest-json {"n":2,"taskIds":[2],"expectedFiles":["src/a.js"],"verificationHint":"tests","qualityTier":"minimal","totalWaves":2,"waveTimeout":1800,"waveInterval":60,"guardrails":[],"tasks":[{"id":"2","complexity":"Standard","risk":"Low","assignedModel":"opus","verifyToken":"x"}]}'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
+  assert:
+    - type: javascript
+      value: "const o=JSON.parse(output), m=o.manifest; m.waveNumber===2 && m.escalationBudget===2 && m.runId===o.runId && m.stateScript.endsWith('state/execute.js') && m.tasks[0].factSheetPath.endsWith('task-2.md') && m.tasks[0].effort===null && m.expectedFiles.join()==='src/a.js'"
+
+- description: "execute-prepare: (p2) wave-start without --manifest-json keeps the runId and factSheets output only"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: 'wave-start --wave 2 --tasks-json [{"id":"2","title":"Beta"}]'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
+  assert:
+    - type: javascript
+      value: "const o=JSON.parse(output); Object.keys(o).sort().join()==='factSheets,runId'"
