@@ -16,6 +16,9 @@
  *   --auto           Skip interactive approval prompts (passed through to output)
  *   --no-squash-wip  Preserve `wip(execute):` commits instead of soft-resetting them
  *                    into the final commit (Fixes #392 / R35; passed through to output)
+ *   --subject <text>          Use <text> verbatim as the commit subject (R-subject-verbatim)
+ *   --message-file <path>     Commit the file's content as the whole message (R-message-file)
+ *   --expected-subject <text> The subject the caller expects; the gate stops on a difference (R-expected-subject)
  *
  * Exit codes:
  *   0 = success, JSON on stdout
@@ -28,13 +31,14 @@
 
 'use strict';
 
+const fs = require('node:fs');
 const path = require('node:path');
 const LIB = path.join(__dirname, '..', 'lib');
 
 const { exec, checkGitState, splitDiffByFile } = require(path.join(LIB, 'git'));
 const { readSection, resolveSdlcRoot } = require(path.join(LIB, 'config'));
 const { writeOutput } = require(path.join(LIB, 'output'));
-const { writeManifestState } = require(path.join(LIB, 'state'));
+const { writeManifestState, resolveStateDir, slugifyBranch } = require(path.join(LIB, 'state'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { truncateDiff } = require(path.join(LIB, 'diff-truncate'));
 const { validateExpectedBranch } = require(path.join(LIB, 'branch-guard'));
@@ -73,7 +77,12 @@ function parseArgs(argv) {
   let noSquashWip         = false;
   let expectedBranch      = null;
   let forceDefaultBranch  = false;
+  let subject             = null;
+  let messageFile         = null;
+  let expectedSubject     = null;
   const warnings = [];
+  // A value flag without a value yields '' so checkGivenSubjects rejects it (R-subject-precheck).
+  const valueAt = (i) => (i + 1 < args.length && !args[i + 1].startsWith('--') ? args[i + 1] : '');
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -94,10 +103,77 @@ function parseArgs(argv) {
       expectedBranch = args[++i];
     } else if (a === '--force-default-branch') {
       forceDefaultBranch = true;
+    } else if (a === '--subject') {
+      subject = valueAt(i);
+      if (subject !== '') i++;
+    } else if (a === '--message-file') {
+      messageFile = valueAt(i);
+      if (messageFile !== '') i++;
+    } else if (a === '--expected-subject') {
+      expectedSubject = valueAt(i);
+      if (expectedSubject !== '') i++;
     }
   }
 
-  return { noStash, scope, type, amend, auto, noSquashWip, expectedBranch, forceDefaultBranch, warnings };
+  return { noStash, scope, type, amend, auto, noSquashWip, expectedBranch, forceDefaultBranch, subject, messageFile, expectedSubject, warnings };
+}
+
+// ---------------------------------------------------------------------------
+// Given subjects (R-subject-precheck) and message-file pruning (R-script-prune)
+// ---------------------------------------------------------------------------
+
+const MAX_SUBJECT_CHARS = 72;
+
+/**
+ * Checks every subject the caller gave, before any draft: --subject,
+ * --expected-subject and the first line of the --message-file file.
+ * @returns {string[]} errors[] entries; empty when all given subjects are valid and equal
+ */
+function checkGivenSubjects({ subject, messageFile, expectedSubject }) {
+  const errors = [];
+  const given = [];
+  // --subject and --expected-subject pass the Step 0 shell line, so they exclude the
+  // plan-sdlc R66 set (", backtick, $, \); a message file's first line has no such rule.
+  const check = (label, s, viaShell) => {
+    if (s === '') errors.push(`${label} is empty.`);
+    else if (/[\r\n]/.test(s)) errors.push(`${label} contains a line break.`);
+    else if (s.length > MAX_SUBJECT_CHARS) errors.push(`${label} is ${s.length} characters; the limit is ${MAX_SUBJECT_CHARS}.`);
+    else if (viaShell && /["`$\\]/.test(s)) errors.push(`${label} contains ", \`, $ or \\, which cannot pass the Step 0 shell line; use --message-file.`);
+    else given.push([label, s]);
+  };
+  if (subject !== null) check('--subject', subject, true);
+  if (expectedSubject !== null) check('--expected-subject', expectedSubject, true);
+  if (messageFile === '') {
+    errors.push('--message-file needs a path.');
+  } else if (messageFile !== null && /["`$\\\r\n]/.test(messageFile)) {
+    // The path passed the Step 0 shell line; it is never read back into one (R-message-file).
+    errors.push('--message-file path contains ", `, $, \\, a newline or a carriage return; use a plain path.');
+  } else if (messageFile !== null) {
+    let text = null;
+    try { text = fs.readFileSync(messageFile, 'utf8'); } catch (err) { errors.push(`--message-file ${messageFile} cannot be read: ${err.message}`); }
+    if (text !== null) check('--message-file first line', text.split('\n')[0], false);
+  }
+  if (new Set(given.map(([, s]) => s)).size > 1) {
+    errors.push(`Given subjects disagree: ${given.map(([label, s]) => `${label} "${s}"`).join(', ')}.`);
+  }
+  return errors;
+}
+
+/**
+ * Deletes this branch's earlier `commit-<branchSlug>-<YYYYMMDDTHHmmssZ>.msg` files
+ * in the state directory. The `.json` manifests are pruned by writeManifestState (R15);
+ * no other file is touched.
+ */
+function pruneCommitMessageFiles(branch) {
+  const dir = resolveStateDir();
+  const slug = slugifyBranch(branch);
+  let names;
+  try { names = fs.readdirSync(dir); } catch (_) { return; }
+  for (const name of names) {
+    const m = /^commit-(.+)-(\d{8}T\d{6}Z)\.msg$/.exec(name);
+    if (!m || m[1] !== slug) continue;
+    try { fs.unlinkSync(path.join(dir, name)); } catch (_) { /* best effort */ }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +255,8 @@ function detectWipSquash() {
 
 function main() {
   const projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/
-  const { noStash, scope, type, amend, auto, noSquashWip, expectedBranch, forceDefaultBranch, warnings: parseWarnings } = parseArgs(process.argv);
+  const { noStash, scope, type, amend, auto, noSquashWip, expectedBranch, forceDefaultBranch, subject, messageFile: messageFileArg, expectedSubject, warnings: parseWarnings } = parseArgs(process.argv);
+  const messageFile = messageFileArg ? path.resolve(messageFileArg) : messageFileArg;
 
   const errors   = [];
   const warnings = [...parseWarnings];
@@ -193,7 +270,7 @@ function main() {
     return;
   }
 
-  const flags = { noStash, scope, type, amend, auto, noSquashWip, skipConfigCheck, forceDefaultBranch };
+  const flags = { noStash, scope, type, amend, auto, noSquashWip, skipConfigCheck, forceDefaultBranch, subject, messageFile, expectedSubject };
 
   // Step 3: Validate git repo and get current branch
   let gitState;
@@ -240,6 +317,9 @@ function main() {
       errors.push(`Commit scope "${scope}" is not allowed. Allowed scopes: ${commitConfig.allowedScopes.join(', ')}`);
     }
   }
+
+  // Step 3d: Given subjects are checked before any draft (R-subject-precheck)
+  errors.push(...checkGivenSubjects({ subject, messageFile, expectedSubject }));
 
   // Step 4: Get staged files
   const stagedRaw   = exec('git diff --cached --name-only', { cwd: process.cwd() });
@@ -353,6 +433,7 @@ function main() {
     branchGuard,
   };
 
+  pruneCommitMessageFiles(currentBranch); // R-script-prune
   const manifestPath = writeManifestState('commit', currentBranch, result);
   process.stdout.write(manifestPath + '\n');
   process.exit(result.errors && result.errors.length > 0 ? 1 : 0);

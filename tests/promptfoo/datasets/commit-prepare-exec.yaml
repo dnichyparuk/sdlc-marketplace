@@ -447,3 +447,126 @@
   assert:
     - type: javascript
       value: "const o = JSON.parse(output); o.gateExit === 0 && o.literal === true && o.pwned === false && o.wipGateExit === 2"
+
+# W8.24 — commit-sdlc takes the planned subject (A7–A9, R-subject-verbatim, R-message-file,
+# R-expected-subject, R-subject-precheck, R-script-prune). Spaced values cannot pass through
+# script_args (split on whitespace), so these cases spawn commit.js with an argv array from a
+# whitespace-free `node -e` one-liner (\x20 = space, \x27 = ', \x22 = ").
+- description: "commit-subject: (a) --subject with spaces appears verbatim as flags.subject"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--subject","docs(#1):\x20x\x20-\x20y"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}: ${JSON.stringify(o.out.errors)}`;
+        return o.out.flags.subject === 'docs(#1): x - y' ? true : `FAIL: flags.subject ${JSON.stringify(o.out.flags.subject)}`;
+
+- description: "commit-subject: (b) an empty --subject gives an errors[] entry and exit 1"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--subject",""],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}`;
+        return o.out.errors.includes('--subject is empty.') ? true : `FAIL: errors ${JSON.stringify(o.out.errors)}`;
+
+- description: "commit-subject: (c) a 73-character --subject gives exit 1"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--subject","docs(#1):\x20"+"a".repeat(63)],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}`;
+        return o.out.errors.some(e => e.startsWith('--subject is 73 characters')) ? true : `FAIL: errors ${JSON.stringify(o.out.errors)}`;
+
+- description: "commit-subject: (d) no --subject gives flags.subject null"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.flags.subject === null && o.flags.messageFile === null && o.flags.expectedSubject === null;
+
+- description: "commit-subject: message-file — the file path is absolute in flags; a different --subject or a path with $ is rejected before drafting"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((run)=>(fs.writeFileSync("msg.txt","docs(#1):\x20x\x20-\x20y\n\nWhy\x20it\x20changed.\n"),console.log(JSON.stringify({alone:run(["--message-file","msg.txt"]),clash:run(["--message-file","msg.txt","--subject","docs(#1):\x20other\x20-\x20z"]),badpath:run(["--message-file","m\x24x.txt"])}))))((a)=>((r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))}))(cp.spawnSync("node",[js,"--output-file",...a],{cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.alone.status !== 0) return `FAIL: alone exit ${o.alone.status}: ${JSON.stringify(o.alone.out.errors)}`;
+        const mf = o.alone.out.flags.messageFile;
+        if (typeof mf !== 'string' || !mf.startsWith('/') || !mf.endsWith('/msg.txt')) return `FAIL: messageFile ${mf}`;
+        if (o.clash.status !== 1) return `FAIL: clash exit ${o.clash.status}`;
+        if (!o.clash.out.errors.some(e => e.startsWith('Given subjects disagree'))) return `FAIL: clash errors ${JSON.stringify(o.clash.out.errors)}`;
+        if (o.badpath.status !== 1) return `FAIL: badpath exit ${o.badpath.status}`;
+        return o.badpath.out.errors.some(e => e.startsWith('--message-file path contains')) ? true : `FAIL: badpath errors ${JSON.stringify(o.badpath.out.errors)}`;
+
+- description: "commit-subject: expected-subject gate — the SKILL.md subject gate exits 3 on a different first line and 0 on the same"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs)=>((js)=>(fs.writeFileSync("e.json",JSON.stringify({flags:{expectedSubject:"docs(#1):\x20x\x20-\x20y"},commitConfig:null})),fs.writeFileSync("g.json",JSON.stringify({flags:{subject:"docs(#1):\x20x\x20-\x20y"},commitConfig:null})),fs.writeFileSync("f.json",JSON.stringify({flags:{messageFile:"same.msg"},commitConfig:null})),fs.writeFileSync("other.msg","docs(#1):\x20other\x20-\x20z\n\nBody.\n"),fs.writeFileSync("same.msg","docs(#1):\x20x\x20-\x20y\n\nBody.\n"),console.log(JSON.stringify({found:js.length>0,differ:cp.spawnSync("node",["-e",js,"e.json","other.msg"]).status,same:cp.spawnSync("node",["-e",js,"e.json","same.msg"]).status,given:cp.spawnSync("node",["-e",js,"g.json","other.msg"]).status,file:cp.spawnSync("node",["-e",js,"f.json","other.msg"]).status}))))(fs.readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md","utf8").split("node\x20-e\x20\x27")[1].split("\x27\x20\x22<COMMIT_CONTEXT_FILE>\x22")[0]))(require("child_process"),require("fs"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (!o.found) return 'FAIL: gate block not found in SKILL.md';
+        if (o.differ !== 3) return `FAIL: expected-subject differ exit ${o.differ}`;
+        if (o.same !== 0) return `FAIL: expected-subject same exit ${o.same}`;
+        if (o.given !== 3) return `FAIL: --subject differ exit ${o.given}`;
+        return o.file === 3 ? true : `FAIL: --message-file differ exit ${o.file}`;
+
+- description: "commit-subject: length before draft — a 73-character --expected-subject or message-file first line, or a --subject with a double quote, or an --expected-subject with a backtick, gives exit 1"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((run)=>(fs.writeFileSync("long.txt","docs(#1):\x20"+"a".repeat(63)+"\n\nBody.\n"),console.log(JSON.stringify({expected:run(["--expected-subject","docs(#1):\x20"+"a".repeat(63)]),file:run(["--message-file","long.txt"]),quote:run(["--subject","docs(#1):\x20a\x22b\x20-\x20y"]),tick:run(["--expected-subject","docs(#1):\x20a\x60b\x20-\x20y"])}))))((a)=>((r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))}))(cp.spawnSync("node",[js,"--output-file",...a],{cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.expected.status !== 1) return `FAIL: expected exit ${o.expected.status}`;
+        if (!o.expected.out.errors.some(e => e.startsWith('--expected-subject is 73 characters'))) return `FAIL: expected errors ${JSON.stringify(o.expected.out.errors)}`;
+        if (o.expected.out.flags.expectedSubject.length !== 73) return 'FAIL: flags.expectedSubject not carried';
+        if (o.file.status !== 1) return `FAIL: file exit ${o.file.status}`;
+        if (!o.file.out.errors.some(e => e.startsWith('--message-file first line is 73 characters'))) return `FAIL: file errors ${JSON.stringify(o.file.out.errors)}`;
+        if (o.quote.status !== 1) return `FAIL: quote exit ${o.quote.status}`;
+        if (!o.quote.out.errors.some(e => e.startsWith('--subject contains "'))) return `FAIL: quote errors ${JSON.stringify(o.quote.out.errors)}`;
+        if (o.tick.status !== 1) return `FAIL: tick exit ${o.tick.status}`;
+        return o.tick.out.errors.some(e => e.startsWith('--expected-subject contains "')) ? true : `FAIL: tick errors ${JSON.stringify(o.tick.out.errors)}`;
+
+- description: "commit-subject: prune — the script deletes this branch's earlier .msg files and keeps foreign ones"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((d)=>(["commit-main-20240101T000000Z.msg","commit-otherbranch-20240101T000000Z.msg","review-main-20240101T000000Z.msg","commit-main-notes.msg"].forEach((n)=>fs.writeFileSync(d+"/"+n,"x\n")),((r)=>console.log(JSON.stringify({status:r.status,manifest:fs.existsSync(r.stdout.trim()),left:fs.readdirSync(d).filter((n)=>n.endsWith(".msg")).sort()})))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8",env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d})}))))(process.cwd()+"/.sdlc/execution"))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-on-default-branch"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}`;
+        if (!o.manifest) return 'FAIL: new manifest missing (cross-shell survival, R15)';
+        const want = ['commit-main-notes.msg', 'commit-otherbranch-20240101T000000Z.msg', 'review-main-20240101T000000Z.msg'];
+        return JSON.stringify(o.left) === JSON.stringify(want) ? true : `FAIL: left ${JSON.stringify(o.left)}`;

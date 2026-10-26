@@ -24,7 +24,7 @@ Read the manifest JSON from `MANIFEST_FILE`. The manifest contains:
 | Field | Description |
 | --- | --- |
 | `currentBranch` | Active git branch |
-| `flags` | `{ noStash, scope, type, amend, auto }` — parsed CLI flags |
+| `flags` | `{ noStash, scope, type, amend, auto, noSquashWip, skipConfigCheck, forceDefaultBranch, subject, messageFile, expectedSubject }` — parsed CLI flags |
 | `staged.files` | List of staged file paths |
 | `staged.fileCount` | Number of staged files |
 | `staged.diff` | Full unified diff of staged changes |
@@ -61,6 +61,8 @@ If `commitConfig` is non-null, every constraint below is **mandatory**:
 Config constraints take precedence over `recentCommits` inference.
 
 ## Step 3 — Generate Subject and Body
+
+If `flags.subject` is set (`--subject`), the subject line is exactly `flags.subject`; write only the body (R-subject-verbatim). Rules 2, 3 and 5 below then do not apply, and the Step 4 self-critique never alters that subject line. With `flags.amend`, revise the body per rule 4 and replace the subject. Ignore `flags.expectedSubject` (`--expected-subject`): the skill checks it after you return (R-expected-subject). A `--message-file` run does not dispatch you (R-message-file).
 
 1. Read `staged.diff` to understand what changed. When `staged.diffTruncated` is true, supplement with `staged.diffStat` and `staged.truncatedFiles`.
 2. If `flags.type` is set, use it. Else infer from the change (constrained by `allowedTypes`).
