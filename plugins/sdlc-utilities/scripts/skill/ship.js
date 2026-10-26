@@ -402,14 +402,13 @@ function stepAgent(file) {
   return stepAgentCache[file];
 }
 
-function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile } = {}) {
+function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject = null } = {}) {
   // Steps[] is the canonical source of truth for which top-level steps run.
   // A step IS skipped when it is NOT in flags.steps. The provenance for an
   // exclusion is whatever determined the resolved steps[] (cli --steps /
   // config / built-in default).
   const stepsSet = new Set(Array.isArray(flags.steps) ? flags.steps : []);
-  // R-plan-commit-subject: prepare already rejected a malformed field, so only a valid subject arrives here.
-  const planSubject = readPlanCommitSubject(planFile).subject;
+  // R-plan-commit-subject: planSubject is the one parse of the plan header (main, or the --after path); prepare already rejected a malformed field.
 
   // Derive the skipSource for a given step name. Convention preserved for
   // downstream consumers (state files, hooks, learnings).
@@ -1311,7 +1310,11 @@ function deriveBranchFromPlan(planPath, config) {
 function readPlanCommitSubject(planFile, subjectPattern = null) {
   if (!planFile) return { subject: null, error: null };
   let text;
-  try { text = fs.readFileSync(planFile, 'utf8'); } catch { return { subject: null, error: null }; }
+  try { text = fs.readFileSync(planFile, 'utf8'); } catch (err) {
+    // A missing plan means no field (resolvePlanFile reports it); any other failure must not skip the check silently.
+    if (err.code === 'ENOENT') return { subject: null, error: null };
+    return { subject: null, error: `The plan ${planFile} cannot be read (${err.code || err.message}), so its **Commit:** field cannot be checked. Fix: make the plan a readable markdown file. Why: ship forwards the planned subject verbatim to commit-sdlc.` };
+  }
   const lines = text.split(/\r?\n/);
   const end = lines.findIndex(l => l === '---' || l.startsWith('## ') || l.startsWith('### '));
   const fields = (end === -1 ? lines : lines.slice(0, end)).filter(l => l.startsWith('**Commit:**'));
@@ -1861,6 +1864,7 @@ function runAfter(stepArgs) {
     openspecContext: flags.openspecContext,
     expectedBranch: ledger.branch,
     planFile: flags.planFile,
+    planSubject: readPlanCommitSubject(flags.planFile).subject,
   });
   const total = countTotal(steps);
   const skipped = [];
@@ -2502,7 +2506,7 @@ function main() {
     tasksDone: openspecMatchedChange ? openspecMatchedChange.tasksDone : null,
     tasksTotal: openspecMatchedChange ? openspecMatchedChange.tasksTotal : null,
   };
-  const steps = computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile });
+  const steps = computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject: planCommit.subject });
 
   // Run validation
   const validation = runValidation(flags, flagSources, steps, context);

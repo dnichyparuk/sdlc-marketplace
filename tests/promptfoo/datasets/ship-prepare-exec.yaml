@@ -3497,6 +3497,22 @@
         if (!err.message.includes('Fix:')) return `FAIL: message lacks Fix: ${err.message}`;
         return o.stderr.includes('**Commit:**') ? true : 'FAIL: error not mirrored to stderr';
 
+- description: "ship-prepare (R-plan-commit-subject): unreadable plan hard-errors with planCommitSubjectInvalid"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.chmodSync(d+"/plan.md",420),fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n"),fs.chmodSync(d+"/plan.md",0),((r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr}))(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-commit-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}`;
+        const err = (o.out.errors || []).find(e => e && e.id === 'planCommitSubjectInvalid');
+        if (!err) return `FAIL: no planCommitSubjectInvalid: ${JSON.stringify(o.out.errors)}`;
+        if (!err.message.includes('cannot be read') || !err.message.includes('Fix:')) return `FAIL: message ${err.message}`;
+        return true;
+
 - description: "ship-prepare (R-plan-commit-subject): plan without the field forwards no --subject"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
