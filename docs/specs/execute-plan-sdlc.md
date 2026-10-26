@@ -114,7 +114,7 @@
 
 - R7: Critique wave structure before execution: file conflicts, dependency integrity, risk clustering, context sufficiency
 - R12: Inter-wave critique: detect when actual output differs from what downstream tasks assumed
-- R-main-context-steps: The following steps are main-context responsibilities of execute-plan-sdlc and MUST NOT move into the wave-runner Agent: Step 2b (small-plan direct execution), Step 5 pre-wave trivial batch, Step 5a (high-risk gate), Step 5c (filesystem verification, canary check, conflict detection, completion-checklist parsing), Step 5c-bis (spec compliance reviewer), Step 5c-ter (post-wave guardrail check), Step 5d (state writes), Step 5e (inter-wave critique), and Step 6 (recovery escalation). When execute is invoked via Skill tool from ship-sdlc, all of these surfaces fire in ship's main context, restoring supervision.
+- R-main-context-steps: The following steps are main-context responsibilities of execute-plan-sdlc and MUST NOT move into the wave-runner Agent: Step 2b (small-plan direct execution), Step 5 pre-wave trivials (inline), Step 5a (high-risk gate), Step 5c (filesystem verification, canary check, conflict detection, completion-checklist parsing), Step 5c-bis (spec compliance reviewer), Step 5c-ter (post-wave guardrail check), Step 5d (state writes), Step 5e (inter-wave critique), and Step 6 (recovery escalation). When execute is invoked via Skill tool from ship-sdlc, all of these surfaces fire in ship's main context, restoring supervision.
 
 - R17: Pre-execution rebase when `--rebase auto`: fetch, check ancestor, attempt rebase, abort on conflict
 - R21: Context management between waves — compact verbose agent output when context is high
@@ -300,7 +300,7 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 - C4: Must not reference the plan file inside an agent prompt — paste full task text
 - C5: Must not execute more than 2 retries on any single task
 - C6: Must not automatically commit or push
-- C7: Must not dispatch a separate agent per trivial task when the pre-wave or a wave holds 2+ trivials — batch them (R6)
+- C7: Must not dispatch a separate agent per trivial task when a wave holds 2+ trivials — batch them (R6); pre-wave trivials run inline
 - C8: Must not delete execution state file on failure — needed for `--resume`
 - C9: Must not write state files for small-plan direct execution (≤3 tasks)
 - C10: Must not auto-override error-severity guardrail violations in `--auto` mode

@@ -295,8 +295,6 @@ When ship-sdlc dispatches you as a subagent you still have the Agent tool — di
 
 **Pre-wave:** Execute every pre-wave trivial task inline in the main context, one after another — one task or several. There is no batch worker and no `dispatch` entry for the pre-wave. Mark each complete in TodoWrite after it runs.
 
-This dispatch is NOT a wave-runner Agent — it is a direct batch dispatch from main context for tasks that have no in-wave dependencies.
-
 **For each wave:**
 
 **First-wave bootstrap (runs once, before wave 1's dispatch):** `wave-start` (called in 5b below, for every wave including wave 1) requires an existing state file — `state/execute.js` exits 1 with "no state file found" without one. Before entering this per-wave loop for wave 1, run the `init` call and the one-time `context --data` call, both documented in the State persistence section under 5d below (do NOT wait until 5d of wave 1 to run them — by then 5b's wave-start call has already needed the state file to exist).
