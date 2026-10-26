@@ -250,7 +250,7 @@ No file is written without an explicit `apply` AskUserQuestion answer recorded f
 ## Related Skills
 
 - [`/plan-sdlc`](plan-sdlc.md) — caller; dispatches harden-sdlc at Step 4 error-severity guardrail block and Step 5 reviewer-loop max-iterations escalation
-- [`/execute-plan-sdlc`](execute-plan-sdlc.md) — caller; dispatches harden-sdlc at Step 5a-pre and Step 5c-ter guardrail FAIL menus and at Step 6 persistent task-failure escalation
+- [`/execute-plan-sdlc`](execute-plan-sdlc.md) — caller; dispatches harden-sdlc at the Step 5c-ter guardrail FAIL menu and at Step 6 persistent task-failure escalation
 - [`/review-sdlc`](review-sdlc.md) — caller; dispatches harden-sdlc at Step 5 actionable-findings menu when verdict is CHANGES REQUESTED with at least one dimension blocker
 - [`/commit-sdlc`](commit-sdlc.md) — caller; dispatches harden-sdlc at Step 5 subject-pattern reject as an alternative to editing the subject
 - [`/error-report-sdlc`](error-report-sdlc.md) — receives plugin-defect routing when classification points at plugin code rather than user content

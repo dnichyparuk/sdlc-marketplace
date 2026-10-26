@@ -2,7 +2,7 @@
 
 ## Overview
 
-Orchestrates implementation plan execution with adaptive task classification, wave-based parallel dispatch, PCIDCI critique loops, spec compliance review, and automatic error recovery. Classifies each task by complexity and risk, assigns a default model (haiku/sonnet/opus), presents 3 execution presets for user selection, dispatches agents in parallel, verifies results after each wave, and recovers from failures with automatic model escalation on retries. After each wave, verifies agent output against the filesystem using `git diff` and targeted symbol checks — agent self-reports are never trusted alone. When agents complete tasks, they fill a structured completion checklist (COMPLETE:/VERIFY:/STATUS:) that the orchestrator parses — agent self-reports are never trusted alone. After mechanical verification, a spec compliance reviewer checks non-trivial tasks against their specifications. Plans with 3 or fewer simple tasks execute directly without wave orchestration. Self-contained — no external sub-skills required. When a phase contains 2 or more trivial tasks, they are batched into a single haiku agent rather than executed inline or dispatched separately.
+Orchestrates implementation plan execution with adaptive task classification, wave-based parallel dispatch, PCIDCI critique loops, spec compliance review, and automatic error recovery. A prepare script (`skill/execute.js`) reads the explicit plan file, classifies each task by complexity and risk, builds the dependency waves, and routes each task to one of three worker agents (`execute-worker`, `execute-worker-batch`, `execute-worker-complex`) at an effort level set by the selected quality tier. Plans below `execute.waveRunnerMinPlanTasks` tasks (default 9) dispatch the workers straight from the main context; larger plans dispatch one wave-runner Agent per wave. After each wave, verifies agent output against the filesystem using `git diff` and targeted symbol checks — agent self-reports are never trusted alone. When agents complete tasks, they fill a structured completion checklist (COMPLETE:/VERIFY:/STATUS:) that the orchestrator parses. A spec compliance reviewer checks non-trivial tasks against their specifications, once per run by default. A failed task retries at most twice: first at a higher effort, then on a stronger worker agent. Plans with 3 or fewer simple tasks execute directly without wave orchestration. Pre-wave trivial tasks run inline in the main context; 2 or more trivial tasks inside a wave are batched into one `execute-worker-batch` agent. The OpenSpec and `--commit-waves` instructions live in on-demand reference files (`openspec-tasks.md`, `commit-waves.md`) that the skill reads only when a run needs them. Self-contained — no external sub-skills required.
 
 ---
 
@@ -33,21 +33,39 @@ The plan must contain at least 2 tasks with clear deliverables (files to create 
 
 | Flag | Description | Default |
 |---|---|---|
-| `--quality <full\|balanced\|minimal>` | Auto-select the model quality tier, skipping the interactive selection prompt. `full` = Speed, `balanced` = Balanced, `minimal` = Quality. Invalid values fall back to interactive selection. (Renamed from `--preset` in #190 to disambiguate from ship-sdlc's `--steps` step-selection flag.) When invoked from ship-sdlc, `--quality` is forwarded only when the user explicitly passed `--quality` to ship. | Interactive prompt |
-| `--auto` | Suppress interactive prompts: auto-resume if state exists, auto-approve high-risk gates, use `--quality` value (required when `--auto` is set). | Off |
+| `--quality <full\|balanced\|minimal>` | Select the quality tier — the worker routing (agent and effort per task, see [Worker Routing](#worker-routing)) — and skip the interactive selection prompt. `full` = Speed, `balanced` = Balanced, `minimal` = Quality (which also forces the per-wave spec review). Under `--auto` an invalid value stops the run with an `invalidQuality` error; in an interactive run it is ignored with a warning and the tier is chosen at the prompt. (Renamed from `--preset` in #190 to disambiguate from ship-sdlc's `--steps` step-selection flag.) When invoked from ship-sdlc, `--quality` is forwarded only when the user explicitly passed `--quality` to ship. | Interactive prompt; `balanced` under `--auto` |
+| `--auto` | Suppress interactive prompts: auto-resume if state exists, auto-approve high-risk gates. The quality tier is `--quality`, else the resumed run's tier, else `balanced` (printed as `Quality tier: balanced (default under --auto)`). | Off |
 | `--resume` | Resume from the most recent execution state file for the current branch. Completed waves are skipped; in-progress waves are retried. If the plan has changed since execution started, you are prompted to resume or restart. | Off |
 | `--rebase <auto\|skip\|prompt>` | Rebase onto the default branch before execution. `auto` rebases silently (aborts on conflict), `skip` skips, `prompt` asks. | Skip |
 | `--branch <name>` | **INTERNAL** — reserved for explicit caller override; not used by ship-sdlc since auto-detection was introduced. ship-sdlc establishes the feature branch via `git checkout -b` before dispatching execute, so execute's own workspace derivation yields `continue` (run in place). Do not pass this directly. (Implements R30, fixes #378, #379.) | unset |
 | `--commit-waves` | After each wave passes G9 (mechanical/filesystem verify) and G11 (post-wave guardrail check), commit the wave as `wip(execute): wave N — <task titles>` (subject truncated to 72 chars). Hooks always run — `--no-verify` is never passed. The small-plan direct-execution path (R5) NEVER triggers per-wave commits regardless of this flag. Pairs with commit-sdlc's WIP-squash path so the final feature commit subsumes WIP commits via soft-reset. (Fixes #392 / R35.) | Off |
 | `--plan <path>` | Explicit path to the active plan markdown (the old autodiscovery flag was renamed in #505 — no back-compat alias for the previous name). Step 1 (LOAD) reads from this file directly — the compaction-stable plan source. Forwarded automatically by ship-sdlc from `context.planFile`. Required for standalone invocation (positionally or via this flag) unless `--resume` finds existing state for the branch — see Usage and Prerequisites. (Implements R-PLANFILE, R41.) | Required for standalone invocation; unset otherwise |
-| `--wave-timeout <seconds>` | Wall-clock deadline for a single wave (R-WAVE-DEADLINE). Once the deadline elapses, the wave-runner terminates any task still in flight and reports it with `errorCode: TIMEOUT` — see [Wave Timeout and Liveness](#wave-timeout-and-liveness-506) below. Sourced from `ship.executeWaveTimeout` in `.sdlc/local.json` when invoked via ship-sdlc (which resolves the config key and forwards this flag on the command line); a standalone invocation that omits the flag falls back to the same built-in default. Unit: seconds. | `BUILT_IN_DEFAULTS` in `scripts/lib/ship-fields.js` |
-| `--wave-interval <seconds>` | Poll interval the wave-runner uses (via `Monitor`) to check in-flight task liveness while enforcing `--wave-timeout` (R-WAVE-LIVENESS). Sourced from `ship.executeWaveInterval` in `.sdlc/local.json` the same way as `--wave-timeout`; same standalone fallback. Unit: seconds. | `BUILT_IN_DEFAULTS` in `scripts/lib/ship-fields.js` |
+| `--wave-timeout <seconds>` | Wall-clock deadline for a single wave (R-WAVE-DEADLINE). Once it elapses, the enforcing layer — main context in direct mode, the wave-runner in runner mode — terminates any task still in flight and reports it with `errorCode: TIMEOUT`; see [Wave Timeout and Liveness](#wave-timeout-and-liveness-506) below. Source order: this flag, else `execute.waveTimeout` in `.sdlc/config.json`, else the legacy `ship.executeWaveTimeout` in `.sdlc/local.json`, else the default. ship-sdlc does not forward it. Unit: seconds (60–3600). | 1800 (`execute.waveTimeout`) |
+| `--wave-interval <seconds>` | `Monitor` poll interval the enforcing layer (main context in direct mode, the wave-runner in runner mode) uses to check in-flight task liveness while enforcing `--wave-timeout` (R-WAVE-LIVENESS). Same source order as `--wave-timeout`, with `execute.waveInterval` and the legacy `ship.executeWaveInterval`. Unit: seconds (minimum 10). | 60 (`execute.waveInterval`) |
+
+---
+
+## Configuration
+
+Keys under `execute` in `.sdlc/config.json` (schema: `schemas/sdlc-config.schema.json`, `$defs/executeSection`). A CLI flag, where one exists, wins over its key.
+
+| Key | Description | Default |
+|---|---|---|
+| `waveTimeout` | Per-wave wall-clock deadline in seconds (60–3600); the `--wave-timeout` default. Legacy fallback: `ship.executeWaveTimeout` in `.sdlc/local.json`. | 1800 |
+| `waveInterval` | `Monitor` poll interval in seconds (minimum 10); the `--wave-interval` default. Legacy fallback: `ship.executeWaveInterval` in `.sdlc/local.json`. | 60 |
+| `commitWaves` | Commit each completed wave as a `wip(execute)` commit; the `--commit-waves` default. Legacy fallback: `ship.execute.commitWaves` in `.sdlc/local.json`. | false |
+| `rebase` | Rebase onto the default branch before execution: `auto`, `skip` or `prompt`; the `--rebase` default. | skip |
+| `waveRunnerMinPlanTasks` | Plans with at least this many tasks dispatch workers through one wave-runner Agent per wave (runner mode); smaller plans dispatch them from the main context (direct mode). No CLI flag. | 9 |
+| `specReviewer` | Spec compliance review cadence: `once` (one review after the final wave) or `per-wave` (after every wave with a non-trivial task). `--quality minimal` forces `per-wave`. No CLI flag. | once |
+| `dispatchBudget` | Optional per-model input-token budgets (`haiku`, `sonnet`, `opus`) for wave sizing; overrides the built-in defaults in `scripts/lib/dispatch-budget.js`. No CLI flag. | built-in defaults |
+
+`execute.guardrails` holds the execution guardrails; see [Guardrail Enforcement](#guardrail-enforcement).
 
 ---
 
 ## Per-Wave WIP Commits (`--commit-waves`)
 
-When `--commit-waves` is set (CLI flag, or the `execute.commitWaves: true` config key in `.sdlc/config.json`), execute-plan-sdlc runs `git add -A && git commit -m "wip(execute): wave N — <titles>"` after each wave passes both G9 and G11. The commit subject is deterministic and truncated to 72 characters (with `…` appended on truncation). Hooks always run — `--no-verify` is never passed; a pre-commit hook failure escalates as a hard wave-level failure via Step 6 RECOVER.
+When `--commit-waves` is set (CLI flag, or the `execute.commitWaves: true` config key in `.sdlc/config.json`), execute-plan-sdlc runs `git add -A`, then `git commit -F <message-file>` with the subject `wip(execute): wave N — <titles>` written to the message file (task titles are never shell-expanded), after each wave passes both G9 and G11. The commit subject is deterministic and truncated to 72 characters (with `…` appended on truncation). Hooks always run — `--no-verify` is never passed; a pre-commit hook failure escalates as a hard wave-level failure via Step 6 RECOVER.
 
 **Soft-success path:** when a wave produces no diff (every change was reverted by a hook, or the wave was a no-op), `git commit` returns "nothing to commit" — execute persists `committedSha: null` in the state file and surfaces a single notice `Wave N produced no diff — no WIP commit recorded.` Execution continues to the next wave.
 
@@ -61,23 +79,23 @@ The expected workflow with ship-sdlc: `execute.commitWaves: true` produces multi
 
 ## Post-Compact Implicit Resume
 
-`hooks/session-start.js` emits a distinct `Active execution (post-compact): execute-plan-sdlc on <branch> (wave N of M complete)` line into the SessionStart system-reminder context when the matcher source is `compact` AND execute state exists for the current branch. The legacy `Active execution:` line is preserved byte-stable for `startup`/`clear` matchers (prompt-cache protection).
+`hooks/session-start.js` emits a distinct `Active execution (post-compact): execute-plan-sdlc on <branch> (wave N of M complete)` line into the SessionStart system-reminder context when the matcher source is `compact` AND execute state exists for the current branch. Beside it the hook emits one resolved line, `execute-resume: implicit|deferred-to-ship|none`. The legacy `Active execution:` line is preserved byte-stable for `startup`/`clear` matchers (prompt-cache protection), and those matchers emit no resolved line.
 
-Step 0 of execute-plan-sdlc scans the system-reminder for this signal:
+Step 0 of execute-plan-sdlc branches on the resolved line:
 
-| Signal combination | Behavior |
-|---|---|
-| `Active execution (post-compact):` present AND `Active pipeline: ship-sdlc` absent | Implicit `--resume`. Under `--auto`: silent resume. Interactive: one-line confirmation `Resuming execution from wave N — continue? (yes / no)` |
-| `Active execution (post-compact):` present AND `Active pipeline: ship-sdlc` ALSO present | Do NOT self-resume. Print `ship-sdlc owns recovery for this session; deferring.` and stop. ship-sdlc's own implicit-resume logic re-dispatches execute with `--resume`. |
-| Neither signal present and no `--resume` on CLI | Step 0 routing unchanged. |
+| Resolved line | When the hook emits it | Behavior |
+|---|---|---|
+| `implicit` | the post-compact line, and no `Active pipeline: ship-sdlc` line | Implicit `--resume`. Under `--auto`: silent resume. Interactive: one-line confirmation `Resuming execution from wave N — continue? (yes / no)` |
+| `deferred-to-ship` | the post-compact line AND `Active pipeline: ship-sdlc` | Do NOT self-resume. Print `ship-sdlc owns recovery for this session; deferring.` and stop. ship-sdlc's own implicit-resume logic re-dispatches execute with `--resume`. |
+| `none`, or no line | execute state from another worktree or without waves; or no compaction | Step 0 routing unchanged (unless `--resume` is on the CLI). |
 
-Implementation: `hooks/session-start.js` is layer-agnostic (it surfaces facts); the discriminator above is the consumer-side decision in `execute-plan-sdlc/SKILL.md` Step 0. (Fixes #392 / R36.)
+The hook resolves the value; `execute-plan-sdlc/SKILL.md` Step 0 acts on it. (Fixes #392 / R36.)
 
 ---
 
 ## Guardrail Injection (per-task Agent prompts)
 
-Execution guardrails loaded in Step 1 (LOAD) from `.sdlc/config.json` → `execute.guardrails` are propagated through the wave manifest into every per-task and batched-trivial Agent prompt the wave-runner constructs. The injected block:
+Execution guardrails loaded in Step 1 (LOAD) from `.sdlc/config.json` → `execute.guardrails` are propagated through the wave manifest into every worker prompt — main context builds the prompts in direct mode, the wave-runner in runner mode, and the block is byte-identical in both. The injected block:
 
 ```
 ## Project Guardrails
@@ -90,15 +108,15 @@ You MUST respect these constraints while implementing. Violations will fail post
 
 When `activeGuardrails` is empty (`[]`), the entire `## Project Guardrails` section is omitted from agent prompts — no header, no stub. The manifest still carries the empty array for shape stability.
 
-The block is byte-stable within a single execute-plan-sdlc invocation (`activeGuardrails` is loaded once and treated as immutable) — this preserves the prompt-cache prefix across sibling per-task dispatches and survives retry dispatches at every escalation tier (haiku → sonnet → opus). Wave-runner MUST NOT add, remove, or modify entries in the manifest's `guardrails` array.
+The block is byte-stable within a single execute-plan-sdlc invocation (`activeGuardrails` is loaded once and treated as immutable) — this preserves the prompt-cache prefix across sibling per-task dispatches and survives every retry dispatch (the dispatch entry's `retries[0]` and `retries[1]`). Neither main context nor the wave-runner adds, removes, or modifies entries in the manifest's `guardrails` array.
 
-Defense-in-depth: the existing pre-wave (G10) and post-wave (G11) guardrail checks in main context remain in force — guardrail injection into agent prompts is additive, not a replacement. (Fixes #392 / R33.)
+Defense-in-depth: the post-wave guardrail check (G11, Step 5c-ter) in main context remains in force — guardrail injection into agent prompts is additive, not a replacement. There is no pre-wave guardrail pass. (Fixes #392 / R33.)
 
 ---
 
 ## Expected-Files Cross-Check (Step 5c sub-step 1a)
 
-Each wave manifest carries `expectedFiles: string[]` — the deterministic union of every `Files: Create:` / `Files: Modify:` / `Files: Test:` path declared across the wave's tasks (computed by main context at wave build time; no LLM inference). After the wave-runner Agent returns, Step 5c's filesystem verification runs an additional cross-check at sub-step 1a:
+Each wave manifest carries `expectedFiles: string[]` — the deterministic union of every `Files: Create:` / `Files: Modify:` / `Files: Test:` path declared across the wave's tasks (computed by main context at wave build time; no LLM inference). After the wave returns (direct mode: every worker has returned; runner mode: the wave-runner Agent has returned), Step 5c's filesystem verification runs an additional cross-check at sub-step 1a:
 
 | Diff vs `expectedFiles` | Verdict | Action |
 |---|---|---|
@@ -130,37 +148,41 @@ The slug is derived from the plan title (lowercase, hyphenated, max 50 character
 
 **Note:** Branch detection always runs `git branch --show-current` at execution time. It does not use the session-level `gitStatus` snapshot, which may be stale if you switched branches after starting the conversation.
 
-**Note on Agent SDK `isolation` parameter:** execute-plan-sdlc never creates a git worktree (workspace is auto-detected). Agent dispatches must **not** pass the Agent SDK `isolation: "worktree"` parameter — it creates ephemeral `.claude/worktrees/agent-<id>` paths that break `.sdlc/` anchoring and cause commits to land in the wrong location. This is enforced by skill-prose Hard Constraints in the per-task and wave-runner templates (the former `pre-tool-agent-isolation-guard.js` harness hook has been removed). See issues #370, #372.
+**Note on Agent SDK `isolation` parameter:** execute-plan-sdlc never creates a git worktree (workspace is auto-detected). Agent dispatches must **not** pass the Agent SDK `isolation: "worktree"` parameter — it creates ephemeral `.claude/worktrees/agent-<id>` paths that break `.sdlc/` anchoring and cause commits to land in the wrong location. This is enforced by skill-prose Hard Constraints in SKILL.md, the worker agent files and the wave-runner template (the former `pre-tool-agent-isolation-guard.js` harness hook has been removed). See issues #370, #372.
 
 ---
 
-## Model Selection
+## Worker Routing
 
-Each task is assigned a model based on its complexity class. Before executing, the skill presents 3 presets:
+Each task goes to one of three worker agents at a set effort level. The prepare script applies the routing table for the selected quality tier and emits it per wave; the skill dispatches those entries verbatim. Before executing, the skill presents 3 quality tiers:
 
-| Preset | Trivial | Standard | Complex | Best when |
-|---|---|---|---|---|
-| **Speed** | haiku | haiku | sonnet | Plan is well-specified, changes are mechanical — mechanical verification only, spec compliance review skipped |
-| **Balanced** | haiku | sonnet | opus | Default — matches complexity to capability |
-| **Quality** | sonnet | opus | opus | Codebase is unfamiliar, tasks are ambiguous |
+| Complexity | Speed (`full`) | Balanced (`balanced`, default) | Quality (`minimal`) |
+|---|---|---|---|
+| Trivial (single, in a wave) | execute-worker / low | execute-worker / low | execute-worker / medium |
+| Trivial (2+ batched) | execute-worker-batch / medium | execute-worker-batch / medium | execute-worker / medium |
+| Standard | execute-worker / low | execute-worker / medium | execute-worker-complex / medium |
+| Complex | execute-worker / high | execute-worker-complex / high | execute-worker-complex / high |
 
-Select a preset by name (full/balanced/minimal) or choose `custom` to edit individual task assignments. On retry after failure, the model is automatically escalated one step (haiku → sonnet → opus) and counts toward the 2-retry budget.
+The agent file pins the model: `execute-worker` runs sonnet, `execute-worker-batch` runs haiku (the only Haiku worker), and `execute-worker-complex` runs opus. The effort is the Agent-dispatch `effort` parameter. The Quality tier also forces the per-wave spec review. Pre-wave trivial tasks run inline in the main context and are not routed.
+
+Select a tier by name (full/balanced/minimal) or choose `custom` to edit individual task assignments; `custom` routes as the tier it is based on. A failed task retries at most twice, on its dispatch entry's `retries`: the first retry raises the effort on the same agent (an entry already at high effort moves to the next agent tier), and the second moves to the next agent tier (`execute-worker-batch` → `execute-worker` → `execute-worker-complex`). An entry on `execute-worker-complex` at high effort has a single retry. See [Cost Tiers](../cost-tiers.md) §5 for the full ladder.
 
 ---
 
-## Wave-Runner Agent Model
+## Dispatch Modes
 
-For each wave, execute-plan-sdlc dispatches **one wave-runner Agent** (not one per task). The wave-runner Agent receives the full wave manifest — all task descriptions, file lists, assigned models, and prior-wave context — and fans out per-task sub-agents internally within its own context. This keeps the execute-plan-sdlc main context bounded to wave-level events rather than per-task output. (Fixes #353.)
+The skill picks one dispatch mode per run from the plan size, and never mixes the two in one run:
 
-**Two-level isolation:** execute-main → wave-runner Agent → per-task sub-agents. Per-task retries (haiku → sonnet → opus, budget 2) happen inside the wave-runner. The wave-runner returns a structured `WAVE_SUMMARY` token as its final line, which the main context parses for filesystem verification, state writes, and recovery decisions.
+- **Direct mode** — plans with fewer than `execute.waveRunnerMinPlanTasks` tasks (default 9). Main context dispatches each wave's workers itself, all in one message. It awaits every return, enforces the wave deadline, and composes the wave's `WAVE_SUMMARY`.
+- **Runner mode** — plans with at least that many tasks. Main context dispatches one wave-runner Agent per wave. The wave-runner dispatches the same workers, enforces the deadline, and returns `WAVE_SUMMARY` as its final line. This keeps main context bounded to wave-level events on large plans. (Fixes #353.)
 
-**In-wave trivial batch:** When a wave has 2+ Trivial tasks, the wave-runner dispatches them as a single batch-haiku Agent internally. The main context does not directly dispatch per-task or batch agents during waves.
+In both modes the workers and their effort come from the prepare script's per-wave dispatch entries (see [Worker Routing](#worker-routing)). Two or more trivial tasks in a wave go to one `execute-worker-batch` agent. Main context parses `WAVE_SUMMARY` for filesystem verification, state writes, and recovery decisions.
 
-**Wave-runner does not handle:** state writes, inter-wave critique, high-risk gates, guardrail checks, or spec compliance review — those remain in main context (visible to the user when execute is run from ship-sdlc via Skill tool).
+**Never in a wave-runner or a worker:** state writes, inter-wave critique, high-risk gates, guardrail checks, or spec compliance review — those remain in main context (visible to the user when execute is run from ship-sdlc via Skill tool).
 
 ### Per-task completion protocol
 
-Each per-task sub-agent (dispatched inside the wave-runner) fills a structured completion checklist:
+Each worker fills a structured completion checklist per task (the batch worker reports `SUCCESS`, `DONE_WITH_CONCERNS` or `FAILED` per task):
 
 ```
 COMPLETE: files_created=[...] files_modified=[...] tests_added=[yes|no|n/a] tests_pass=[yes|no|n/a] build_pass=[yes|no|n/a]
@@ -168,15 +190,17 @@ VERIFY: <symbol_name> in <file_path>
 STATUS: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 ```
 
-This checklist is parsed by the wave-runner Agent (not main context) for each of its sub-agents, and the wave-runner then aggregates the results into a single `WAVE_SUMMARY` JSON token — main context only ever sees that wave-level summary. The wave-runner aggregates these into a `WAVE_SUMMARY` JSON object that main context verifies. The VERIFY token is grepped in the filesystem to confirm changes persisted. If the checklist is missing or malformed, the wave-runner re-dispatches the task once with a format reminder.
+The dispatching layer — main context in direct mode, the wave-runner in runner mode — parses each checklist and aggregates the results into one bounded `WAVE_SUMMARY` JSON token that main context verifies. The VERIFY token is grepped in the filesystem to confirm changes persisted. If a checklist is missing or malformed, the task is re-dispatched once with a format reminder.
 
 ---
 
 ## Spec Compliance Review
 
-After mechanical verification passes for each wave (git diff + canary checks), a spec compliance reviewer (sonnet) checks that each non-trivial task's implementation matches its specification. The reviewer reads actual code — it does not trust agent completion reports.
+After mechanical verification passes (git diff + canary checks), a spec compliance reviewer (sonnet) checks that each non-trivial task's implementation matches its specification. The reviewer reads actual code — it does not trust agent completion reports.
 
-**Skipped when:** the wave contains only Trivial tasks, or the Speed preset was selected.
+**Cadence (`execute.specReviewer`):** `once` (default) runs one review after the final wave (Step 8-bis), covering every non-trivial task of every wave; `per-wave` reviews after every wave that has a non-trivial task. `--quality minimal` forces `per-wave`. The Speed tier (`--quality full`) does not skip the review.
+
+**Skipped when:** the reviewed tasks are all Trivial.
 
 If the reviewer finds issues:
 - 1–2 minor issues → fixed inline in the main context
@@ -198,7 +222,7 @@ After each wave completes, execution state is written to `.sdlc/execution/execut
 
 **Resuming:** Pass `--resume` to pick up from the last completed wave. The state file contains enough context for a new session to continue without prior conversation history. The plan's resolved path and a SHA-256 content hash are recorded when execution starts (`--plan-path`/`--plan-hash`, passed internally to `state/execute.js init`); if the plan file has changed since (hash mismatch on resume), you are prompted to resume with the old structure or restart.
 
-**Inter-wave abort:** Pressing Ctrl-C between waves (after a wave-runner Agent has returned and before the next wave starts) leaves the state file populated with completed waves. The next invocation with `--resume` picks up at the first non-completed wave. Mid-wave abort is not supported — waves run to completion or failure before control returns to main context.
+**Inter-wave abort:** Pressing Ctrl-C between waves (after a wave has returned and before the next wave starts) leaves the state file populated with completed waves. The next invocation with `--resume` picks up at the first non-completed wave. Mid-wave abort is not supported — waves run to completion or failure before control returns to main context.
 
 **Abort/resume from ship-sdlc:** When execute-plan-sdlc is invoked via Agent tool from ship-sdlc (fixes #366), inter-wave gates and wave reports run in execute's sub-context and a structured result is returned to ship's main context. Ctrl-C between waves stops the ship pipeline; `/ship-sdlc --resume` or `/execute-plan-sdlc --resume` resumes from the first pending wave.
 
@@ -233,27 +257,27 @@ Claude presents the classified wave structure and waits for confirmation before 
 ```
 Execution Plan
 ────────────────────────────────────────────
-Pre-wave (1 batch agent, 2 trivial tasks):
-  - Task 1: "add environment variable"     [Trivial → haiku]
-  - Task 2: "update config key name"       [Trivial → haiku]
+Pre-wave (inline, 2 trivial tasks):
+  - Task 1: "add environment variable"     [Trivial → inline]
+  - Task 2: "update config key name"       [Trivial → inline]
 Wave 1 (3 tasks, parallel):
-  - Task 3: "Create UserService module"    [Standard → sonnet]
-  - Task 4: "Add API route handlers"       [Standard → sonnet]
-  - Task 5: "Write unit tests for models"  [Standard → sonnet]
+  - Task 3: "Create UserService module"    [Standard → execute-worker / medium]
+  - Task 4: "Add API route handlers"       [Standard → execute-worker / medium]
+  - Task 5: "Write unit tests for models"  [Standard → execute-worker / medium]
 Wave 2 (2 tasks, parallel):
-  - Task 6: "Integrate auth middleware"    [Complex  → opus]
-  - Task 7: "Add E2E test coverage"        [Standard → sonnet]
+  - Task 6: "Integrate auth middleware"    [Complex  → execute-worker-complex / high]
+  - Task 7: "Add E2E test coverage"        [Standard → execute-worker / medium]
 Wave 3 (1 task — HIGH RISK, will pause):
-  - Task 8: "Update database migration"    [Complex  → opus]
+  - Task 8: "Update database migration"    [Complex  → execute-worker-complex / high]
 ────────────────────────────────────────────
-Total: 8 tasks across 3 waves + pre-wave
+Total: 8 tasks across 3 waves + pre-wave; dispatch: direct (from main context)
 
-Model Presets:
-  full) Speed:       6 × haiku, 2 × sonnet                 — fast, low cost
-  balanced) Balanced:  2 × haiku, 4 × sonnet, 2 × opus    — default ✓
-  minimal) Quality:    2 × sonnet, 6 × opus                — max correctness
+Quality Tiers (worker routing):
+  full) Speed:         lower effort; Complex on execute-worker     — fast, low cost
+  balanced) Balanced:  Complex on execute-worker-complex           — default ✓
+  minimal) Quality:    Standard on execute-worker-complex          — max correctness (spec review per wave)
 
-Select preset (full/balanced/minimal), "custom" to edit individual tasks, or "cancel":
+Select a quality tier (full/balanced/minimal), "custom" to edit individual tasks, or "cancel":
 ```
 
 ### Execute a plan via `--plan`
@@ -372,9 +396,9 @@ When execution guardrails are configured in `.sdlc/config.json` under `execute.g
 
 **Loading:** Guardrails are loaded in Step 1 using `readSection(root, 'execute')`. If no execution guardrails are configured, all guardrail checks are skipped — backward compatible with existing projects.
 
-**Pre-wave check (Step 5a-pre):** Before each wave, error-severity guardrails are evaluated against the wave's task descriptions. Violations prompt the user to override or cancel. In `--auto` mode, error violations are blocking — the pipeline stops.
+**No pre-wave check:** guardrails are injected into every worker prompt (see Guardrail Injection) and evaluated once after each wave.
 
-**Post-wave check (Step 5c-ter):** After each wave's verification and spec compliance review, all guardrails (error and warning) are evaluated against the actual `git diff` output. Error violations offer fix/override/cancel; warnings are reported but non-blocking.
+**Post-wave check (Step 5c-ter):** After each wave's verification (and, at the `per-wave` cadence, its spec compliance review), all guardrails (error and warning) are evaluated against the actual `git diff` output. Error violations offer fix/override/cancel; warnings are reported but non-blocking.
 
 **Small plans:** Plans with 3 or fewer tasks run a single guardrail evaluation after all tasks complete.
 
@@ -386,11 +410,11 @@ Configure execution guardrails via `/setup-sdlc --execution-guardrails`. See [pl
 
 ## Context-Overflow Handling
 
-When a wave-runner Agent's context is exhausted before it can report all dispatched tasks, the returned `WAVE_SUMMARY` will be missing one or more task IDs. This is **CONTEXT_OVERFLOW** — a failure mode that previously caused silent success (the pipeline advanced as if all tasks completed).
+In runner mode, when a wave-runner Agent's context is exhausted before it can report all dispatched tasks, the returned `WAVE_SUMMARY` will be missing one or more task IDs. This is **CONTEXT_OVERFLOW** — a failure mode that previously caused silent success (the pipeline advanced as if all tasks completed).
 
 ### Detection
 
-After each wave-runner returns, main context calls `lib/wave-summary.js parseWaveSummary(text, dispatchedIds)`. If `missingIds.length > 0` — IDs dispatched but absent from the `WAVE_SUMMARY` — the wave is classified as CONTEXT_OVERFLOW. Git diff is **not** used as a substitute: even if files changed, absent IDs mean the wave-runner did not confirm those tasks.
+After each wave returns, main context calls `lib/wave-summary.js parseWaveSummary(text, dispatchedIds)`. If `missingIds.length > 0` — IDs dispatched but absent from the `WAVE_SUMMARY` — the wave is classified as CONTEXT_OVERFLOW in runner mode. In direct mode every worker was awaited, so a missing ID is a task whose return lacked its completion lines: it is reported `FAILED` and recovered in Step 6. Git diff is **not** used as a substitute: even if files changed, absent IDs mean the wave-runner did not confirm those tasks.
 
 ### Auto-split-and-retry
 
@@ -402,7 +426,7 @@ The split decision is persisted to the execute state file (`wave-split` subcomma
 
 ### Bounded WAVE_SUMMARY schema
 
-Wave-runner Agents must emit a bounded `WAVE_SUMMARY` token as their final line. Per-task entries carry only `{id, status, sha, filesTouched[], errorCode?}` — verbose fields like `name`, `complexity`, `attempts[]` are dropped to keep the return small. The `errorCode` field is a bounded enum (`OVERFLOW | TIMEOUT | FAILED_TESTS | FAILED_BUILD | BLOCKED | NEEDS_CONTEXT`); free-text error strings are rejected by the parser.
+Every wave ends in a bounded `WAVE_SUMMARY` token — the wave-runner's final line in runner mode, composed by main context in direct mode. Per-task entries carry only `{id, status, sha, filesTouched[], errorCode?}` — verbose fields like `name`, `complexity`, `attempts[]` are dropped to keep the return small. The `errorCode` field is a bounded enum (`OVERFLOW | TIMEOUT | FAILED_TESTS | FAILED_BUILD | BLOCKED | NEEDS_CONTEXT`); free-text error strings are rejected by the parser.
 
 ### Post-execution completeness invariant
 
@@ -418,7 +442,7 @@ The pipeline **halts before the commit step** on exit 65 — it does not silentl
 
 ## Wave Timeout and Liveness (#506)
 
-Each wave is bounded by a wall-clock deadline, resolved from the `--wave-timeout` / `--wave-interval` flags (see Flags above). The harness provides no per-Agent wall-clock deadline of its own (`maxTurns` is a turn budget, not a clock), so the wave-runner Agent enforces the deadline itself: it dispatches per-task workers in the background, polls their liveness with `Monitor`, and terminates any overrun worker with `TaskStop`. There is no separate watchdog subagent — the per-task layer already sits at the documented spawn-depth limit.
+Each wave is bounded by a wall-clock deadline, resolved from the `--wave-timeout` / `--wave-interval` flags (see Flags above). The harness provides no per-Agent wall-clock deadline of its own (`maxTurns` is a turn budget, not a clock), so the enforcing layer does it itself — main context in direct mode, the wave-runner Agent in runner mode: the workers run in the background, the layer polls their liveness with `Monitor`, and it terminates any overrun worker with `TaskStop`. There is no separate watchdog subagent — in runner mode the per-task layer already sits at the documented spawn-depth limit.
 
 ### In-flight progress markers
 
@@ -430,17 +454,17 @@ node state/execute.js wave-progress --wave <N> --run-id <run-id> --task <id> --p
 
 - **Phase enum** is exactly `started | reading | editing | verifying | reporting` — any other value is rejected.
 - **Exit codes:** `0` on a successful write; `2` when `--wave`, `--run-id`, or `--task` is missing, or `--phase` is not one of the five values above.
-- **Read mode** (used by the wave-runner to observe a running wave from outside): `node state/execute.js wave-progress --wave <N> --run-id <run-id> --read` prints the marker JSON to stdout and exits `0`; an absent marker is not an error — it prints `{"tasks":{}}`.
+- **Read mode** (used by the enforcing layer — main context in direct mode, the wave-runner in runner mode — to observe a running wave from outside): `node state/execute.js wave-progress --wave <N> --run-id <run-id> --read` prints the marker JSON to stdout and exits `0`; an absent marker is not an error — it prints `{"tasks":{}}`.
 - **Location:** `<stateDir>/<runId>/progress-wave-<N>.json`, where `stateDir` is `resolveStateDir()`'s return value (already ends in `.sdlc/execution` — there is no extra `execution/` segment). The marker sits directly in the per-run directory, alongside that run's per-task fact sheets (`task-<id>.md`). See [`plugins/sdlc-utilities/skills/execute-plan-sdlc/state-format.md`](../../plugins/sdlc-utilities/skills/execute-plan-sdlc/state-format.md) for the full marker JSON shape.
 
 ### TIMEOUT verdict
 
-When a task is still in flight at the deadline, the wave-runner terminates it and reports it in `WAVE_SUMMARY` with `status: "FAILED"` and `errorCode: "TIMEOUT"`. The wave itself is reported `status: "partial"` (not `failed` — other tasks in the same wave may have completed normally). The wave-runner Agent never calls `state/execute.js` itself — all state writes are a main-context responsibility. On seeing `WAVE_SUMMARY.status === "partial"`, execute-plan-sdlc's main context runs `wave-done --status partial --timed-out`, which sets `wave.timedOut: true` on the wave row so a subsequent `--resume` does not re-wait on it.
+When a task is still in flight at the deadline, the enforcing layer (main context in direct mode, the wave-runner in runner mode) terminates it and reports it in `WAVE_SUMMARY` with `status: "FAILED"` and `errorCode: "TIMEOUT"`. The wave itself is reported `status: "partial"` (not `failed` — other tasks in the same wave may have completed normally). A wave-runner Agent never calls `state/execute.js` itself — all state writes are a main-context responsibility. On seeing `WAVE_SUMMARY.status === "partial"`, execute-plan-sdlc's main context runs `wave-done --status partial --timed-out`, which sets `wave.timedOut: true` on the wave row so a subsequent `--resume` does not re-wait on it.
 
 What this looks like from the outside:
 
 - Each terminated task is recorded by main context via `task-fail --error TIMEOUT` — the task is accounted, not missing, so the post-execution completeness gate (exit 65) stays meaningful.
-- One warning line is surfaced: `Wave N exceeded executeWaveTimeout (<n>s) — <k> task(s) terminated.`
+- One warning line is surfaced: `Wave N exceeded waveTimeout (<n>s) — <k> task(s) terminated.`
 - **The pipeline does not halt.** Timeout is a verdict, not a crash — the same treatment `await-remote-review` and `verify-pipeline` give their own timeouts — and execution proceeds to Step 6 (RECOVER) with the terminated tasks.
 
 **`--commit-waves` interaction.** `--commit-waves` (see Per-Wave WIP Commits above) only commits a wave once it has passed G9 and G11 with `wave.status === 'completed'`. A timed-out wave is `status: "partial"`, not `completed` — **it is not committable.** Its work stays uncommitted until the tasks recovered in Step 6 finish and the wave reaches `completed`; only then does the deferred WIP commit for that wave fire. This is the correct behavior (committing a half-executed wave would be worse), but it means `--commit-waves` does not give you a checkpoint for a wave that timed out until recovery completes.
@@ -454,7 +478,7 @@ node state/execute.js resume-reset [--branch <name>]
 ```
 
 - Clears `tasks` (and `completedAt`) on any wave whose status is `in_progress` — those rows were written mid-wave by main context and are untrusted (see state-format.md).
-- Leaves `completed`, `failed`, and `partial` waves untouched. A `partial` (timed-out) wave's rows are a deliberate record, not untrusted data — its unfinished task IDs are carried into the next wave's dispatch set instead of re-running the full `executeWaveTimeout` deadline from scratch.
+- Leaves `completed`, `failed`, and `partial` waves untouched. A `partial` (timed-out) wave's rows are a deliberate record, not untrusted data — its terminated tasks go to Step 6 (RECOVER) through a fresh dispatch scoped to the unfinished task IDs; they are never carried into the next wave's dispatch set.
 - **Exit code:** always `0` — a no-op (no state file, or nothing to reset) is success, not an error.
 - **Output:** `{"resetWaves": [...], "clearedTaskIds": [...]}` on stdout.
 - **Idempotent:** running it twice against the same state returns `{"resetWaves":[],"clearedTaskIds":[]}` on the second call and leaves the file byte-identical.

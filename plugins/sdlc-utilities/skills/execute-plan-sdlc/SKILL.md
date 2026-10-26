@@ -1,6 +1,6 @@
 ---
 name: execute-plan-sdlc
-description: "Use when the user wants to execute an implementation plan with adaptive intelligence — classifies tasks by complexity and risk, builds optimized dependency waves, critiques wave structure before dispatch, verifies results after each wave, and recovers from failures without stopping. Self-contained: no external sub-skills required. Triggers on: execute plan, run plan, implement plan, autonomous execution, execute this plan. Requires an explicit plan file — a positional path or `--plan <path>` — at invocation (or a resumable state file, see `--resume`); it is never inferred from conversation context, even when a plan was just discussed or accepted in this session (R41)."
+description: "Execute an implementation plan: classify tasks, build dependency waves, dispatch workers, verify each wave, recover from failures. Arguments: <plan> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--commit-waves] [--plan <path>] [--wave-timeout <s>] [--wave-interval <s>]. Triggers on: execute plan, run plan, implement plan, autonomous execution."
 user-invocable: true
 argument-hint: "<plan-file-path> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--branch <name>] [--commit-waves] [--plan <path>] [--wave-timeout <seconds>] [--wave-interval <seconds>]"
 model: sonnet
