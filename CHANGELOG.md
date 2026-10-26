@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-26
+
+### Added
+- feat: execute-plan-sdlc reads its OpenSpec instructions (`openspec-tasks.md`) and its `--commit-waves` instructions (`commit-waves.md`) only when a run needs them; with the five existing companion files these are the seven on-demand companion files, so common runs carry less resident text (#9015)
+- feat: the SessionStart banner gains one line on compaction, `execute-resume: implicit|deferred-to-ship|none`, and execute-plan-sdlc's post-compact resume branches on it (#9015)
+- docs: new spec requirement `R-progressive-disclosure` for execute-plan-sdlc, listing the seven on-demand companion files (#9015)
+
+### Changed
+- feat: `--commit-waves` writes each per-wave WIP commit with `git commit -F` from a message file, so task titles are never shell-expanded (#9015)
+- docs: user docs and metadata for execute-plan-sdlc are synced to the W5.3 and W5.4 behaviour (W5.5), including the items deferred from 0.32.0 and 0.33.0: the flags table, the `execute.*` config table, the skills-meta texts and the shorter skill description (#9015)
+
 ## [0.33.0] - 2026-10-26
 
 ### Added

@@ -133,6 +133,48 @@
     - type: icontains
       value: "Active execution (post-compact): execute-plan-sdlc on feat/execute-and-ship"
 
+- description: "session-start: matcher=compact + execute state, no ship state emits 'execute-resume: implicit' (R36)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/session-start.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-post-compact-no-ship"
+    script_stdin:
+      hook_event_name: "SessionStart"
+      source: "compact"
+  assert:
+    - type: icontains
+      value: "execute-resume: implicit"
+    - type: not-icontains
+      value: "execute-resume: deferred-to-ship"
+
+- description: "session-start: matcher=compact + BOTH ship and execute states emits 'execute-resume: deferred-to-ship' (R36)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/session-start.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-post-compact-with-ship"
+    script_stdin:
+      hook_event_name: "SessionStart"
+      source: "compact"
+  assert:
+    - type: icontains
+      value: "execute-resume: deferred-to-ship"
+    - type: not-icontains
+      value: "execute-resume: implicit"
+
+- description: "session-start: matcher=compact + execute state of a sibling worktree emits 'execute-resume: none' (R36)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/session-start.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-session-start-worktree-mismatch"
+    script_stdin:
+      hook_event_name: "SessionStart"
+      source: "compact"
+  assert:
+    - type: icontains
+      value: "execute-resume: none"
+    - type: not-icontains
+      value: "Active execution (post-compact)"
+
 # ---------------------------------------------------------------------------
 # Fixes #485 — sdlc plugin root injected into session context so helper-script
 # resolvers can reference the plugin's own install instead of globbing
