@@ -120,7 +120,10 @@ try {
   if (branch) {
     const branchSlug = slugifyBranch(branch);
 
-    // Check for ship state file
+    // Check for ship state file. shipBannerEmitted records whether the
+    // `Active pipeline: ship-sdlc` line below is pushed: the execute-resume
+    // line mirrors that banner, not the state file's existence (R36).
+    let shipBannerEmitted = false;
     const shipFound = findStateFile('ship', branchSlug);
     if (shipFound) {
       const shipState = readState('ship', branchSlug);
@@ -136,6 +139,7 @@ try {
           if (sameWorktree(shipState.data)) {
             resumeLines.push(`Active pipeline: ship-sdlc on ${branch} (${label})`);
             resumeLines.push('  Resume with: /ship-sdlc --resume');
+            shipBannerEmitted = true;
           }
         }
       }
@@ -144,27 +148,35 @@ try {
     // Check for execute state file
     const executeFound = findStateFile('execute', branchSlug);
     if (executeFound) {
+      let postCompactEmitted = false;
       const executeState = readState('execute', branchSlug);
       if (executeState && executeState.data && Array.isArray(executeState.data.waves)) {
         const waves = executeState.data.waves;
         const completedWaves = waves.filter(w => w.status === 'completed').length;
         const totalWaves = waves.length;
         if (sameWorktree(executeState.data)) {
-          // Fixes #392 / R36: emit a distinct `Active execution (post-compact):`
-          // line on compact matcher so execute-plan-sdlc Step 0 can treat it as
-          // implicit --resume. The legacy `Active execution:` line is preserved
+          // R36: emit a distinct `Active execution (post-compact):` line on the
+          // compact matcher, followed by one resolved `execute-resume:` line that
+          // execute-plan-sdlc Step 0 branches on: `implicit` (no ship banner, so
+          // execute resumes itself) or `deferred-to-ship` (ship-sdlc owns
+          // recovery). The legacy `Active execution:` line is preserved
           // byte-stable for startup/clear/resume matchers — protects prompt-cache and
           // avoids breaking existing fast-path consumers (prompt-cache-hit-ratio
-          // guardrail). The hook is layer-agnostic: when both ship and execute
-          // states exist on compact, both lines are emitted; the consumer
-          // (SKILL.md Step 0) discriminates (ship-sdlc owns recovery).
+          // guardrail).
           if (matcherSource === 'compact') {
             resumeLines.push(`Active execution (post-compact): execute-plan-sdlc on ${branch} (wave ${completedWaves} of ${totalWaves} complete)`);
+            resumeLines.push(`execute-resume: ${shipBannerEmitted ? 'deferred-to-ship' : 'implicit'}`);
+            postCompactEmitted = true;
           } else {
             resumeLines.push(`Active execution: execute-plan-sdlc on ${branch} (wave ${completedWaves} of ${totalWaves} complete)`);
           }
           resumeLines.push('  Resume with: /execute-plan-sdlc --resume');
         }
+      }
+      // R36: execute state exists but no post-compact line was emitted (no
+      // waves array, or another worktree's state) — tell Step 0 explicitly.
+      if (matcherSource === 'compact' && !postCompactEmitted) {
+        resumeLines.push('execute-resume: none');
       }
     }
   }
