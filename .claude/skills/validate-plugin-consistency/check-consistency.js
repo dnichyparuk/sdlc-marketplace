@@ -45,9 +45,9 @@
  *                                 (frontmatter `tools` includes Agent) and any file
  *                                 carrying the `<!-- fan-out-dispatch:
  *                                 await-barrier-required -->` marker must carry the
- *                                 await-barrier guard: `run_in_background: false`
- *                                 plus a barrier instruction (await barrier / never
- *                                 consolidate on partial / R-orchestrator-await).
+ *                                 await-barrier guard: a barrier instruction
+ *                                 (await barrier / never consolidate on partial /
+ *                                 R-orchestrator-await).
  *                                 Leaf drafters (`tools: Read`) do not dispatch and
  *                                 are excluded structurally (#487)
  *
@@ -287,15 +287,13 @@ function frontmatterToolsIncludesAgent(content) {
   return toolsLine ? /\bAgent\b/.test(toolsLine) : false;
 }
 
-// Detect the await-barrier guard tokens (#487): a mandatory synchronous dispatch
-// (`run_in_background: false`) co-present with a barrier instruction in any of its
-// accepted phrasings.
+// Detect the await-barrier guard token (#487): a barrier instruction in any of its
+// accepted phrasings (await barrier / never consolidate on partial / R-orchestrator-await).
 function hasAwaitBarrierTokens(content) {
-  const hasSyncDispatch = /run_in_background:\s*false/.test(content);
   const hasBarrier = /await barrier/i.test(content)
       || /never consolidate on partial/i.test(content)
       || /R-orchestrator-await/.test(content);
-  return hasSyncDispatch && hasBarrier;
+  return hasBarrier;
 }
 
 // ---------------------------------------------------------------------------
@@ -723,8 +721,8 @@ function checkInvocationVerbatim(projectRoot, findings) {
  *      marker (e.g. the plan-sdlc Step 5 fan-out). The marker declares that the
  *      surrounding fan-out must block on results, so the guard tokens must be
  *      present — without a brittle "detect a fan-out in prose" heuristic.
- * Guard tokens: `run_in_background: false` AND a barrier instruction
- * (await barrier / never consolidate on partial / R-orchestrator-await).
+ * Guard token: a barrier instruction (await barrier / never consolidate on
+ * partial / R-orchestrator-await).
  */
 function checkOrchestratorAwaitBarrier(skills, projectRoot, findings) {
   // Surface 1 — dispatch-bearing orchestrator agent templates.
@@ -740,7 +738,7 @@ function checkOrchestratorAwaitBarrier(skills, projectRoot, findings) {
       severity: 'error',
       file: path.relative(process.cwd(), file),
       line: toolsIdx >= 0 ? toolsIdx + 1 : undefined,
-      message: 'Dispatch-bearing orchestrator template (frontmatter tools includes Agent) is missing the await-barrier guard. Add `run_in_background: false` on every Agent dispatch plus a barrier instruction so the turn cannot end on partial results (e.g. "Await barrier … never consolidate on partial or zero results", R-orchestrator-await, #487).',
+      message: 'Dispatch-bearing orchestrator template (frontmatter tools includes Agent) is missing the await-barrier guard. Add a barrier instruction so the turn cannot end on partial results (e.g. "Await barrier … never consolidate on partial or zero results", R-orchestrator-await, #487).',
     });
   }
 
@@ -757,7 +755,7 @@ function checkOrchestratorAwaitBarrier(skills, projectRoot, findings) {
       severity: 'error',
       file: path.relative(process.cwd(), skill.file),
       line: markerIdx >= 0 ? markerIdx + 1 : undefined,
-      message: 'Fan-out marked `await-barrier-required` but the file is missing the await-barrier guard. Add `run_in_background: false` on the parallel dispatch plus a barrier instruction (await barrier / never consolidate on partial / R-orchestrator-await, #487).',
+      message: 'Fan-out marked `await-barrier-required` but the file is missing the await-barrier guard. Add a barrier instruction (await barrier / never consolidate on partial / R-orchestrator-await, #487).',
     });
   }
 }

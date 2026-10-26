@@ -24,7 +24,7 @@ One row per skill in `plugins/sdlc-utilities/skills/`.
 |---|---|---|
 | commit-sdlc | inherit | Runs on the session model; message drafting is routed to commit-orchestrator (haiku). A skill pin would move the whole transcript onto the pinned model. |
 | error-report-sdlc | inherit | Runs on the session model; consent gates and gh stay in main context; drafting is routed to error-report-orchestrator (haiku). |
-| execute-plan-sdlc | sonnet | Per-task dispatch decides per-tier (haiku/sonnet/opus) |
+| execute-plan-sdlc | sonnet | Orchestrator; workers routed by the agent × effort table |
 | harden-sdlc | sonnet | Existing — unchanged |
 | jira-sdlc | sonnet | Read/write Jira; light reasoning |
 | plan-sdlc | opus | Plan decomposition needs stronger reasoning; user-directed |
@@ -53,13 +53,16 @@ One row per agent in `plugins/sdlc-utilities/agents/`.
 | ship-step-received-review | sonnet | medium | Runs received-review-sdlc for ship; triage and fixes at today's ship tier |
 | ship-step-version | sonnet | low | Runs version-sdlc for ship; scripted release steps with verification gates |
 | ship-step-pr | sonnet | low | Runs pr-sdlc for ship; description drafting from a prepared context |
+| execute-worker | sonnet | medium | One plan task from its fact sheet (Standard, single in-wave Trivial); effort per the routing table |
+| execute-worker-batch | haiku | medium | 2+ trivial tasks in one dispatch; the only Haiku worker |
+| execute-worker-complex | opus | high | Complex tasks (Standard too at the Quality tier); same body as execute-worker |
 
 ## 5. Dispatch-Site Overrides
 
 Files where per-call `model:` is computed at runtime and **wins over frontmatter**:
 
 - `plugins/sdlc-utilities/scripts/skill/ship.js` — reads `model`/`effort` from `agents/ship-step-*.md`.
-- `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` — per-task `model:` is chosen from task complexity (Trivial → haiku, Standard → sonnet, Complex → opus) by the executor. `plugins/sdlc-utilities/scripts/skill/execute.js` emits the classification floor and wave structure; the per-task model is still chosen here.
+- `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` — the worker routing table maps quality tier × complexity to a worker agent (whose frontmatter pins the model) and an Agent-dispatch `effort`; execute passes no per-task `model:`. `plugins/sdlc-utilities/scripts/skill/execute.js` emits the classification floor and the wave structure, applies the table to each wave, and emits the routing as `waves[].dispatch` (`WORKER_ROUTING`, `AGENT_MODELS`), which SKILL.md dispatches verbatim.
 - `plugins/sdlc-utilities/scripts/skill/review.js` — passes per-dimension `model:` resolved from each dimension file's own frontmatter.
 - `plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md` — cross-model plan-reviewer rule (sonnet reviews opus-authored plans, and vice versa) at 5+ tasks.
 
@@ -81,17 +84,27 @@ Spike S1 (§7) answered NO: a forked sub-skill cannot ask the user. So ship asks
 
 A question a sub-skill still cannot ask comes back as `output.pendingQuestion`. Ship carries a high-risk `yes` back to execute; for any other answer it stops with the state kept and prints the commands to continue.
 
-### Execute quality presets
+### Execute worker routing
 
-`execute-plan-sdlc` maps task complexity to a model per quality preset. The preset names are contract (`docs/specs/execute-plan-sdlc.md` A2, R2); the models are tuning. Implemented in `plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md` Step 2 (CLASSIFY) and Step 4 (IMPROVE).
+`execute-plan-sdlc` routes each task to a worker agent and an Agent-dispatch `effort` by quality tier and complexity. The tier names are contract (`docs/specs/execute-plan-sdlc.md` A2, R2); the agents and efforts are tuning. Defined in `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` ("Worker routing"), dispatched in `SKILL.md` Step 5b; `scripts/skill/execute.js` holds the same table as `WORKER_ROUTING` and emits it per wave; the classifying table is the copy an exec case checks against the code, and this one is a summary.
 
-| Preset | Trivial | Standard | Complex |
+| Complexity | Speed (`--quality full`) | Balanced (default) | Quality (`--quality minimal`) |
 |---|---|---|---|
-| `full` (Speed) | haiku | haiku | sonnet |
-| `balanced` (Balanced, default) | haiku | sonnet | opus |
-| `minimal` (Quality) | sonnet | opus | opus |
+| Trivial (single, in-wave) | execute-worker / low | execute-worker / low | execute-worker / medium |
+| Trivial (2+ batched) | execute-worker-batch / medium | execute-worker-batch / medium | execute-worker / medium |
+| Standard | execute-worker / low | execute-worker / medium | execute-worker-complex / medium |
+| Complex | execute-worker / high | execute-worker-complex / high | execute-worker-complex / high |
 
-Two or more trivial tasks in a wave run as one batch agent at the Trivial model. On failure a task escalates one tier per retry — haiku → sonnet → opus → user — within a budget of 2 retries (R13).
+Haiku runs only the batched-trivial agent. On failure a task retries at most twice (R13), on the `retries` the prepare script puts in its dispatch entry:
+
+| Entry | First retry | Second retry |
+|---|---|---|
+| execute-worker-batch or execute-worker at low or medium | same agent, effort one level up | next agent tier, medium |
+| execute-worker-batch or execute-worker at high | next agent tier, medium | next agent tier, high |
+| execute-worker-complex at medium | execute-worker-complex, high | execute-worker-complex, high |
+| execute-worker-complex at high | execute-worker-complex, high | — (then the user) |
+
+The agent tiers are execute-worker-batch → execute-worker → execute-worker-complex. A task extracted from a failed batch is re-dispatched on the batch entry's second retry.
 
 ## 6. Why tuning changes do not require spec updates
 
@@ -113,16 +126,19 @@ If a tuning change later degrades output below the contract's bar (e.g., commit 
 |---|---|
 | Agent frontmatter `effort:` | The three Haiku orchestrators set `effort: low` |
 | Review-dimension frontmatter `effort:` | Not read today; W6b.5 adds the schema field and the `review.js` pass-through |
-| Execute presets (Agent dispatch `effort` param) | First rung of the escalation ladder before a tier change |
+| Execute worker routing (Agent dispatch `effort` param) | Set per task by the routing table (§5); the first retry raises it one level before the agent tier changes |
 
 Effort is set in agent frontmatter; the validator does not check it.
 
 | Surface | Config A | Config B | Artifacts (n) | Tokens in/out (A, B) | Cost per completed task (A, B) | Completed (A, B) | Decision | Date |
 |---|---|---|---|---|---|---|---|---|
 | baseline (all surfaces) | installed sdlc 0.21.29 | - | 0 | unavailable | unavailable | unavailable | baseline: unavailable; installed sdlc 0.21.29 predates --usage (W1.1) | 2026-10-19 |
+| execute dispatch topology (S3, 12-task 3-wave plan; tokens = execute main context) | direct (waveRunnerMinPlanTasks 13) | runner (waveRunnerMinPlanTasks 1) | 2 | 1924325/9960, 1534705/9126 | $0.078, $0.103 (priced incl. subagents, information) | 12/12, 12/12 | rule (i) fired; owner kept 9 pending a realistic re-measurement (#9164) | 2026-10-26 |
 
 **Spike S1 (2026-10-19, Claude Code v2.1.303).** A throwaway plugin skill with `context: fork`, and the same plugin agent dispatched by `subagent_type`, were run in a session in `default` permission mode:
 
 - Permission mode is inherited from the session. Read-only commands ran without a dialog; a write raised the normal permission dialog in the main session, naming the agent. Nothing was auto-denied.
 - `AskUserQuestion` is not available inside subagents, even when it is listed in the agent's `tools:`. A forked sub-skill cannot ask the user, so consent prompts are asked in the main context before dispatch.
 - Agent frontmatter `effort:` is honoured: `effort: low` reached the API while the session ran at `medium`.
+
+**Spike S3 (2026-10-26, Claude Code v2.1.310).** One 12-task, 3-wave plan (all Standard, one-line files) ran once per mode through the branch plugin (`--plugin-dir` only, `--max-budget-usd 4.89 / 4.90, --permission-mode auto (ruling w2-s3-perm)`), A = direct, B = runner. A first direct attempt under --permission-mode dontAsk stopped at its first Bash call (permission denial, $0.21) and was re-run. Metric (ruling w2-planreview Q4): execute main-context tokens MC (session-cost.js on each main transcript alone) and wall-clock W: MC A 1924325, B 1534705 (ratio A/B 1.25); W A 175s, B 355s (ratio 0.49). Rule: raise is an owner question if MC(A) ≤ 1.5 × MC(B) and W(A) ≤ 1.10 × W(B); lower is an owner question if A shows compaction or a context-limit warning (A: compaction 0, context-limit 0; B: compaction 0, context-limit 0); else 9 stays. Outcome: rule (i) fired (direct MC 1.25×, wall-clock 0.49× of runner); owner kept 9 pending a realistic re-measurement (#9164). Priced totals incl. subagents (information): A $0.94, B $1.24. Budget hit: A no, B no. Exit: A 0, B 0. Output tokens are a floor.

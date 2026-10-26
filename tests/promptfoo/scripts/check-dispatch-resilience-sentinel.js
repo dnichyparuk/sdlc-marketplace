@@ -13,7 +13,13 @@ if (!fs.existsSync(MARKER)) {
   process.exit(2);
 }
 
-const SENTINEL = 'Nested Agent dispatch is supported — being dispatched as a subagent does not remove your Agent tool';
+// The same resilience property as before: every dispatch layer that runs as a subagent is told,
+// in its own prompt text, that it still has the Agent tool and must dispatch instead of self-blocking.
+// Execute's main context: the kept Nested-dispatch paragraph and the top-of-Step-5 sentence (B3).
+// The wave-runner (runner mode): the §2 sentence that replaced the deleted disambiguation copy (B33).
+const SKILL_SENTINEL = 'Nested Agent dispatch is supported — being dispatched as a subagent does not remove your Agent tool';
+const STEP5_SENTINEL = 'When ship-sdlc dispatches you as a subagent you still have the Agent tool — dispatch workers normally.';
+const RUNNER_SENTINEL = 'You run as a subagent and you still have the Agent tool — dispatch the workers normally; never report that no agent-dispatch tool is available.';
 
 let skillContent;
 let waveRunnerContent;
@@ -36,11 +42,12 @@ try {
   process.exit(2);
 }
 
-const inSkill = skillContent.includes(SENTINEL);
-const inWaveRunner = waveRunnerContent.includes(SENTINEL);
-const ok = inSkill && inWaveRunner;
+const inSkill = skillContent.includes(SKILL_SENTINEL);
+const inSkillStep5 = skillContent.includes(STEP5_SENTINEL);
+const inWaveRunner = waveRunnerContent.includes(RUNNER_SENTINEL);
+const ok = inSkill && inSkillStep5 && inWaveRunner;
 
-process.stdout.write(JSON.stringify({ ok, inSkill, inWaveRunner }) + '\n');
+process.stdout.write(JSON.stringify({ ok, inSkill, inSkillStep5, inWaveRunner }) + '\n');
 if (!ok) {
   process.exit(1);
 }

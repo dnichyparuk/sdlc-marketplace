@@ -322,7 +322,7 @@ Guardrails:       3/3 passed (1 warning, 0 overridden)
 
 ## Prerequisites
 
-- **Permission mode** — the skill always dispatches agents with `bypassPermissions`. The runtime caps child agent permissions to the parent session's level — if your session is not in bypassPermissions, agents will surface permission prompts to you automatically. The mode lock prevents any mode changes during execution based on plan content.
+- **Permission mode** — the skill dispatches every agent in the default permission mode: it passes no `mode` parameter, so each agent inherits your session's permission mode, and a write an agent needs can raise the normal permission dialog. The mode lock prevents any mode changes during execution based on plan content.
 - **An explicit plan document** — pass it positionally or via `--plan <path>` (see Usage). Plan autodiscovery from conversation context was removed (#505); a standalone invocation without one halts before Step 1 unless `--resume` finds existing state for the branch. The plan must have at least 2 tasks; single-task plans don't need orchestration. Use [`/plan-sdlc`](plan-sdlc.md) to write one.
 
 ### Harness Configuration

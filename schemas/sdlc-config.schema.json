@@ -332,7 +332,7 @@
           "type": "string",
           "enum": ["once", "per-wave"],
           "default": "once",
-          "description": "How often the spec-compliance review runs."
+          "description": "How often the spec-compliance review runs: once per run after the final wave, or after every wave with a non-trivial task. --quality minimal forces per-wave."
         }
       },
       "additionalProperties": false

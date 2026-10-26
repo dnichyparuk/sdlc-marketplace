@@ -57,12 +57,16 @@ const VALID_SPEC_REVIEWER = ['once', 'per-wave'];
 const VALID_COMPLEXITY = ['Trivial', 'Standard', 'Complex'];
 const VALID_RISK = ['Low', 'Medium', 'High'];
 
-// Model presets (classifying-and-waving-tasks.md): quality tier → model per complexity.
-const PRESET_MODELS = {
-  full:     { Trivial: 'haiku',  Standard: 'haiku',  Complex: 'sonnet' }, // Speed
-  balanced: { Trivial: 'haiku',  Standard: 'sonnet', Complex: 'opus' },   // Balanced
-  minimal:  { Trivial: 'sonnet', Standard: 'opus',   Complex: 'opus' },   // Quality
+// Worker routing (classifying-and-waving-tasks.md "Worker routing (agent × effort)"; ruling w2-plan Q1):
+// quality tier → [agent, effort] per row. A Trivial task is TrivialBatched when its wave holds 2+ Trivial
+// tasks. The doc table must equal this one (tests/promptfoo/scripts/check-worker-routing-table.js).
+const WORKER_ROUTING = {
+  full:     { Trivial: ['execute-worker', 'low'],    TrivialBatched: ['execute-worker-batch', 'medium'], Standard: ['execute-worker', 'low'],             Complex: ['execute-worker', 'high'] },         // Speed
+  balanced: { Trivial: ['execute-worker', 'low'],    TrivialBatched: ['execute-worker-batch', 'medium'], Standard: ['execute-worker', 'medium'],          Complex: ['execute-worker-complex', 'high'] }, // Balanced
+  minimal:  { Trivial: ['execute-worker', 'medium'], TrivialBatched: ['execute-worker', 'medium'],       Standard: ['execute-worker-complex', 'medium'], Complex: ['execute-worker-complex', 'high'] }, // Quality
 };
+// Model pinned by each worker agent's frontmatter (agents/execute-worker*.md).
+const AGENT_MODELS = { 'execute-worker': 'sonnet', 'execute-worker-batch': 'haiku', 'execute-worker-complex': 'opus' };
 const MODEL_RANK = ['haiku', 'sonnet', 'opus'];
 
 // Branch type from the plan title: first match wins, else 'feature'.
@@ -382,6 +386,36 @@ function splitWaves(groups, part) {
 const prefix = (g, k) => [g.slice(0, k), g.slice(k)];
 const finiteOrNull = v => (v === Infinity ? null : v);
 
+// Retry ladder (R13; ruling w2-planreview Q2), at most 2 retries per entry: the first keeps the
+// agent and raises the effort one level, the second moves to the next agent tier at medium. An entry
+// already at high below the top agent moves to the next tier for both (medium, then high). On
+// execute-worker-complex below high both retries run at high; already at high it gets one retry.
+const AGENT_TIERS = ['execute-worker-batch', 'execute-worker', 'execute-worker-complex'];
+const EFFORT_STEPS = ['low', 'medium', 'high'];
+function retryLadder(agent, effort) {
+  const next = AGENT_TIERS[AGENT_TIERS.indexOf(agent) + 1];
+  if (!next) return effort === 'high' ? [[agent, 'high']] : [[agent, 'high'], [agent, 'high']];
+  if (effort === 'high') return [[next, 'medium'], [next, 'high']];
+  return [[agent, EFFORT_STEPS[EFFORT_STEPS.indexOf(effort) + 1]], [next, 'medium']];
+}
+
+// One dispatch entry per Standard or Complex task and per single Trivial task, plus one batch
+// entry for 2+ Trivial tasks in the wave (P4 `dispatch`; ruling w2-plan Q1). Each entry carries
+// its retries (the R13 ladder) so retries are dispatched verbatim too. A null tier routes as
+// balanced until Step 4 re-runs the prepare script with the selected tier.
+function routeWave(g, quality) {
+  const row = WORKER_ROUTING[quality ?? 'balanced'];
+  const trivials = g.filter(t => t.complexity === 'Trivial');
+  const batched = trivials.length >= 2;
+  const entry = ([agent, effort], taskIds) => ({
+    agent: `sdlc:${agent}`, model: AGENT_MODELS[agent], effort, taskIds,
+    retries: retryLadder(agent, effort).map(([a, e]) => ({ agent: `sdlc:${a}`, model: AGENT_MODELS[a], effort: e })),
+  });
+  const out = g.filter(t => !(batched && t.complexity === 'Trivial')).map(t => entry(row[t.complexity], [t.id]));
+  if (batched) out.push(entry(row.TrivialBatched, trivials.map(t => t.id)));
+  return out;
+}
+
 function buildWaves(tasks, { quality, guardrails, dispatchBudget }) {
   // 1–2. Order, level and same-file constraint.
   const groups = [];
@@ -414,9 +448,8 @@ function buildWaves(tasks, { quality, guardrails, dispatchBudget }) {
   // 5. Byte budget per wave.
   const templateBytes = TEMPLATE_FILES.reduce((n, f) => n + fs.statSync(path.join(SKILL_DIR, f)).size, 0);
   const guardrailsBytes = Buffer.byteLength(JSON.stringify(guardrails));
-  const presets = PRESET_MODELS[quality ?? 'balanced'];
   const budgetOf = g => {
-    const model = MODEL_RANK[Math.max(...g.map(t => MODEL_RANK.indexOf(presets[t.complexity])))];
+    const model = MODEL_RANK[Math.max(...routeWave(g, quality).map(e => MODEL_RANK.indexOf(e.model)))];
     const b = computeWaveBudget({
       templateBytes,
       guardrailsBytes,
@@ -438,6 +471,7 @@ function buildWaves(tasks, { quality, guardrails, dispatchBudget }) {
       taskIds: g.map(t => t.id),
       cap: finiteOrNull(cap),
       budget: budgetOf(g),
+      dispatch: routeWave(g, quality),
       expectedFiles: [...new Set(g.flatMap(taskFiles))],
       verificationHint: verify && g.every(t => t.verify === verify) ? verify : null,
     };
@@ -532,6 +566,12 @@ function main() {
   const quality = resolveQuality(cli, resume.found ? stateData : null, errors, warnings);
   sources.quality = quality.source;
 
+  // --quality minimal forces the per-wave spec reviewer (P1).
+  if (quality.value === 'minimal' && resolved.specReviewer !== 'per-wave') {
+    resolved.specReviewer = 'per-wave';
+    sources.specReviewer = 'quality';
+  }
+
   let planFile = null;
   if (cli.plan !== null) planFile = path.resolve(process.cwd(), cli.plan);
   else if (cli.resume && resume.found && resume.planPath) planFile = path.resolve(projectRoot, resume.planPath);
@@ -608,6 +648,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  EXECUTE_DEFAULTS, TYPE_KEYWORDS, parseArgs, resolveFlags, resolveQuality,
+  EXECUTE_DEFAULTS, TYPE_KEYWORDS, WORKER_ROUTING, AGENT_MODELS, routeWave, retryLadder, parseArgs, resolveFlags, resolveQuality,
   buildClassificationFloor, buildWaves, deriveWorkspaceInfo, buildOpenspec, main,
 };

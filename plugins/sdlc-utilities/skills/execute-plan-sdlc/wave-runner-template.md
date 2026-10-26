@@ -16,7 +16,7 @@ The following fields are provided verbatim in the Agent prompt body by execute-p
 waveNumber       — integer (1-based)
 totalWaves       — integer
 qualityTier      — "full" | "balanced" | "minimal"
-escalationBudget — integer (max 2 retries per task; haiku→sonnet→opus)
+escalationBudget — integer (max 2 retries per task; see §4)
 waveTimeout      — integer (seconds) wall-clock budget for this wave, from ship config
                    `executeWaveTimeout`; you enforce it yourself (see §2b)
 waveInterval     — integer (seconds) `Monitor` poll interval, from ship config
@@ -26,10 +26,10 @@ stateScript      — absolute path to state/execute.js
                    (`STATE_SCRIPT="<PLUGIN_ROOT>/scripts/state/execute.js"`)
 tasks            — array of task objects (see shape below)
 priorWaveSummary — context from completed waves (see shape below) (R-PRIORWAVE)
-perTaskTemplate  — full inline content of classifying-and-waving-tasks.md Agent Prompt Template
-                   (pasted verbatim at dispatch time — do NOT Read the file)
-batchedTrivialTemplate — full inline content of classifying-and-waving-tasks.md Batched Trivial
-                         Tasks Prompt Template (pasted verbatim; omitted when wave has < 2 Trivials)
+agentFiles       — array, one entry per dispatch: the wave's `dispatch` list from the prepare output (P4),
+                   passed verbatim by main context: `{ "agent": "sdlc:execute-worker" | "sdlc:execute-worker-batch" |
+                   "sdlc:execute-worker-complex", "model", "effort": "low" | "medium" | "high", "taskIds": ["<id>", ...],
+                   "retries": [{ "agent", "model", "effort" }, ...] }` — a batch entry lists 2+ Trivial ids
 ```
 
 **Task object shape (R-FACT-SHEET-DISPATCH, #432):**
@@ -66,27 +66,25 @@ This object is the `priorWaveSummary` **input** the runner receives at dispatch 
 
 ### 1. Identify in-wave trivial batch
 
-If 2+ tasks have `complexity: Trivial`, group them into a single batch. The remaining Standard/Complex tasks each run as individual per-task Agents.
+`agentFiles` already groups the wave: each entry is one dispatch, and a batch entry lists the 2+ Trivial tasks it covers.
 
 ### 2. Dispatch in parallel (single message)
 
-> **Nested-dispatch disambiguation (R-nested-dispatch-resilient — Fixes #463):** "Main context" here = execute-plan-sdlc's own top-level orchestration context — the one you are running in now. When ship-sdlc dispatches you as a subagent, you ARE that context. Nested Agent dispatch is supported — being dispatched as a subagent does not remove your Agent tool. Never emit "no agent-dispatch tool available" or otherwise self-block; dispatch the per-task Agents normally.
+You run as a subagent and you still have the Agent tool — dispatch the workers normally; never report that no agent-dispatch tool is available. (R-nested-dispatch-resilient)
 
-Send all Agent dispatches in one message:
+Send all Agent dispatches in one message — one per `agentFiles` entry, with its values verbatim:
 
-- One per-task Agent per Standard/Complex task, using `perTaskTemplate`. Fill the template placeholders with `task.id`, `task.complexity`, `task.risk`, `task.factSheetPath`, `task.verifyToken`, and prior-wave context. Also fill `{STATE_SCRIPT}` — the **absolute** path `<PLUGIN_ROOT>/scripts/state/execute.js` from the `stateScript` input, never a relative path — plus `{WAVE}` (`waveNumber`) and `{RUN_ID}` (`runId`), which the template's progress heartbeat requires. Do NOT inline the full task body — the per-task Agent reads the fact sheet at `factSheetPath`.
-- One batch Agent for the trivial group (if 2+ Trivials), using `batchedTrivialTemplate`. Pass the `factSheetPath` for each trivial task, and fill the same absolute `{STATE_SCRIPT}`, `{WAVE}`, and `{RUN_ID}` placeholders as above — the batched template carries the same progress heartbeat. Include ordering constraints if any trivials touch the same file.
-- A single Trivial task (no batch) is dispatched as an individual per-task Agent using `perTaskTemplate`, same as a Standard task.
-- Pass `mode: bypassPermissions`, `model: <task.assignedModel>`, and `run_in_background: true` on every sub-Agent dispatch. **`model:` is required on every dispatch — no exceptions.**
-- `run_in_background: true` is what makes §2b possible: a backgrounded dispatch returns a task ID immediately instead of blocking, so you can poll it with `Monitor` and terminate it with `TaskStop` at the wave deadline (R-WAVE-DEADLINE, #506). Backgrounding does **not** reduce worker capability — a background subagent retains `Read`, `Grep`, `Glob`, `Bash`, `Edit`, `Write`, `Monitor`, `TaskStop`, and `SendMessage`.
-- **DO NOT pass `isolation: "worktree"` (or any other `isolation` value) on any sub-Agent dispatch.** The SDLC `--workspace worktree` flag controls a separate concept (a sibling git worktree created via `util/worktree-create.js`). Adding `isolation` here creates ephemeral `.claude/worktrees/agent-<id>` paths that are not the intended SDLC worktree. Implements R-no-agent-sdk-isolation from spec. See issues #370 #372. (Mirrors ship-sdlc/SKILL.md anti-pattern section.)
+- `subagent_type: <entry.agent>` and `effort: <entry.effort>`; no `model` — the agent file pins it. Escalation (§4) changes the agent or the effort and never adds `model`.
+- The prompt opens with the `## Project Guardrails` block rendered from `guardrails` (see "Guardrail threading"; omitted when the array is empty). Then, per task: `TASK_ID: <task.id>`, `FACT_SHEET: <task.factSheetPath>`, `FILES_ALLOWED:` followed by the task's paths one per line (the `## Files` section of its fact sheet), and `VERIFY_TOKEN: <task.verifyToken, or none>`. A batch entry repeats that group per task, in order, and adds `ORDERING: <same-file ordering requirements, or None>`. Every prompt ends with `STATE_SCRIPT: <stateScript>` (the **absolute** path from the `stateScript` input, never a relative path), `WAVE: <waveNumber>`, `RUN_ID: <runId>` and `ATTEMPT: <first attempt | retry N — previous attempt failed: …>`. Do NOT inline the full task body — the worker reads its fact sheet.
+- Each dispatch runs in the background: the harness returns a task ID at once and notifies you when the worker completes. §2b polls and terminates by those task IDs. Await every dispatched worker before §3 — never consolidate on partial returns (R-WAVE-BACKGROUND-DISPATCH).
+- **DO NOT pass `isolation: "worktree"` (or any other `isolation` value) on any sub-Agent dispatch.** Adding `isolation` here creates ephemeral `.claude/worktrees/agent-<id>` paths that are not the intended SDLC worktree. Implements R-no-agent-sdk-isolation from spec. See issues #370 #372. (Mirrors ship-sdlc/SKILL.md anti-pattern section.)
 
 ### 2b. Enforce the wave deadline (R-WAVE-DEADLINE, #506)
 
 You received `waveTimeout` (seconds) in your manifest. Enforce it yourself — the harness has no
 per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).
 
-1. Record the dispatch time. All per-task dispatches from §2 set `run_in_background: true`, so
+1. Record the dispatch time. All per-task dispatches from §2 run in the background, so
    each returns a task ID immediately rather than blocking.
 2. Poll with `Monitor`, using an interval of `executeWaveInterval` seconds and a `timeout_ms` no
    greater than the remaining budget. `Monitor.timeout_ms` caps at 3600000, which is why
@@ -126,17 +124,14 @@ For batch Agents, extract the per-task status from the batch output.
 
 On per-task `NEEDS_CONTEXT` or `BLOCKED` status, or on agent error:
 
-1. Re-dispatch the failing task with full failure context added to the prompt and model escalated one step (haiku→sonnet→opus).
+1. Re-dispatch the failing task with full failure context added to the prompt, on its `agentFiles` entry's `retries[n]` agent and effort, verbatim (n = 0 for the first retry, 1 for the second). That ladder is the R13 one: the same agent with effort raised one level, then the next agent tier at medium; an entry already at high below the top agent moves to the next tier for both retries; execute-worker-complex below high retries twice at high; execute-worker-complex at high has one retry, then the task is marked FAILED.
 2. Track attempts internally for the retry cap; they are not part of WAVE_SUMMARY (only `escalationsUsed` is).
 3. Maximum 2 retries per task (tracked across all attempts within this wave).
 4. After 2 retries with continued failure, mark the task `FAILED` in the summary and set `wave.status` to `partial` or `failed`.
 
-Model escalation uses `assignedModel` from the task manifest as the starting point:
-- haiku → escalate to sonnet
-- sonnet → escalate to opus
-- opus → no further escalation; mark FAILED after 2 retries
+Escalation starts from the task's `agentFiles` entry.
 
-**Guardrail invariance on retry (Fixes #392 / R33):** When constructing the retry prompt, copy the wave manifest's `guardrails` array (and `expectedFiles`) **verbatim** into the new prompt — do NOT regenerate, filter, or omit any entry. Guardrails are wave-level invariants set by main context at wave-build time; the per-task retry inherits the same constraints as the original dispatch at every escalation tier (haiku → sonnet → opus).
+**Guardrail invariance on retry (Fixes #392 / R33):** When constructing the retry prompt, copy the wave manifest's `guardrails` array (and `expectedFiles`) **verbatim** into the new prompt — do NOT regenerate, filter, or omit any entry. Guardrails are wave-level invariants set by main context at wave-build time; the per-task retry inherits the same constraints as the original dispatch at every escalation step.
 
 ### 5. Produce WAVE_SUMMARY
 
@@ -198,45 +193,24 @@ The bounded schema enables `lib/wave-summary.js parseWaveSummary` in main contex
 
 The following are main-context responsibilities. Wave-runner MUST NOT perform them:
 
-- **Does NOT write `state/execute.js` updates — no exceptions.** Main context calls `wave-start`, `task-done`, `task-fail`, `wave-done`, `wave-fail` with the information from `WAVE_SUMMARY`. This includes the `wave-done --status partial --timed-out` call after a §2b timeout (R-main-context-steps, Step 5d): you report `status: "partial"` in `WAVE_SUMMARY` and main context performs the state write from that. You never invoke `state/execute.js` yourself, for this or any other verb — reading `wave-progress --read` (§2b step 3) is the only `state/execute.js` invocation you make, and that is a read, not a write. **Scope note:** this prohibition covers only you, the wave-runner. The per-task workers you dispatch (§2 "Dispatch in parallel") separately call `wave-progress` (write) as a progress heartbeat, using the `{STATE_SCRIPT}`/`{WAVE}`/`{RUN_ID}` placeholders you fill into their prompts — that write is expected and is not a violation of this rule.
-- **Does NOT run Step 5a-pre (pre-wave guardrail check).** Main context evaluates error-severity guardrails before dispatching wave-runner.
-- **Does NOT run Step 5a (high-risk gate).** Main context fires `AskUserQuestion` before dispatching wave-runner when the wave contains high-risk tasks.
-- **Does NOT run Step 5c filesystem/canary verification.** Main context runs `git diff --stat` and canary grep against `WAVE_SUMMARY.tasks[].filesTouched` and `verifyToken`.
-- **Does NOT run Step 5c-bis (spec compliance reviewer).** Main context dispatches a separate spec compliance reviewer Agent after wave-runner returns.
-- **Does NOT run Step 5c-ter (post-wave guardrail check).** Main context evaluates all guardrails against actual `git diff` output.
-- **Does NOT run Step 5e (inter-wave critique).** Main context compares wave output to downstream task assumptions before the next wave.
-- **Does NOT escalate to user (Step 6 RECOVER) beyond the 2-retry budget.** Persistent failures are returned in `WAVE_SUMMARY` with `status: FAILED`; main context decides further action (harden, escalate, break task, cancel).
-- **Does NOT decide quality tier.** Assigned models come from `tasks[].assignedModel` in the manifest; wave-runner dispatches at those models.
+- **Never call a `state/execute.js` write verb** — main context owns the state file, and a second writer corrupts resume. The only `state/execute.js` call you make is the `wave-progress --read` poll in §2b; the workers you dispatch write their own `wave-progress` heartbeats, which is expected. Report a timeout as `status: "partial"` in `WAVE_SUMMARY`; main context writes `wave-done --status partial --timed-out` (R-main-context-steps).
+- **Never prompt the user** — there is no user in your context. Persistent failures go back in `WAVE_SUMMARY` with `status: FAILED`, and main context decides what to do (harden, escalate, break the task, cancel).
+- **Never alter `guardrails` or `expectedFiles`** (or `verificationHint`) — they are wave-level invariants that main context sets at wave-build time; every dispatch, retries included, carries them verbatim (R33).
 
 ---
 
 ## Hard Constraints
 
-- `mode: bypassPermissions` — required on every sub-Agent dispatch.
-- `model: <assignedModel>` — required on every sub-Agent dispatch. Omitting it inherits the parent model and defeats the quality-tier system.
-- `run_in_background: true` — required on every sub-Agent dispatch. Omitting it relies on a harness default; §2b's `Monitor` poll and `TaskStop` termination both require a backgrounded child. (R-WAVE-BACKGROUND-DISPATCH, #506)
-- **DO NOT pass `isolation: "worktree"` (or any other `isolation` value) on any sub-Agent dispatch.** The SDLC `--workspace worktree` flag controls a separate concept (a sibling git worktree created via `util/worktree-create.js`). Adding `isolation` here creates ephemeral `.claude/worktrees/agent-<id>` paths that are not the intended SDLC worktree. Implements R-no-agent-sdk-isolation. See issues #370 #372.
-- **Edit tool only for all file modifications** in sub-Agent contexts. Never use bash `sed`, `awk`, Python scripts, or any indirect patching method. These approaches fail silently.
 - Do not read the plan file inside sub-Agent contexts — all task information is pasted inline by main context.
 - Do not modify files outside each task's stated file list.
 - Do not add features, refactor, or clean up beyond what each task specifies.
 - If a task is BLOCKED and retries are exhausted, report it clearly in `WAVE_SUMMARY` — do not hallucinate a success.
 - Complete tasks as independently as possible within one wave. If one task FAILED, continue with remaining tasks rather than halting the entire wave.
-- **Wave-runner MUST NOT add, remove, or modify entries in the wave manifest's `guardrails` array.** The array is set by main context at wave-build time and is read-only for the runner (Fixes #392 / R33). Same applies to `expectedFiles` and `verificationHint`.
-
 ---
 
-## Template Content Handling
+## Guardrail threading
 
-The `perTaskTemplate` and `batchedTrivialTemplate` inputs are the **full inline content** of the templates from `classifying-and-waving-tasks.md`, pasted by main context when constructing the wave-runner Agent's prompt body. Wave-runner uses these templates to fill Agent prompts for each sub-task.
-
-The per-task and batched-trivial templates are NOT duplicated here — main context inlines their content at dispatch time. This file only documents the algorithm, contract, and constraints.
-
-**Fact-sheet dispatch (R-FACT-SHEET-DISPATCH, #432):** Per-task Agent prompts reference `task.factSheetPath` rather than inlining the full task body. Wave-runner passes `factSheetPath` as a template placeholder; the per-task template instructs the sub-Agent to `Read <factSheetPath>` at the start of its execution. Main context writes fact sheets via `node state/execute.js wave-start --tasks-json <json>` before dispatching wave-runner — the paths are available in the manifest by the time wave-runner runs.
-
-**Guardrail threading (Fixes #392 / R33):** The wave manifest carries a `guardrails: [{id, description, severity}]` array. Wave-runner MUST thread this array into the `{{guardrails}}` placeholder in every per-task AND every batched-trivial Agent prompt it constructs (including retry dispatches). When `guardrails` is empty/absent in the manifest, the template's conditional `## Project Guardrails` block renders nothing (no header, no stub). The block is byte-stable within a single execute-plan-sdlc invocation because `activeGuardrails` is loaded once in Step 1 LOAD and treated as immutable — this preserves the prompt-cache prefix across sibling per-task dispatches.
-
-The WAVE_SUMMARY schema is unchanged: main context handles the per-wave `expectedFiles` cross-check (Step 5c-bis) by comparing `git diff --stat` output against the wave manifest, not by reading anything new out of the runner's output.
+Render the manifest's `guardrails` array as the `## Project Guardrails` block at the top of every worker dispatch prompt, retries included, and omit the block when the array is empty (R33).
 
 ---
 
