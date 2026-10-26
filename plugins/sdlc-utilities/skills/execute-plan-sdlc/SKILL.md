@@ -194,10 +194,10 @@ Note: for a freshly created worktree from main, HEAD is already on main — `mer
 
 ## Step 2 (CLASSIFY): Classify Tasks and Build Waves
 
-Start from `classificationFloor` (P3) and `waves` (P4) in `EXECUTE_CONTEXT`. Raise a task's complexity or risk only with a stated reason; never lower it. Do not rebuild the waves — Step 3 may move a task later with a stated reason (P4). When this step raises a task's complexity, when Step 3 moves a task (into a later wave or into the pre-wave), or when a task is raised one column (the rule under the routing table in `./classifying-and-waving-tasks.md`), record the change with its reason and re-derive the `dispatch` entries of every wave the change touches — agent, model, effort and `retries`, from the routing table, the worker table and the retry ladder of `./recovering-from-failures.md`, for the same tier (a complexity raise takes the raised complexity's row, as a Step 3 move does; ruling w2-planreview Q3) — and that wave's `budget.model` (the highest `model` among its new entries); state the reason. Every other wave keeps its `dispatch` entries and `budget` verbatim.
+Start from `classificationFloor` (P3) and `waves` (P4) in `EXECUTE_CONTEXT`. Raise a task's complexity or risk only with a stated reason; never lower it. Do not rebuild the waves — Step 3 may move a task later with a stated reason (P4). When this step raises a task's complexity, when Step 3 moves a task (into a later wave, or into the pre-wave, which has no `dispatch` entry), or when a task is raised one column (the rule under the routing table in `./classifying-and-waving-tasks.md`), record the change with its reason and re-derive the `dispatch` entries of every wave the change touches — agent, model, effort and `retries`, from the routing table, the worker table and the retry ladder of `./recovering-from-failures.md`, for the same tier (a complexity raise takes the raised complexity's row, as a Step 3 move does; ruling w2-planreview Q3) — and that wave's `budget.model` (the highest `model` among its new entries); state the reason. Every other wave keeps its `dispatch` entries and `budget` verbatim.
 
 **1. Complexity class** (drives agent dispatch vs inline execution):
-- **Trivial** — single-file change, config edit, rename, or < 15 lines at a single edit location. A task that edits multiple distinct locations in a single file (e.g., struct definition + interface implementation + init function + getter) is **Standard**, not Trivial, even if total line count is under 15. A single pre-wave trivial runs inline; a single trivial inside a wave is dispatched as one worker; 2+ trivials in the pre-wave or in a wave are batched into one batch worker (R6).
+- **Trivial** — single-file change, config edit, rename, or < 15 lines at a single edit location. A task that edits multiple distinct locations in a single file (e.g., struct definition + interface implementation + init function + getter) is **Standard**, not Trivial, even if total line count is under 15. Pre-wave trivials run inline, one after another; a single trivial inside a wave is dispatched as one worker; 2+ trivials in a wave are batched into one batch worker (R6).
 - **Standard** — multi-file change, feature implementation, test writing. Dispatch to agent.
 - **Complex** — architectural change, cross-cutting concern, touches > 5 files. Dispatch to agent with extra context.
 
@@ -243,7 +243,7 @@ Before executing any wave, self-review the entire plan:
 - **Dependency integrity**: Does every Wave N+1 task actually depend on something in Wave N? If not, move it earlier
 - **Risk clustering**: Multiple high-risk tasks in the same wave? → Spread across waves for easier rollback
 - **Context sufficiency**: Is each task self-contained enough to dispatch as an agent? Vague tasks produce vague output
-- **Trivial aggregation**: Are trivial tasks that have downstream dependents identified for pre-wave execution? If 2+ pre-wave trivials exist, are they flagged for batch agent dispatch?
+- **Trivial aggregation**: Are trivial tasks that have downstream dependents identified for pre-wave execution? If 2+ pre-wave trivials exist, are they flagged for inline execution in the main context?
 - **In-wave trivial batching**: If a wave contains 2+ trivial tasks, are they flagged for a single batch agent dispatch rather than inline execution?
 
 Note every issue found.
@@ -259,9 +259,9 @@ Valid values: `full` (Speed), `balanced` (Balanced), `minimal` (Quality); legacy
 ```
 Execution Plan
 ────────────────────────────────────────────
-Pre-wave (1 batch agent, 2 trivial tasks):
-  - Task 1: "short description"     [Trivial → execute-worker-batch / medium]
-  - Task 2: "short description"     [Trivial → execute-worker-batch / medium]
+Pre-wave (inline, 2 trivial tasks):
+  - Task 1: "short description"     [Trivial → inline]
+  - Task 2: "short description"     [Trivial → inline]
 Wave 1 (N agents — includes 1 batch):
   Batch (2 trivial tasks → 1 execute-worker-batch agent):
     - Task A: "short description"   [Trivial → execute-worker-batch / medium]
@@ -293,7 +293,7 @@ Always present all 3 tiers. Default is Balanced. When the user selects a tier (f
 
 When ship-sdlc dispatches you as a subagent you still have the Agent tool — dispatch workers normally.
 
-**Pre-wave:** If there is 1 pre-wave trivial task, execute it inline in the main context. If there are 2+ pre-wave trivials, dispatch them as one batch worker: moving them into the pre-wave is a Step 3 move, so their `dispatch` entry is re-derived as Step 2 says, and it is prompted as a Step 5b batch entry. Mark each complete in TodoWrite after inline execution or after the batch worker returns.
+**Pre-wave:** Execute every pre-wave trivial task inline in the main context, one after another — one task or several. There is no batch worker and no `dispatch` entry for the pre-wave. Mark each complete in TodoWrite after it runs.
 
 This dispatch is NOT a wave-runner Agent — it is a direct batch dispatch from main context for tasks that have no in-wave dependencies.
 
@@ -825,7 +825,7 @@ On failure or interruption (not all tasks completed), preserve the state file. P
 - Execute more than 2 retries on any single task
 - Automatically commit or push — workspace is auto-detected (`branch` → `git checkout -b`; `continue` → run in place), not an ad-hoc decision; committing/pushing is a separate follow-up step
 - Reference external sub-skills by name — this skill is fully self-contained
-- Mix the two Step 5b branches in one run — the branch is chosen once from `plan.tasks.length >= flags.waveRunnerMinPlanTasks` (runner mode) or not (direct mode). In runner mode, per-task fan-out (including trivial batching) is the wave-runner's responsibility; the pre-wave trivial batch is always dispatched directly from main context before the wave loop begins.
+- Mix the two Step 5b branches in one run — the branch is chosen once from `plan.tasks.length >= flags.waveRunnerMinPlanTasks` (runner mode) or not (direct mode). In runner mode, per-task fan-out (including trivial batching) is the wave-runner's responsibility; the pre-wave trivials always run inline in the main context before the wave loop begins.
 - Delete the execution state file on failure or interruption — it is needed for `--resume`
 - Write state files for small-plan direct execution (≤3 tasks) — they execute without waves and are fast enough to re-run
 - Auto-override error-severity guardrail violations in `--auto` mode — guardrails exist to prevent drift; always block
