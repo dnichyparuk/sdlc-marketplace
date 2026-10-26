@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-26
+
+### Added
+- feat: commit-sdlc takes `--subject`, `--message-file` and `--expected-subject`; a subject that differs from the given one stops the commit (E9, E10) (#9017)
+- feat: the plan format gains the `**Commit:**` header field (plan-sdlc R66) (#9017)
+- feat: ship-sdlc forwards the plan's `**Commit:**` subject to its commit step as `--subject` (R-plan-commit-subject) (#9017)
+
+### Changed
+- feat: commit-sdlc checks a given subject (at most 72 characters, one line, no `"`, backtick, `$` or `\`) before any draft (R-subject-precheck) (#9017)
+- feat: commit-sdlc's manifest cleanup moved into `skill/commit.js` (R-script-prune); SKILL.md no longer deletes the manifest (#9017)
+
+### Fixed
+- docs: the three flag keys `noSquashWip`, `skipConfigCheck` and `forceDefaultBranch` are now documented (spec P2, the docs table and the agent row) (#9017)
+
 ## [0.34.0] - 2026-10-26
 
 ### Added
