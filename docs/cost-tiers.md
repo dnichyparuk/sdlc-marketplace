@@ -133,9 +133,12 @@ Effort is set in agent frontmatter; the validator does not check it.
 | Surface | Config A | Config B | Artifacts (n) | Tokens in/out (A, B) | Cost per completed task (A, B) | Completed (A, B) | Decision | Date |
 |---|---|---|---|---|---|---|---|---|
 | baseline (all surfaces) | installed sdlc 0.21.29 | - | 0 | unavailable | unavailable | unavailable | baseline: unavailable; installed sdlc 0.21.29 predates --usage (W1.1) | 2026-10-19 |
+| execute dispatch topology (S3, 12-task 3-wave plan; tokens = execute main context) | direct (waveRunnerMinPlanTasks 13) | runner (waveRunnerMinPlanTasks 1) | 2 | 1924325/9960, 1534705/9126 | $0.078, $0.103 (priced incl. subagents, information) | 12/12, 12/12 | rule (i) fired; owner kept 9 pending a realistic re-measurement (#9164) | 2026-10-26 |
 
 **Spike S1 (2026-10-19, Claude Code v2.1.303).** A throwaway plugin skill with `context: fork`, and the same plugin agent dispatched by `subagent_type`, were run in a session in `default` permission mode:
 
 - Permission mode is inherited from the session. Read-only commands ran without a dialog; a write raised the normal permission dialog in the main session, naming the agent. Nothing was auto-denied.
 - `AskUserQuestion` is not available inside subagents, even when it is listed in the agent's `tools:`. A forked sub-skill cannot ask the user, so consent prompts are asked in the main context before dispatch.
 - Agent frontmatter `effort:` is honoured: `effort: low` reached the API while the session ran at `medium`.
+
+**Spike S3 (2026-10-26, Claude Code v2.1.310).** One 12-task, 3-wave plan (all Standard, one-line files) ran once per mode through the branch plugin (`--plugin-dir` only, `--max-budget-usd 4.89 / 4.90, --permission-mode auto (ruling w2-s3-perm)`), A = direct, B = runner. A first direct attempt under --permission-mode dontAsk stopped at its first Bash call (permission denial, $0.21) and was re-run. Metric (ruling w2-planreview Q4): execute main-context tokens MC (session-cost.js on each main transcript alone) and wall-clock W: MC A 1924325, B 1534705 (ratio A/B 1.25); W A 175s, B 355s (ratio 0.49). Rule: raise is an owner question if MC(A) ≤ 1.5 × MC(B) and W(A) ≤ 1.10 × W(B); lower is an owner question if A shows compaction or a context-limit warning (A: compaction 0, context-limit 0); else 9 stays. Outcome: rule (i) fired (direct MC 1.25×, wall-clock 0.49× of runner); owner kept 9 pending a realistic re-measurement (#9164). Priced totals incl. subagents (information): A $0.94, B $1.24. Budget hit: A no, B no. Output tokens are a floor.
