@@ -377,18 +377,18 @@ Subagents run in the background and notify on completion; the Agent tool has no 
 
 **Wave deadline (direct mode; R-WAVE-DEADLINE).** The manifest carries `waveTimeout` (seconds). Enforce it here — the harness has no per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock). This is the procedure of `./wave-runner-template.md` §2b, run in main context:
 
-1. Record the dispatch time. All worker dispatches above run in the background, so each returns a task ID immediately rather than blocking.
+1. Record the dispatch time. All worker dispatches above run in the background, so each returns a task ID immediately rather than blocking. Keep a map from each returned task ID to the plan task IDs it covers (a batch covers several).
 2. Poll with `Monitor`, using an interval of `waveInterval` seconds and a `timeout_ms` no greater than the remaining budget. `Monitor.timeout_ms` caps at 3600000, which is why `waveTimeout` caps at 3600 seconds.
 3. On each poll, read the progress markers to learn which tasks are still in flight:
    `node "$STATE_SCRIPT" wave-progress --wave <N> --run-id <runId> --read`
-   A task whose marker `phase` is not yet `reporting` is in flight. Use this set — not your own memory of the dispatch list — as the termination target in step 4; a worker may have finished and reported between two polls.
-4. When the deadline expires, call `TaskStop` on every task still in flight per step 3. Terminate only overrun workers — a worker that has already reported is left alone.
+   A task whose marker `phase` is not yet `reporting`, or that has no marker yet, is in flight; a returned task ID is in flight while any plan task ID it covers is. Use this set — not your own memory of the dispatch list — as the termination target in step 4; a worker may have finished and reported between two polls.
+4. When the deadline expires, call `TaskStop` on every returned task ID still in flight per step 3 (via the map of step 1). Terminate only overrun workers — a worker that has already reported is left alone.
 5. Report each terminated task with `status: "FAILED"` and `errorCode: "TIMEOUT"`, and set the wave `status` to `partial` (not `failed` — completed tasks in the same wave are still valid).
 6. Compose the WAVE_SUMMARY normally. **Timeout is a verdict, not a crash** — do not abort, do not throw, do not omit the summary. The verdict is written to state in 5c (TIMEOUT handling: `wave-done --status partial --timed-out`).
 
 Do NOT spawn a separate watchdog Agent.
 
-**Compose `WAVE_SUMMARY` (direct mode).** Build one `WAVE_SUMMARY: <single-line-json>` line from the N returns, in the bounded schema of `./wave-runner-template.md` "Output Contract" (`parseWaveSummary` is unchanged): one `tasks[]` entry per task from its `COMPLETE:` / `VERIFY:` / `INTERFACES:` / `DECISIONS:` / `STATUS:` lines (a batch return gives one entry per task, from its per-task status and `VERIFY Task N:` lines), `status` and `escalationsUsed` by the same rules. Then continue at 5c with that line.
+**Compose `WAVE_SUMMARY` (direct mode).** Build one `WAVE_SUMMARY: <single-line-json>` line from the N returns, in the bounded schema of `./wave-runner-template.md` "Output Contract" (`parseWaveSummary` is unchanged): one `tasks[]` entry per task from its `COMPLETE:` / `VERIFY:` / `INTERFACES:` / `DECISIONS:` / `STATUS:` lines (a batch return gives one entry per task, from its per-task status — the batch status `SUCCESS` is `DONE`, `FAILED` stays `FAILED` — and its `VERIFY Task N:` lines, `N` being the `TASK_ID`), `status` and `escalationsUsed` by the same rules. Then continue at 5c with that line.
 
 **Runner mode.** Dispatch one wave-runner Agent with `model: <waves[n].budget.model>` (the highest model among the agents of `waves[n].dispatch`) and the prompt built from items 1–3 above. It dispatches the `agentFiles` entries, enforces the deadline (§2b of the template) and returns `WAVE_SUMMARY`. Await its single return the same way — never consolidate on an absent return. Per-task retries (budget 2) are the wave-runner's responsibility.
 
@@ -397,7 +397,7 @@ Do NOT spawn a separate watchdog Agent.
 
 **5c. Collect and verify** — After the wave returns (direct mode: the composed `WAVE_SUMMARY`; runner mode: the wave-runner's return):
 
-0. **Parse `WAVE_SUMMARY` via `lib/wave-summary.js` (R-BOUNDED-RETURN, R-CONTEXT_OVERFLOW, #432):** Call `parseWaveSummary(text, dispatchedIds)` in a brief inline Node.js block, where `text` is the wave-runner's full response and `dispatchedIds` is the array of task IDs sent in the manifest:
+0. **Parse `WAVE_SUMMARY` via `lib/wave-summary.js` (R-BOUNDED-RETURN, R-CONTEXT_OVERFLOW, #432):** Call `parseWaveSummary(text, dispatchedIds)` in a brief inline Node.js block, where `text` is the wave's return text (runner mode: the wave-runner's full response; direct mode: the `WAVE_SUMMARY` line you composed) and `dispatchedIds` is the array of task IDs sent in the manifest:
 
    Run `mktemp` and note the printed path; write the wave-runner's return text to that path with the Write tool; then run (substituting that path for `<TMPFILE>`):
 
@@ -414,7 +414,7 @@ Do NOT spawn a separate watchdog Agent.
 
    Read `schemaOk`, `missingIds`, `extraIds`, `violations`, and `parsed` from the result.
 
-   - If `missingIds.length > 0` → **CONTEXT_OVERFLOW** (R-CONTEXT_OVERFLOW, #432): the wave-runner's context was exhausted before it could report all dispatched tasks. This is the sole discriminant — a schema-valid partial response (where `schemaOk` is true but `missingIds` is non-empty) also triggers this path, because absent IDs mean unconfirmed tasks regardless of schema validity. Invoke the auto-split-and-retry flow:
+   - If `missingIds.length > 0` → **CONTEXT_OVERFLOW** (R-CONTEXT_OVERFLOW, #432): the wave-runner's context was exhausted before it could report all dispatched tasks. This is the sole discriminant — a schema-valid partial response (where `schemaOk` is true but `missingIds` is non-empty) also triggers this path, because absent IDs mean unconfirmed tasks regardless of schema validity. In direct mode every worker was awaited, so a missing ID is a task whose return lacked its `COMPLETE:` lines: report it `FAILED` and apply Step 6 instead of splitting. In runner mode invoke the auto-split-and-retry flow:
 
      **CONTEXT_OVERFLOW auto-split-and-retry:**
      ```bash
@@ -429,7 +429,7 @@ Do NOT spawn a separate watchdog Agent.
 
      **Critical:** do NOT use `git diff` as a substitute for missing per-task returns. Even if git diff shows file changes, absent IDs mean the wave-runner did not confirm those tasks — treat them as unaccounted and split.
 
-   - If `missingIds.length === 0 && !schemaOk` (malformed token, bad errorCode, dropped-field violation) → re-dispatch the wave-runner once with a format reminder (counts as a wave-level retry).
+   - If `missingIds.length === 0 && !schemaOk` (malformed token, bad errorCode, dropped-field violation) → runner mode: re-dispatch the wave-runner once with a format reminder (counts as a wave-level retry); direct mode: recompose the line from the returns once.
 
    - If `missingIds.length === 0 && schemaOk` → proceed to step 1. Per-task `status` and `filesTouched` (not `filesChanged`) come from `parsed.tasks[]`.
 
@@ -460,7 +460,7 @@ Do NOT spawn a separate watchdog Agent.
 5. **Task status handling** (from `WAVE_SUMMARY.tasks[].status`):
    - STATUS: DONE → proceed normally
    - STATUS: DONE_WITH_CONCERNS → read the concerns; if about correctness, investigate before proceeding; if observational, note and continue
-   - STATUS: NEEDS_CONTEXT or BLOCKED → re-dispatch only the failing tasks, passing the recorded errors (direct mode: their workers, escalated per `./recovering-from-failures.md`; runner mode: a fresh wave-runner Agent scoped to them). This counts as one wave-level retry toward the wave's 2-retry budget. Attempt counts are NOT tracked in state or returned in `WAVE_SUMMARY` (`attempts[]` was removed from the bounded output schema, per R-BOUNDED-RETURN) — this recovery re-dispatch, like every wave-runner dispatch, applies a fresh per-task budget of 2 retries scoped to itself; there is no cross-dispatch attempt inheritance. What actually bounds a repeatedly-failing task is the wave-level retry budget tracked here in main context: once this wave has exhausted its 2 wave-level retries, escalate per Step 6 rather than re-dispatching again.
+   - STATUS: NEEDS_CONTEXT or BLOCKED → re-dispatch only the failing tasks, passing the recorded errors (direct mode: their workers, escalated per `./recovering-from-failures.md`; runner mode: a fresh wave-runner Agent scoped to them). This counts as one wave-level retry toward the wave's 2-retry budget. Attempt counts are NOT tracked in state or returned in `WAVE_SUMMARY` (`attempts[]` was removed from the bounded output schema, per R-BOUNDED-RETURN) — in runner mode this recovery re-dispatch, like every wave-runner dispatch, applies a fresh per-task budget of 2 retries scoped to itself, with no cross-dispatch attempt inheritance; in direct mode each re-dispatch takes the task's next `retries[]` step (`./recovering-from-failures.md`) within the same cap of 2 per task. What actually bounds a repeatedly-failing task is the wave-level retry budget tracked here in main context: once this wave has exhausted its 2 wave-level retries, escalate per Step 6 rather than re-dispatching again.
    - STATUS: FAILED (direct mode: on any attempt; runner mode: after 2 retries inside the wave-runner) → apply recovery from Step 6
 
 6. On any failure → apply recovery from Step 6.
