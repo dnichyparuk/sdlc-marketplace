@@ -2,7 +2,7 @@
 name: commit-sdlc
 description: "Use this skill when committing staged changes or generating a commit message that matches the project's style: stashes unstaged work, commits after confirmation, restores the stash. Arguments: [--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--no-squash-wip] [--expected-branch <name>] [--force-default-branch] [--subject <text>] [--message-file <path>] [--expected-subject <text>]. Triggers on: commit changes, create commit, commit message, git commit, commit staged."
 user-invocable: true
-argument-hint: "[--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--no-squash-wip] [--expected-branch <name>] [--force-default-branch] [--subject <text>] [--message-file <path>] [--expected-subject <text>]"
+argument-hint: "[--no-stash] [--scope <scope>] [--type <type>] [--amend] [--auto] [--no-squash-wip] [--expected-branch <name>] [--force-default-branch] [--skip-config-check] [--subject <text>] [--message-file <path>] [--expected-subject <text>]"
 model: inherit
 ---
 
@@ -117,7 +117,7 @@ Read `wipSquash` from `COMMIT_CONTEXT_JSON`. The field has the shape:
 
 **Given subject:** the subject the caller gave is, in this order, `flags.subject`, else the first line of the `flags.messageFile` file, else `flags.expectedSubject`. `skill/commit.js` has already checked that all given subjects are equal (R-subject-precheck), so the order only decides which flag is named. Every later mention of "the given subject" means this value.
 
-**Message file given (R-message-file):** If `flags.messageFile` is set, do not dispatch the orchestrator and skip the OpenSpec scope hint below. Read the file and set `MESSAGE` to its exact content, then go to Step 5.
+**Message file given (R-message-file):** If `flags.messageFile` is set, do not dispatch the orchestrator and skip the OpenSpec scope hint below. Read the file and set `MESSAGE` to its exact content, then go to Step 5. Steps 3 and 4 do not run on this path: only the Step 5 gates (WIP marker, subject pattern, exit 3, link check) apply.
 
 Dispatch the `commit-orchestrator` agent so its input is bounded to the prepared manifest and does not inherit the conversation transcript. `model: haiku` on the Agent call keeps this bounded task on a lightweight model.
 
@@ -144,13 +144,13 @@ Capture the orchestrator's return value as `MESSAGE`. If `MESSAGE` is empty, the
 
 ### Step 3 (CRITIQUE) and Step 4 (IMPROVE)
 
-The orchestrator agent owns Steps 3 (CRITIQUE) and 4 (IMPROVE) internally. The main context does not re-run them; the orchestrator's returned `MESSAGE` is already self-critiqued against the gate table below.
+The orchestrator agent owns Steps 3 (CRITIQUE) and 4 (IMPROVE) internally. The main context does not re-run them; the orchestrator's returned `MESSAGE` is already self-critiqued against the gate table below. With `flags.messageFile` the orchestrator is not dispatched, so `MESSAGE` is the file's content and was not critiqued.
 
 ### Step 5 (DO): Present and Execute
 
-Show the full commit plan to the user with the `MESSAGE` returned by the orchestrator and the staged-file summary read in Step 1. **Do not execute any git commands before receiving explicit user approval via AskUserQuestion.**
+Show the full commit plan to the user with the `MESSAGE` (returned by the orchestrator, or the file's content under `flags.messageFile`) and the staged-file summary read in Step 1. **Do not execute any git commands before receiving explicit user approval via AskUserQuestion.**
 
-**Auto mode:** When `flags.auto` is true, skip the AskUserQuestion prompt entirely. Still display the full commit plan for visibility, then proceed directly to execution. Treat the response as an implicit `yes`. The orchestrator's internal critique already ran in Step 2 — only the interactive approval prompt is skipped.
+**Auto mode:** When `flags.auto` is true, skip the AskUserQuestion prompt entirely. Still display the full commit plan for visibility, then proceed directly to execution. Treat the response as an implicit `yes`. The orchestrator's internal critique already ran in Step 2 (it does not run under `flags.messageFile`) — only the interactive approval prompt is skipped.
 
 ```
 Commit
@@ -254,7 +254,7 @@ Set `Source:` to the flag that supplied the given subject, in the same order (`-
    git stash pop
    ```
 
-**On `edit`:** Ask what to change, revise the message, and present again. Loop until explicit `yes` or `cancel`. Re-dispatching the orchestrator is not required for small wording tweaks — apply user-supplied edits to `MESSAGE` directly, rewrite `<MSG_FILE>` with the message-file block below, and re-validate against the subject-pattern gate before re-presenting.
+**On `edit`:** With a given subject (`flags.subject` or `flags.expectedSubject`) only the body may be edited, because a changed subject trips exit 3. With `flags.messageFile` the edit option is withheld: any edit trips exit 3, so offer **yes** or **cancel** only. Ask what to change, revise the message, and present again. Loop until explicit `yes` or `cancel`. Re-dispatching the orchestrator is not required for small wording tweaks — apply user-supplied edits to `MESSAGE` directly, rewrite `<MSG_FILE>` with the message-file block below, and re-validate against the subject-pattern gate before re-presenting.
 
 **On `cancel`:** Abort without changes. The next run of `skill/commit.js` prunes the manifest and the message file (R-script-prune).
 
