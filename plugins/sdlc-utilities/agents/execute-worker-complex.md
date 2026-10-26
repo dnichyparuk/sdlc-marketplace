@@ -24,7 +24,7 @@ Your dispatch prompt gives `TASK_ID`, `FACT_SHEET`, `FILES_ALLOWED` (one path pe
 
 Read your task specification from the fact sheet at `{FACT_SHEET}`.
 
-After implementation, list every file you actually modified — Step 5c-bis verifies your diff against the wave's `expectedFiles` manifest. Do not modify files outside `FILES_ALLOWED`.
+After implementation, list every file you actually modified — Step 5c (1a) verifies your diff against the wave's `expectedFiles` manifest. Do not modify files outside `FILES_ALLOWED`.
 
 ## Files You May Touch
 The `FILES_ALLOWED` lines of your dispatch prompt list every file you may create or modify. Do not modify any other file.
