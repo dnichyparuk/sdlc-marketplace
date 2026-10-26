@@ -88,7 +88,7 @@ Haiku runs only the batched-trivial agent. Raise a task one column (never a tier
    }
    ```
 
-7. **Identify pre-wave trivials:** Trivial tasks that have downstream dependents in Wave 1 should run in the pre-wave. If there is only 1 pre-wave trivial, execute it inline. If there are 2+, dispatch them as one batch worker (the "Trivial (2+ batched)" row of the routing table).
+7. **Identify pre-wave trivials:** Trivial tasks that have downstream dependents in Wave 1 should run in the pre-wave. Pre-wave trivials, one or more, are executed inline in the main context, one after another (spec R6).
 
 8. **Identify in-wave trivial batches:** Within each wave, if 2 or more tasks are classified Trivial, dispatch them together as one batch worker (the "Trivial (2+ batched)" row of the routing table). A single trivial task in a wave is dispatched as one worker (the "Trivial (single, in-wave)" row). Same-file ordering rules apply within the batch (the dispatch prompt's `ORDERING` line, SKILL.md Step 5b).
 
