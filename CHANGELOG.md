@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-26
+
+### Added
+- feat: three worker agents, `execute-worker` (sonnet), `execute-worker-batch` (haiku) and `execute-worker-complex` (opus); execute-plan-sdlc routes every task by an agent × effort table, and each dispatch passes `effort` and no `model`, `mode` or background flag (#9014)
+- feat: execute dispatches workers from its own main context for plans below `execute.waveRunnerMinPlanTasks` (default 9); plans at or above it keep the wave-runner (#9014)
+
+### Changed
+- feat: BEHAVIOUR CHANGE: the Speed tier (`--quality full`) no longer skips the spec-compliance review (Step 5c-bis / 8-bis) (#9014)
+- feat: the spec reviewer runs once per run by default (`execute.specReviewer`); `--quality minimal` forces `per-wave` (#9014)
+- feat: no pre-wave guardrail pass; guardrails are injected into every worker prompt and checked once after each wave (#9014)
+- feat: a custom quality tier routes as the preset it is based on, or as `balanced` when it has none (#9014)
+- feat: escalation on retry: the first retry raises effort on the same agent, the second moves to the next agent tier (#9014)
+- fix: `check-consistency.js` rule 13 (the await-barrier check) needs only a barrier instruction; `run_in_background: false` is no longer required, because the Agent tool has no such parameter (#9014)
+- docs: S3 measurement (12-task, 3-wave plan, direct vs runner) recorded in `docs/cost-tiers.md` §7: the default `execute.waveRunnerMinPlanTasks` stays 9; the decision rule fired and the owner kept 9 pending a realistic re-measurement (#9164) (#9014)
+- docs: user docs for execute (the pre-wave check, the routing) are updated in W5.5; until then `docs/skills/execute-plan-sdlc.md` ("Pre-wave check (Step 5a-pre)") and `docs/skills/harden-sdlc.md` (caller at Step 5a-pre) describe the removed pre-wave check (#9014)
+
+### Security
+- execute-plan-sdlc no longer instructs any `bypassPermissions` dispatch; subagents inherit the session's permission mode (#9160). The plan-sdlc occurrences are tracked in #9163 (#9014)
+
 ## [0.32.0] - 2026-10-25
 
 ### Added
