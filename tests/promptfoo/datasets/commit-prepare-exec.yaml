@@ -570,3 +570,18 @@
         if (!o.manifest) return 'FAIL: new manifest missing (cross-shell survival, R15)';
         const want = ['commit-main-notes.msg', 'commit-otherbranch-20240101T000000Z.msg', 'review-main-20240101T000000Z.msg'];
         return JSON.stringify(o.left) === JSON.stringify(want) ? true : `FAIL: left ${JSON.stringify(o.left)}`;
+
+- description: "commit-subject: prune out — the script deletes this branch's earlier out/ .msg files and keeps foreign ones"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((d)=>(fs.mkdirSync(d+"/out",{recursive:true}),["commit-context-main-20240101T000000Z-ab12.msg","commit-context-otherbranch-20240101T000000Z-ab12.msg","review-main-20240101T000000Z-ab12.msg","commit-context-main-notes.msg"].forEach((n)=>fs.writeFileSync(d+"/out/"+n,"x\n")),((r)=>console.log(JSON.stringify({status:r.status,manifest:fs.existsSync(r.stdout.trim()),left:fs.readdirSync(d+"/out").filter((n)=>n.endsWith(".msg")).sort()})))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8",env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d})}))))(process.cwd()+"/.sdlc/execution"))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-on-default-branch"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}`;
+        if (!o.manifest) return 'FAIL: new manifest missing (cross-shell survival, R15)';
+        const want = ['commit-context-main-notes.msg', 'commit-context-otherbranch-20240101T000000Z-ab12.msg', 'review-main-20240101T000000Z-ab12.msg'];
+        return JSON.stringify(o.left) === JSON.stringify(want) ? true : `FAIL: left ${JSON.stringify(o.left)}`;

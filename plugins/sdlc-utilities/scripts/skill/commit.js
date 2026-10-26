@@ -161,18 +161,26 @@ function checkGivenSubjects({ subject, messageFile, expectedSubject }) {
 
 /**
  * Deletes this branch's earlier `commit-<branchSlug>-<YYYYMMDDTHHmmssZ>.msg` files
- * in the state directory. The `.json` manifests are pruned by writeManifestState (R15);
- * no other file is touched.
+ * in the state directory, and its `commit-context-<branchSlug>-<ts>-<hash>.msg` files in
+ * `<stateDir>/out/` (the message file of a run whose manifest went there, such as the
+ * wipSquash path). The `.json` manifests are pruned by writeManifestState (R15) and
+ * lib/output.js; no other file is touched.
  */
 function pruneCommitMessageFiles(branch) {
   const dir = resolveStateDir();
   const slug = slugifyBranch(branch);
-  let names;
-  try { names = fs.readdirSync(dir); } catch (_) { return; }
-  for (const name of names) {
-    const m = /^commit-(.+)-(\d{8}T\d{6}Z)\.msg$/.exec(name);
-    if (!m || m[1] !== slug) continue;
-    try { fs.unlinkSync(path.join(dir, name)); } catch (_) { /* best effort */ }
+  const targets = [
+    [dir, /^commit-(.+)-(\d{8}T\d{6}Z)\.msg$/],
+    [path.join(dir, 'out'), /^commit-context-(.+)-(\d{8}T\d{6}Z)-[0-9a-f]{4}\.msg$/],
+  ];
+  for (const [where, re] of targets) {
+    let names;
+    try { names = fs.readdirSync(where); } catch (_) { continue; }
+    for (const name of names) {
+      const m = re.exec(name);
+      if (!m || m[1] !== slug) continue;
+      try { fs.unlinkSync(path.join(where, name)); } catch (_) { /* best effort */ }
+    }
   }
 }
 

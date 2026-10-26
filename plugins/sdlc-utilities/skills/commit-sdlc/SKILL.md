@@ -208,7 +208,11 @@ Set `Source:` to the flag that supplied the given subject, in the same order (`-
      if (cfg.subjectPattern && !new RegExp(cfg.subjectPattern).test(subject)) process.exit(1);
      if (f.subject && subject !== f.subject) process.exit(3);
      if (f.expectedSubject && subject !== f.expectedSubject) process.exit(3);
-     if (f.messageFile && fs.readFileSync(process.argv[2], "utf8").trimEnd() !== fs.readFileSync(f.messageFile, "utf8").trimEnd()) process.exit(3);
+     if (f.messageFile) {
+       let want;
+       try { want = fs.readFileSync(f.messageFile, "utf8"); } catch (e) { console.error("--message-file cannot be read: " + e.message); process.exit(3); }
+       if (fs.readFileSync(process.argv[2], "utf8").trimEnd() !== want.trimEnd()) process.exit(3);
+     }
    ' "<COMMIT_CONTEXT_FILE>" "<MSG_FILE>"
    ```
 
