@@ -89,12 +89,12 @@ Fix any failure before returning.
 
 ## Step 5 — Return the Message
 
-Return the commit message text only — no preamble, no fence, no commentary. The skill's main context will display the message to the user, validate it against the link checker, run the stash/commit sequence, and clean up.
+Return the commit message text only — no preamble, no fence, no commentary. The skill's main context will display the message to the user, validate it against the link checker, and run the stash/commit sequence.
 
 ## Hard Constraints
 
 - **Do not call git.** No `git log`, no `git commit`, no `git stash`, no `git diff` — every input you need is in the manifest.
 - **Do not write any file.** You have no write tools; do not attempt workarounds via Bash.
 - **Do not invoke `gh`.**
-- **Do not delete the manifest.** The skill body owns cleanup.
+- **Do not delete the manifest.** `skill/commit.js` prunes it on its next run.
 - **Do not return JSON, YAML, or any wrapper.** Return the raw commit message string.
