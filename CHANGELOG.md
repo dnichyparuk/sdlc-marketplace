@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs: S3 measurement (12-task, 3-wave plan, direct vs runner) recorded in `docs/cost-tiers.md` §7: the default `execute.waveRunnerMinPlanTasks` stays 9; the decision rule fired and the owner kept 9 pending a realistic re-measurement (#9164) (#9014)
 - docs: user docs for execute (the pre-wave check, the routing) are updated in W5.5; until then `docs/skills/execute-plan-sdlc.md` ("Pre-wave check (Step 5a-pre)") and `docs/skills/harden-sdlc.md` (caller at Step 5a-pre) describe the removed pre-wave check (#9014)
 - execute-plan-sdlc no longer instructs any `bypassPermissions` dispatch; subagents inherit the session's permission mode (#9160). The plan-sdlc occurrences are tracked in #9163 (#9014)
+- execute-plan-sdlc: pre-wave trivial tasks, one or more, now run inline in the main context, one after another; two or more were previously sent to a batch worker (BEHAVIOUR CHANGE) (#9014)
 
 ## [0.32.0] - 2026-10-25
 
