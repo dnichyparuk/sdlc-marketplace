@@ -167,29 +167,28 @@
         not propose retrying, editing URLs without user input, or bypassing the gate. The gate is
         described as script-enforced, not advisory.
 
-- description: "commit-sdlc: explicit rm -f cleanup runs on pre-commit hook failure (issue #209, R15/#399)"
+- description: "commit-sdlc: manifest cleanup on pre-commit hook failure is the script's prune, not a trap (R-script-prune, R15/#399)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"
     project_context: "file://fixtures/commit-staged-changes.md"
     user_request: >
       Run /commit-sdlc. The pre-commit hook fails (lint error). Walk through what happens
-      to $COMMIT_CONTEXT_FILE in this failure path. Describe the exact mechanism that ensures
-      the manifest file is cleaned up after a pre-commit hook failure. Does the skill use an
-      EXIT trap or explicit rm -f calls?
+      to $COMMIT_CONTEXT_FILE and the message file in this failure path. Who removes the
+      manifest, and when? Does the skill use an EXIT trap, explicit rm -f calls, or neither?
   assert:
-    - type: icontains
-      value: "rm -f"
     - type: not-icontains
       value: "trap 'rm -f"
+    - type: icontains
+      value: "prune"
     - type: llm-rubric
       value: >
-        The response describes explicit `rm -f "$COMMIT_CONTEXT_FILE"` cleanup on the pre-commit
-        hook failure path — NOT an EXIT trap. It confirms the manifest at `.sdlc/execution/commit-*.json`
-        is removed via an explicit `rm -f` call in the failure branch (not via a trap construct).
-        It does NOT describe a `trap 'rm -f ...' EXIT INT TERM` as the cleanup mechanism.
-        It correctly notes the manifest persists until explicitly cleaned up (enabling cross-shell
-        survival), and that each exit path (success, cancel, hook failure, link-gate failure)
-        performs its own explicit cleanup.
+        The response says the skill stops on the pre-commit hook failure (it reports the failure
+        and does not commit) and that the skill itself does NOT `rm -f` the manifest: there is no
+        EXIT trap and no `rm -f` of the manifest anywhere in the skill. The manifest at
+        `.sdlc/execution/commit-*.json` persists (cross-shell survival), and `skill/commit.js`
+        prunes it and the message file on its next run (R-script-prune). The only `rm -f` it may
+        mention is the one of the message file, `rm -f "<MSG_FILE>"`, never of the manifest. It
+        does NOT describe a `trap 'rm -f ...' EXIT INT TERM` as the cleanup mechanism.
 
 # ---------------------------------------------------------------------------
 # Fixes #392 / R35 — wip(execute): squash behavioral cases
@@ -278,7 +277,7 @@
       value: >
         The response stops before creating any commit. It prints the error message from prepare
         output verbatim (containing "Refusing to --auto commit to default branch"). It does NOT
-        invoke git commit. It cleans up the manifest file with explicit rm -f. It suggests
+        invoke git commit. It does not delete the manifest itself; the next run prunes it (R-script-prune). It suggests
         passing --force-default-branch to override or removing --auto for interactive approval.
 
 - description: "commit-sdlc: --auto --force-default-branch on default branch proceeds with warning (R14, C12/#398)"

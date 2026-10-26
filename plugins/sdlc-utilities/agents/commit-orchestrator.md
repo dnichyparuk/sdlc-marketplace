@@ -24,7 +24,7 @@ Read the manifest JSON from `MANIFEST_FILE`. The manifest contains:
 | Field | Description |
 | --- | --- |
 | `currentBranch` | Active git branch |
-| `flags` | `{ noStash, scope, type, amend, auto }` — parsed CLI flags |
+| `flags` | `{ noStash, scope, type, amend, auto, noSquashWip, skipConfigCheck, forceDefaultBranch, subject, messageFile, expectedSubject }` — parsed CLI flags |
 | `staged.files` | List of staged file paths |
 | `staged.fileCount` | Number of staged files |
 | `staged.diff` | Full unified diff of staged changes |
@@ -62,6 +62,8 @@ Config constraints take precedence over `recentCommits` inference.
 
 ## Step 3 — Generate Subject and Body
 
+If `flags.subject` is set (`--subject`), the subject line is exactly `flags.subject`; write only the body (R-subject-verbatim). Rules 2, 3 and 5 below then do not apply, and the Step 4 self-critique never alters that subject line. With `flags.amend`, revise the body per rule 4 and replace the subject. Ignore `flags.expectedSubject` (`--expected-subject`): the skill checks it after you return (R-expected-subject). A `--message-file` run does not dispatch you (R-message-file).
+
 1. Read `staged.diff` to understand what changed. When `staged.diffTruncated` is true, supplement with `staged.diffStat` and `staged.truncatedFiles`.
 2. If `flags.type` is set, use it. Else infer from the change (constrained by `allowedTypes`).
 3. If `flags.scope` is set, use it. Else infer from changed files or omit (constrained by `allowedScopes`).
@@ -87,12 +89,12 @@ Fix any failure before returning.
 
 ## Step 5 — Return the Message
 
-Return the commit message text only — no preamble, no fence, no commentary. The skill's main context will display the message to the user, validate it against the link checker, run the stash/commit sequence, and clean up.
+Return the commit message text only — no preamble, no fence, no commentary. The skill's main context will display the message to the user, validate it against the link checker, and run the stash/commit sequence.
 
 ## Hard Constraints
 
 - **Do not call git.** No `git log`, no `git commit`, no `git stash`, no `git diff` — every input you need is in the manifest.
 - **Do not write any file.** You have no write tools; do not attempt workarounds via Bash.
 - **Do not invoke `gh`.**
-- **Do not delete the manifest.** The skill body owns cleanup.
+- **Do not delete the manifest.** `skill/commit.js` prunes it on its next run.
 - **Do not return JSON, YAML, or any wrapper.** Return the raw commit message string.

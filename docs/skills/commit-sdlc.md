@@ -26,6 +26,10 @@ Inspects staged changes and recent commit history to generate a commit message t
 | `--force-default-branch` | Allow `--auto` commits on the default branch. Ignored on non-default branches. (Fixes #398.) | Disabled |
 | `--no-squash-wip` | Preserve `wip(execute):` commits in branch history instead of soft-resetting them into the final commit. Useful when you want the per-wave WIP history visible for review. (Fixes #392 / R35.) | Disabled (squash by default) |
 | `--expected-branch <name>` | **Internal — set by ship-sdlc.** Validates that the current branch matches `<name>` before any `git commit` invocation. Exits non-zero if the branches differ. Cross-link: see [ship-sdlc branch-verification guard](ship-sdlc.md#branch-verification-guard). | inactive |
+| `--subject <text>` | Use `<text>` verbatim as the commit subject; the message agent writes only the body. One line, at most 72 characters, checked before drafting. With `--auto`, a different subject in the written message stops the commit; without `--auto`, you are shown both and asked. The value must not contain `"`, a backtick (`` ` ``), `$` or `\`; for such a subject, write the whole message to a file and use `--message-file`. | Unset (subject drafted) |
+| `--message-file <path>` | Commit the file's content as the whole message; the message agent is skipped. The subject gate, the link check and `git commit -F` still run. The subject is the file's first line. The path must not contain `"`, a backtick (`` ` ``), `$`, `\`, a newline or a carriage return. | Unset |
+| `--expected-subject <text>` | The subject you expect. With `--auto`, a different subject stops the run without a commit; without `--auto`, you are shown both and asked. Like `--subject`, the value must not contain `"`, a backtick (`` ` ``), `$` or `\`. | Unset |
+| `--skip-config-check` | Skip the config-version check and migration at start (same as `SDLC_SKIP_CONFIG_CHECK=1`). | Disabled |
 
 ---
 
@@ -286,6 +290,7 @@ Refactor login logic
 | Git commit | A new commit on the current branch, or an amended HEAD commit when `--amend` is passed |
 | Git stash (temporary) | Created from unstaged tracked-file changes before the commit and immediately popped after — not a permanent stash entry |
 | `.sdlc/execution/commit-<slug>-<ts>.json` | Persistent prepare manifest (success path) containing the staged file list, full staged diff, branch metadata, and flags. Survives across Bash invocations to support cross-shell consumers. Error-path manifests instead go to `os.tmpdir()` via `writeOutput`. |
+| `.sdlc/execution/commit-<slug>-<ts>.msg` | The commit message file, written with a quoted heredoc and read by the subject gate, the link check and `git commit -F`. `skill/commit.js` deletes this branch's earlier `.msg` files on its next run. A deleted branch's last `.msg` file is not collected. |
 
 > **Note:** `.sdlc/execution/commit-*.json` files include the full staged diff content. The repo-level `.sdlc/.gitignore` excludes everything under `.sdlc/` except `config.json` and `review-dimensions/`, so these files are not tracked by git — but be aware that the diff sits on disk under the success-path manifest until the next prune-on-write or `--gc` cycle. Do not share or copy `.sdlc/execution/` contents if a stage may have included credentials.
 

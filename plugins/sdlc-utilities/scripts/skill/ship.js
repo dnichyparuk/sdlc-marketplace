@@ -402,12 +402,13 @@ function stepAgent(file) {
   return stepAgentCache[file];
 }
 
-function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile } = {}) {
+function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject = null } = {}) {
   // Steps[] is the canonical source of truth for which top-level steps run.
   // A step IS skipped when it is NOT in flags.steps. The provenance for an
   // exclusion is whatever determined the resolved steps[] (cli --steps /
   // config / built-in default).
   const stepsSet = new Set(Array.isArray(flags.steps) ? flags.steps : []);
+  // R-plan-commit-subject: planSubject is the one parse of the plan header (main, or the --after path); prepare already rejected a malformed field.
 
   // Derive the skipSource for a given step name. Convention preserved for
   // downstream consumers (state files, hooks, learnings).
@@ -466,6 +467,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       skipSource: skipSource('commit'),
       args: [
         '--auto',
+        planSubject ? `--subject "${planSubject}"` : '',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
       reason: isIn('commit') ? 'pending (will check after execute)' : 'not in steps[]',
@@ -1299,6 +1301,44 @@ function deriveBranchFromPlan(planPath, config) {
   return { type, slug, name: resolveBranchName({ type, slug, config }) };
 }
 
+/**
+ * R-plan-commit-subject / plan-sdlc R66: the plan header's `**Commit:** `<subject>`` field.
+ * The header is every line before the first `---`, `## ` or `### ` line; per-task
+ * `**Commit:**` notes below it are prose and are not read.
+ * @returns {{ subject: string|null, error: string|null }}  both null when there is no field
+ */
+function readPlanCommitSubject(planFile, subjectPattern = null) {
+  if (!planFile) return { subject: null, error: null };
+  let text;
+  try { text = fs.readFileSync(planFile, 'utf8'); } catch (err) {
+    // A missing plan means no field (resolvePlanFile reports it); any other failure must not skip the check silently.
+    if (err.code === 'ENOENT') return { subject: null, error: null };
+    return { subject: null, error: `The plan ${planFile} cannot be read (${err.code || err.message}), so its **Commit:** field cannot be checked. Fix: make the plan a readable markdown file. Why: ship forwards the planned subject verbatim to commit-sdlc.` };
+  }
+  const lines = text.split(/\r?\n/);
+  const end = lines.findIndex(l => l === '---' || l.startsWith('## ') || l.startsWith('### '));
+  const fields = (end === -1 ? lines : lines.slice(0, end)).filter(l => l.startsWith('**Commit:**'));
+  if (fields.length === 0) return { subject: null, error: null };
+  const fail = (why) => ({
+    subject: null,
+    error: `The **Commit:** field in the header of ${planFile} ${why}. ` +
+      'Fix: write it once, as **Commit:** `<subject>` — one line of at most 72 characters, without ", `, $ or \\, matching commit.subjectPattern. ' +
+      'Why: ship forwards it verbatim to commit-sdlc as --subject.',
+  });
+  if (fields.length > 1) return fail('appears more than once');
+  const m = /^\*\*Commit:\*\* `([^`]+)`\s*$/.exec(fields[0]);
+  if (!m) return fail('is not one backticked subject');
+  const subject = m[1];
+  if (subject.length > 72) return fail(`is ${subject.length} characters long`);
+  if (/["$\\]/.test(subject)) return fail('contains ", $ or \\');
+  if (subjectPattern) {
+    let ok;
+    try { ok = new RegExp(subjectPattern).test(subject); } catch (err) { return fail(`cannot be checked: commit.subjectPattern is not a valid regex (${err.message})`); }
+    if (!ok) return fail(`does not match commit.subjectPattern ${subjectPattern}`);
+  }
+  return { subject, error: null };
+}
+
 function lastHistory(ledger, id) {
   for (let i = ledger.history.length - 1; i >= 0; i--) {
     if (ledger.history[i].step === id) return ledger.history[i];
@@ -1824,6 +1864,7 @@ function runAfter(stepArgs) {
     openspecContext: flags.openspecContext,
     expectedBranch: ledger.branch,
     planFile: flags.planFile,
+    planSubject: readPlanCommitSubject(flags.planFile).subject,
   });
   const total = countTotal(steps);
   const skipped = [];
@@ -2424,6 +2465,13 @@ function main() {
 
   const planFile = resolvePlanFile(cli.planFile || null, errors);
 
+  // R-plan-commit-subject: a malformed **Commit:** header field stops prepare before any step
+  // runs, so the commit step never drafts a subject nobody planned.
+  let commitSubjectPattern = null;
+  try { commitSubjectPattern = (readSection(projectRoot, 'commit') || {}).subjectPattern || null; } catch (_) { /* no commit config */ }
+  const planCommit = readPlanCommitSubject(planFile, commitSubjectPattern);
+  if (planCommit.error) errors.push({ id: 'planCommitSubjectInvalid', message: planCommit.error });
+
   const context = {
     currentBranch: gitState.currentBranch,
     defaultBranch,
@@ -2458,7 +2506,7 @@ function main() {
     tasksDone: openspecMatchedChange ? openspecMatchedChange.tasksDone : null,
     tasksTotal: openspecMatchedChange ? openspecMatchedChange.tasksTotal : null,
   };
-  const steps = computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile });
+  const steps = computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject: planCommit.subject });
 
   // Run validation
   const validation = runValidation(flags, flagSources, steps, context);
