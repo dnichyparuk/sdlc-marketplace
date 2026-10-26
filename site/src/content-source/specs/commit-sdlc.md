@@ -22,7 +22,7 @@
 ## State model
 
 - R15: Prepare manifest MUST be written to `<stateDir>/commit-<branchSlug>-<timestamp>.json` via `lib/state.js → resolveStateDir()` so the manifest survives across separate Bash tool invocations in Claude Code. Prune-on-write removes previous `commit-<branchSlug>-*.json` entries for the current branch. The `parseStateFilename` regex MUST include `commit` in its prefix alternation so `pruneStateFiles` and `gcStateFiles` recognize the new prefix. The R12 link-verification gate behavior and the leak-prevention invariant (no transient context manifests in cwd) MUST remain intact after the manifest path move.
-- R-script-prune: `skill/commit.js` prunes its own earlier files; SKILL.md never deletes the manifest. Before it writes a manifest (R15), the script deletes every file in the state directory whose name is `commit-<branchSlug>-<YYYYMMDDTHHmmssZ>.msg` for the current branch slug; R15's prune removes the matching `.json` manifests. Error-path manifests under `<stateDir>/out/` are pruned by `lib/output.js` once older than one hour. No other file is deleted: other branches' files, other prefixes and other names stay. A deleted branch's last `.msg` file is not collected (`gcStateFiles` handles `.json` only). The manifest and the message file stay after a run until the next run, which keeps R15's cross-shell survival.
+- R-script-prune: `skill/commit.js` prunes its own earlier files; SKILL.md never deletes the manifest. Before it writes a manifest (R15), the script deletes every file in the state directory whose name is `commit-<branchSlug>-<YYYYMMDDTHHmmssZ>.msg` for the current branch slug, and every file in `<stateDir>/out/` whose name is `commit-context-<branchSlug>-*.msg` (the message file of a run whose manifest went to `out/`, such as the wipSquash path); R15's prune removes the matching `.json` manifests. SKILL.md's two `rm -f "<MSG_FILE>"` lines (the link-check failure and the hook-failure paths) are the only removals SKILL.md keeps: they remove the message file, never the manifest. Error-path manifests under `<stateDir>/out/` are pruned by `lib/output.js` once older than one hour. No other file is deleted: other branches' files, other prefixes and other names stay. A deleted branch's last `.msg` file is not collected (`gcStateFiles` handles `.json` only). The manifest and the message file stay after a run until the next run, which keeps R15's cross-shell survival.
   - Acceptance: exec case `commit-subject: prune` — after a run, a same-branch `commit-main-<ts>.msg` is gone, and `commit-otherbranch-<ts>.msg`, `review-main-<ts>.msg` and `commit-main-notes.msg` remain; `grep -c 'rm -f "$COMMIT_CONTEXT_FILE"' plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md` prints `0`.
 
 ## Step composition
@@ -130,7 +130,7 @@ None.
 
 - C1: Must not execute any git command before explicit user approval (unless `--auto`)
 - C2: Must not fabricate changes not present in the staged diff
-- C3: Must not skip the critique step
+- C3: Must not skip the critique step (exception: in a `--message-file` run the orchestrator is not dispatched, so Steps 3 and 4 do not run; the Step 5 subject gate and the R12 link check are the only checks, R-message-file)
 - C4: Must not include file paths in the subject line
 - C5: Must not run `git stash` when `--no-stash` is true
 - C6: Must not run `git commit --amend` unless `--amend` was explicitly passed
