@@ -1,12 +1,12 @@
 # Spec Compliance Reviewer Prompt Template
 
-Use this template in Step 5c-bis when dispatching the per-wave spec compliance reviewer. Dispatch as a single agent (sonnet) after mechanical verification passes for the wave.
+Use this template when dispatching the spec compliance reviewer: in Step 5c-bis (after each non-trivial wave, `flags.specReviewer === 'per-wave'`) or in Step 8-bis (once per run, `flags.specReviewer === 'once'`). Dispatch as a single agent (sonnet) after mechanical verification passes.
 
 **Purpose:** Verify that agents built what was requested — nothing more, nothing less.
 
-**When to use:** After every wave containing Standard or Complex tasks, unless the full preset (Speed) was selected.
+**When to use:** At the `flags.specReviewer` cadence (SKILL.md Step 5c-bis and Step 8-bis), for Standard and Complex tasks.
 
-**When to skip:** Wave contains only Trivial tasks, or the full preset (Speed) was selected.
+**When to skip:** The reviewed set contains only Trivial tasks.
 
 ## How to Fill This Template
 
@@ -20,7 +20,7 @@ For `{WAVE_NUMBER}`, use the current wave number.
 Agent tool (general-purpose):
   description: "Spec compliance review for Wave {WAVE_NUMBER}"
   model: sonnet
-  mode: bypassPermissions
+
   prompt: |
     You are reviewing whether implementations match their specifications. Read the actual
     code — do not trust agent reports.

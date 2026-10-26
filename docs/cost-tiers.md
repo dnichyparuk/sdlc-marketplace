@@ -24,7 +24,7 @@ One row per skill in `plugins/sdlc-utilities/skills/`.
 |---|---|---|
 | commit-sdlc | inherit | Runs on the session model; message drafting is routed to commit-orchestrator (haiku). A skill pin would move the whole transcript onto the pinned model. |
 | error-report-sdlc | inherit | Runs on the session model; consent gates and gh stay in main context; drafting is routed to error-report-orchestrator (haiku). |
-| execute-plan-sdlc | sonnet | Per-task dispatch decides per-tier (haiku/sonnet/opus) |
+| execute-plan-sdlc | sonnet | Orchestrator; workers routed by the agent × effort table |
 | harden-sdlc | sonnet | Existing — unchanged |
 | jira-sdlc | sonnet | Read/write Jira; light reasoning |
 | plan-sdlc | opus | Plan decomposition needs stronger reasoning; user-directed |
@@ -53,13 +53,16 @@ One row per agent in `plugins/sdlc-utilities/agents/`.
 | ship-step-received-review | sonnet | medium | Runs received-review-sdlc for ship; triage and fixes at today's ship tier |
 | ship-step-version | sonnet | low | Runs version-sdlc for ship; scripted release steps with verification gates |
 | ship-step-pr | sonnet | low | Runs pr-sdlc for ship; description drafting from a prepared context |
+| execute-worker | sonnet | medium | One plan task from its fact sheet (Standard, single in-wave Trivial); effort per the routing table |
+| execute-worker-batch | haiku | medium | 2+ trivial tasks in one dispatch; the only Haiku worker |
+| execute-worker-complex | opus | high | Complex tasks (Standard too at the Quality tier); same body as execute-worker |
 
 ## 5. Dispatch-Site Overrides
 
 Files where per-call `model:` is computed at runtime and **wins over frontmatter**:
 
 - `plugins/sdlc-utilities/scripts/skill/ship.js` — reads `model`/`effort` from `agents/ship-step-*.md`.
-- `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` — per-task `model:` is chosen from task complexity (Trivial → haiku, Standard → sonnet, Complex → opus) by the executor. `plugins/sdlc-utilities/scripts/skill/execute.js` emits the classification floor and wave structure; the per-task model is still chosen here.
+- `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` — the worker routing table maps quality tier × complexity to a worker agent (whose frontmatter pins the model) and an Agent-dispatch `effort`; execute passes no per-task `model:`. `plugins/sdlc-utilities/scripts/skill/execute.js` emits the classification floor and the wave structure, applies the table to each wave, and emits the routing as `waves[].dispatch` (`WORKER_ROUTING`, `AGENT_MODELS`), which SKILL.md dispatches verbatim.
 - `plugins/sdlc-utilities/scripts/skill/review.js` — passes per-dimension `model:` resolved from each dimension file's own frontmatter.
 - `plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md` — cross-model plan-reviewer rule (sonnet reviews opus-authored plans, and vice versa) at 5+ tasks.
 
@@ -81,17 +84,27 @@ Spike S1 (§7) answered NO: a forked sub-skill cannot ask the user. So ship asks
 
 A question a sub-skill still cannot ask comes back as `output.pendingQuestion`. Ship carries a high-risk `yes` back to execute; for any other answer it stops with the state kept and prints the commands to continue.
 
-### Execute quality presets
+### Execute worker routing
 
-`execute-plan-sdlc` maps task complexity to a model per quality preset. The preset names are contract (`docs/specs/execute-plan-sdlc.md` A2, R2); the models are tuning. Implemented in `plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md` Step 2 (CLASSIFY) and Step 4 (IMPROVE).
+`execute-plan-sdlc` routes each task to a worker agent and an Agent-dispatch `effort` by quality tier and complexity. The tier names are contract (`docs/specs/execute-plan-sdlc.md` A2, R2); the agents and efforts are tuning. Defined in `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` ("Worker routing"), dispatched in `SKILL.md` Step 5b; `scripts/skill/execute.js` holds the same table as `WORKER_ROUTING` and emits it per wave; the classifying table is the copy an exec case checks against the code, and this one is a summary.
 
-| Preset | Trivial | Standard | Complex |
+| Complexity | Speed (`--quality full`) | Balanced (default) | Quality (`--quality minimal`) |
 |---|---|---|---|
-| `full` (Speed) | haiku | haiku | sonnet |
-| `balanced` (Balanced, default) | haiku | sonnet | opus |
-| `minimal` (Quality) | sonnet | opus | opus |
+| Trivial (single, in-wave) | execute-worker / low | execute-worker / low | execute-worker / medium |
+| Trivial (2+ batched) | execute-worker-batch / medium | execute-worker-batch / medium | execute-worker / medium |
+| Standard | execute-worker / low | execute-worker / medium | execute-worker-complex / medium |
+| Complex | execute-worker / high | execute-worker-complex / high | execute-worker-complex / high |
 
-Two or more trivial tasks in a wave run as one batch agent at the Trivial model. On failure a task escalates one tier per retry — haiku → sonnet → opus → user — within a budget of 2 retries (R13).
+Haiku runs only the batched-trivial agent. On failure a task retries at most twice (R13), on the `retries` the prepare script puts in its dispatch entry:
+
+| Entry | First retry | Second retry |
+|---|---|---|
+| execute-worker-batch or execute-worker at low or medium | same agent, effort one level up | next agent tier, medium |
+| execute-worker-batch or execute-worker at high | next agent tier, medium | next agent tier, high |
+| execute-worker-complex at medium | execute-worker-complex, high | execute-worker-complex, high |
+| execute-worker-complex at high | execute-worker-complex, high | — (then the user) |
+
+The agent tiers are execute-worker-batch → execute-worker → execute-worker-complex. A task extracted from a failed batch is re-dispatched on the batch entry's second retry.
 
 ## 6. Why tuning changes do not require spec updates
 
@@ -113,7 +126,7 @@ If a tuning change later degrades output below the contract's bar (e.g., commit 
 |---|---|
 | Agent frontmatter `effort:` | The three Haiku orchestrators set `effort: low` |
 | Review-dimension frontmatter `effort:` | Not read today; W6b.5 adds the schema field and the `review.js` pass-through |
-| Execute presets (Agent dispatch `effort` param) | First rung of the escalation ladder before a tier change |
+| Execute worker routing (Agent dispatch `effort` param) | Set per task by the routing table (§5); the first retry raises it one level before the agent tier changes |
 
 Effort is set in agent frontmatter; the validator does not check it.
 

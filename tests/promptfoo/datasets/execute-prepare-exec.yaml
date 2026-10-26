@@ -6,7 +6,8 @@
 # Covered: flag resolution and provenance (CLI → execute config → legacy ship
 #   → default), quality resolution (A6), resume lookup and the R41 resume
 #   exemption, plan-file errors, the config-version check, the classification
-#   floor and wave build, workspace derivation and the OpenSpec mapping.
+#   floor and wave build, workspace derivation, the OpenSpec mapping, the
+#   worker-routing wave budgets and the spec-reviewer cadence.
 
 # ---------------------------------------------------------------------------
 # Resume, plan argument and quality
@@ -391,3 +392,175 @@
   assert:
     - type: javascript
       value: "const o=JSON.parse(output); Object.keys(o).sort().join()==='factSheets,runId'"
+
+# ---------------------------------------------------------------------------
+# Worker-routing wave budgets and spec-reviewer cadence (W5.3)
+# ---------------------------------------------------------------------------
+
+- description: "execute-prepare: (r1) an interactive run with no tier sizes the waves for the balanced routing"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.quality===null && o.waves.length===2 && o.waves[0].budget.model==='opus' && o.waves[1].budget.model==='sonnet'"
+
+- description: "execute-prepare: (r2) --quality full sizes a wave of a Standard and a single Trivial task for the execute-worker model"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality full --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.quality==='full' && o.waves.length===2 && o.waves[0].budget.model==='sonnet' && o.waves[1].budget.model==='sonnet'"
+
+- description: "execute-prepare: (r3) --quality minimal sizes a wave with a Standard task for the execute-worker-complex model"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality minimal --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.quality==='minimal' && o.waves.length===2 && o.waves[1].budget.model==='opus'"
+
+- description: "execute-prepare: (s1) with no execute config, waveRunnerMinPlanTasks is 9 and specReviewer is once, both from the default"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); const f = o.flags, s = f.sources; f.waveRunnerMinPlanTasks===9 && s.waveRunnerMinPlanTasks==='default' && f.specReviewer==='once' && s.specReviewer==='default'"
+
+- description: "execute-prepare: (s2) --quality minimal forces specReviewer per-wave with source quality"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality minimal --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.specReviewer==='per-wave' && o.flags.sources.specReviewer==='quality'"
+
+- description: "execute-prepare: (s3) a configured per-wave specReviewer keeps source config under --quality minimal"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/project-execute-prepare/plan.md --quality minimal --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-config"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.specReviewer==='per-wave' && o.flags.sources.specReviewer==='config'"
+
+- description: "execute-prepare: (d1) an interactive run routes each wave for balanced: one entry per Standard, Complex and single Trivial task"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves[0].dispatch.length===2 && o.waves[0].dispatch[1].model==='opus' && o.waves[0].dispatch[0].model==='sonnet' && o.waves[0].dispatch[0].agent==='sdlc:execute-worker' && o.waves[0].dispatch[0].effort==='medium' && o.waves[0].dispatch[0].taskIds.join()==='1' && o.waves[0].dispatch[1].agent==='sdlc:execute-worker-complex' && o.waves[0].dispatch[1].effort==='high' && o.waves[0].dispatch[1].taskIds.join()==='4' && o.waves[1].dispatch.length===2 && o.waves[1].dispatch[0].agent==='sdlc:execute-worker' && o.waves[1].dispatch[0].effort==='medium' && o.waves[1].dispatch[0].taskIds.join()==='2' && o.waves[1].dispatch[1].agent==='sdlc:execute-worker' && o.waves[1].dispatch[1].effort==='low' && o.waves[1].dispatch[1].taskIds.join()==='3'"
+
+- description: "execute-prepare: (d2) --quality full routes Standard and Complex tasks to execute-worker with low and high effort"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality full --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves[0].dispatch[0].agent==='sdlc:execute-worker' && o.waves[0].dispatch[0].effort==='low' && o.waves[0].dispatch[0].taskIds.join()==='1' && o.waves[0].dispatch[1].agent==='sdlc:execute-worker' && o.waves[0].dispatch[1].effort==='high' && o.waves[0].dispatch[1].taskIds.join()==='4' && o.waves[1].dispatch[1].agent==='sdlc:execute-worker' && o.waves[1].dispatch[1].effort==='low' && o.waves[1].dispatch[1].taskIds.join()==='3'"
+
+- description: "execute-prepare: (d3) --quality minimal routes Standard tasks to execute-worker-complex and a single Trivial to execute-worker at medium"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality minimal --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves[0].dispatch[0].agent==='sdlc:execute-worker-complex' && o.waves[0].dispatch[0].effort==='medium' && o.waves[0].dispatch[0].taskIds.join()==='1' && o.waves[0].dispatch[1].agent==='sdlc:execute-worker-complex' && o.waves[0].dispatch[1].effort==='high' && o.waves[0].dispatch[1].taskIds.join()==='4' && o.waves[1].dispatch[0].agent==='sdlc:execute-worker-complex' && o.waves[1].dispatch[0].effort==='medium' && o.waves[1].dispatch[0].taskIds.join()==='2' && o.waves[1].dispatch[1].agent==='sdlc:execute-worker' && o.waves[1].dispatch[1].effort==='medium' && o.waves[1].dispatch[1].taskIds.join()==='3'"
+
+- description: "execute-prepare: (d4) two Trivial tasks in one wave share one execute-worker-batch entry (retries execute-worker-batch/high, then execute-worker/medium); a lone Trivial wave gets a single entry"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/execute-prepare-trivials-plan/plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves.length===2 && o.waves[0].dispatch.length===2 && o.waves[0].dispatch[0].agent==='sdlc:execute-worker' && o.waves[0].dispatch[0].effort==='medium' && o.waves[0].dispatch[0].taskIds.join()==='3' && o.waves[0].dispatch[1].agent==='sdlc:execute-worker-batch' && o.waves[0].dispatch[1].effort==='medium' && o.waves[0].dispatch[1].taskIds.join()==='1,2' && o.waves[0].budget.model==='sonnet' && o.waves[0].dispatch[1].retries.map(r=>r.agent.slice(5)+'/'+r.effort).join()==='execute-worker-batch/high,execute-worker/medium' && o.waves[1].dispatch.length===1 && o.waves[1].dispatch[0].agent==='sdlc:execute-worker' && o.waves[1].dispatch[0].effort==='low' && o.waves[1].dispatch[0].taskIds.join()==='4'"
+
+- description: "execute-prepare: (d5) --quality minimal routes a two-Trivial batch to execute-worker at medium"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/execute-prepare-trivials-plan/plan.md --quality minimal --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves[0].dispatch[0].agent==='sdlc:execute-worker-complex' && o.waves[0].dispatch[0].effort==='medium' && o.waves[0].dispatch[0].taskIds.join()==='3' && o.waves[0].dispatch[1].agent==='sdlc:execute-worker' && o.waves[0].dispatch[1].effort==='medium' && o.waves[0].dispatch[1].taskIds.join()==='1,2' && o.waves[0].budget.model==='opus'"
+
+- description: "execute-prepare: (d6) each dispatch entry carries its R13 retry ladder: effort up, then the next agent tier; execute-worker-complex at high retries once"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves[0].dispatch[0].retries.map(r=>r.agent.slice(5)+'/'+r.effort).join()==='execute-worker/high,execute-worker-complex/medium' && o.waves[0].dispatch[1].retries.map(r=>r.agent.slice(5)+'/'+r.effort).join()==='execute-worker-complex/high' && o.waves[1].dispatch[1].retries.map(r=>r.agent.slice(5)+'/'+r.effort).join()==='execute-worker/medium,execute-worker-complex/medium'"
+
+- description: "execute-prepare: (d7) under --quality minimal a two-Trivial batch entry on execute-worker at medium retries on execute-worker at high, then on execute-worker-complex at medium; the Standard entry on execute-worker-complex at medium retries twice at high"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/execute-prepare-trivials-plan/plan.md --quality minimal --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves[0].dispatch[0].retries.map(r=>r.agent.slice(5)+'/'+r.effort).join()==='execute-worker-complex/high,execute-worker-complex/high' && o.waves[0].dispatch[1].retries.map(r=>r.agent.slice(5)+'/'+r.effort).join()==='execute-worker/high,execute-worker-complex/medium'"
+
+- description: "execute-prepare: (d8) an entry already at high effort retries on the next agent tier first (Speed Complex on execute-worker)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality full --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves[0].dispatch[1].retries.map(r=>r.agent.slice(5)+'/'+r.effort+'/'+r.model).join()==='execute-worker-complex/medium/opus,execute-worker-complex/high/opus'"
+
+- description: "execute-prepare: (d9) a Quality Standard entry on execute-worker-complex at medium gets two retries, both at high"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality minimal --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); const e = o.waves[0].dispatch[0]; e.agent==='sdlc:execute-worker-complex' && e.effort==='medium' && e.retries.length===2 && e.retries.every(r=>r.agent==='sdlc:execute-worker-complex' && r.effort==='high' && r.model==='opus')"
+
+- description: "execute-prepare: (cu) a custom tier with no base preset routes as balanced: no --quality gives the balanced dispatch entries for every wave"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); const s = w => o.waves[w].dispatch.map(e=>e.agent.slice(5)+'/'+e.effort+'/'+e.taskIds.join('+')).join(); o.flags.quality===null && s(0)==='execute-worker/medium/1,execute-worker-complex/high/4' && s(1)==='execute-worker/medium/2,execute-worker/low/3'"
+
+- description: "execute-prepare: (rt) the routing table in classifying-and-waving-tasks.md equals WORKER_ROUTING, routeWave re-derives every row from it, and the agent models equal the worker frontmatter"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-worker-routing-table.js"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.ok === true && r.rows === 4 && r.routeChecks === 12 && r.mismatches.length === 0"

@@ -19,7 +19,7 @@ Maximum retries per task: **2**. After 2 failures on the same task, escalate to 
 | File conflict between agents | Two agents in the same wave modified the same file | High |
 | Partial batch failure | Batch agent reports some tasks SUCCESS, some tasks FAILED | Medium |
 | Phantom success | Agent reports task complete, but `git diff --stat` shows no changes to expected files, or canary grep for the verification token fails | High |
-| Permission prompt hang (bypass mode) | Agent times out or hangs despite `mode: "bypassPermissions"` being set | Medium |
+| Permission prompt hang | Agent times out or hangs while a permission prompt waits in the main session | Medium |
 | Agent status: NEEDS_CONTEXT | Agent completion checklist reports STATUS: NEEDS_CONTEXT | Low |
 | Agent status: BLOCKED | Agent completion checklist reports STATUS: BLOCKED | Medium–High |
 | Malformed completion checklist | Agent output is missing the COMPLETE:/VERIFY:/STATUS: block, or it cannot be parsed | Low |
@@ -39,18 +39,22 @@ Max 1 retry. If it fails again, escalate.
 
 ### Model escalation on retry
 
-When re-dispatching a failed task, escalate the model one step up the chain:
+When re-dispatching a failed task, escalate one step per retry:
 
 ```
-haiku → sonnet → opus → user (escalate, do not retry further)
+First retry: same agent, failure context added to the prompt, effort raised one level (low→medium→high).
+Second retry: next agent tier (execute-worker-batch → execute-worker → execute-worker-complex) at medium effort.
+Already at high below execute-worker-complex: both retries on the next agent tier, at medium, then at high.
+execute-worker-complex at medium: both retries on execute-worker-complex at high.
+Tasks already on execute-worker-complex at high: re-dispatch once with failure context, then escalate to the user.
 ```
+
+The prepare script computes this ladder for every dispatch entry as `retries` (P4): dispatch each retry with the entry's `retries[n]` agent and effort verbatim. Every entry has at most 2 retries (ruling w2-planreview Q2).
 
 Rules:
-- Model escalation counts as one of the 2 allowed retries — it is not a separate retry budget.
-- Only escalate one step per retry. Do not jump from haiku directly to opus.
-- Always add failure context to the retry prompt regardless of model change. A stronger model with the same bad prompt produces the same bad output.
-- Always pass `mode: "bypassPermissions"` when re-dispatching. Model escalation changes the model, not the mode — both parameters must be set on every dispatch.
-- Tasks already on `opus` that fail: re-dispatch once with failure context and the same `opus` model. If that fails, escalate to user immediately.
+- Escalation counts as one of the 2 allowed retries — it is not a separate retry budget.
+- Only escalate one step per retry.
+- Always add failure context to the retry prompt regardless of the agent or effort change. A stronger model with the same bad prompt produces the same bad output.
 
 Add this line at the top of the retry prompt when escalating:
 ```
@@ -115,9 +119,8 @@ When a batch agent reports mixed results (some tasks SUCCESS, some tasks FAILED)
 1. Accept the succeeded tasks as final — do not re-run them
 2. Extract each failed task from the batch into its own individual retry
 3. Re-dispatch each failed task as a standalone agent with:
-   - The single-task Agent Prompt Template (not the batch template)
-   - Model escalated one step: haiku → sonnet
-   - `mode: "bypassPermissions"` passed explicitly to the Agent tool
+   - The batch entry's `retries[1]` agent and effort (the single-task body, not the batch body)
+
    - Failure context from the batch report added at the top of the prompt
 4. Treat each extracted retry independently — it counts toward that task's 2-retry budget
 5. If the extracted retry also fails, escalate to the user per the standard escalation protocol
@@ -145,19 +148,19 @@ When an agent reports successful completion but `git diff --stat` shows no chang
 
    Complete the task from scratch — assume none of your previous work exists.
    ```
-   Escalate model one step (haiku → sonnet → opus) and pass `mode: "bypassPermissions"` explicitly. This counts toward the 2-retry budget.
+   Escalate one step (see "Model escalation on retry"). This counts toward the 2-retry budget.
 
 4. **After the retry, re-run filesystem verification.** Run `git diff --stat` and grep for the verification token. If still no changes, escalate to the user immediately — do not retry a third time. Include: "Agent reported success twice but produced no filesystem changes. Manual implementation required."
 
 5. **For phantom success in batch agents:** Extract the phantom-success tasks from the batch. Re-dispatch each individually (not as a batch) with the constraints above and model escalation. Tasks that genuinely succeeded in the batch remain final — do not re-run them.
 
-### Permission prompt hang (bypass mode)
+### Permission prompt hang
 
-When an agent times out or hangs indefinitely despite `mode: "bypassPermissions"` being set:
+When an agent times out or hangs indefinitely while it may be waiting on a permission prompt:
 
 1. **Check first:** Ask the user to confirm whether a permission prompt is visible in their terminal. If so, they should respond to it — the agent will resume automatically.
 
-2. **If no prompt is visible** (agent genuinely hung, not waiting on user input): treat as a standard timeout. Re-dispatch with failure context and one model escalation step.
+2. **If no prompt is visible** (agent genuinely hung, not waiting on user input): treat as a standard timeout. Re-dispatch with failure context and one escalation step.
 
 ### Agent status: NEEDS_CONTEXT
 
@@ -181,7 +184,7 @@ The agent cannot complete the task. Assess the blocker before acting:
    Provide the missing context and re-dispatch with the same or escalated model. Counts as one retry.
 
 2. **Capability problem** — the task requires more reasoning than the assigned model:
-   Re-dispatch with an escalated model (haiku → sonnet → opus). Counts as one retry.
+   Re-dispatch one escalation step up (see "Model escalation on retry"). Counts as one retry.
 
 3. **Scope problem** — the task is too large for a single agent dispatch:
    Break the task into smaller sub-tasks. Each sub-task starts with a fresh retry budget.

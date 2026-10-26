@@ -68,7 +68,8 @@
       value: >
         The response acknowledges that execution guardrails are configured and loaded from the
         execute section of .claude/sdlc.json (not the plan section). It describes or references
-        guardrail evaluation at pre-wave (5a-pre) and/or post-wave (5c-ter) checkpoints.
+        guardrail evaluation at the post-wave (5c-ter) checkpoint, and that the guardrails are
+        injected into every worker prompt. It does not describe a pre-wave guardrail check.
         The response distinguishes execution guardrails from plan guardrails.
 
 - description: "execute-plan-sdlc: proceeds normally when no execution guardrails configured"
@@ -88,24 +89,28 @@
         evaluation steps or guardrail violations. Execution flows through the standard
         wave dispatch, verification, and reporting steps.
 
-- description: "execute-plan-sdlc: model parameter required on every agent dispatch per quality tier"
+- description: "execute-plan-sdlc: worker dispatch names the agent file and effort per quality tier"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/feature-branch-with-commits.md"
     user_request: >
       Run /execute-plan-sdlc --quality balanced. A plan with 5 tasks (2 Trivial, 2 Standard,
-      1 Complex) is ready. Show the wave structure with model assignments and how
-      agents will be dispatched.
+      1 Complex) is ready; the two Trivial tasks are in the same wave. Show the wave structure
+      with the worker routing and how the workers will be dispatched.
   assert:
     - type: icontains
-      value: "model"
+      value: "execute-worker"
     - type: regex
-      value: "(haiku|sonnet|opus)"
+      value: "effort"
     - type: llm-rubric
       value: >
-        The response shows wave structure with explicit model assignments per task:
-        Trivial=haiku, Standard=sonnet, Complex=opus (Balanced quality tier). The
-        dispatch includes model: as a required parameter for each agent.
+        The response shows the wave structure with the Balanced routing per task: the two
+        Trivial tasks go to one execute-worker-batch dispatch (effort medium), each Standard
+        task to execute-worker (effort medium), and the Complex task to execute-worker-complex
+        (effort high). Each worker dispatch names the agent file as its subagent_type and
+        passes effort; it does not pass a per-task model parameter, because the agent file
+        pins the model. Because the plan has fewer tasks than waveRunnerMinPlanTasks (default
+        9), the workers are dispatched from execute's main context, not through a wave-runner.
 
 # OpenSpec post-pipeline archive suggestion tests (issue #162)
 
@@ -196,44 +201,54 @@
 # Issue #353 — Wave-level Agent dispatch: wave-runner model in Step 5b
 # ---------------------------------------------------------------------------
 
-- description: "execute-plan-sdlc (issue #353): Step 5b dispatches one wave-runner Agent per wave, not one per task"
+- description: "execute-plan-sdlc (issue #353, W5.3): Step 5b picks direct or runner dispatch by waveRunnerMinPlanTasks and dispatches worker agent files"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
-      A plan has 2 waves: Wave 1 contains tasks T1 (Standard) and T2 (Standard);
-      Wave 2 contains tasks T3 (Standard) and T4 (Standard). There are no Trivial
-      tasks. Walk through Step 5b for both waves — how many Agent dispatches happen
-      from main context, and what do the wave-runner Agents receive?
+      Run with --quality balanced. A plan has 4 tasks in 2 waves: Wave 1 contains T1 (Standard)
+      and T2 (Standard); Wave 2 contains T3 (Standard) and T4 (Standard). There are no Trivial
+      tasks, and flags.waveRunnerMinPlanTasks is 9. Walk through Step 5b for both waves: how many
+      Agent dispatches happen from main context, with which subagent_type and effort, and how
+      main context waits for them. Then say what would change if flags.waveRunnerMinPlanTasks
+      were 4.
   assert:
+    - type: icontains
+      value: "execute-worker"
     - type: llm-rubric
       value: >
-        The response describes exactly 2 Agent dispatches from main context (one
-        wave-runner Agent per wave, not 4 per-task dispatches). Each wave-runner
-        Agent receives the wave manifest (task descriptions, file lists, assigned
-        models, prior-wave context), the per-task template inlined as perTaskTemplate,
-        and is responsible for fanning out per-task sub-agents internally. The
-        response must NOT describe 4 individual Agent dispatches from main context.
+        Because the plan has 4 tasks and 4 < 9, Step 5b runs in direct mode: for each wave,
+        main context dispatches one worker per task in a single message — 2 dispatches per
+        wave, 4 in total — each with subagent_type sdlc:execute-worker and effort medium, and
+        no model parameter (the agent file pins it). It awaits all of a wave's workers across
+        their completion notifications before consolidating, and composes the WAVE_SUMMARY
+        itself. No wave-runner Agent is dispatched. With waveRunnerMinPlanTasks 4 the plan
+        size reaches the threshold (4 >= 4), so Step 5b switches to runner mode: one wave-runner
+        Agent per wave (2 dispatches from main context, each with a model parameter), and each
+        wave-runner dispatches that wave's workers itself. The response must not pass a
+        run_in_background or mode parameter on any dispatch.
 
-- description: "execute-plan-sdlc (issue #353): in-wave trivial batch absorbed into wave-runner dispatch"
+- description: "execute-plan-sdlc (issue #353, W5.3): in-wave trivials go to one execute-worker-batch dispatch"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
-      Wave 1 contains 3 tasks: T1 (Standard, sonnet), T2 (Trivial, haiku), T3
-      (Trivial, haiku). Walk through Step 5b for this wave — how many Agent
-      dispatches happen from main context, and what does the wave-runner's prompt
-      body include for the trivial batch?
+      Run with --quality balanced. A 6-task plan is loaded (flags.waveRunnerMinPlanTasks is 9).
+      Wave 1 contains 3 tasks: T1 (Standard), T2 (Trivial) and T3 (Trivial). Walk through Step
+      5b for this wave: how many Agent dispatches happen from main context, with which
+      subagent_type and effort, and what the dispatch prompt for the trivial tasks contains.
   assert:
+    - type: icontains
+      value: "execute-worker-batch"
     - type: llm-rubric
       value: >
-        The response describes exactly 1 Agent dispatch from main context (one
-        wave-runner Agent for the entire wave). The wave-runner Agent's prompt
-        body includes the batchedTrivialTemplate (inlined from
-        classifying-and-waving-tasks.md) because the wave has 2+ Trivial tasks.
-        The wave-runner handles the trivial batch internally. The response must
-        NOT describe a separate batch-haiku Agent dispatch from main context for
-        the trivial tasks within this wave.
+        The plan has 6 tasks (fewer than 9), so Step 5b runs in direct mode. Main context sends
+        exactly 2 Agent dispatches in one message: one sdlc:execute-worker dispatch for T1
+        (effort medium) and one sdlc:execute-worker-batch dispatch (effort medium) for T2 and
+        T3 together. The batch prompt carries one TASK_ID / FACT_SHEET / FILES_ALLOWED /
+        VERIFY_TOKEN group per trivial task, in order, plus an ORDERING line. The response must
+        NOT describe 3 dispatches, a separate dispatch per trivial task, or a wave-runner
+        Agent for this wave.
 
 - description: "execute-plan-sdlc (issue #353): Step 5c parses WAVE_SUMMARY and runs filesystem verification"
   vars:
@@ -260,25 +275,24 @@
         passes. The response must NOT describe the wave-runner performing git
         diff or state writes.
 
-- description: "execute-plan-sdlc (issue #353): high-risk gate fires in main context before wave-runner dispatch"
+- description: "execute-plan-sdlc (issue #353): high-risk gate fires in main context before the wave's dispatch"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
       Wave 3 contains one task classified as HIGH RISK (T5: architectural change).
       Walk through Step 5a — when does the AskUserQuestion fire relative to the
-      wave-runner Agent dispatch?
+      wave's Agent dispatch (its workers, or its wave-runner in runner mode)?
   assert:
     - type: regex
       value: "(AskUserQuestion|high.risk gate)"
     - type: llm-rubric
       value: >
-        Step 5a fires BEFORE the wave-runner Agent is dispatched. The
-        AskUserQuestion lists the high-risk task names and waits for user
-        approval (yes/skip/cancel). Only after the user approves does main
-        context dispatch the wave-runner Agent for Wave 3. The wave-runner
-        Agent itself does NOT fire the high-risk gate — that is a main-context
-        responsibility.
+        Step 5a fires BEFORE any Agent is dispatched for Wave 3. The AskUserQuestion lists
+        the high-risk task names and waits for user approval (yes/skip/cancel). Only after
+        the user approves does main context dispatch the wave — its workers in direct mode,
+        or its wave-runner Agent in runner mode. Neither a worker nor a wave-runner fires the
+        high-risk gate — that is a main-context responsibility.
 
 - description: "execute-plan-sdlc (#378): --branch flag short-circuits Step 1 workspace derivation"
   vars:
@@ -337,24 +351,26 @@
         and NO `Worktree:` line. The response should reference R16/R30/R31
         (workspace auto-detection, fixes #378, #379).
 
-- description: "execute-plan-sdlc (#370): wave-runner Agent dispatch must omit isolation parameter"
+- description: "execute-plan-sdlc (#370): worker and wave-runner dispatches omit the isolation and mode parameters"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/plan-execution-complete.md"
     user_request: >
-      When execute-plan-sdlc dispatches the wave-runner Agent in Step 5b,
-      describe the exact Agent tool call parameters — specifically, which
-      parameters are included and whether isolation: "worktree" appears.
+      Describe the exact Agent tool call parameters execute-plan-sdlc uses in Step 5b, first
+      for a worker dispatch in direct mode and then for a wave-runner dispatch in runner mode —
+      specifically, which parameters are included and whether isolation: "worktree" or a mode
+      parameter appears.
   assert:
     - type: llm-rubric
       value: >
-        The response must state that the Agent dispatch in Step 5b includes
-        `model:` and `mode: bypassPermissions` but does NOT include an
-        `isolation` parameter (not `isolation: "worktree"` nor any other
-        isolation value). execute-plan-sdlc never creates a git worktree
-        (workspace is auto-detected); the Agent SDK isolation parameter would
-        break .sdlc/ anchoring. The response must reference the DO NOT note in
-        Step 5b or R-no-agent-sdk-isolation.
+        The direct-mode worker dispatch names the worker agent file as subagent_type and
+        passes effort, with no model parameter; the runner-mode wave-runner dispatch passes
+        model:. Neither dispatch includes an isolation parameter (not isolation: "worktree"
+        nor any other value), and neither passes a mode parameter such as
+        bypassPermissions — subagents inherit the session's permission mode.
+        execute-plan-sdlc never creates a git worktree (workspace is auto-detected); the
+        Agent SDK isolation parameter would break .sdlc/ anchoring. The response references
+        the Step 5b isolation rule or R-no-agent-sdk-isolation.
 
 # ---------------------------------------------------------------------------
 # Fixes #392 — Track B behavioral cases
@@ -363,11 +379,12 @@
 - description: "execute-plan-sdlc: per-task Agent prompt contains '## Project Guardrails' section when guardrails non-empty (#392 / R33)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
+    reference_path: "plugins/sdlc-utilities/agents/execute-worker.md"
     project_context: "file://fixtures/execute-guardrail-injection.md"
     user_request: >
-      Show the per-task Agent prompt the wave-runner would dispatch for Task T1 in Wave 1.
-      Include the full "## Project Guardrails" section verbatim. activeGuardrails has 2 entries
-      (one error, one warning).
+      Show the dispatch prompt execute sends to the execute-worker agent for Task T1 in Wave 1,
+      and the agent body sections that govern it. Include the full "## Project Guardrails"
+      section verbatim. activeGuardrails has 2 entries (one error, one warning).
   assert:
     - type: icontains
       value: "## Project Guardrails"
@@ -379,15 +396,16 @@
       value: "You MUST respect these constraints"
     - type: llm-rubric
       value: >
-        The response renders a per-task Agent prompt that contains a "## Project Guardrails"
-        section near the top with prescriptive framing ("You MUST respect these constraints").
-        Both guardrails (no-direct-db-access at error severity, no-axios at warning severity)
-        are listed with their id, severity, and description. The section is placed BEFORE
-        "Files You May Touch" or task-variable content to preserve prompt-cache prefix
-        stability across sibling per-task dispatches. The prompt also tells the worker to run a
-        real check (tests, type-check, build, or the changed command) that exercises its change
-        before reporting done, and does NOT tell the worker "do not go looking" for a missing
-        surface (it may search the repo before reporting NEEDS_CONTEXT).
+        The response renders a worker dispatch prompt that opens with a "## Project Guardrails"
+        section with prescriptive framing ("You MUST respect these constraints"). Both
+        guardrails (no-direct-db-access at error severity, no-axios at warning severity) are
+        listed with their id, severity, and description. The section is placed BEFORE the
+        TASK_ID / FACT_SHEET / FILES_ALLOWED lines or any other task-variable content, to
+        preserve prompt-cache prefix stability across sibling worker dispatches. The worker
+        body also tells the worker to run a real check (tests, type-check, build, or the
+        changed command) that exercises its change before reporting done, and does NOT tell
+        the worker "do not go looking" for a missing surface (it may search the repo before
+        reporting NEEDS_CONTEXT).
 
 - description: "execute-plan-sdlc: Step 5c sub-step 1a flags HARD failure when expectedFiles ∩ diff is empty (#392 / R34)"
   vars:
@@ -504,7 +522,7 @@
     user_request: >
       You are execute-plan-sdlc running as a subagent dispatched by ship-sdlc for a multi-wave plan.
       You are NOT the top-level context — ship-sdlc invoked you via the Agent tool.
-      A 2-wave plan is loaded: Wave 1 has T1 (Standard) and Wave 2 has T2 (Standard).
+      A 10-task, 3-wave plan is loaded and flags.waveRunnerMinPlanTasks is 9.
       Walk through Step 5b for Wave 1: dispatch the wave-runner Agent for this wave.
       Show the Agent tool call parameters you would use.
   assert:
@@ -512,12 +530,13 @@
     - type: llm-rubric
       value: >
         The response proceeds to dispatch the wave-runner Agent for Wave 1 using the Agent
-        tool. The dispatch includes `model:` and `mode: bypassPermissions` parameters and
-        does NOT include `isolation:`. The response does NOT emit any self-blocking text
-        such as "no agent-dispatch tool available" or refuse to call the Agent tool on the
-        grounds of running as a subagent. Nested Agent dispatch is supported — being
-        dispatched as a subagent does not remove the Agent tool. The wave-runner dispatch
-        must occur; "no agent-dispatch tool available" must NOT appear.
+        tool, because the plan's 10 tasks reach waveRunnerMinPlanTasks (runner mode). The
+        dispatch includes `model:` and does NOT include `isolation:` or a `mode` parameter.
+        The response does NOT emit any self-blocking text such as "no agent-dispatch tool
+        available" or refuse to call the Agent tool on the grounds of running as a subagent.
+        Nested Agent dispatch is supported — being dispatched as a subagent does not remove
+        the Agent tool. The wave-runner dispatch must occur; "no agent-dispatch tool
+        available" must NOT appear.
 
 - description: "execute-plan-sdlc: archive suggestion suppressed when undocumented - [ ] tasks remain (R38, #414)"
   vars:
@@ -600,12 +619,11 @@
 - description: "execute-plan-sdlc (R-WAVE-CONTEXT-PRODUCER, #506): worker prompt carries INTERFACES and DECISIONS lines"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
+    reference_path: "plugins/sdlc-utilities/agents/execute-worker.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
-      A wave contains a Standard task (sonnet) plus a batched trivial group. Show the
-      completion block that the per-task worker prompt asks a Standard worker to fill in,
-      AND the per-task verification-token block the batched-trivial worker prompt asks for.
-      List every line of each block verbatim.
+      A wave contains a Standard task. Show the completion block that the execute-worker agent
+      body asks a Standard worker to fill in. List every line of the block verbatim.
   assert:
     - type: icontains
       value: "INTERFACES"
@@ -613,23 +631,41 @@
       value: "DECISIONS"
     - type: llm-rubric
       value: >
-        Both worker prompt shapes carry an INTERFACES line AND a DECISIONS line
-        alongside COMPLETE, VERIFY, and STATUS. In the per-task completion checklist
-        the lines read `INTERFACES: <symbol_name> in <file_path>[, ...] | none` and
-        `DECISIONS: <one-line decision a later task must honour> | none`. In the
-        batched-trivial block the same two tokens appear per task, with a task-number
-        infix (`INTERFACES Task {N}:` / `DECISIONS Task {N}:`) — that infixed form is
-        correct and must be accepted. The response states that the literal `none` is a
-        valid value for either line. A response that shows only COMPLETE/VERIFY/STATUS,
-        or that carries the two lines in just one of the two prompt shapes, fails.
+        The completion checklist carries an INTERFACES line AND a DECISIONS line alongside
+        COMPLETE, VERIFY, and STATUS. The lines read `INTERFACES: <symbol_name> in
+        <file_path>[, ...] | none` and `DECISIONS: <one-line decision a later task must
+        honour> | none`. The response states that the literal `none` is a valid value for
+        either line. A response that shows only COMPLETE/VERIFY/STATUS fails.
+
+- description: "execute-plan-sdlc (R-WAVE-CONTEXT-PRODUCER, #506): batch worker prompt carries INTERFACES and DECISIONS lines"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
+    reference_path: "plugins/sdlc-utilities/agents/execute-worker-batch.md"
+    project_context: "file://fixtures/execute-plan-ready.md"
+    user_request: >
+      A wave contains a batched trivial group. Show the per-task verification-token block that
+      the execute-worker-batch agent body asks for. List every line of the block verbatim.
+  assert:
+    - type: icontains
+      value: "INTERFACES"
+    - type: icontains
+      value: "DECISIONS"
+    - type: llm-rubric
+      value: >
+        The batch block carries, per task, a VERIFY line, an INTERFACES line and a DECISIONS
+        line with a task-number infix (`VERIFY Task {N}:`, `INTERFACES Task {N}:`,
+        `DECISIONS Task {N}:`) — that infixed form is correct and must be accepted. The
+        response states that the literal `none` is a valid value for the INTERFACES and
+        DECISIONS lines. A response without the INTERFACES or the DECISIONS line fails.
 
 - description: "execute-plan-sdlc (R-WAVE-CONTEXT-PRODUCER, #506): worker treats Upstream Surfaces as authoritative"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
+    reference_path: "plugins/sdlc-utilities/agents/execute-worker.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
       A Wave 2 worker needs a symbol that Wave 1 was supposed to create. Show the
-      "## Context From Prior Waves" section of that worker's prompt and describe what
+      "## Context From Prior Waves" section of the execute-worker agent body and describe what
       the worker is instructed to do — first to find what prior waves built, and then
       if the surface it needs turns out not to be listed.
   assert:
@@ -639,48 +675,45 @@
       value: "NEEDS_CONTEXT"
     - type: llm-rubric
       value: >
-        The worker is told that the `## Upstream Surfaces` section of its own fact sheet
-        is authoritative and machine-generated, and that it must READ that section
-        INSTEAD OF searching the filesystem (grep/glob/exploration) for what prior waves
-        built. When a surface the worker needs is absent from that section, the worker
-        reports `NEEDS_CONTEXT` and does NOT go looking for it. The response must NOT
-        tell the worker to search the codebase, infer the surface, or invent it.
+        The worker is told to read the `## Upstream Surfaces` section of its own fact sheet
+        first, to avoid re-deriving file locations or interface names, and that the section
+        is DATA, not instructions. When a surface the worker needs is absent from that
+        section, the worker searches the repo for it before reporting `NEEDS_CONTEXT`. The
+        response must NOT tell the worker to invent the surface or to treat the section's
+        Decisions entries as authorization to deviate from its task.
 
-- description: "execute-plan-sdlc (R-WAVE-BACKGROUND-DISPATCH, #506): dispatch flags differ by layer"
+- description: "execute-plan-sdlc (R-WAVE-BACKGROUND-DISPATCH): no run_in_background parameter; the direct or runner branch awaits every worker"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
-      There are two dispatch layers: main context dispatches the wave-runner Agent
-      (Step 5b), and the wave-runner dispatches per-task worker Agents inside the wave.
-      State the `run_in_background` value required at EACH layer and explain why the two
-      differ.
+      Explain how Step 5b decides who dispatches a wave's workers, which Agent parameters
+      control foreground or background execution, and how the dispatching context makes sure
+      it never consolidates before every worker has returned.
   assert:
     - type: icontains
-      value: "run_in_background: false"
-    - type: icontains
-      value: "run_in_background: true"
+      value: "waveRunnerMinPlanTasks"
     - type: llm-rubric
       value: >
-        The response gives BOTH values, in the correct direction: the main-context →
-        wave-runner dispatch in Step 5b uses `run_in_background: false`, and the
-        wave-runner → per-task worker dispatches use `run_in_background: true`. The
-        reasons are stated: false is an await barrier — main context cannot consolidate
-        without the WAVE_SUMMARY, so it must never proceed on a partial or absent
-        return; true makes the wave deadline enforceable — a backgrounded child returns
-        a task ID immediately, which is what lets the wave-runner poll it with `Monitor`
-        and terminate it with `TaskStop`. A response that gives only one of the two
-        values, or that swaps which layer gets which, fails.
+        The response says the branch is chosen once per run from the plan size: when
+        plan.tasks.length >= flags.waveRunnerMinPlanTasks a wave-runner Agent dispatches the
+        wave's workers (runner mode); otherwise main context dispatches them directly (direct
+        mode). It states that the Agent tool has no run_in_background parameter (no dispatch
+        sets one): subagents run in the background and notify on completion. The dispatching
+        context sends all N workers in one message and awaits all N results across the
+        completion notifications before consolidating — that is the barrier, and it never
+        consolidates on a partial or absent set. A response that assigns run_in_background
+        true or false to any dispatch fails.
 
-- description: "execute-plan-sdlc (R-WAVE-DEADLINE, #506): runner polls with Monitor and terminates with TaskStop"
+- description: "execute-plan-sdlc (R-WAVE-DEADLINE, #506): the dispatching context polls with Monitor and terminates with TaskStop"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
-      The wave-runner for Wave 2 has dispatched its per-task workers and received their
-      task IDs. Walk through how it enforces the wave deadline it was handed in the
-      manifest — how it waits, how it learns which tasks are still running, and what it
-      does to the ones that overrun.
+      Wave 2's workers have been dispatched and their task IDs returned. Walk through how the
+      wave deadline from the manifest is enforced in direct mode, and who enforces it in
+      runner mode — how the dispatching context waits, how it learns which tasks are still
+      running, and what it does to the ones that overrun.
   assert:
     - type: icontains
       value: "Monitor"
@@ -688,15 +721,15 @@
       value: "TaskStop"
     - type: llm-rubric
       value: >
-        The wave-runner enforces the deadline itself, inside its own context. It polls
-        with `Monitor` on a non-blocking loop using the manifest's poll interval and a
+        In direct mode main context enforces the deadline; in runner mode the wave-runner
+        enforces it inside its own context, by the same procedure. The dispatching context
+        polls with `Monitor` on a non-blocking loop using the manifest's poll interval and a
         `timeout_ms` no greater than the remaining budget. On each poll it re-reads the
         progress markers (`wave-progress ... --read`) to learn which tasks are still in
-        flight — a task whose marker phase is not yet `reporting` — rather than relying
-        on its own memory of the dispatch list. When the deadline expires it calls
-        `TaskStop` on ONLY those still-in-flight tasks; workers that already reported are
-        left alone. The response must NOT describe spawning a separate watchdog Agent,
-        and must NOT describe a blocking sleep or main context doing the polling. It
+        flight — a task whose marker phase is not yet `reporting` — rather than relying on its
+        own memory of the dispatch list. When the deadline expires it calls `TaskStop` on ONLY
+        those still-in-flight tasks; workers that already reported are left alone. The
+        response must NOT describe spawning a separate watchdog Agent or a blocking sleep. It
         must not restate a numeric default for the timeout — the value arrives in the
         manifest.
 
@@ -730,29 +763,27 @@
         `wave-done --status partial --timed-out` write; the wave-runner already recorded
         that verdict.
 
-- description: "execute-plan-sdlc (R-WAVE-CONTEXT-PRODUCER, #506): SKILL.md inlines the whole template fence"
+- description: "execute-plan-sdlc (W5.3): runner mode passes agentFiles to the wave-runner, not inlined templates"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
-      A wave has one Standard task and two Trivial tasks. When main context builds the
-      wave-runner Agent's prompt in Step 5b, describe exactly how much of each prompt
-      template from classifying-and-waving-tasks.md gets inlined, and how that extent is
-      specified.
+      A 12-task plan runs in runner mode. Its Wave 1 has one Standard task and two Trivial
+      tasks. When main context builds the wave-runner Agent's prompt in Step 5b, describe
+      what it passes so the wave-runner can dispatch the workers, and whether any worker
+      prompt template is inlined.
   assert:
     - type: icontains
-      value: "perTaskTemplate"
+      value: "agentFiles"
     - type: llm-rubric
       value: >
-        Main context inlines the ENTIRE fenced block under the `## Agent Prompt Template`
-        heading as `perTaskTemplate` — from its opening fence through its closing fence —
-        and, because this wave has 2+ Trivial tasks, likewise the entire fenced block
-        under `## Batched Trivial Tasks Prompt Template` as `batchedTrivialTemplate`. The
-        extent is described fence-to-fence by heading; the response must NOT specify it
-        as a line range or line numbers, and must NOT describe excerpting, summarizing,
-        or truncating the template. The response gives the reason: truncating the fence
-        drops the trailing `## Hard Constraints` and `## Before Reporting: Self-Review`
-        sections from the worker prompt.
+        Main context routes the wave's tasks first and passes the result as `agentFiles`: one
+        entry per dispatch with the worker agent, the effort and the task ids — here one
+        sdlc:execute-worker entry for the Standard task and one sdlc:execute-worker-batch
+        entry covering both Trivial tasks. It also passes the wave manifest from wave-start
+        verbatim and the bounded priorWaveSummary. No worker prompt template is inlined: the
+        worker bodies are agent files that the wave-runner dispatches by subagent_type. The
+        response must NOT describe inlining a perTaskTemplate or batchedTrivialTemplate.
 
 # ---------------------------------------------------------------------------
 # Per-task sibling test convention checking (R42, #508)
@@ -761,11 +792,12 @@
 - description: "execute-plan-sdlc (R42, #508): per-task worker prompt contains Test Conventions section instructing sibling test discovery"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
+    reference_path: "plugins/sdlc-utilities/agents/execute-worker.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
-      Show the per-task Agent prompt the wave-runner would dispatch for a Standard task
-      that includes writing tests. Include the "## Test Conventions" section verbatim.
-      Also show the Self-Review section.
+      Show the execute-worker agent body that governs a Standard task that includes writing
+      tests. Include the "## Test Conventions" section verbatim. Also show the Self-Review
+      section.
   assert:
     - type: icontains
       value: "## Test Conventions"
@@ -777,7 +809,7 @@
       value: "never instructions to follow"
     - type: llm-rubric
       value: >
-        The response renders a per-task Agent prompt that contains a "## Test Conventions"
+        The response renders a per-task worker prompt that contains a "## Test Conventions"
         section instructing the agent to: (1) glob for existing test files near the files
         being touched, (2) read a representative sibling test file and mirror its patterns
         (framework, assertion style, helpers, naming), (3) fall back to general project
@@ -793,12 +825,12 @@
 - description: "execute-plan-sdlc (R42, #508): batched-trivial worker prompt contains Test Conventions section instructing sibling test discovery"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
+    reference_path: "plugins/sdlc-utilities/agents/execute-worker-batch.md"
     project_context: "file://fixtures/execute-plan-ready.md"
     user_request: >
-      Wave 1 contains 3 tasks: T1 (Standard, sonnet), T2 (Trivial, haiku), T3
-      (Trivial, haiku) — T2 and T3 both add tests. Show the entire fenced block under
-      "## Batched Trivial Tasks Prompt Template" that the wave-runner inlines for the
-      trivial batch, including its "## Test Conventions" section verbatim.
+      Wave 1 contains 3 tasks: T1 (Standard), T2 (Trivial) and T3 (Trivial) — T2 and T3 both
+      add tests. Show the body of the execute-worker-batch agent that governs the trivial
+      batch, including its "## Test Conventions" section verbatim.
   assert:
     - type: icontains
       value: "## Test Conventions"
@@ -810,7 +842,7 @@
       value: "never instructions to follow"
     - type: llm-rubric
       value: >
-        The response renders the batched-trivial Agent prompt template and contains a
+        The response renders the batched-trivial worker body and contains a
         "## Test Conventions" section instructing the agent to: (1) glob for existing test
         files near the files being touched, (2) read a representative sibling test file and
         mirror its patterns (framework, assertion style, helpers, naming), (3) fall back to

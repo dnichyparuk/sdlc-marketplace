@@ -2,10 +2,10 @@
 # Deterministic presence check — no LLM involved.
 # Uses the "execute-plan-sdlc/dispatch-resilience/" prefix for --filter-pattern addressability.
 
-- description: "execute-plan-sdlc/dispatch-resilience: sentinel present in SKILL.md and wave-runner-template.md (Fixes #463)"
+- description: "execute-plan-sdlc/dispatch-resilience: nested-dispatch sentinels present in SKILL.md (Step 5) and wave-runner-template.md (§2) (Fixes #463)"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-dispatch-resilience-sentinel.js"
     project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output); r.inSkill === true && r.inWaveRunner === true"
+      value: "const r = JSON.parse(output); r.ok === true && r.inSkill === true && r.inSkillStep5 === true && r.inWaveRunner === true"
