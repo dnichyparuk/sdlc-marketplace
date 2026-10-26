@@ -11,13 +11,21 @@ const fs = require('fs');
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const P = path.join(REPO_ROOT, 'plugins/sdlc-utilities');
-const { WORKER_ROUTING, AGENT_MODELS, routeWave } = require(path.join(P, 'scripts/skill/execute.js'));
+let WORKER_ROUTING, AGENT_MODELS, routeWave, mdText;
+try {
+  ({ WORKER_ROUTING, AGENT_MODELS, routeWave } = require(path.join(P, 'scripts/skill/execute.js')));
+  mdText = fs.readFileSync(path.join(P, 'skills/execute-plan-sdlc/classifying-and-waving-tasks.md'), 'utf8');
+} catch (err) {
+  // Exit 2 is a script error; exit 1 is reserved for table mismatches (as in check-dispatch-resilience-sentinel.js).
+  process.stderr.write(`check-worker-routing-table: ${err.message}\n`);
+  process.exit(2);
+}
 
 const ROWS = { 'Trivial (single, in-wave)': 'Trivial', 'Trivial (2+ batched)': 'TrivialBatched', Standard: 'Standard', Complex: 'Complex' };
 const TIERS = ['full', 'balanced', 'minimal'];
 const mismatches = [];
 
-const md = fs.readFileSync(path.join(P, 'skills/execute-plan-sdlc/classifying-and-waving-tasks.md'), 'utf8').split('\n');
+const md = mdText.split('\n');
 const start = md.indexOf('## Worker routing (agent × effort)');
 if (start < 0) mismatches.push('heading "## Worker routing (agent × effort)" not found');
 const seen = new Set();
@@ -28,7 +36,7 @@ for (const line of start < 0 ? [] : md.slice(start + 1)) {
   if (!row) continue;
   seen.add(row);
   TIERS.forEach((tier, i) => {
-    const code = WORKER_ROUTING[tier][row].join(' / ');
+    const code = (WORKER_ROUTING[tier]?.[row] || ['missing']).join(' / ');
     if (cells[i + 1] !== code) mismatches.push(`${tier}/${row}: doc "${cells[i + 1]}" vs WORKER_ROUTING "${code}"`);
   });
 }
