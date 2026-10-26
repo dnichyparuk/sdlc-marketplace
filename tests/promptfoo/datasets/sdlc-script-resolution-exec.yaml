@@ -33,8 +33,8 @@
 
 # Validator regression (#487): the orchestrator-await-barrier rule must flag
 # dispatch-bearing orchestrator templates (frontmatter tools includes Agent) and
-# fan-out-marked SKILL files that are missing the `run_in_background: false` +
-# barrier-instruction guard tokens, while excluding leaf drafters (tools: Read).
+# fan-out-marked SKILL files that are missing the barrier-instruction guard
+# token, while excluding leaf drafters (tools: Read).
 - description: "orchestrator-await-barrier: flags Agent-dispatching template with no barrier guard, and fan-out-marked SKILL missing barrier guard, while excluding the leaf drafter"
   vars:
     script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"
