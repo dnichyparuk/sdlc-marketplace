@@ -178,14 +178,17 @@
   assert:
     - type: not-icontains
       value: "trap 'rm -f"
+    - type: icontains
+      value: "prune"
     - type: llm-rubric
       value: >
-        The response says the skill does not delete the manifest itself on the pre-commit hook
-        failure path: there is no EXIT trap and no `rm -f` of the manifest. The manifest at
+        The response says the skill stops on the pre-commit hook failure (it reports the failure
+        and does not commit) and that the skill itself does NOT `rm -f` the manifest: there is no
+        EXIT trap and no `rm -f` of the manifest anywhere in the skill. The manifest at
         `.sdlc/execution/commit-*.json` persists (cross-shell survival), and `skill/commit.js`
-        prunes it and the message file on its next run (R-script-prune). It may mention that the
-        message file is removed early with `rm -f "<MSG_FILE>"`. It does NOT describe a
-        `trap 'rm -f ...' EXIT INT TERM` as the cleanup mechanism.
+        prunes it and the message file on its next run (R-script-prune). The only `rm -f` it may
+        mention is the one of the message file, `rm -f "<MSG_FILE>"`, never of the manifest. It
+        does NOT describe a `trap 'rm -f ...' EXIT INT TERM` as the cleanup mechanism.
 
 # ---------------------------------------------------------------------------
 # Fixes #392 / R35 — wip(execute): squash behavioral cases
