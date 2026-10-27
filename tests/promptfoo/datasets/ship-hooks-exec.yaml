@@ -949,3 +949,21 @@
           if (run.stdout.trim() !== '') return `FAIL: hook ${i} expected silent, got ${run.stdout}`;
         }
         return true;
+
+- description: "pipeline-continue-rearm: retried step and new ledger re-arm the nudge; same start stays silent"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-pipeline-continue-rearm.js"
+    script_args: "--project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-noauto"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const runs = JSON.parse(r.stdout);
+        if (!Array.isArray(runs) || runs.length !== 4) return `FAIL: expected 4 runs: ${r.stdout}`;
+        if (runs.some(x => x.status !== 0)) return `FAIL: statuses ${runs.map(x => x.status)}`;
+        for (const i of [0, 2, 3]) if (!/in progress/.test(runs[i].stdout)) return `FAIL: run ${i + 1} not nudged: ${runs[i].stdout}`;
+        if (runs[1].stdout.trim() !== '') return `FAIL: run 2 expected silent: ${runs[1].stdout}`;
+        return true;

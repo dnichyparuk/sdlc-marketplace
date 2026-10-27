@@ -3,7 +3,7 @@ applyTo: "site/package.json,site/pnpm-lock.yaml"
 ---
 # dependency-management — Review Instructions
 
-Reviews dependency changes in site/package.json and pnpm lockfile for version pinning, lockfile consistency, and unintended bumps.
+Reviews dependency changes in site/package.json and pnpm lockfile for version pinning, lockfile consistency, and unintended bumps
 
 Default severity: medium
 
@@ -33,5 +33,5 @@ Default severity: medium
 
 ## Note
 
-In Claude Code reviews, files matching these patterns are excluded: `**/node_modules/**`.
+In Claude Code reviews, files matching these patterns are excluded: **/node_modules/**.
 Copilot path-specific instructions do not support exclusion patterns — use judgment when findings apply to these files.

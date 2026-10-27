@@ -274,3 +274,12 @@
   assert:
     - type: regex
       value: '\(([1-9]\d*) skills loaded\)'
+
+- description: "session-start-gc-tempdirs: stale sdlc-explore dir of a gone branch is removed, live-branch dir kept"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-session-start-gc-tempdirs.js"
+    script_args: "--project-root {{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-gc-explore-tempdirs"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.staleRemoved === true && r.freshKept === true && r.exitCode === 0"

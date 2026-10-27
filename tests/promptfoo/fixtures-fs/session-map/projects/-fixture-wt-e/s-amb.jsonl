@@ -1,0 +1,2 @@
+{"type":"user","sessionId":"s-amb","timestamp":"2026-10-20T10:30:00Z","message":{"role":"user","content":"gate check"}}
+{"type":"assistant","sessionId":"s-amb","timestamp":"2026-10-20T10:30:05Z","message":{"id":"msg_s-amb","role":"assistant","model":"test-model-a","usage":{"input_tokens":10,"output_tokens":5}}}

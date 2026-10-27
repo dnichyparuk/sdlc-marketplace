@@ -379,3 +379,17 @@
       value: '"uncoveredTypes":'
     - type: icontains
       value: '"Whim"'
+
+- description: "stdin-fd0: jira --save reads the cache JSON from stdin"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-save-roundtrip"
+    script_args: "--project STDIN --save"
+    script_stdin: '{"version":1,"cloudId":"c1","project":{"key":"STDIN"},"siteUrl":"https://mycompany.atlassian.net"}'
+  assert:
+    - type: icontains
+      value: '"saved": true'
+    - type: not-icontains
+      value: "Failed to read stdin"

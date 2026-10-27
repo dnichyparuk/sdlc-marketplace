@@ -1,0 +1,21 @@
+# Script execution tests for plugins/sdlc-utilities/scripts/ci/validate-copilot-mirror.js (W1.6).
+
+- description: "validate-copilot-mirror: a generator-produced mirror passes"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-copilot-mirror.js"
+    script_args: "--root {{project_root}}"
+    project_root: "file://fixtures-fs/copilot-mirror-clean"
+  assert:
+    - type: not-icontains
+      value: "DRIFT:"
+    - type: icontains
+      value: "checked 1 mirror"
+
+- description: "validate-copilot-mirror: a hand-edited mirror is reported as drift"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-copilot-mirror.js"
+    script_args: "--root {{project_root}}"
+    project_root: "file://fixtures-fs/copilot-mirror-drifted"
+  assert:
+    - type: icontains
+      value: "DRIFT: x.instructions.md"

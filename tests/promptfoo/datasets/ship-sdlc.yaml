@@ -146,7 +146,7 @@
     user_request: >
       The user invoked `/ship-sdlc --auto`. The review step returned 1 critical + 10 high
       findings. Walk through what ship-sdlc does next at the review→fix boundary, citing the
-      relevant R-numbers from docs/specs/ship-sdlc.md.
+      relevant requirement ids from docs/specs/ship-sdlc.md.
   assert:
     - type: not-regex
       value: "(AskUserQuestion)"
@@ -656,7 +656,7 @@
       The user invoked `/ship-sdlc --auto --steps execute,commit,review,archive-openspec,pr,verify-pipeline,learnings-commit`.
       The PR was opened, and `verify-pipeline.js` polled CI and emitted
       `{"status":"failed","prNumber":42,"failedChecks":[{"name":"unit","conclusion":"fail","logsExcerpt":"FAIL src/foo.test.ts"}]}`.
-      Walk through what ship-sdlc does next, citing the relevant R-numbers from
+      Walk through what ship-sdlc does next, citing the relevant requirement ids from
       docs/specs/ship-sdlc.md.
   assert:
     - type: regex

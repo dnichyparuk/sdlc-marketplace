@@ -1,0 +1,2 @@
+{"type":"user","sessionId":"s-plan","timestamp":"2026-10-20T10:00:00Z","message":{"role":"user","content":"write the plans"}}
+{"type":"assistant","sessionId":"s-plan","timestamp":"2026-10-20T10:00:05Z","message":{"id":"msg_s-plan","role":"assistant","model":"test-model-a","usage":{"input_tokens":10,"output_tokens":5}}}

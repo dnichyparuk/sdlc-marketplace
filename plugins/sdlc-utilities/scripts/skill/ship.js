@@ -41,7 +41,7 @@ const { spawnSync } = require('child_process');
 const LIB = path.join(__dirname, '..', 'lib');
 
 const { exec, checkGitState, detectBaseBranch, deriveWorkspace, parseRemoteOwner, probeGhAuth, formatAccountMismatch, probeRepoAccess, formatAccessDenied, getTagList } = require(path.join(LIB, 'git'));
-const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, findStateFile, readState, slugifyBranch, claimSession, writeState, deleteState, migrateBranchSlug, listBranches, readTtlDaysFromConfig } = require(path.join(LIB, 'state'));
+const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, findStateFile, readState, slugifyBranch, parseStateFilename, claimSession, writeState, deleteState, migrateBranchSlug, listBranches, readTtlDaysFromConfig } = require(path.join(LIB, 'state'));
 const { parseArgs: parseStepArgs, createEnvelope } = require(path.join(LIB, 'stepper'));
 const shipState = require(path.join(__dirname, '..', 'state', 'ship'));
 const { stepTransition, markCompleted, renderTodos, parsePlanTasks } = require(path.join(LIB, 'ship-todos'));
@@ -844,7 +844,10 @@ function detectWorktree(projectRoot) {
 // Validation
 // ---------------------------------------------------------------------------
 
-function runValidation(flags, flagSources, steps, context) {
+/**
+ * @param {{fullPath: string, planFile: string|null}|null} [resumeLedger]
+ */
+function runValidation(flags, flagSources, steps, context, resumeLedger = null) {
   const errors   = [];
   const warnings = [];
 
@@ -921,7 +924,10 @@ function runValidation(flags, flagSources, steps, context) {
         'ship-sdlc cannot run the "execute" step without a plan document. ' +
         'Fix: re-run with --plan <path-to-plan.md>. ' +
         'Why: plan autodiscovery was removed (#505). It picked the most recently modified *.md in ~/.claude/plans/, which is shared across repositories — it could hand this repo a plan written for a different one and implement it here. ' +
-        'If you did not mean to run execute, drop --has-plan (or omit execute from --steps) and the pipeline will skip it.',
+        'If you did not mean to run execute, drop --has-plan (or omit execute from --steps) and the pipeline will skip it.' +
+        (resumeLedger
+          ? ` A ship ledger for this branch exists: ${resumeLedger.fullPath} (recorded plan: ${resumeLedger.planFile || 'none'}). To continue that run with its plan, re-run with --resume.`
+          : ''),
     });
   }
 
@@ -987,6 +993,64 @@ function detectResumeState(_projectRoot, currentBranch) {
   // Forward fresh / nextPendingStep / fullPath for R-implicit-resume (#359).
   // Forward worktreeMismatch so implicit resume can be gated on it (#506/#509 follow-up).
   return { stateFile, found, fresh, nextPendingStep, fullPath, worktreeMismatch };
+}
+
+/**
+ * R11 / R-implicit-resume (Q22): the resumed ledger's recorded flags, read once and
+ * never written here. null when there is no ledger or it cannot be parsed.
+ */
+function readLedgerFlags(resume) {
+  if (!resume || !resume.found || !resume.fullPath) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(resume.fullPath, 'utf8'));
+    return data && data.flags && typeof data.flags === 'object' ? data.flags : null;
+  } catch { return null; }
+}
+
+/** Two plan paths name the same file (realpath, else the resolved path); a non-string never matches. */
+function samePlanPath(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const real = (p) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  return real(a) === real(b);
+}
+
+/**
+ * Ruling w2-planreview Q1: a ledger belongs to a finished run when every step is completed or
+ * skipped; a conditional step still pending (its trigger never fired) counts as skipped, as in
+ * validatePipelineContract. A failed or pending step means unfinished.
+ */
+function ledgerFinished(data) {
+  const steps = Array.isArray(data && data.steps) ? data.steps : [];
+  return steps.length > 0 && steps.every(s => s.status === 'completed' || s.status === 'skipped'
+    || (s.status === 'pending' && s.condition !== undefined));
+}
+
+/**
+ * Q22a / ruling w2-planreview Q1: every readable ship ledger of the branch — the same set
+ * cmdInit's prune would remove (lib/state.js pruneStateFiles) — fresh or stale, any worktree.
+ * Read only; sorted by file name.
+ */
+function branchLedgers(branch) {
+  const slug = slugifyBranch(branch);
+  let dir;
+  let names = [];
+  try { dir = resolveStateDir(); names = fs.readdirSync(dir).sort(); } catch (e) {
+    process.stderr.write(`branchLedgers: state dir unreadable, plan-mismatch guard skipped: ${e.message}\n`);
+    return [];
+  }
+  const out = [];
+  for (const name of names) {
+    const parsed = parseStateFilename(name);
+    if (!parsed || parsed.prefix !== 'ship' || parsed.slug !== slug) continue;
+    const fullPath = path.join(dir, name);
+    let data = null;
+    try { data = JSON.parse(fs.readFileSync(fullPath, 'utf8')); } catch (e) {
+      process.stderr.write(`branchLedgers: ledger unreadable, skipped (${name}): ${e.message}\n`);
+      continue;
+    }
+    out.push({ fullPath, flags: data && data.flags && typeof data.flags === 'object' ? data.flags : null, finished: ledgerFinished(data) });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -2463,7 +2527,50 @@ function main() {
     return resolved;
   }
 
-  const planFile = resolvePlanFile(cli.planFile || null, errors);
+  // R11 / R-implicit-resume (Q22): read the branch's ledger once, before the plan and the
+  // steps are resolved. An explicit --resume restores the plan and the steps and nothing else;
+  // --steps / --quick win over the ledger's steps (ruling pr40 F1).
+  const resume = detectResumeState(projectRoot, gitState.currentBranch);
+  const ledgerFlags = readLedgerFlags(resume);
+  let planArg = cli.planFile || null;
+  if (cli.resume && ledgerFlags) {
+    if (!planArg && typeof ledgerFlags.planFile === 'string') planArg = ledgerFlags.planFile;
+    if (Array.isArray(ledgerFlags.steps) && ledgerFlags.steps.length > 0
+        && (flagSources.steps === 'config' || flagSources.steps === 'default')) {
+      flags.steps = ledgerFlags.steps.slice();
+      flagSources.steps = 'ledger';
+    }
+  }
+  const planFile = resolvePlanFile(planArg, errors);
+
+  // R-implicit-resume (Q22a; ruling pr40 gap (i); ruling w2-planreview Q1): no unfinished ledger
+  // of the branch — fresh or stale, any worktree — is resumed or discarded for a different plan.
+  // Pushed before ensureLedger (the only state write: init and its prune; it returns null on
+  // errors) and before claimSession. A ledger with no planFile key (legacy, --plan-mode-blocked)
+  // is not compared. A finished ledger does not stop the run; if it is the resume candidate,
+  // implicit resume is skipped so init replaces it as before (R-ship-init-prune).
+  let planMismatch = false;
+  let finishedOtherPlan = false;
+  if (cli.planFile && planFile) {
+    for (const led of branchLedgers(gitState.currentBranch)) {
+      if (!led.flags || !('planFile' in led.flags) || samePlanPath(planFile, led.flags.planFile)) continue;
+      if (led.finished && !cli.resume) {
+        if (resume && resume.fullPath === led.fullPath) finishedOtherPlan = true;
+        continue;
+      }
+      planMismatch = true;
+      errors.push({
+        id: 'resumePlanMismatch',
+        message:
+          'ship-sdlc will not resume or discard a run of a different plan. ' +
+          `The ship ledger ${led.fullPath} on this branch belongs to an unfinished run with plan ${led.flags.planFile || '(none recorded)'}; this run was given --plan ${planFile}. ` +
+          'Fix: continue the earlier run with --resume (and its plan), or discard it with ship\'s own verbs: ' +
+          `node "${STATE_SHIP_SCRIPT}" skip --step <name> --reason <text> for each leftover step, then node "${STATE_SHIP_SCRIPT}" cleanup-pipeline. ` +
+          'Ship never resumes a different plan and never discards the earlier ledger itself.',
+      });
+      break;
+    }
+  }
 
   // R-plan-commit-subject: a malformed **Commit:** header field stops prepare before any step
   // runs, so the commit step never drafts a subject nobody planned.
@@ -2509,14 +2616,16 @@ function main() {
   const steps = computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject: planCommit.subject });
 
   // Run validation
-  const validation = runValidation(flags, flagSources, steps, context);
+  // Ruling pr40 gap (ii): with neither --resume nor --plan, nothing is restored; missingPlanFile
+  // names the ledger. Any ledger on the branch is named; --resume can continue it (R11).
+  const resumeLedger = resume && resume.found && !cli.resume
+    ? { fullPath: resume.fullPath, planFile: ledgerFlags && typeof ledgerFlags.planFile === 'string' ? ledgerFlags.planFile : null }
+    : null;
+  const validation = runValidation(flags, flagSources, steps, context, resumeLedger);
 
   // Collect validation errors/warnings into top-level arrays
   errors.push(...validation.errors);
   warnings.push(...validation.warnings);
-
-  // Detect resume state
-  const resume = detectResumeState(projectRoot, gitState.currentBranch);
 
   // R-cap-recovery: the Stop hook records a stall in .stop-cap-exhausted-<slug>.json
   // instead of mutating the ledger; surface it here when a pipeline is resumable.
@@ -2540,7 +2649,7 @@ function main() {
   // rather than whichever session originally created the pipeline. Gated on
   // errors.length === 0 so a run that is about to hard-error (e.g. R72
   // missingPlanFile) never mutates the state file it is refusing to run.
-  if (resume && resume.found && resume.fresh && !cli.resume && !resume.worktreeMismatch) {
+  if (resume && resume.found && resume.fresh && !cli.resume && !resume.worktreeMismatch && !planMismatch && !finishedOtherPlan) {
     implicitResume = true;
     flags.resume = true;
     flagSources.resume = 'implicit';

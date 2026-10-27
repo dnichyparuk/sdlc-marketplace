@@ -42,7 +42,8 @@ See `EXAMPLES.md` (in this directory) for 5 copy-paste-ready example dimension f
       "truncated": false,
       "matched_count": 1,
       "diff_file": "/tmp/sdlc-review-XXXXX/security-review.diff",
-      "slice_file": "/tmp/sdlc-review-XXXXX/security-review.slice.json"
+      "slice_file": "/tmp/sdlc-review-XXXXX/security-review.slice.json",
+      "batch": 1
     }
   ],
   "plan_critique": {
@@ -73,11 +74,13 @@ See `EXAMPLES.md` (in this directory) for 5 copy-paste-ready example dimension f
 }
 ```
 
-`status` values: `ACTIVE`, `SKIPPED`, `TRUNCATED`, `QUEUED`
+`status` values: `ACTIVE`, `SKIPPED`, `TRUNCATED`
+
+`batch`: the dispatch batch index (1, 2, …) of an ACTIVE or TRUNCATED entry, 8 entries per batch in priority order (severity descending, then matched files ascending); `null` for other entries. No dimension is queued, so `plan_critique.queued_dimensions` is always `[]` and `summary.queued_dimensions` is always `0` (R-dimension-cap). `plan_critique.dimension_cap_applied` is `true` when the dispatched dimensions span more than one batch (more than 8 active dimensions) and `false` otherwise; the orchestrator uses it to show the batch notice.
 
 ### Per-dimension slice file
 
-The `dimensions[]` array is a **thin index** — it carries no `body`, `matched_files`, `file_context`, or `warnings`. For each dispatched dimension (`status` ACTIVE/TRUNCATED), `review.js` writes a separate slice file into `diff_dir` and stores its path in `slice_file`. Non-dispatched dimensions (SKIPPED/QUEUED) have `slice_file: null`. This bounds the orchestrator's context by dimension **count**, not content — the orchestrator forwards `slice_file` + `diff_file` paths into each dispatch and never reads their contents itself.
+The `dimensions[]` array is a **thin index** — it carries no `body`, `matched_files`, `file_context`, or `warnings`. For each dispatched dimension (`status` ACTIVE/TRUNCATED), `review.js` writes a separate slice file into `diff_dir` and stores its path in `slice_file`. Non-dispatched dimensions (SKIPPED) have `slice_file: null`. This bounds the orchestrator's context by dimension **count**, not content — the orchestrator forwards `slice_file` + `diff_file` paths into each dispatch and never reads their contents itself.
 
 Each `${diff_dir}/${name}.slice.json` has this shape:
 

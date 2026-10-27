@@ -562,7 +562,7 @@
         to fix the plan-task failures or add the title to ## Out-of-scope OpenSpec tasks.
 
 # ---------------------------------------------------------------------------
-# Standalone plan-argument gate (R41, #505)
+# Standalone plan-argument gate (R41)
 # ---------------------------------------------------------------------------
 
 - description: "execute-plan-sdlc (R41): standalone invocation with neither a positional plan path nor --plan halts before Step 1 LOAD with what/how/why remediation text"
@@ -581,7 +581,7 @@
     - type: llm-rubric
       value: >
         The response halts before Step 1 (LOAD) — it does not load, validate, classify,
-        or build waves for any plan. It cites R41 (and/or #505). The halt message
+        or build waves for any plan. It cites R41. The halt message
         follows a what/how/why structure: (1) what failed — no explicit plan document
         was supplied; (2) how to fix it — re-run with a positional plan path
         (e.g. `/execute-plan-sdlc <path-to-plan.md>`) or `--plan <path-to-plan.md>`;

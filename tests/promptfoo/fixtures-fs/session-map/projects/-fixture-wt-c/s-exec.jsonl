@@ -1,0 +1,2 @@
+{"type":"user","sessionId":"s-exec","timestamp":"2026-10-20T12:00:00Z","message":{"role":"user","content":"run the phase"}}
+{"type":"assistant","sessionId":"s-exec","timestamp":"2026-10-20T12:00:05Z","message":{"id":"msg_s-exec","role":"assistant","model":"test-model-a","usage":{"input_tokens":10,"output_tokens":5}}}

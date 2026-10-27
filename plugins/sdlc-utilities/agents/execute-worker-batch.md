@@ -24,6 +24,8 @@ After completing each task, list every file you actually modified — Step 5c (1
 
 Your dispatch prompt lists the tasks in order, one group of lines per task: `TASK_ID`, `FACT_SHEET`, `FILES_ALLOWED` (one path per line) and `VERIFY_TOKEN`. After the groups come `ORDERING`, `STATE_SCRIPT`, `WAVE`, `RUN_ID` and `ATTEMPT`, which apply to the whole batch. Below, `{NAME}` means the value of the `NAME` line — for a task line, the one in the group of the task you are working. Read each task's specification from its `FACT_SHEET`, and touch only that task's `FILES_ALLOWED`.
 
+Write temporary files only under the fact sheet's `## Scratch directory` when it is present, never directly under `/tmp`, and delete them before you report.
+
 ## Ordering Constraints
 The `ORDERING` line of your dispatch prompt lists any same-file ordering requirements, or `None`. Follow it.
 

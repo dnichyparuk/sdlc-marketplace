@@ -309,10 +309,8 @@ function writeDimensionSlices(activeDimensions, tmpDir, commonPrompt) {
  * the slice file (slice_file). The orchestrator reads only this thin shape.
  */
 function toIndexEntry(dim) {
-  // Only dispatched dimensions (ACTIVE/TRUNCATED) carry a slice_file. refinePlan() may demote
-  // an ACTIVE dim to QUEUED *after* its slice was written — gate on status so QUEUED/SKIPPED
-  // always report slice_file: null, per R-manifest-index-slices (#447). A written-but-orphaned
-  // slice for a now-QUEUED dim is harmless (orchestrator never dispatches it).
+  // Only dispatched dimensions (ACTIVE/TRUNCATED) carry a slice_file and a batch
+  // (R-manifest-index-slices, R-dimension-cap); SKIPPED/ERROR report null for both.
   const dispatched = dim.status === 'ACTIVE' || dim.status === 'TRUNCATED';
   return {
     name:               dim.name,
@@ -325,6 +323,7 @@ function toIndexEntry(dim) {
     matched_count:      dim.matched_count,
     diff_file:          dim.diff_file,
     slice_file:         dispatched ? (dim.slice_file != null ? dim.slice_file : null) : null,
+    batch:              dispatched ? (dim.batch != null ? dim.batch : null) : null,
   };
 }
 
@@ -333,6 +332,9 @@ function toIndexEntry(dim) {
 // ---------------------------------------------------------------------------
 
 const SEVERITY_RANK = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
+
+// R-dimension-cap: dispatched dimensions per batch (a tuning value, not contract).
+const DIMENSION_BATCH_SIZE = 8;
 
 function critiquePlan(dimensions, changedFiles) {
   const allMatched     = new Set(dimensions.flatMap(d => d.matched_files));
@@ -430,30 +432,20 @@ function analyzeUncoveredFiles(uncoveredFiles) {
 }
 
 /**
- * If more than 8 dimensions are ACTIVE, cap to top 8 by priority.
- * Priority: severity descending, then matched_files count ascending.
- * Returns list of queued dimension names.
+ * R-dimension-cap: no dispatched dimension is dropped. Every dispatched dimension
+ * (ACTIVE/TRUNCATED) gets a batch index, DIMENSION_BATCH_SIZE per batch, in priority
+ * order: severity descending, then matched_files count ascending. Other dimensions
+ * get batch null. Returns the number of batches.
  */
 function refinePlan(dimensions) {
-  const active = dimensions.filter(d => d.status === 'ACTIVE');
-  if (active.length <= 8) return [];
-
-  active.sort((a, b) => {
+  const dispatched = dimensions.filter(d => d.status === 'ACTIVE' || d.status === 'TRUNCATED');
+  dispatched.sort((a, b) => {
     const diff = (SEVERITY_RANK[b.severity] || 3) - (SEVERITY_RANK[a.severity] || 3);
     return diff !== 0 ? diff : a.matched_files.length - b.matched_files.length;
   });
-
-  const keep   = new Set(active.slice(0, 8).map(d => d.name));
-  const queued = [];
-
-  for (const dim of dimensions) {
-    if (dim.status === 'ACTIVE' && !keep.has(dim.name)) {
-      dim.status = 'QUEUED';
-      queued.push(dim.name);
-    }
-  }
-
-  return queued;
+  for (const dim of dimensions) dim.batch = null;
+  dispatched.forEach((dim, i) => { dim.batch = Math.floor(i / DIMENSION_BATCH_SIZE) + 1; });
+  return Math.ceil(dispatched.length / DIMENSION_BATCH_SIZE);
 }
 
 // ---------------------------------------------------------------------------
@@ -621,7 +613,7 @@ function main() {
 
   // Plan critique and refinement
   const critique = critiquePlan(dims, changedFiles);
-  const queued   = refinePlan(dims);
+  refinePlan(dims);
 
   // Ensure correct GitHub account before any gh commands (branch-based scopes only)
   if (!isLocalScope) {
@@ -655,13 +647,13 @@ function main() {
       over_broad_dimensions:  critique.overBroad,
       overlapping_pairs:      critique.overlappingPairs,
       dimension_cap_applied:  critique.dimensionCapApplied,
-      queued_dimensions:      queued,
+      queued_dimensions:      [],
     },
     summary: {
       total_dimensions:      dims.length,
       active_dimensions:     dims.filter(d => d.status === 'ACTIVE' || d.status === 'TRUNCATED').length,
       skipped_dimensions:    dims.filter(d => d.status === 'SKIPPED').length,
-      queued_dimensions:     queued.length,
+      queued_dimensions:     0,
       total_changed_files:   changedFiles.length,
       uncovered_file_count:  critique.uncoveredFiles.length,
       suggested_dimensions:  critique.uncoveredSuggestions.length,
@@ -683,4 +675,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { globToRegex, matchFiles, loadAndMatchDimensions, analyzeUncoveredFiles, UNCOVERED_PATTERN_CATALOG, writeDimensionSlices, toIndexEntry };
+module.exports = { globToRegex, matchFiles, loadAndMatchDimensions, analyzeUncoveredFiles, UNCOVERED_PATTERN_CATALOG, writeDimensionSlices, toIndexEntry, refinePlan };

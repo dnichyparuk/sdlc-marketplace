@@ -77,3 +77,19 @@
   assert:
     - type: icontains
       value: '"priority": "High"'
+
+- description: "error-report-prepare: exit code 2 yields priority High without an errorType"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/error-report-prepare.js"
+    script_args: "--skill commit-sdlc --step Step-0 --operation skill/commit.js --error-text crash --exit-or-http-code 2"
+  assert:
+    - type: icontains
+      value: '"priority": "High"'
+
+- description: "error-report-prepare: exit code 1 without an errorType stays Medium"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/error-report-prepare.js"
+    script_args: "--skill commit-sdlc --step Step-0 --operation skill/commit.js --error-text crash --exit-or-http-code 1"
+  assert:
+    - type: icontains
+      value: '"priority": "Medium"'

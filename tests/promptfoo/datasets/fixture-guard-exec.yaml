@@ -1,0 +1,16 @@
+# Script execution tests for tests/promptfoo/scripts/check-fixture-guard.js (W8.29).
+
+- description: "fixture-guard: (a) every git-init fixture setup.sh, at any depth, carries the guard before its first git init or git config"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-fixture-guard.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.ok === true && r.unguarded.length === 0 && r.scanned >= 150"
+
+- description: "fixture-guard: (b) a guarded setup.sh refuses inside a git work tree and leaves .git/config unchanged"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-fixture-guard.js"
+    script_args: "--probe"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.exitCode === 1 && r.stderr.includes('refusing: inside a git work tree') && r.gitConfigChanged === false"

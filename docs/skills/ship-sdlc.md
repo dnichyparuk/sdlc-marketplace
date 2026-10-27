@@ -45,12 +45,12 @@ This skill is for **expert users working on projects with established quality gu
 | `--bump patch\|minor\|major\|<label>` | Version bump type forwarded to version-sdlc. The `<label>` form (e.g. `--bump rc`, `--bump beta`) is forwarded verbatim and interpreted by version-sdlc as `--bump patch --pre <label>`. Labels must match `^[a-z][a-z0-9]*$` (lowercase, start with a letter, alphanumeric). Example: `ship-sdlc --bump rc` produces a `1.2.4-rc.1` style release. | `patch` (or `version.preRelease` from `.sdlc/config.json` when set and no CLI `--bump` is passed — see R63) |
 | `--draft` | Create the PR as a draft. | Off |
 | `--dry-run` | Display the full pipeline plan and stop. No steps are executed. | Off |
-| `--resume` | Resume from the most recent state file for the current branch. Completed steps are skipped; in-progress steps are retried. | Off |
+| `--resume` | Resume the branch's ship run from its state file (the ledger). The plan and the step list are restored from it unless `--plan`, `--steps` or `--quick` is given; every other flag comes from the CLI, then config, then the default. Completed steps are skipped; in-progress steps are retried. A `--plan` that differs from the ledger's plan stops with `resumePlanMismatch`. | Off |
 | `--init-config` | Launch interactive config creation for `.sdlc/local.json`, then stop. No pipeline execution. | Off |
 | `--openspec-change <name>` | Override auto-detected change. Auto-detection matches by branch name or git diff; use this flag when multiple active changes exist or detection fails. | — |
 | `--gc` | Prune stale ship- and execute- state files from `.sdlc/execution/`, then stop without running the pipeline. A file is pruned only when it is older than the TTL AND its branch is no longer in `git branch --list`. Fixes orphan accumulation from interrupted runs (issue #223). | Off |
 | `--ttl-days <N>` | TTL in days used by `--gc` and the terminal cleanup step. Files newer than this are kept regardless of branch existence (in-flight pipelines on detached HEAD or freshly-deleted branches must not be wiped). Configurable via `state.gc.ttlDays` in `.sdlc/config.json`; CLI overrides config. | `7` (or `state.gc.ttlDays`) |
-| `--plan <path>` | Explicit path to the active plan markdown (the old autodiscovery flag was renamed in #505 — no back-compat alias for the previous name). Forwarded to execute-plan-sdlc as `--plan <path>`. Required whenever the `execute` step will run; plan autodiscovery was removed (see note below). | Required when `execute` runs; unset otherwise |
+| `--plan <path>` | Explicit path to the active plan markdown (the old autodiscovery flag was renamed in #505 — no back-compat alias for the previous name). Forwarded to execute-plan-sdlc as `--plan <path>`. Required whenever the `execute` step will run, unless `--resume` restores the plan from the branch's ledger; plan autodiscovery was removed (see note below). A `--plan` that differs from the plan of any unfinished ledger of the branch stops with `resumePlanMismatch` before any state is written: continue that run with `--resume`, or discard it with ship's own verbs (`state/ship.js skip`, then `cleanup-pipeline`). | Required when `execute` runs without `--resume`; unset otherwise |
 
 To enable post-PR CI verification, add `verify-pipeline` to `ship.steps` in `.sdlc/local.json` (or pass it via `--steps`). To await an automated reviewer's verdict, add `await-remote-review`. See R41 / R50 in `docs/specs/ship-sdlc.md`. To validate implementation completeness against the spec before archiving, add `verify-openspec` between `version` and `archive-openspec` — requires a matched OpenSpec change (`flags.openspecChange`, or auto-detection by branch name or git diff); the step is skipped with a clear reason when neither is present.
 
@@ -59,10 +59,16 @@ To enable post-PR CI verification, add `verify-pipeline` to `ship.steps` in `.sd
 
 **Removed (#190 hard-remove):** `--preset` and `--skip` are no longer accepted. Passing either produces an error pointing at `--steps <csv>` (for step composition) and `--quality <full|balanced|minimal>` (for the execute-plan-sdlc model tier). Legacy on-disk v1 configs (`ship.preset`/`ship.skip`) are still auto-migrated to v2 by `lib/config.js`.
 
-**Removed: plan autodiscovery (#505):** ship-sdlc no longer scans `plansDirectory` (or any directory) for a recently-modified plan file. When a plan is present in the conversation and the `execute` step is not skipped, `--plan <path>` is now required — pass the plan document explicitly (see [Prerequisites](#prerequisites) and [`/plan-sdlc`](plan-sdlc.md), which writes the plan files this flag points at). Without it, ship-sdlc halts before invoking execute-plan-sdlc:
+**Removed: plan autodiscovery (#505):** ship-sdlc no longer scans `plansDirectory` (or any directory) for a recently-modified plan file. When a plan is present in the conversation and the `execute` step is not skipped, `--plan <path>` is now required (or `--resume`, which restores the plan of the branch's ledger) — pass the plan document explicitly (see [Prerequisites](#prerequisites) and [`/plan-sdlc`](plan-sdlc.md), which writes the plan files this flag points at). Without it, ship-sdlc halts before invoking execute-plan-sdlc:
 
 ```
 ship-sdlc cannot run the "execute" step without a plan document. Fix: re-run with --plan <path-to-plan.md>. Why: plan autodiscovery was removed (#505). It picked the most recently modified *.md in ~/.claude/plans/, which is shared across repositories — it could hand this repo a plan written for a different one and implement it here. If you did not mean to run execute, drop --has-plan (or omit execute from --steps) and the pipeline will skip it.
+```
+
+When a ship ledger exists for the current branch and the run gives no `--resume`, the message ends with one more sentence naming it:
+
+```
+A ship ledger for this branch exists: <ledger path> (recorded plan: <plan path, or none>). To continue that run with its plan, re-run with --resume.
 ```
 
 `--has-plan` in the message above is set internally by ship-sdlc's own step-eligibility signal (whether the `execute` step is eligible to run) — it is not a flag you pass directly.
@@ -785,7 +791,7 @@ To resume:
 2. Steps with status `completed` or `skipped` are skipped.
 3. Steps with status `in_progress` are retried from the beginning.
 4. Steps with status `pending` run normally.
-5. The same flags from the original run are restored from the state file.
+5. The plan (`flags.planFile`) and the step list are restored from the state file unless `--plan`, `--steps` or `--quick` is given; every other flag resolves from the CLI, then config, then the default. A `--plan` that differs from the ledger's plan stops with `resumePlanMismatch`.
 
 **If multiple state files exist** for the same branch (from multiple failed attempts), the one with the most recent timestamp is used.
 
@@ -830,7 +836,7 @@ ship-sdlc also removes the intermediate prepare output file (`$PLAN_MODE_OUTPUT_
 - **git** — must be run inside a git repository on a feature branch (not the default branch).
 - **Review dimensions** — `.sdlc/review-dimensions/` must contain at least one dimension file for the review step. Run `/setup-sdlc --dimensions` to create them. If review is in the skip set, this is not required.
 - **Plan in context** — for the execute step, a plan must be present in the conversation. If no plan is found and execute is not skipped, the step is auto-skipped.
-- **`--plan <path>` (#505)** — when a plan is present in context and the execute step is not skipped, the plan document must also be passed explicitly via `--plan <path>`; plan autodiscovery (the old `plansDirectory` scan) was removed and there is no fallback. Use [`/plan-sdlc`](plan-sdlc.md) to write the plan document, then pass its path.
+- **`--plan <path>` (#505)** — when a plan is present in context and the execute step is not skipped, the plan document must also be passed explicitly via `--plan <path>` (or `--resume` on a branch whose ledger recorded the plan); plan autodiscovery (the old `plansDirectory` scan) was removed and there is no other fallback. Use [`/plan-sdlc`](plan-sdlc.md) to write the plan document, then pass its path.
 - **Workspace is auto-detected** — there is no workspace mode and no cwd assertion. ship-sdlc derives the workspace from cwd + current branch (R60): on the main worktree on the default branch it auto-creates a feature branch; inside a linked worktree or on a feature branch it runs in place. Invoking from inside a manual git worktree is fully supported (`.sdlc/` stays anchored to the main worktree).
 
 ### Harness Configuration

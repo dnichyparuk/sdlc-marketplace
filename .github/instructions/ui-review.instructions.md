@@ -3,7 +3,7 @@ applyTo: "site/src/**/*.astro,site/src/styles/**/*.css"
 ---
 # ui-review — Review Instructions
 
-Reviews Astro components and pages for semantic HTML, Tailwind CSS usage, responsive design, and component composition patterns.
+Reviews Astro components and pages for semantic HTML, Tailwind CSS usage, responsive design, and component composition patterns
 
 Default severity: medium
 
@@ -37,5 +37,5 @@ Default severity: medium
 
 ## Note
 
-In Claude Code reviews, files matching these patterns are excluded: `**/node_modules/**`, `site/dist/**`, `site/.astro/**`.
+In Claude Code reviews, files matching these patterns are excluded: **/node_modules/**, site/dist/**, site/.astro/**.
 Copilot path-specific instructions do not support exclusion patterns — use judgment when findings apply to these files.

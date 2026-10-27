@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-27
+
+### Added
+- `scripts/ci/validate-copilot-mirror.js`: reports drift between `.sdlc/review-dimensions/*.md` and their `.github/instructions/` Copilot mirrors (W1.6). All six mirrors are regenerated; runtime-contract is 4,780 chars, over the 4,000 Copilot limit, which the owner accepted.
+- `scripts/ci/session-map.js`: builds the `session-cost.js --sessions` map from agent worktrees and time windows, reading transcript metadata only (W8.26).
+
+### Changed
+- review-sdlc dispatches every matching dimension, in batches of 8, instead of capping at 8. The manifest gains a `batch` field, and dimensions are no longer QUEUED (W8.31).
+- ship-sdlc `--resume` restores the plan and the steps from the ledger.
+  - A run whose `--plan` differs from the plan of any unfinished ledger of the branch stops with `resumePlanMismatch` and writes no state.
+  - `missingPlanFile` names an existing ledger and `--resume`.
+  - The skill doc describes both (W8.23).
+- execute-plan-sdlc fact sheets name the run's `TMPDIR` as the scratch directory, and workers keep temp files there (W8.33).
+- error-report-sdlc proposes priority High for exit code 2 (W8.6).
+
+### Fixed
+- stop-plan-integrity no longer blocks every Stop when its marker cannot be deleted (W8.2).
+- pipeline-continue re-arms its nudge for a retried step or a new ledger (W8.3).
+- plan.js, jira.js and post-tool-validate.js read stdin from fd 0, because `/dev/stdin` gives ENXIO under socket stdio (W8.4).
+- session-start sweeps stale `sdlc-explore-*` tempdirs (W8.5).
+- execute cleanup keeps a corrupt state file and exits 2, naming it (W8.25).
+- validate-spec-shape now handles repeated headings, a trailing-space appendix heading and withdrawn ids, and makes no git call with `--root` (W8.8).
+- check-consistency rule 2 flags a prepare script assigned to a shell variable; plan-sdlc calls plan.js inline (W8.9).
+
 ## [0.35.1] - 2026-10-27
 
 ### Changed

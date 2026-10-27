@@ -15,6 +15,7 @@
  *   summarize-files       -- summarizePriorWaveContext caps filesAdded
  *   summarize-decisions   -- summarizePriorWaveContext caps decisionsFromPriorWaves
  *   render-notes          -- renderFactSheet: present description → `## Notes (rationale)`, absent → omitted
+ *   render-tmpdir         -- renderFactSheet: absolute scratchDir → `## Scratch directory`, unset/relative/empty → omitted
  *   parse-complete        -- parseWaveSummary for a complete wave
  *   parse-overflow        -- parseWaveSummary: 4 dispatched, 2 returned → CONTEXT_OVERFLOW
  *   parse-free-text-error -- parseWaveSummary: free-text errorCode rejected
@@ -136,6 +137,20 @@ switch (op) {
       hasNotesSection: withNotes.includes('## Notes (rationale)'),
       noNotesSection: !withoutNotes.includes('## Notes (rationale)'),
       absentDescNoNotesSection: !withAbsentDescription.includes('## Notes (rationale)'),
+    });
+    break;
+  }
+
+  case 'render-tmpdir': {
+    const { renderFactSheet } = require(path.join(LIB, 'task-factsheet'));
+    const task = { id: '1', name: 'Scratch task', description: '', acceptanceCriteria: ['x'], files: ['src/x.ts'] };
+    const withScratch = renderFactSheet(task, undefined, '/tmp/run-scratch');
+    out({
+      hasScratch: withScratch.includes('## Scratch directory'),
+      scratchPathShown: withScratch.includes('`/tmp/run-scratch`'),
+      noScratchUnset: !renderFactSheet(task, undefined, undefined).includes('## Scratch directory'),
+      noScratchRelative: !renderFactSheet(task, undefined, 'rel/dir').includes('## Scratch directory'),
+      noScratchEmpty: !renderFactSheet(task, undefined, '').includes('## Scratch directory'),
     });
     break;
   }

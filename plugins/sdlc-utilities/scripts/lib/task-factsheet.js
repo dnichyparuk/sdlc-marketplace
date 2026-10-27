@@ -32,9 +32,10 @@ function assertSafeRunId(runId, callerName) {
  * Render a task as compact markdown.
  * @param {{ id: string, name: string, description: string, acceptanceCriteria: string[], files: string[], contract?: string }} task
  * @param {{ filesAdded?: string[], filesModified?: string[], interfacesCreated?: string[], decisionsFromPriorWaves?: string[] }} [priorWaveSummary]
+ * @param {string} [scratchDir]  absolute run TMPDIR; rendered as `## Scratch directory` (R-FACT-SHEET-DISPATCH)
  * @returns {string}
  */
-function renderFactSheet(task, priorWaveSummary) {
+function renderFactSheet(task, priorWaveSummary, scratchDir) {
   const lines = [];
 
   lines.push(`# Task ${task.id}: ${task.name}`);
@@ -97,6 +98,16 @@ function renderFactSheet(task, priorWaveSummary) {
     }
   }
 
+  // R-FACT-SHEET-DISPATCH: name the run's scratch directory only for a non-empty absolute path.
+  if (typeof scratchDir === 'string' && scratchDir.trim() !== '' && path.isAbsolute(scratchDir)) {
+    lines.push('## Scratch directory');
+    lines.push('');
+    lines.push(`\`${scratchDir}\``);
+    lines.push('');
+    lines.push('Write temporary files only here and delete them before you report.');
+    lines.push('');
+  }
+
   return lines.join('\n');
 }
 
@@ -132,10 +143,10 @@ function taskFactSheetPath({ runId, taskId, stateDir }) {
  * If content differs, the file is atomically rewritten.
  *
  * @param {{ id: string, name: string, description: string, acceptanceCriteria: string[], files: string[], contract?: string }} task
- * @param {{ runId: string, stateDir: string, priorWaveSummary?: object }} opts
+ * @param {{ runId: string, stateDir: string, priorWaveSummary?: object, scratchDir?: string }} opts
  * @returns {string} Absolute path of the written fact sheet
  */
-function writeTaskFactSheet(task, { runId, stateDir, priorWaveSummary }) {
+function writeTaskFactSheet(task, { runId, stateDir, priorWaveSummary, scratchDir }) {
   if (!task || !task.id) throw new Error('writeTaskFactSheet: task.id is required');
   if (!runId) throw new Error('writeTaskFactSheet: runId is required');
   if (!stateDir) throw new Error('writeTaskFactSheet: stateDir is required');
@@ -148,7 +159,7 @@ function writeTaskFactSheet(task, { runId, stateDir, priorWaveSummary }) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  const content = renderFactSheet(task, priorWaveSummary);
+  const content = renderFactSheet(task, priorWaveSummary, scratchDir);
 
   // Idempotency: skip write if content matches
   if (fs.existsSync(filePath)) {

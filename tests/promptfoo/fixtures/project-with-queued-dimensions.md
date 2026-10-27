@@ -1,8 +1,8 @@
-# Simulated Project Context: Project with Queued Dimensions (cap applied)
+# Simulated Project Context: Project with Batched Dimensions (cap applied)
 
 ## Project Structure
 
-Full rewrite touching many files across the project. 10 review dimensions are configured, but the concurrent dimension cap of 8 has been applied, leaving 2 dimensions in a QUEUED state.
+Full rewrite touching many files across the project. 10 review dimensions are configured and all 10 match changed files. The dispatch batch size is 8, so the dimensions run in two batches: 8 in batch 1 and 2 in batch 2. No dimension is dropped.
 
 ```
 src/
@@ -33,7 +33,7 @@ package.json
 
 ## Installed Review Dimensions
 
-Ten dimensions installed. The dimension cap is 8, so the two lowest-severity dimensions (accessibility, internationalization) are QUEUED and will not run in this pass.
+Ten dimensions installed, all ACTIVE. In priority order (severity descending, then matched files ascending) the first 8 form batch 1; accessibility and documentation-quality form batch 2.
 
 ## review-prepare.js Output (JSON manifest)
 
@@ -66,16 +66,16 @@ Ten dimensions installed. The dimension cap is 8, so the two lowest-severity dim
     ]
   },
   "dimensions": [
-    { "name": "security-review", "status": "ACTIVE", "severity": "high", "matched_count": 8 },
-    { "name": "code-quality-review", "status": "ACTIVE", "severity": "medium", "matched_count": 25 },
-    { "name": "api-review", "status": "ACTIVE", "severity": "high", "matched_count": 6 },
-    { "name": "test-coverage", "status": "ACTIVE", "severity": "medium", "matched_count": 12 },
-    { "name": "type-safety", "status": "ACTIVE", "severity": "medium", "matched_count": 20 },
-    { "name": "performance", "status": "ACTIVE", "severity": "medium", "matched_count": 10 },
-    { "name": "error-handling", "status": "ACTIVE", "severity": "medium", "matched_count": 15 },
-    { "name": "documentation-quality", "status": "ACTIVE", "severity": "low", "matched_count": 5 },
-    { "name": "accessibility", "status": "QUEUED", "severity": "low", "matched_count": 3 },
-    { "name": "internationalization", "status": "QUEUED", "severity": "low", "matched_count": 2 }
+    { "name": "security-review", "status": "ACTIVE", "severity": "high", "matched_count": 8, "batch": 1 },
+    { "name": "code-quality-review", "status": "ACTIVE", "severity": "medium", "matched_count": 25, "batch": 1 },
+    { "name": "api-review", "status": "ACTIVE", "severity": "high", "matched_count": 6, "batch": 1 },
+    { "name": "test-coverage", "status": "ACTIVE", "severity": "medium", "matched_count": 12, "batch": 1 },
+    { "name": "type-safety", "status": "ACTIVE", "severity": "medium", "matched_count": 20, "batch": 1 },
+    { "name": "performance", "status": "ACTIVE", "severity": "medium", "matched_count": 10, "batch": 1 },
+    { "name": "error-handling", "status": "ACTIVE", "severity": "medium", "matched_count": 15, "batch": 1 },
+    { "name": "documentation-quality", "status": "ACTIVE", "severity": "low", "matched_count": 5, "batch": 2 },
+    { "name": "accessibility", "status": "ACTIVE", "severity": "low", "matched_count": 3, "batch": 2 },
+    { "name": "internationalization", "status": "ACTIVE", "severity": "low", "matched_count": 2, "batch": 1 }
   ],
   "plan_critique": {
     "uncovered_files": [],
@@ -83,13 +83,13 @@ Ten dimensions installed. The dimension cap is 8, so the two lowest-severity dim
     "over_broad_dimensions": [],
     "overlapping_pairs": [],
     "dimension_cap_applied": true,
-    "queued_dimensions": ["accessibility", "internationalization"]
+    "queued_dimensions": []
   },
   "summary": {
     "total_dimensions": 10,
-    "active_dimensions": 8,
+    "active_dimensions": 10,
     "skipped_dimensions": 0,
-    "queued_dimensions": 2,
+    "queued_dimensions": 0,
     "total_changed_files": 45,
     "uncovered_file_count": 0
   }

@@ -119,19 +119,21 @@ function main() {
       `Ship pipeline: step ${stepIndex} of ${steps.length} (${stepName}) is next; in --auto mode begin it now.`;
   }
 
-  // 6b. Nudge once per (stepName, status) transition. Sidecar shares the state
+  // 6b. Nudge once per (stepName, status) transition of one step start in one ledger. Sidecar shares the state
   //     dir and branch slug with .stop-block-count-<slug>.json. Written only on
   //     a path that emits; a write failure never blocks the nudge.
   let sidecarPath = null;
+  const startKey = step.startedAt || null;
+  const ledgerKey = path.basename(result.filePath || '');
   try {
     sidecarPath = path.join(resolveStateDir(), `.pipeline-nudge-${branchSlug}.json`);
     const prior = JSON.parse(fs.readFileSync(sidecarPath, 'utf8'));
-    if (prior && prior.stepName === stepName && prior.status === step.status) process.exit(0);
+    if (prior && prior.stepName === stepName && prior.status === step.status && prior.startedAt === startKey && prior.ledger === ledgerKey) process.exit(0);
   } catch { /* absent or corrupt = no prior nudge */ }
   if (sidecarPath) {
     try {
       fs.mkdirSync(path.dirname(sidecarPath), { recursive: true });
-      fs.writeFileSync(sidecarPath, JSON.stringify({ stepName, status: step.status }));
+      fs.writeFileSync(sidecarPath, JSON.stringify({ stepName, status: step.status, startedAt: startKey, ledger: ledgerKey }));
     } catch { /* never block the nudge */ }
   }
 

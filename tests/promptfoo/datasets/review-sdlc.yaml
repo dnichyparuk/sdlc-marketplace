@@ -166,7 +166,7 @@
         limit of 100. The review still proceeds with the truncated file list. Security-review
         is shown as ACTIVE normally.
 
-- description: "review-sdlc: queued dimensions shown when cap applied"
+- description: "review-sdlc: cap applied dispatches all dimensions in batches of 8"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/SKILL.md"
     project_context: "file://fixtures/project-with-queued-dimensions.md"
@@ -175,17 +175,15 @@
       context. Show the review plan including all dimension statuses.
   assert:
     - type: regex
-      value: "(QUEUED|queued)"
+      value: "(batch|Batch)"
     - type: regex
-      value: "(8|eight).*(active|ACTIVE)"
-    - type: regex
-      value: "(accessibility|internationalization)"
+      value: "(accessibility|documentation-quality)"
     - type: llm-rubric
       value: >
-        The response shows 8 active dimensions and 2 queued dimensions (accessibility
-        and internationalization). It explains that the dimension cap was applied. It
-        suggests re-running to process the queued dimensions or using --dimensions to
-        select them specifically.
+        The response shows all 10 dimensions as active and dispatched in two batches:
+        8 in batch 1 and 2 (accessibility and documentation-quality) in batch 2. It
+        explains that the cap of 8 sets the batch size and that no dimension is dropped
+        or queued. It does not suggest re-running the review to process queued dimensions.
 
 - description: "review-sdlc: over-broad dimension warning surfaced in plan"
   vars:

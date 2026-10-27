@@ -49,3 +49,36 @@
       value: |
         const o = JSON.parse(output);
         return o.contractShaped.includes('example-skill') && o.legacy.includes('legacy-skill');
+
+- description: "validate-spec-shape: edge fixture flags DUPLICATE_SECTION, MISSING_SECTION, DUPLICATE_ID and a cited withdrawn id"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js"
+    script_args: "--root {{project_root}}"
+    project_root: "file://fixtures-fs/spec-shape-edge"
+  assert:
+    - type: icontains
+      value: "DUPLICATE_SECTION: edge-skill"
+    - type: icontains
+      value: "MISSING_SECTION: edge-skill"
+    - type: icontains
+      value: "DUPLICATE_ID: edge-skill"
+    - type: icontains
+      value: "cites R5"
+    - type: not-icontains
+      value: "cites R2"
+    - type: not-icontains
+      value: "ISSUE_REF: edge-skill"
+
+- description: "validate-spec-shape: --root from a non-git cwd prints no git error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js"
+    script_args: "--root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    script_capture_stderr: true
+    project_root: "file://fixtures-fs/spec-shape-clean"
+  assert:
+    - type: not-icontains
+      value: "not a git repository"
+    # Positive control: the run completed and reached the legacy-spec warning (stderr is captured).
+    - type: icontains
+      value: "LEGACY_SHAPE: legacy-skill"

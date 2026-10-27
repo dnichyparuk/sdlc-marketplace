@@ -19,3 +19,4 @@ extensions:
 tests:
   - file://datasets/hook-stop-plan-integrity-exec.yaml
   - file://datasets/ship-hooks-exec.yaml
+  - file://datasets/post-tool-validate-exec.yaml

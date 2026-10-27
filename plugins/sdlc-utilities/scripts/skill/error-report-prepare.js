@@ -21,7 +21,7 @@
  * Besides the caller-supplied fields and environment probes, the manifest carries
  * two computed fields:
  *   templateText = contents of skills/error-report-sdlc/templates/ToolingError.md
- *   priority     = 'High' for errorType 'script crash' / 'build failure', else 'Medium'
+ *   priority     = 'High' for errorType 'script crash' / 'build failure' or exit code 2 (prepare-script crash), else 'Medium'
  *
  * Exit codes:
  *   0 = success, manifest path printed to stdout (with --output-file)
@@ -166,7 +166,7 @@ function main() {
     targetRepo: TARGET_REPO,
     labels: ['tooling-error', skill],
     templateText,
-    priority: /^(script crash|build failure)$/i.test(errorType) ? 'High' : 'Medium',
+    priority: (/^(script crash|build failure)$/i.test(errorType) || String(input.exitOrHttpCode ?? '').trim() === '2') ? 'High' : 'Medium',
   };
 
   writeOutput(manifest, 'sdlc-error-report', 0);

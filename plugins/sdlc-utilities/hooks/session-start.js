@@ -239,6 +239,23 @@ try {
     console.error('[sdlc/session-start] manifest out/ sweep error:', sweepErr.message);
   }
 
+  // Sweep stale plan-explore tempdirs (sdlc-explore-<slug>-XXXXXX), same rule as
+  // `ship.js --gc`: older than 7 days AND the branch is gone. Skipped when the
+  // branch list cannot be read, so no dir is judged against an empty list.
+  try {
+    const { exec: gitExec } = require('../scripts/lib/git');
+    const out = gitExec("git branch --list --format='%(refname:short)'", { cwd: process.cwd(), shell: true });
+    const knownBranches = typeof out === 'string' ? out.split('\n').map(s => s.trim()).filter(Boolean) : [];
+    if (knownBranches.length > 0) {
+      require('../scripts/lib/state').gcTempdirs({
+        prefix: 'sdlc-explore-', ttlDays: 7, knownBranches,
+        tmpdir: process.env.SDLC_EXPLORE_TMPDIR_OVERRIDE || undefined,
+      });
+    }
+  } catch (sweepErr) {
+    console.error('[sdlc/session-start] explore tempdir sweep error:', sweepErr.message);
+  }
+
   // Legacy `.compact-recovery.json` (no branch suffix, pre-#256 layout).
   // Unlink ONLY when older than the freshness gate to avoid destroying a
   // fresh file written by an even-older plugin version on a concurrent

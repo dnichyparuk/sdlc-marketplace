@@ -430,7 +430,7 @@ function main() {
   let userPrompt = '';
   try {
     if (!process.stdin.isTTY) {
-      userPrompt = fs.readFileSync('/dev/stdin', 'utf8');
+      userPrompt = fs.readFileSync(0, 'utf8');
     }
   } catch (_) {
     // Non-fatal — plan-explore will run with empty prompt

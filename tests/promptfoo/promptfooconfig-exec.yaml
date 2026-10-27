@@ -61,6 +61,7 @@ tests:
   - file://datasets/config-load-exec.yaml
   - file://datasets/validate-cost-tiers-exec.yaml
   - file://datasets/validate-spec-shape-exec.yaml
+  - file://datasets/validate-copilot-mirror-exec.yaml
   - file://datasets/verify-pipeline-exec.yaml
   - file://datasets/await-remote-review-exec.yaml
   - file://datasets/lib-worktree-exec.yaml
@@ -82,3 +83,5 @@ tests:
   - file://datasets/dimension-to-instructions-exec.yaml
   - file://datasets/post-tool-validate-argv-exec.yaml
   - file://datasets/session-cost-exec.yaml
+  - file://datasets/session-map-exec.yaml
+  - file://datasets/fixture-guard-exec.yaml
