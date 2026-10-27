@@ -6,7 +6,7 @@
  * branch fix/cleanup and reports whether the state file survived.
  *
  * Args:
- *   --seed <name>     all-done | missing | noplanned | none (default none)
+ *   --seed <name>     all-done | missing | noplanned | corrupt | none (default none)
  *   --fixture <dir>   directory holding state-all-done.json and state-missing-t3-t4.json
  *
  * Output JSON: { exitCode: number|null, kept: boolean, stderr: string }
@@ -67,6 +67,8 @@ if (seed === 'all-done') {
   delete d.plannedTaskIds;
   if (d.context) delete d.context.plannedTaskIds;
   fs.writeFileSync(target, JSON.stringify(d, null, 2));
+} else if (seed === 'corrupt') {
+  fs.writeFileSync(target, '{not json');
 }
 
 const r = spawnSync(

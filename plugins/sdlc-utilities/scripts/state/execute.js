@@ -37,7 +37,7 @@ const fs   = require('node:fs');
 const LIB = path.join(__dirname, '..', 'lib');
 
 const {
-  slugifyBranch, readState, writeState, initState, deleteState, resolveBranch,
+  slugifyBranch, findStateFile, readState, writeState, initState, deleteState, resolveBranch,
   gcStateFiles, resolveStateDir, parseStateFilename,
   listBranches, readTtlDaysFromConfig, summarizePriorWaveContext,
 } = require(path.join(LIB, 'state'));
@@ -781,10 +781,16 @@ function cmdRead(opts) {
 function cmdCleanup(opts) {
   const branch = resolveBranchOrExit(opts.branch);
   const slug = slugifyBranch(branch);
-  const found = readState('execute', slug);
-  if (!found) {
+  const located = findStateFile('execute', slug);
+  if (!located) {
     // Nothing to delete — treat as success
     process.exit(0);
+  }
+  const found = readState('execute', slug);
+  if (!found) {
+    // R14: a state file that exists but cannot be parsed is kept for inspection.
+    process.stderr.write(`Error: state file kept (unreadable or corrupt): ${located.fullPath}\n`);
+    process.exit(2);
   }
 
   // R14: verifying cleanup; a state whose completeness check fails is kept for --resume.

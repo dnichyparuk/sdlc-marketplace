@@ -260,6 +260,15 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.exitCode === 0"
 
+- description: "execute-plan-sdlc/cleanup-verify: a corrupt state file is kept and cleanup exits 2"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-execute-cleanup-verify.js"
+    script_args: "--seed corrupt --fixture {{project_root}}"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.exitCode === 2 && r.kept === true && r.stderr.includes('corrupt')"
+
 # ---------------------------------------------------------------------------
 # state/execute.js wave-split subcommand
 # ---------------------------------------------------------------------------
