@@ -85,3 +85,27 @@
       value: "(MUST NOT commit|never commit|do.*not.*commit|C1|R7)"
     - type: regex
       value: "(commit-sdlc|parent|ship-sdlc.*dispatch)"
+
+- description: "verify-pipeline-sdlc (R11): local re-check still failing restores the files and emits proposal"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/verify-pipeline-sdlc/SKILL.md"
+    user_request: >
+      The user invoked /verify-pipeline-sdlc --pr 142 --auto with --logs containing
+      "eslint found 1 error: prefer-const at src/baz.ts:7". The skill edits src/baz.ts
+      to fix it, then re-runs eslint on src/baz.ts locally, and the re-run still reports
+      "prefer-const at src/baz.ts:7". Walk through what the skill does next and give the
+      final stdout line.
+  assert:
+    - type: regex
+      value: '"status":"proposal"|"status": "proposal"'
+    - type: regex
+      value: "(suggestedPatch)"
+    - type: not-regex
+      value: '"status":\s*"fix-applied"'
+    - type: llm-rubric
+      value: >
+        After the local re-check still fails, the skill captures the attempted change
+        with git diff as suggestedPatch, restores src/baz.ts to its pre-edit content
+        (reverting its own edit with the Edit tool), and emits exactly one JSON line with
+        status "proposal". It does not report fix-applied, and it does not commit, push
+        or run any state-changing git command.
