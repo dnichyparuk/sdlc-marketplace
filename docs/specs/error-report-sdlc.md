@@ -3,6 +3,7 @@
 > Internal procedure invoked by other SDLC skills to create a GitHub issue tracking an actionable error, with full context capture and two-gate user consent.
 
 **User-invocable:** no
+**Prepare script:** `skill/error-report-prepare.js`
 
 ## Inputs and flags
 
@@ -43,7 +44,9 @@ None.
 
 ## Prepare script contract
 
-None.
+- P1: `templateText` (string) — contents of `skills/error-report-sdlc/templates/ToolingError.md`; the orchestrator fills it strictly from manifest fields
+- P2: `priority` (`High` | `Medium`) — `High` when `errorType` is `script crash` or `build failure`, or `exitOrHttpCode` is `2`; otherwise `Medium`. Computed by the script, never inferred by the model; display-only (not a label, not passed to `gh`)
+- P3: `targetRepo` and `labels` — the fixed target repository (C4) and `["tooling-error", <calling skill>]`
 
 ## Failure handling and resume
 
@@ -65,6 +68,7 @@ None.
 - I1: Calling SDLC skills — receive 5 required input fields (skill, step, operation, error, suggested investigation)
 - I2: `gh` CLI — used for GitHub issue creation
 - I3: `ToolingError.md` template — provides issue body structure
+- I4: `error-report-orchestrator` returns only `{title, body, priority}` JSON; `priority` is P2 copied verbatim.
 
 ## Appendix — history
 

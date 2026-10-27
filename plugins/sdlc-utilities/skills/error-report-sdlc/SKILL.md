@@ -122,8 +122,8 @@ Substitute the shell variables with the values supplied by the calling skill. Op
 fields (`exitOrHttpCode`, `errorType`, `userIntent`, `argsString`,
 `suggestedInvestigation`) may be empty; the script tolerates empty values and the
 orchestrator will omit dependent template sections. The manifest also carries the
-computed `templateText` and `priority` fields (`High` for script crash or build
-failure, `Medium` for everything else).
+computed `templateText` and `priority` fields (`High` for a script crash, a build
+failure or exit code 2, `Medium` for everything else; P2).
 
 **On `EXIT_CODE != 0`:**
 
