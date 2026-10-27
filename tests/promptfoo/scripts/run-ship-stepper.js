@@ -20,8 +20,11 @@
  *                        worktree-mismatch | after-execute | plan-no-tasks | after-commit-fail-gc |
  *                        rebase-emit | inline-fail-<step-with-dashes> | forced-cleanup |
  *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff | after-pr |
- *                        openspec
+ *                        openspec | resume-plan | resume-plan-auto | resume-plan-quick |
+ *                        stale-plan | other-worktree-plan | finished-plan
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
+ *   --steps <csv>        Appended to every initial call as `--steps <csv>`
+ *   --no-plan            Initial calls pass --has-plan without --plan (ship-sdlc/SKILL.md always passes --has-plan)
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
  *   --seed <name>        legacy | frozen | frozen-dryrun | frozen-branch | frozen-resumed | frozen-exec | frozen-pending | none
  *                        (copies seed/ledger-<name>.json to .sdlc/execution/ship-<slug>-<ts>.json)
@@ -55,7 +58,8 @@
  *
  * Output JSON (one line):
  *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, execPreGate, otherFiles,
- *     summarySidecars, commandScripts, stopCapExists, mdPrompts: { incomplete, allDone } }
+ *     summarySidecars, commandScripts, stopCapExists, mdPrompts: { incomplete, allDone }, seedUnchanged }
+ *   seedUnchanged = true when the seeded ledger file is byte-identical at the end; null when no seed was written
  *   ledger = { stepStatuses, history, stepReasons, currentStep, flagsKeys, flags, paused, stepResults } | null
  *   history entry = { step, result, source, completenessGate }; execPreGate = { verifyExit, cleanupExit } | null
  *   mdPrompts = the two "> OpenSpec change" prompt lines of ship-sdlc/openspec-steps.md, without the leading "> "
@@ -71,6 +75,10 @@ const args = process.argv.slice(2);
 let projectRoot = process.cwd();
 let scenario = 'initial';
 let plan = null;
+let stepsCsv = null;
+let noPlan = false;
+let seedPath = null;
+let seedBytes = null;
 let resultRel = null;
 let seed = 'none';
 let answer = 'yes';
@@ -96,6 +104,8 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--os-tasks' && args[i + 1]) osTasks = args[++i];
   else if (args[i] === '--os-validate' && args[i + 1]) osValidate = args[++i];
   else if (args[i] === '--os-answer' && args[i + 1]) osAnswer = args[++i];
+  else if (args[i] === '--steps' && args[i + 1]) stepsCsv = args[++i];
+  else if (args[i] === '--no-plan') noPlan = true;
 }
 
 // Locate repo root with skill/ship.js.
@@ -157,8 +167,9 @@ function ship(shipArgs) {
 }
 
 function initial(extra = []) {
-  const planArgs = plan ? ['--has-plan', '--plan', path.resolve(projectRoot, plan)] : [];
-  return ship([...planArgs, ...extra]);
+  const planArgs = noPlan ? ['--has-plan'] : plan ? ['--has-plan', '--plan', path.resolve(projectRoot, plan)] : [];
+  const stepArgs = stepsCsv ? ['--steps', stepsCsv] : [];
+  return ship([...planArgs, ...stepArgs, ...extra]);
 }
 
 // W4.6: a successful commit result reports the fixture repo's HEAD sha (not deterministic, so injected here).
@@ -187,6 +198,8 @@ function seedLedger(name, patch) {
   fs.mkdirSync(execDir, { recursive: true });
   statePath = path.join(execDir, `ship-${data.branch.replace(/[^a-zA-Z0-9-]/g, '-')}-${SEED_TS}.json`);
   fs.writeFileSync(statePath, JSON.stringify(data, null, 2));
+  seedPath = statePath;
+  seedBytes = JSON.stringify(data, null, 2);
 }
 
 function clearLedgers() {
@@ -244,6 +257,12 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
       if (e) e.status = 'in_progress'; else data.steps.push({ name: nm, status: 'in_progress' });
     }
     if (scenario === 'plan-no-tasks') data.flags.planFile = path.join(projectRoot, 'plan-notasks.md');
+    if (scenario.startsWith('resume-plan')) { data.flags.steps = ['execute', 'commit']; data.flags.auto = true; data.flags.quality = 'balanced'; }
+    if (scenario === 'other-worktree-plan') data.worktree = path.dirname(projectRoot);
+    if (scenario === 'finished-plan') {
+      data.flags.planFile = path.join(projectRoot, 'plan-notasks.md');
+      for (const s of data.steps) if (s.status === 'pending' && s.condition === undefined) s.status = 'completed';
+    }
   });
 }
 if (summaryRel) {
@@ -456,6 +475,28 @@ switch (scenario) {
     }
     break;
   }
+  case 'resume-plan':
+    initial(['--resume']);
+    break;
+  case 'resume-plan-auto':
+    initial(['--resume', '--auto']);
+    break;
+  case 'resume-plan-quick':
+    fs.mkdirSync(path.join(projectRoot, '.sdlc'), { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, '.sdlc', 'local.json'), JSON.stringify({ schemaVersion: 4, ship: { quick: ['execute', 'commit', 'pr'] } }));
+    initial(['--resume', '--quick']);
+    break;
+  case 'stale-plan': {
+    // Ruling w2-planreview Q1: a ledger older than the resume TTL (1 h) is still checked.
+    const old = new Date(Date.now() - 2 * 3600000);
+    fs.utimesSync(seedPath, old, old);
+    initial();
+    break;
+  }
+  case 'other-worktree-plan':
+  case 'finished-plan':
+    initial();
+    break;
   default:
     if (scenario.startsWith('inline-fail-')) {
       after(scenario.slice('inline-fail-'.length).replace(/-/g, '_'), resultRel || 'results/commit-fail.json');
@@ -520,4 +561,5 @@ console.log(JSON.stringify({
     incomplete: osPromptLines.find(l => l.includes('incomplete')) || null,
     allDone: osPromptLines.find(l => l.includes('passed validation')) || null,
   },
+  seedUnchanged: seedBytes === null ? null : (fs.existsSync(seedPath) && fs.readFileSync(seedPath, 'utf8') === seedBytes),
 }));

@@ -3470,6 +3470,243 @@
         if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
         return true;
 
+- description: "ship-resume-plan: (a) a fresh initial call with --steps execute,commit records review, version and pr as skipped"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario initial --plan plan.md --steps execute,commit"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(c.envelope).slice(0, 400)}`;
+        if (!o.ledger) return 'FAIL: no ledger';
+        for (const n of ['review', 'version', 'pr']) if (o.ledger.stepStatuses[n] !== 'skipped') return `FAIL: ${n} is ${o.ledger.stepStatuses[n]}`;
+        for (const n of ['execute', 'commit']) if (o.ledger.stepStatuses[n] !== 'pending') return `FAIL: ${n} is ${o.ledger.stepStatuses[n]}`;
+        return true;
+
+- description: "ship-resume-plan: (b) a different --plan without --resume is refused with resumePlanMismatch and the ledger is untouched"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario initial-resume-legacy --seed frozen --plan plan-notasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
+        const m = (e.errors || []).find(x => x && x.id === 'resumePlanMismatch');
+        if (!m) return `FAIL: no resumePlanMismatch: ${JSON.stringify(e.errors)}`;
+        if (!/\/plan\.md\b/.test(m.message)) return `FAIL: message lacks ledger plan: ${m.message}`;
+        if (!/plan-notasks\.md/.test(m.message)) return `FAIL: message lacks given plan: ${m.message}`;
+        if (!m.message.includes('ship-feat-ship-20261019T120000Z.json')) return `FAIL: message lacks ledger name: ${m.message}`;
+        if (o.seedUnchanged !== true) return `FAIL: seedUnchanged ${o.seedUnchanged}`;
+        if (o.ledgerFiles.join() !== 'ship-feat-ship-20261019T120000Z.json') return `FAIL: ledgerFiles ${o.ledgerFiles.join()}`;
+        return true;
+
+- description: "ship-resume-plan: (c) the same --plan without --resume resumes the ledger implicitly"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario initial-resume-legacy --seed frozen --plan plan.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e.errors)}`;
+        if (e.flags.implicitResume !== true) return `FAIL: implicitResume ${e.flags.implicitResume}`;
+        if (!String(e.state_file || '').endsWith('ship-feat-ship-20261019T120000Z.json')) return `FAIL: state_file ${e.state_file}`;
+        return true;
+
+- description: "ship-resume-plan: (d) --resume without --plan restores the ledger's plan and steps and no other flag"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario resume-plan --seed frozen --no-plan"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e.errors)}`;
+        if ((e.errors || []).some(x => x && x.id === 'missingPlanFile')) return 'FAIL: missingPlanFile';
+        if (!/\/plan\.md$/.test(e.context.planFile || '')) return `FAIL: planFile ${e.context.planFile}`;
+        if (JSON.stringify(e.flags.steps) !== '["execute","commit"]') return `FAIL: steps ${JSON.stringify(e.flags.steps)}`;
+        if (e.flags.sources.steps !== 'ledger') return `FAIL: steps source ${e.flags.sources.steps}`;
+        if (e.flags.auto !== false || e.flags.sources.auto !== 'default') return `FAIL: auto ${e.flags.auto}/${e.flags.sources.auto}`;
+        if ('quality' in e.flags) return `FAIL: quality restored ${e.flags.quality}`;
+        return true;
+
+- description: "ship-resume-plan: (e) --resume with an explicit --steps keeps the CLI steps and the ledger's plan"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario resume-plan --seed frozen --no-plan --steps execute"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e.errors)}`;
+        if (JSON.stringify(e.flags.steps) !== '["execute"]') return `FAIL: steps ${JSON.stringify(e.flags.steps)}`;
+        if (e.flags.sources.steps !== 'cli') return `FAIL: steps source ${e.flags.sources.steps}`;
+        if (!/\/plan\.md$/.test(e.context.planFile || '')) return `FAIL: planFile ${e.context.planFile}`;
+        return true;
+
+- description: "ship-resume-plan: (f) --resume --auto keeps the ledger's steps and takes auto from the CLI"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario resume-plan-auto --seed frozen --no-plan"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e.errors)}`;
+        if (e.flags.auto !== true || e.flags.sources.auto !== 'cli') return `FAIL: auto ${e.flags.auto}/${e.flags.sources.auto}`;
+        if (JSON.stringify(e.flags.steps) !== '["execute","commit"]') return `FAIL: steps ${JSON.stringify(e.flags.steps)}`;
+        return true;
+
+- description: "ship-resume-plan: (g) --resume --quick takes the quick steps over the ledger's steps"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario resume-plan-quick --seed frozen --no-plan"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e.errors)}`;
+        if (JSON.stringify(e.flags.steps) !== '["execute","commit","pr"]') return `FAIL: steps ${JSON.stringify(e.flags.steps)}`;
+        if (e.flags.sources.steps !== 'quick') return `FAIL: steps source ${e.flags.sources.steps}`;
+        return true;
+
+- description: "ship-resume-plan: (h) --resume with a different --plan is refused with resumePlanMismatch"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario resume-plan --seed frozen --plan plan-notasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
+        const m = (e.errors || []).find(x => x && x.id === 'resumePlanMismatch');
+        if (!m) return `FAIL: no resumePlanMismatch: ${JSON.stringify(e.errors)}`;
+        if (!/\/plan\.md\b/.test(m.message)) return `FAIL: message lacks ledger plan: ${m.message}`;
+        if (!/plan-notasks\.md/.test(m.message)) return `FAIL: message lacks given plan: ${m.message}`;
+        if (!m.message.includes('ship-feat-ship-20261019T120000Z.json')) return `FAIL: message lacks ledger name: ${m.message}`;
+        if (o.seedUnchanged !== true) return `FAIL: seedUnchanged ${o.seedUnchanged}`;
+        if (o.ledgerFiles.join() !== 'ship-feat-ship-20261019T120000Z.json') return `FAIL: ledgerFiles ${o.ledgerFiles.join()}`;
+        return true;
+
+- description: "ship-resume-plan: (i) neither --resume nor --plan reports missingPlanFile naming the ledger and --resume"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario initial-resume-legacy --seed frozen --no-plan"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
+        const errs = e.errors || [];
+        if (errs.some(x => x && x.id === 'resumePlanMismatch')) return 'FAIL: unexpected resumePlanMismatch';
+        const m = errs.find(x => x && x.id === 'missingPlanFile');
+        if (!m) return `FAIL: no missingPlanFile: ${JSON.stringify(errs)}`;
+        if (!m.message.includes('ship-feat-ship-20261019T120000Z.json')) return `FAIL: message lacks ledger name: ${m.message}`;
+        if (!/\/plan\.md\b/.test(m.message)) return `FAIL: message lacks ledger plan: ${m.message}`;
+        if (!m.message.includes('--resume')) return `FAIL: message lacks --resume: ${m.message}`;
+        if (o.seedUnchanged !== true) return `FAIL: seedUnchanged ${o.seedUnchanged}`;
+        return true;
+
+- description: "ship-resume-plan: (j) a stale ledger with a different --plan is refused without init or prune"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario stale-plan --seed frozen --plan plan-notasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
+        const m = (e.errors || []).find(x => x && x.id === 'resumePlanMismatch');
+        if (!m) return `FAIL: no resumePlanMismatch: ${JSON.stringify(e.errors)}`;
+        if (!/\/plan\.md\b/.test(m.message)) return `FAIL: message lacks ledger plan: ${m.message}`;
+        if (!/plan-notasks\.md/.test(m.message)) return `FAIL: message lacks given plan: ${m.message}`;
+        if (!m.message.includes('ship-feat-ship-20261019T120000Z.json')) return `FAIL: message lacks ledger name: ${m.message}`;
+        if (o.seedUnchanged !== true) return `FAIL: seedUnchanged ${o.seedUnchanged}`;
+        if (o.ledgerFiles.join() !== 'ship-feat-ship-20261019T120000Z.json') return `FAIL: ledgerFiles ${o.ledgerFiles.join()}`;
+        return true;
+
+- description: "ship-resume-plan: (k) an other-worktree ledger with a different --plan is refused without init or prune"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario other-worktree-plan --seed frozen --plan plan-notasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
+        const m = (e.errors || []).find(x => x && x.id === 'resumePlanMismatch');
+        if (!m) return `FAIL: no resumePlanMismatch: ${JSON.stringify(e.errors)}`;
+        if (!/\/plan\.md\b/.test(m.message)) return `FAIL: message lacks ledger plan: ${m.message}`;
+        if (!/plan-notasks\.md/.test(m.message)) return `FAIL: message lacks given plan: ${m.message}`;
+        if (!m.message.includes('ship-feat-ship-20261019T120000Z.json')) return `FAIL: message lacks ledger name: ${m.message}`;
+        if (o.seedUnchanged !== true) return `FAIL: seedUnchanged ${o.seedUnchanged}`;
+        if (o.ledgerFiles.join() !== 'ship-feat-ship-20261019T120000Z.json') return `FAIL: ledgerFiles ${o.ledgerFiles.join()}`;
+        return true;
+
+- description: "ship-resume-plan: (l) a finished ledger is pruned and a new one written, with no plan mismatch"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario finished-plan --seed frozen --plan plan.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (c.exitCode !== 0) return `FAIL: exit ${c.exitCode}: ${JSON.stringify(e.errors)}`;
+        if ((e.errors || []).some(x => x && x.id === 'resumePlanMismatch')) return 'FAIL: unexpected resumePlanMismatch';
+        if (e.flags.implicitResume !== false) return `FAIL: implicitResume ${e.flags.implicitResume}`;
+        if (o.ledgerFiles.length !== 1 || o.ledgerFiles.includes('ship-feat-ship-20261019T120000Z.json')) return `FAIL: ledgerFiles ${o.ledgerFiles.join()}`;
+        if (o.seedUnchanged !== false) return `FAIL: seedUnchanged ${o.seedUnchanged}`;
+        return true;
+
 # W8.24 / R-plan-commit-subject (plan-sdlc R66): ship forwards the plan header's
 # **Commit:** subject to the commit step only. Plans with a spaced subject are written
 # into a mkdtemp dir by a whitespace-free one-liner (\x20 space, \x60 backtick, \x24 $).
