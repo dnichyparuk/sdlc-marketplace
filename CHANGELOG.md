@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-10-27
+
+### Changed
+- fix: execute-plan-sdlc's last OpenSpec `node -e` is replaced by `openspec-step.js tasks --change <name>`; the change name is passed as argv only, must match `^[A-Za-z0-9._-]+$` and must not be `.` or `..` (#9018)
+
+### Removed
+- fix: plan-sdlc no longer instructs a `bypassPermissions` dispatch; subagents inherit the session's permission mode (#9018)
+
 ## [0.35.0] - 2026-10-26
 
 ### Added
