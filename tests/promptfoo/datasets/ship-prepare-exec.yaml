@@ -525,23 +525,33 @@
 - description: "ship-prepare: SDLC_SKIP_CONFIG_CHECK=1 short-circuits migration"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
-    script_args: "--has-plan"
+    script_args: "--has-plan --plan plan.md"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-skill-skip-via-env"
     script_env: '{"SDLC_SKIP_CONFIG_CHECK":"1"}'
   assert:
-    - type: icontains
-      value: '"skipConfigCheck": true'
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.length === 0 && o.flags.skipConfigCheck === true && !(o.migration && o.migration.project)"
 
 - description: "ship-prepare: --skip-config-check CLI gate"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
-    script_args: "--has-plan --skip-config-check"
+    script_args: "--has-plan --skip-config-check --plan plan.md"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-skill-skip-via-env"
   assert:
-    - type: icontains
-      value: '"skipConfigCheck": true'
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.length === 0 && o.flags.skipConfigCheck === true && !(o.migration && o.migration.project)"
+
+- description: "ship-prepare: without SDLC_SKIP_CONFIG_CHECK the same fixture migrates"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --plan plan.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-skill-skip-via-env"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).migration.project.migrated === true"
 
 # reviewThreshold enum extension: low (#275)
 
