@@ -79,3 +79,6 @@
   assert:
     - type: not-icontains
       value: "not a git repository"
+    # Positive control: the run completed and reached the legacy-spec warning (stderr is captured).
+    - type: icontains
+      value: "LEGACY_SHAPE: legacy-skill"
