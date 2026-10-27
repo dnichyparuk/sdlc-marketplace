@@ -11,8 +11,10 @@
  *
  * Args:
  *   --project-root <p>      Fixture copy; cwd and --project-root of every script call
- *   --scenario <name>       flip-twice | flip-empty-line | archive | validate | detect-two
+ *   --scenario <name>       flip-twice | flip-empty-line | archive | validate | detect-two | tasks
  *   --change <n>            Change name (default add-auth)
+ *   --changes <a,b>         tasks: one `tasks` call per comma-separated name (instead of --change)
+ *   --inject                tasks: use the change name a$(touch PWNED) (script_args cannot carry a space)
  *   --ref <r>               Task ref for flip-twice (default alpha-custom)
  *   --decision <d>          --decision for archive (default anyway)
  *   --uncheck <k>           Before the first call, turn the last k "- [x]" lines of
@@ -23,7 +25,8 @@
  *   --no-cli                Run with PATH = an empty temp dir (no openspec, no git)
  *
  * Output JSON (one line):
- *   { scenario, calls: [{ args, exitCode, json, stderr }], lastSubject, commitCount, archived }
+ *   { scenario, calls: [{ args, exitCode, json, stderr }], lastSubject, commitCount, archived,
+ *     pwned: { fixture, cwd } }   pwned: a PWNED file exists in --project-root / in this process's cwd
  */
 
 'use strict';
@@ -43,6 +46,10 @@ let uncheck = 0;
 let twice = false;
 let stubValidate = null;
 let noCli = false;
+let changes = null;
+let inject = false;
+// A name with a space cannot travel through script_args (the provider splits on whitespace).
+const INJECTION_CHANGE = 'a$(touch PWNED)';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
@@ -54,6 +61,8 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--stub-validate' && args[i + 1]) stubValidate = args[++i];
   else if (args[i] === '--twice') twice = true;
   else if (args[i] === '--no-cli') noCli = true;
+  else if (args[i] === '--changes' && args[i + 1]) changes = args[++i].split(',');
+  else if (args[i] === '--inject') inject = true;
 }
 
 // Locate repo root with skill/openspec-step.js.
@@ -137,6 +146,9 @@ switch (scenario) {
     );
     run(['detect']);
     break;
+  case 'tasks':
+    for (const name of inject ? [INJECTION_CHANGE] : (changes || [change])) run(['tasks', '--change', name]);
+    break;
   default:
     console.log(JSON.stringify({ error: `unknown scenario: ${scenario}` }));
     process.exit(0);
@@ -158,4 +170,8 @@ console.log(JSON.stringify({
   lastSubject: git(['log', '-1', '--format=%s']),
   commitCount: count === null ? null : parseInt(count, 10),
   archived,
+  pwned: {
+    fixture: fs.existsSync(path.join(projectRoot, 'PWNED')),
+    cwd: fs.existsSync(path.join(process.cwd(), 'PWNED')),
+  },
 }));

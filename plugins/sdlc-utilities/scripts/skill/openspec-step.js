@@ -11,9 +11,13 @@
  *   node openspec-step.js flip     --change <n> --ref <r> [--line <n>] [--title <t>] [--project-root <p>]
  *   node openspec-step.js validate --change <n> [--project-root <p>]
  *   node openspec-step.js archive  --change <n> --decision sync|anyway|cancel [--auto] [--project-root <p>]
+ *   node openspec-step.js tasks    --change <n> [--project-root <p>]
  *
  * The project root is `--project-root <p>`, else the active worktree
  * (`resolveActiveWorktreeSafe()`), where OpenSpec content lives.
+ *
+ * `tasks` reads <root>/openspec/changes/<n>/tasks.md through `parseTasks`. Its --change
+ * must match ^[A-Za-z0-9._-]+$ and not be . or .. (else the usage error, exit 2).
  *
  * Stdout: exactly ONE JSON line, one of:
  *   detect   {"detected":B,"changeName":S|null,"isArchived":B,"tasksDone":N,"tasksTotal":N,
@@ -25,6 +29,8 @@
  *             "taskCounts":{"done":N,"total":N,"synced":N,"failed":[S]},
  *             "validation":{...}|null,"commitMade":B,"resultText":S|null}
  *            exit 0 archived, 1 halted or cancelled
+ *   tasks    {"ok":true,"tasks":[{"ref":S,"line":N,"title":S,"indent":N,"done":B}]}   exit 0
+ *            {"ok":false,"error":"not-found"|"io-error"}   exit 1
  *   usage    {"error":"<message>"}                    exit 2
  *
  * Stderr: progress and warnings.
@@ -45,13 +51,17 @@ const {
   validateChangeStrict,
   runArchive,
   markTaskDone,
+  parseTasks,
 } = require(path.join(LIB, 'openspec'));
 const { writeJsonLine } = require(path.join(LIB, 'output'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 
-const SUBCOMMANDS = ['detect', 'flip', 'validate', 'archive'];
+const SUBCOMMANDS = ['detect', 'flip', 'validate', 'archive', 'tasks'];
 const DECISIONS = ['sync', 'anyway', 'cancel'];
 const VALUE_FLAGS = ['--change', '--ref', '--line', '--title', '--decision', '--project-root'];
+// The W44-R6 pattern (skill/ship.js OPENSPEC_CHANGE_RE). `tasks` also rejects `.` and `..`,
+// which would read openspec/changes/tasks.md and openspec/tasks.md.
+const CHANGE_NAME_RE = /^[A-Za-z0-9._-]+$/;
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -74,6 +84,9 @@ function usageError(opts) {
       : `missing subcommand (expected ${SUBCOMMANDS.join('|')})`;
   }
   if (opts.sub !== 'detect' && !opts.change) return `${opts.sub}: --change <name> is required`;
+  if (opts.sub === 'tasks' && (!CHANGE_NAME_RE.test(opts.change) || opts.change === '.' || opts.change === '..')) {
+    return 'tasks: --change must match ^[A-Za-z0-9._-]+$ and not be . or ..';
+  }
   if (opts.sub === 'flip' && !opts.ref) return 'flip: --ref <ref> is required';
   if (opts.sub === 'archive' && !DECISIONS.includes(opts.decision)) {
     return `archive: --decision ${DECISIONS.join('|')} is required`;
@@ -266,6 +279,18 @@ function archive(root, opts) {
   writeJsonLine(result);
 }
 
+function tasks(root, opts) {
+  const file = path.join(root, 'openspec', 'changes', opts.change, 'tasks.md');
+  let content;
+  try {
+    content = fs.readFileSync(file, 'utf8');
+  } catch (err) {
+    writeJsonLine({ ok: false, error: err.code === 'ENOENT' ? 'not-found' : 'io-error' }, { exitCode: 1 });
+    return;
+  }
+  writeJsonLine({ ok: true, tasks: parseTasks(content) });
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -279,7 +304,7 @@ function main() {
   }
 
   const root = opts['project-root'] ? path.resolve(opts['project-root']) : resolveActiveWorktreeSafe();
-  const handlers = { detect, flip, validate, archive };
+  const handlers = { detect, flip, validate, archive, tasks };
   handlers[opts.sub](root, opts);
 }
 

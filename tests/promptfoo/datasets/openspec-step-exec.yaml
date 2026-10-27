@@ -282,3 +282,83 @@
         if (a.json.changeName !== null || a.json.matchedBy !== null) return `FAIL: ${output}`;
         if (JSON.stringify([...a.json.activeChanges].sort()) !== JSON.stringify(['add-auth', 'second'])) return `FAIL activeChanges: ${output}`;
         return true;
+
+- description: "openspec-step: tasks returns the parsed tasks of the change"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario tasks --change add-auth"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a || o.calls.length !== 1) return `FAIL: ${output}`;
+        if (a.exitCode !== 0 || !a.json || a.json.ok !== true || !Array.isArray(a.json.tasks)) return `FAIL call: ${output}`;
+        if (a.json.tasks.length !== 3 || !a.json.tasks.every((t) => t.done === true && t.indent === 0)) return `FAIL tasks: ${output}`;
+        if (a.json.tasks[0].title !== 'Implement OAuth2 provider' || a.json.tasks[0].line !== 3) return `FAIL first: ${output}`;
+        return true;
+
+- description: "openspec-step: tasks rejects --change ../x with a usage error (exit 2)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario tasks --change ../x"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.exitCode !== 2 || !a.json || a.json.error !== 'tasks: --change must match ^[A-Za-z0-9._-]+$ and not be . or ..') return `FAIL: ${output}`;
+        return true;
+
+# No script_cwd: the runner's cwd is then promptfoo's, distinct from the fixture copy
+# the script runs in, so pwned.fixture and pwned.cwd check two directories.
+- description: "openspec-step: tasks rejects a command-substitution change name and runs nothing"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario tasks --inject"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a || a.args[2] !== 'a$(touch PWNED)') return `FAIL args: ${output}`;
+        if (a.exitCode !== 2 || !a.json || a.json.error !== 'tasks: --change must match ^[A-Za-z0-9._-]+$ and not be . or ..') return `FAIL call: ${output}`;
+        if (!o.pwned || o.pwned.fixture !== false || o.pwned.cwd !== false) return `FAIL pwned: ${output}`;
+        return true;
+
+- description: "openspec-step: tasks on a missing change reports not-found (exit 1)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario tasks --change no-such-change"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[0];
+        if (!a) return `FAIL: ${output}`;
+        if (a.exitCode !== 1 || JSON.stringify(a.json) !== '{"ok":false,"error":"not-found"}') return `FAIL: ${output}`;
+        return true;
+
+- description: "openspec-step: tasks rejects --change . and --change .. (exit 2)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
+    script_args: "--project-root {{project_root}} --scenario tasks --changes .,.."
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-step-archive"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.calls.length !== 2 || o.calls[0].args[2] !== '.' || o.calls[1].args[2] !== '..') return `FAIL args: ${output}`;
+        for (const a of o.calls) {
+          if (a.exitCode !== 2 || !a.json || a.json.error !== 'tasks: --change must match ^[A-Za-z0-9._-]+$ and not be . or ..') return `FAIL: ${output}`;
+        }
+        return true;
