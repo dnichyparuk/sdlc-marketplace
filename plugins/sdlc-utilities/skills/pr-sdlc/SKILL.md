@@ -100,9 +100,10 @@ If no tests added, explain why.]
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-PR_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/pr.js" --output-file $ARGUMENTS)
-EXIT_CODE=$?
+node "<PLUGIN_ROOT>/scripts/skill/pr.js" --output-file $ARGUMENTS
 ```
+
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `PR_CONTEXT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 Read and parse `PR_CONTEXT_FILE` as `PR_CONTEXT_JSON`.
 
@@ -466,32 +467,40 @@ gh label create "<name>" --description "Auto-created by pr-sdlc" --color "c5def5
 
 This is idempotent — the command succeeds silently if the label already exists. This ensures forced labels work in any repository where the plugin is installed, not just repos where labels were pre-created.
 
-**Create mode:**
+**Create mode:** create the PR once, with its stderr captured to a temp file, so that a failure can go to the account-recovery helper. Run each command below as its own plain Bash call, in this order.
 
-```bash
-gh pr create --title "<title>" --body "<body>" [--draft] [--label "<l1>" --label "<l2>"]
-```
+1. Make the temp file. The command prints its path; use that literal path as `<ERR_FILE>` in steps 2–4:
 
-If no labels were approved, omit the `--label` flags entirely.
+   ```bash
+   mktemp
+   ```
 
-**Post-failure account-switch recovery (implements spec E7, issue #184):** If `gh pr create` exits non-zero, capture stderr to a temp file and invoke the recovery helper exactly once:
+2. Create the PR, with stderr going to the temp file:
 
-```bash
-ERR_FILE=$(mktemp)
-gh pr create --title "<title>" --body "<body>" [--draft] [--label ...] 2> "$ERR_FILE"
-GH_EXIT=$?
-if [ "$GH_EXIT" -ne 0 ]; then
-  # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-  RECOVER_JSON=$(node "<PLUGIN_ROOT>/scripts/skill/pr-recover-gh-account.js" --error-file "$ERR_FILE")
-fi
-rm -f "$ERR_FILE"
-```
+   ```bash
+   gh pr create --title '<title>' --body '<body>' [--draft] [--label '<l1>' --label '<l2>'] 2> '<ERR_FILE>'
+   ```
 
-Parse `RECOVER_JSON`. Branches:
+   If no labels were approved, omit the `--label` flags entirely. Substitute the title, the body and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Take the command's exit code from the tool result as `GH_EXIT` (a tool result without an error is exit code 0). On `GH_EXIT` 0 the PR is created: go to step 4.
 
-- `recovered: true` and `switched: true` — print one user-visible line: `Switched gh account to <account> due to repo-permission mismatch — retrying`. Re-run `gh pr create` with the same arguments **exactly once**. A second consecutive failure is terminal and falls through to the existing failure path below.
-- `recovered: false` and `hint` is present — surface the original stderr followed by the hint (e.g., `Run \`gh auth login --hostname <host>\` to authenticate the account that owns this repo.`) and proceed to the existing failure fallback.
-- `recovered: false` and `reason: "non-permission-error"` — proceed straight to the existing failure fallback (this is not an account problem).
+3. **Post-failure account-switch recovery (implements spec E7, issue #184):** If `GH_EXIT` is non-zero, invoke the recovery helper exactly once with the captured stderr file:
+
+   ```bash
+   # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
+   node "<PLUGIN_ROOT>/scripts/skill/pr-recover-gh-account.js" --error-file '<ERR_FILE>'
+   ```
+
+   The JSON line it prints is `RECOVER_JSON`. Parse `RECOVER_JSON`. Branches:
+
+   - `recovered: true` and `switched: true` — print one user-visible line: `Switched gh account to <account> due to repo-permission mismatch — retrying`. Re-run `gh pr create` with the same arguments **exactly once**, without the `2>` redirect, so that its stderr shows in the tool result. A second consecutive failure is terminal and falls through to the existing failure path below.
+   - `recovered: false` and `hint` is present — read the original stderr from `<ERR_FILE>` (Read tool), surface it followed by the hint (e.g., `Run \`gh auth login --hostname <host>\` to authenticate the account that owns this repo.`) and proceed to the existing failure fallback.
+   - `recovered: false` and `reason: "non-permission-error"` — read the original stderr from `<ERR_FILE>` (Read tool), surface it, and proceed straight to the existing failure fallback (this is not an account problem).
+
+4. Remove the temp file, after the retry or the fallback above has used it:
+
+   ```bash
+   rm -f '<ERR_FILE>'
+   ```
 
 The retry runs at most once per pipeline invocation. The recovery helper is the single source of decision logic — SKILL.md only orchestrates capture, invocation, and re-run.
 

@@ -177,28 +177,28 @@ Present the markdown output table. If any file has errors, show the error detail
 
 **DO — write files:**
 
-1. **Read common prompt once (if present):**
+1. **Check for the common prompt once:**
    ```bash
-   # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-   COMMON_CONTENT=$(node -e "
-     const { readCommonPrompt } = require('<PLUGIN_ROOT>/scripts/lib/dimensions.js');
-     const content = readCommonPrompt('.');
-     process.stdout.write(content || '');
-   ")
-   # When _common.md is absent or empty, COMMON_CONTENT is empty; pass it anyway.
+   test -f '.sdlc/review-dimensions/_common.md'
    ```
+   Run this as one plain Bash call. Exit code 0 in the tool result (no error shown) means the common prompt exists; any other exit code means it is absent. An empty `_common.md` needs no special case: the generator ignores a blank common file, so its mirror equals the mirror without one.
 
 2. `mkdir -p .github/instructions`
-3. For each selected dimension, generate its mirror deterministically using the dimension-to-instructions.js script:
+3. For each selected dimension, generate its mirror deterministically using the dimension-to-instructions.js script. Run exactly one of the two commands, as one plain Bash call, with `<name>` substituted:
 
+   When the common prompt exists:
    ```bash
    # Substitute <PLUGIN_ROOT> and <name> (from the dimension filename)
-   DIMENSION_FILE=".sdlc/review-dimensions/<name>.md"
-   COMMON_FLAG=""
-   [ -n "$COMMON_CONTENT" ] && COMMON_FLAG="--common-file /dev/stdin"
-   MIRROR=$(echo "$COMMON_CONTENT" | node "<PLUGIN_ROOT>/scripts/lib/dimension-to-instructions.js" --file "$DIMENSION_FILE" $COMMON_FLAG)
-   GEN_EXIT=$?
+   node "<PLUGIN_ROOT>/scripts/lib/dimension-to-instructions.js" --file '.sdlc/review-dimensions/<name>.md' --common-file '.sdlc/review-dimensions/_common.md'
    ```
+
+   When it is absent:
+   ```bash
+   # Substitute <PLUGIN_ROOT> and <name> (from the dimension filename)
+   node "<PLUGIN_ROOT>/scripts/lib/dimension-to-instructions.js" --file '.sdlc/review-dimensions/<name>.md'
+   ```
+
+   The command's stdout is `MIRROR`; its exit code from the tool result is `GEN_EXIT` (a tool result without an error is exit code 0).
    
    If `GEN_EXIT` is non-zero (unparseable dimension), display the error and skip this dimension.
 

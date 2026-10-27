@@ -45,14 +45,15 @@ STOP here. Do NOT proceed to Step 1 (LOAD). Do NOT use AskUserQuestion to reques
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. When implicitResume is set (R36), append --resume to the command.
-EXECUTE_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/execute.js" --output-file $ARGUMENTS)
-EXIT_CODE=$?
+node "<PLUGIN_ROOT>/scripts/skill/execute.js" --output-file $ARGUMENTS
 # No EXIT trap: each Bash call is its own shell. Remove the manifest with rm -f once read.
 ```
 
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `EXECUTE_CONTEXT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
+
 **Flag reading rule (flag-coherence):** throughout this skill, "`--auto` is set" / "`--auto` mode" means `flags.auto === true`, "`--resume` was passed" means `flags.resume === true`, and `EXPLICIT_PLAN_FILE` is `plan.path` when `flags.plan` is set. No site re-parses `$ARGUMENTS`.
 
-Check `EXIT_CODE` first. Exit code 2: print `Script error — see output above` and STOP without reading `EXECUTE_CONTEXT_FILE` (it may be empty). Otherwise read `EXECUTE_CONTEXT_FILE` as `EXECUTE_CONTEXT` and run `rm -f "$EXECUTE_CONTEXT_FILE"`. Exit code 1: print each `errors[].message` (a `missingPlanFile` message is the R41 halt text) and STOP. Exit code 0: print one summary line per field — plan path and task count, `waves.length`, `workspace.decision`, `resume.found`, and the quality tier. When `flags.sources.quality` is `default`, print exactly `Quality tier: balanced (default under --auto)`. Every later step reads `flags.*`, `plan`, `classificationFloor`, `waves`, `guardrails`, `workspace`, `resume` and `openspec` from `EXECUTE_CONTEXT`; never re-derive them (C14–C16).
+Check `EXIT_CODE` first. Exit code 2: print `Script error — see output above` and STOP without reading `EXECUTE_CONTEXT_FILE` (it may be empty). Otherwise read `EXECUTE_CONTEXT_FILE` as `EXECUTE_CONTEXT` and run `rm -f '<EXECUTE_CONTEXT_FILE>'` with the literal path. Exit code 1: print each `errors[].message` (a `missingPlanFile` message is the R41 halt text) and STOP. Exit code 0: print one summary line per field — plan path and task count, `waves.length`, `workspace.decision`, `resume.found`, and the quality tier. When `flags.sources.quality` is `default`, print exactly `Quality tier: balanced (default under --auto)`. Every later step reads `flags.*`, `plan`, `classificationFloor`, `waves`, `guardrails`, `workspace`, `resume` and `openspec` from `EXECUTE_CONTEXT`; never re-derive them (C14–C16).
 
 **Explicit plan-file override (R-PLANFILE):** If `EXPLICIT_PLAN_FILE` is set (from the `--plan <path>` flag or the positional plan-file-path argument, parsed in the preamble), read the plan from `EXPLICIT_PLAN_FILE` directly using the Read tool and proceed to plan validation below. This branch is authoritative — conversation context is NEVER consulted when `EXPLICIT_PLAN_FILE` is set. This is the compaction-stable path forwarded by ship-sdlc via `context.planFile`, and it is the only way to guarantee the same plan file is read across compaction boundaries. Store the resolved absolute path as `PLAN_FILE` — reused later at the state-init call (implements R40). Per the plan-argument gate above, `EXPLICIT_PLAN_FILE` (and therefore `PLAN_FILE`) is always populated by the time this line is reached in a fresh (non-resume) run, whether ship-invoked or standalone.
 
@@ -107,11 +108,14 @@ Note: this reads `execute.guardrails` (runtime enforcement), not `plan.guardrail
      - `committedSha` absent: pre-existing waves from runs where `--commit-waves` was off — fall through to the normal `status`-based resume pointer logic.
   8. Clear untrusted rows before computing the resume pointer (R-WAVE-RESUME-RESET):
      ```bash
-     RESET_RESULT=$(node "$STATE_SCRIPT" resume-reset)
+     # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
+     node "<PLUGIN_ROOT>/scripts/state/execute.js" resume-reset
      ```
+     Run this as one plain Bash call; the JSON it prints is `RESET_RESULT`.
+
      Task rows recorded for a wave that never reached `completed` are untrusted — main context writes them in a batch after the wave-runner returns, so a wave interrupted mid-write leaves a partial set that `verify-completeness` would otherwise count as accounted, producing a false-complete at the exit-65 gate.
 
-     Read `resetWaves` and `clearedTaskIds` from `$RESET_RESULT`. When `resetWaves` is non-empty, surface one line: `Resumed: cleared <clearedTaskIds.length> untrusted task row(s) from wave(s) <resetWaves, comma-separated> before recomputing resume pointer.`
+     Read `resetWaves` and `clearedTaskIds` from `RESET_RESULT`. When `resetWaves` is non-empty, surface one line: `Resumed: cleared <clearedTaskIds.length> untrusted task row(s) from wave(s) <resetWaves, comma-separated> before recomputing resume pointer.`
 
      A wave whose row carries `timedOut: true` with status `partial` has already spent its full deadline. `resume-reset` only clears `in_progress` waves (see `state/execute.js::cmdResumeReset`), so a `partial` wave's row survives untouched. Its terminated tasks are not special-cased: they proceed to Step 6 (RECOVER) exactly as any other wave failure would, via a fresh dispatch (workers, or a wave-runner Agent in runner mode) scoped to the unfinished task IDs (R-WAVE-DEADLINE's testable assertion: "the skill proceeds to recovery rather than aborting the pipeline"). There is no cross-wave task-ID carry-forward into the next wave's dispatch set — merging a `partial` wave's unfinished tasks into wave N+1's already-built task set would risk violating that wave's same-file constraint (R3) and wave-size cap (R4), both fixed statically when waves were built in Step 1.
   9. Skip to Step 5, resuming from the first wave with status `in_progress` or `pending`. Use the context object to construct inter-wave context for the next wave's agent prompts.
@@ -325,10 +329,11 @@ Prepare the wave (both modes, items 1–2; runner mode adds item 3):
 
    **Fact-sheet dispatch (R-FACT-SHEET-DISPATCH):** Before dispatching the wave (workers or wave-runner), write per-task fact sheets via:
    ```bash
-   WAVE_START_RESULT=$(node "$STATE_SCRIPT" wave-start --wave <N> --tasks-json '<json-array-of-task-objects>' --manifest-json '<json>')
+   # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
+   node "<PLUGIN_ROOT>/scripts/state/execute.js" wave-start --wave <N> --tasks-json '<json-array-of-task-objects>' --manifest-json '<json>'
    ```
-   Both JSON arguments are single-quoted; write any `'` inside them as `'\''`. `--manifest-json` is the wave's `waves[n]` record from `EXECUTE_CONTEXT` plus `qualityTier`, `totalWaves`, `waveTimeout: WAVE_TIMEOUT`, `waveInterval: WAVE_INTERVAL`, `guardrails: activeGuardrails` and per-task `{ id, complexity, risk, assignedModel, effort, verifyToken }` (`assignedModel` is the `model` of the task's `dispatch` entry, `effort` that entry's `effort`; item 1).
-   Do NOT pass `--run-id` — this skill never generates one. `wave-start` derives it once from the state file's `startedAt` field (set at `init`, Step 1) and returns the same value on every wave's call, so it is stable across the whole run without the skill tracking anything itself. Read `runId` and `factSheets: [...]` from `$WAVE_START_RESULT`: `runId` is the value to carry into every downstream `--run-id` flag (`wave-progress`, `summarize-prior-wave-context`); the manifest already carries it, and `factSheets` are the same absolute paths its tasks carry as `factSheetPath`. This writes `<stateDir>/execution/<runId>/task-<id>.md` for each task. Task name, notes, files, and acceptance criteria live in the fact sheet; do NOT inline them in the manifest.
+   Run this as one plain Bash call; the JSON it prints is `WAVE_START_RESULT`. Both JSON arguments are single-quoted; write any `'` inside them as `'\''`. `--manifest-json` is the wave's `waves[n]` record from `EXECUTE_CONTEXT` plus `qualityTier`, `totalWaves`, `waveTimeout: WAVE_TIMEOUT`, `waveInterval: WAVE_INTERVAL`, `guardrails: activeGuardrails` and per-task `{ id, complexity, risk, assignedModel, effort, verifyToken }` (`assignedModel` is the `model` of the task's `dispatch` entry, `effort` that entry's `effort`; item 1).
+   Do NOT pass `--run-id` — this skill never generates one. `wave-start` derives it once from the state file's `startedAt` field (set at `init`, Step 1) and returns the same value on every wave's call, so it is stable across the whole run without the skill tracking anything itself. Read `runId` and `factSheets: [...]` from `WAVE_START_RESULT`: `runId` is the value to carry into every downstream `--run-id` flag (`wave-progress`, `summarize-prior-wave-context`); the manifest already carries it, and `factSheets` are the same absolute paths its tasks carry as `factSheetPath`. This writes `<stateDir>/execution/<runId>/task-<id>.md` for each task. Task name, notes, files, and acceptance criteria live in the fact sheet; do NOT inline them in the manifest.
 
    **Notes source (optional):** The task object's `description` JSON key is sourced from the optional `**Notes:**` plan field. When a plan task carries a `**Notes:**` label, capture its rationale-only text as the `description` value passed to `--tasks-json`; when absent, pass empty (or omit). `renderFactSheet` emits non-empty notes as a `## Notes (rationale)` section and omits the section entirely when notes are absent. **Backward compatibility (version-skew):** When a `**Description:**` block is encountered in a plan task (legacy format written before the Notes rename), treat its content as the `description` value — do not discard it. Plans written after the rename use `**Notes:**` exclusively; the `**Description:**` label is not produced by new plans but must be handled gracefully when present in existing plans.
 

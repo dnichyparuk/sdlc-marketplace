@@ -23,11 +23,10 @@ Locate and run the enrichment script:
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-PREPARE_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/openspec-enrich.js" --output-file {REMOVE_FLAG} --project-root .)
-EXIT_CODE=$?
-echo "PREPARE_OUTPUT_FILE=$PREPARE_OUTPUT_FILE"
-echo "EXIT_CODE=$EXIT_CODE"
+node "<PLUGIN_ROOT>/scripts/util/openspec-enrich.js" --output-file {REMOVE_FLAG} --project-root .
 ```
+
+Run this as one plain Bash call. Take the output path the command prints on stdout as `PREPARE_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 Replace `{REMOVE_FLAG}` with `--remove` if the parent passed `--remove-openspec`, otherwise omit it.
 

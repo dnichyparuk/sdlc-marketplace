@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.2] - 2026-10-27
+
+### Changed
+- Skills: every prepare and helper call the skills prescribe is one plain command (no `VAR=$(node …)` capture); the skill takes the printed path or value and the exit code from the tool result, so headless `--permission-mode dontAsk` runs can allowlist them (W8.32; 12 skills, 6 companion files).
+- pr-sdlc: the PR is created once, with stderr to a temp file for the account-recovery helper; the separate create block is merged into the recovery flow (same messages, one retry).
+- jira-sdlc: the hook-block occurrence key is now the helper's own hash of the deny reason; counts recorded before the upgrade do not carry over (the count may restart at 1 once per reason).
+- Specs: jira-sdlc, harden-sdlc and setup-sdlc are in the contract layout.
+
+### Fixed
+- harden-sdlc: the Copilot mirror of a new review dimension now includes `_common.md` (the content root crossed Bash calls as an empty shell variable).
+- setup-sdlc: `--dimensions` Copilot mirrors now include `_common.md` (the common prompt crossed Bash calls as an empty shell variable).
+
 ## [0.36.1] - 2026-10-27
 
 ### Changed

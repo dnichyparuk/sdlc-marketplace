@@ -55,11 +55,10 @@ Run `skill/setup.js` via Bash to get current state:
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-PREPARE_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/setup.js" --output-file $ARGUMENTS)
-EXIT_CODE=$?
-echo "PREPARE_OUTPUT_FILE=$PREPARE_OUTPUT_FILE"
-echo "EXIT_CODE=$EXIT_CODE"
+node "<PLUGIN_ROOT>/scripts/skill/setup.js" --output-file $ARGUMENTS
 ```
+
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `PREPARE_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 Parse the JSON output from `$PREPARE_OUTPUT_FILE`. If exit code != 0, display the error and stop.
 
@@ -624,11 +623,10 @@ After collecting all answers AND confirming the diff preview above, write projec
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 # Replace <PROJECT_CONFIG_JSON> and <LOCAL_CONFIG_JSON> with the actual config objects
 # assembled from Steps 3a–3f. Only include sections that were configured (not skipped).
-INIT_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --project-config '<PROJECT_CONFIG_JSON>' --local-config '<LOCAL_CONFIG_JSON>')
-EXIT_CODE=$?
-echo "INIT_OUTPUT_FILE=$INIT_OUTPUT_FILE"
-echo "EXIT_CODE=$EXIT_CODE"
+node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --project-config '<PROJECT_CONFIG_JSON>' --local-config '<LOCAL_CONFIG_JSON>'
 ```
+
+Run this as one plain Bash call. Take the output path the command prints on stdout as `INIT_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 Parse the output JSON from `$INIT_OUTPUT_FILE`.
 

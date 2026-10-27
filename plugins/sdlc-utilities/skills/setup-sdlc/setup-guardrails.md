@@ -16,14 +16,16 @@ Run skill/guardrails.js:
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-PREPARE_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/guardrails.js" --output-file --project-root . --mode {init|add} --json)
-EXIT_CODE=$?
-echo "EXIT_CODE=$EXIT_CODE"
-cat "$PREPARE_OUTPUT_FILE"
-rm -f "$PREPARE_OUTPUT_FILE"
+node "<PLUGIN_ROOT>/scripts/skill/guardrails.js" --output-file --project-root . --mode {init|add} --json
 ```
 
 Replace `{init|add}` with `add` if `--add` was passed, otherwise `init`.
+
+Run this as one plain Bash call. Take the output path the command prints on stdout as `PREPARE_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Read the file at that path, then remove it in its own Bash call:
+
+```bash
+rm -f '<PREPARE_OUTPUT_FILE>'
+```
 
 Parse JSON output. If `errors` non-empty, show errors and stop. Store `signals`, `proposals`, and `existing`.
 

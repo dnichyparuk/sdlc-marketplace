@@ -53,24 +53,27 @@ Pass `--from-issue "$ISSUE_NUM"` to the prepare script invocation in Step 1.
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-MANIFEST_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/harden-prepare.js" \
-  ${FAILURE_TEXT:+--failure-text "$FAILURE_TEXT"} \
-  ${FROM_ISSUE:+--from-issue "$FROM_ISSUE"} \
-  --skill "$SKILL_NAME" \
-  --step "$STEP_NAME" \
-  --operation "$OPERATION" \
-  --exit-code "$EXIT_CODE_ARG" \
-  --error-type "$ERROR_TYPE" \
-  --user-intent "$USER_INTENT" \
-  --args-string "$ARGS_STRING" \
-  --output-file)
-EXIT_CODE_PREPARE=$?
-echo "MANIFEST_FILE=$MANIFEST_FILE"
-echo "EXIT_CODE=$EXIT_CODE_PREPARE"
+node "<PLUGIN_ROOT>/scripts/skill/harden-prepare.js" \
+  --failure-text '<FAILURE_TEXT>' \
+  --from-issue '<FROM_ISSUE>' \
+  --skill '<SKILL_NAME>' \
+  --step '<STEP_NAME>' \
+  --operation '<OPERATION>' \
+  --exit-code '<EXIT_CODE_ARG>' \
+  --error-type '<ERROR_TYPE>' \
+  --user-intent '<USER_INTENT>' \
+  --args-string '<ARGS_STRING>' \
+  --output-file
 ```
 
-Substitute the shell variables with values from the parsed arguments. Empty
-values for optional fields are tolerated.
+Include `--failure-text` only when a failure text was given, and `--from-issue` only when an
+issue number was given (never both, R19). Substitute each `<…>` placeholder with the value
+from the parsed arguments, as a single-quoted literal (write any `'` inside it as `'\''`;
+never put it inside double quotes). Empty values for optional fields are tolerated.
+
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as
+`MANIFEST_FILE`, and the command's exit code from the tool result as `EXIT_CODE_PREPARE`
+(a tool result without an error is exit code 0). Use the literal path in every later step.
 
 **On non-zero `EXIT_CODE_PREPARE`:**
 
@@ -125,11 +128,16 @@ Use the `Agent` tool with:
   ```
 
   Substitute `<ERROR_CONTEXT_FILE>` with the Step 1 `MANIFEST_FILE` path.
-  For `PROJECT_ROOT`, read `repository.contentRoot` from the manifest JSON:
+  For `PROJECT_ROOT`, read `repository.contentRoot` from the manifest JSON. Run each
+  command as its own plain Bash call, with `<MANIFEST_FILE>` the literal Step 1 path, and
+  take the value it prints as a literal path:
 
   ```bash
-  CONTENT_ROOT=$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('$MANIFEST_FILE','utf8')).repository.contentRoot)")
-  MAIN_ROOT=$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('$MANIFEST_FILE','utf8')).repository.root)")
+  node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).repository.contentRoot)' '<MANIFEST_FILE>'
+  ```
+
+  ```bash
+  node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).repository.root)' '<MANIFEST_FILE>'
   ```
 
   `CONTENT_ROOT` = `repository.contentRoot` (active worktree — dimensions/copilot paths rooted here).
@@ -246,24 +254,33 @@ Applied {action} on {surface} → {targetFile}
 
 **Copilot mirror for NEW review dimensions (R-copilot-mirror, issue #456) — same atomic, approved write step.** Immediately after the dimension write above (still inside this 5b iteration, before advancing to the next proposal), gate on BOTH: (a) `proposal.surface === "review-dimensions"` AND `proposal.targetFile` (an absolute path emitted by the orchestrator, rooted at `repository.contentRoot`) contains `.sdlc/review-dimensions/`, AND (b) `proposal.action === "add"` (a NEW dimension — existing dimensions are NOT retroactively mirrored per R8/C9; `strengthen` actions on an already-mirrored dimension do not re-run this). When the gate does not hold, skip this block entirely.
 
-Before this block runs, ensure `CONTENT_ROOT` is set from `repository.contentRoot` in the manifest (derived in Step 3; re-derive here if in a fresh shell block using the same one-liner pattern from Step 3).
+`<CONTENT_ROOT>` below is the literal `repository.contentRoot` path read from the manifest in Step 3 (each Bash call is its own shell, so no shell variable carries it).
 
 When it holds, derive `<name>` from the dimension filename (`.sdlc/review-dimensions/<name>.md` → `<name>.instructions.md`) and:
 
-1. **Generate the mirror deterministically** (NEVER hand-author the mirror — `scripts-over-llm-logic`). Resolve and run the generator on the just-written dimension file, capturing stdout:
+1. **Generate the mirror deterministically** (NEVER hand-author the mirror — `scripts-over-llm-logic`). First check, in one plain Bash call, whether the shared common prompt exists (R-common-prompt-passthrough):
 
+   ```bash
+   test -f '<CONTENT_ROOT>/.sdlc/review-dimensions/_common.md'
+   ```
+
+   Exit code 0 in the tool result (no error shown) means it exists; any other exit code means it is absent. Then run exactly one of the two generator commands on the just-written dimension file, as one plain Bash call, and take its stdout as `MIRROR`.
+
+   When the common prompt exists:
    ```bash
    # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
    # #474: read the just-written dimension at its ABSOLUTE content-rooted path,
    # not a cwd-relative one (the dimension lives in the active worktree).
-   COMMON_FILE_PATH="$CONTENT_ROOT/.sdlc/review-dimensions/_common.md"
-   if [ -f "$COMMON_FILE_PATH" ]; then
-     MIRROR=$(node "<PLUGIN_ROOT>/scripts/lib/dimension-to-instructions.js" --file "<proposal.targetFile>" --common-file "$COMMON_FILE_PATH")
-   else
-     MIRROR=$(node "<PLUGIN_ROOT>/scripts/lib/dimension-to-instructions.js" --file "<proposal.targetFile>")
-   fi
-   GEN_EXIT=$?
+   node "<PLUGIN_ROOT>/scripts/lib/dimension-to-instructions.js" --file '<proposal.targetFile>' --common-file '<CONTENT_ROOT>/.sdlc/review-dimensions/_common.md'
    ```
+
+   When it is absent:
+   ```bash
+   # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
+   node "<PLUGIN_ROOT>/scripts/lib/dimension-to-instructions.js" --file '<proposal.targetFile>'
+   ```
+
+   The command's exit code from the tool result is `GEN_EXIT` (a tool result without an error is exit code 0).
    A non-zero `GEN_EXIT` (unparseable dimension) is a hard failure — halt per R-iteration-write rule 4 (see step 4) and surface the partial state (dimension written, mirror not).
 
 2. **Ensure the mirror directory exists:** `mkdir -p "<CONTENT_ROOT>/.github/instructions"` (#474 — active worktree).

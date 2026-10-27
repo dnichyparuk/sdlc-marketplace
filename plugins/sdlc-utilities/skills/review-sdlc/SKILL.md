@@ -21,11 +21,10 @@ Thin dispatcher — runs the prepare script, then delegates everything to the
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-MANIFEST_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/review.js" --output-file $ARGUMENTS --json)
-EXIT_CODE=$?
-echo "MANIFEST_FILE=$MANIFEST_FILE"
-echo "EXIT_CODE=$EXIT_CODE"
+node "<PLUGIN_ROOT>/scripts/skill/review.js" --output-file $ARGUMENTS --json
 ```
+
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `MANIFEST_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 **On non-zero `EXIT_CODE`:**
 

@@ -15,11 +15,9 @@ If `--init-config` was passed:
 2. Locate and call `ship-init.js` via Bash with the collected answers (append `--quick <csv>` only when the user made a quick-profile selection):
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
-INIT_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/ship-init.js" --output-file --steps execute,commit,review,archive-openspec,pr --bump patch --auto --threshold high)
-EXIT_CODE=$?
-echo "INIT_OUTPUT_FILE=$INIT_OUTPUT_FILE"
-echo "EXIT_CODE=$EXIT_CODE"
+node "<PLUGIN_ROOT>/scripts/util/ship-init.js" --output-file --steps execute,commit,review,archive-openspec,pr --bump patch --auto --threshold high
 ```
+   Run this as one plain Bash call. Take the output path the command prints on stdout as `INIT_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 3. Check `EXIT_CODE` first, then parse the output JSON from `$INIT_OUTPUT_FILE`:
    - If `EXIT_CODE` is non-zero: exit code 1 → display the `errors` array from the JSON and stop; exit code 2 → show the script error message (stderr) and stop. Do not proceed to confirmation.
    - If `EXIT_CODE` is 0 but `errors` is non-empty, display them and stop.
@@ -32,10 +30,10 @@ If `--gc` (with optional `--ttl-days <N>`) was passed, run `skill/ship.js --gc` 
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
-PREPARE_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/ship.js" --output-file --gc)  # add --ttl-days <N> when provided
+node "<PLUGIN_ROOT>/scripts/skill/ship.js" --output-file --gc  # add --ttl-days <N> when provided
 ```
 
-Read the prepare output. The top-level `action` field will be `"gc"`; the `report` field contains `{ttlDays, ship: {deleted, kept}, execute: {deleted, kept}}`.
+Run this as one plain Bash call; it prints the path of its output file. Read the prepare output from that path. The top-level `action` field will be `"gc"`; the `report` field contains `{ttlDays, ship: {deleted, kept}, execute: {deleted, kept}}`.
 
 Print one line per file:
 ```
