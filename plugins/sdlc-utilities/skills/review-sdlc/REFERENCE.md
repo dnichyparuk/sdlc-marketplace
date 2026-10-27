@@ -76,7 +76,7 @@ See `EXAMPLES.md` (in this directory) for 5 copy-paste-ready example dimension f
 
 `status` values: `ACTIVE`, `SKIPPED`, `TRUNCATED`
 
-`batch`: the dispatch batch index (1, 2, …) of an ACTIVE or TRUNCATED entry, 8 entries per batch in priority order (severity descending, then matched files ascending); `null` for other entries. No dimension is queued, so `queued_dimensions` is always empty (R-dimension-cap).
+`batch`: the dispatch batch index (1, 2, …) of an ACTIVE or TRUNCATED entry, 8 entries per batch in priority order (severity descending, then matched files ascending); `null` for other entries. No dimension is queued, so `plan_critique.queued_dimensions` is always `[]` and `summary.queued_dimensions` is always `0` (R-dimension-cap). `plan_critique.dimension_cap_applied` is `true` when the dispatched dimensions span more than one batch (more than 8 active dimensions) and `false` otherwise; the orchestrator uses it to show the batch notice.
 
 ### Per-dimension slice file
 
