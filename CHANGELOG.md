@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.1] - 2026-10-27
+
+### Changed
+- The error-report-sdlc and verify-pipeline-sdlc specs now use the contract sections. New spec ids: commit-sdlc R16 (the WIP subject gate), error-report-sdlc P1–P3 and I4, verify-pipeline-sdlc R11 and E4, ship-sdlc P11 and R-step5-prompting. execute-plan-sdlc R21 is withdrawn; review-sdlc G3 and C11 describe the persistent manifest (W8.12–W8.17).
+- Stale text removed: the validate-plugin-consistency resolver sections, the plan-explore-orchestrator trap sentence, the `writeOutput` docstring, and the ship-sdlc `--auto` example and skip-source lines. docs/cost-tiers.md §7 names the `execute.waveRunnerMinPlanTasks` default, 9 (W8.18, W8.19, #9172).
+
+### Fixed
+- ship-sdlc `--plan-mode-blocked` no longer prunes another plan's unfinished ledger. With a different `--plan`, or without `--plan` when an unfinished ledger of the branch recorded a plan, it stops with `resumePlanMismatch` and writes no state (#9182).
+- ship-sdlc `--after` re-checks the plan's `**Commit:**` field against `commit.subjectPattern`, and stops before recording anything when the field is unreadable or invalid. The final cleanup call is exempt (#9180).
+- execute-plan-sdlc Step 5c prints the `parseWaveSummary` JSON, so CONTEXT_OVERFLOW detection works again. It reads fd 0 and writes the summary under `.sdlc/execution/out/` (W8.20).
+- verify-pipeline-sdlc: when the local re-check of a fix still fails, it restores the edited files and reports `proposal` with the diff in `suggestedPatch` (W8.15).
+- The ship-state schema accepts `sessionId` and `worktree`; the stale `flags.skip` and `flags.preset` are removed (W8.13).
+
 ## [0.36.0] - 2026-10-27
 
 ### Added
