@@ -557,6 +557,16 @@
     - type: javascript
       value: "const o = JSON.parse(output); const s = w => o.waves[w].dispatch.map(e=>e.agent.slice(5)+'/'+e.effort+'/'+e.taskIds.join('+')).join(); o.flags.quality===null && s(0)==='execute-worker/medium/1,execute-worker-complex/high/4' && s(1)==='execute-worker/medium/2,execute-worker/low/3'"
 
+- description: "execute-prepare: (cu2) a custom tier with base preset full routes as full: the Step 4 re-run with --quality full --skip-config-check gives the full dispatch entries"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}} --quality full --skip-config-check"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); const s = w => o.waves[w].dispatch.map(e=>e.agent.slice(5)+'/'+e.effort+'/'+e.taskIds.join('+')).join(); o.flags.quality==='full' && o.flags.sources.quality==='cli' && o.flags.skipConfigCheck===true && s(0)==='execute-worker/low/1,execute-worker/high/4' && s(1)==='execute-worker/low/2,execute-worker/low/3'"
+
 - description: "execute-prepare: (rt) the routing table in classifying-and-waving-tasks.md equals WORKER_ROUTING, routeWave re-derives every row from it, and the agent models equal the worker frontmatter"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-worker-routing-table.js"
