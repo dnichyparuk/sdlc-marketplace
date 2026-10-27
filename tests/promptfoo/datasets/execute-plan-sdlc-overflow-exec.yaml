@@ -38,6 +38,15 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.hasNotesSection === true && r.noNotesSection === true"
 
+- description: "execute-plan-sdlc/wave-runner-overflow/task-factsheet: renderFactSheet emits ## Scratch directory when TMPDIR is set and omits it otherwise"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
+    script_args: "--op render-tmpdir"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.hasScratch === true && r.scratchPathShown === true && r.noScratchUnset === true && r.noScratchRelative === true && r.noScratchEmpty === true"
+
 # ---------------------------------------------------------------------------
 # dispatch-budget.js — byte-budget computation
 # ---------------------------------------------------------------------------

@@ -378,7 +378,7 @@ function cmdWaveStart(opts) {
     for (const task of tasks) {
       if (!task || !task.id) continue; // skip malformed entries
       try {
-        const p = writeTaskFactSheet(task, { runId, stateDir, priorWaveSummary });
+        const p = writeTaskFactSheet(task, { runId, stateDir, priorWaveSummary, scratchDir: process.env.TMPDIR });
         writtenPaths.push(p);
       } catch (e) {
         process.stderr.write(`Warning: failed to write fact sheet for task ${task.id}: ${e.message}\n`);
