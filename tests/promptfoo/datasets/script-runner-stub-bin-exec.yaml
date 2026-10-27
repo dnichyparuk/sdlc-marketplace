@@ -41,3 +41,13 @@
   assert:
     - type: not-contains
       value: "STUB-GH-INVOKED"
+
+# W8.7 — the provider retries a spawn ENOENT (binary briefly absent during a CLI auto-update).
+- description: "claude-cli-provider: spawn ENOENT is retried until the binary is back"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-claude-cli-enoent-retry.js"
+  assert:
+    - type: icontains
+      value: "STUB-OK"
+    - type: not-icontains
+      value: "ENOENT"
