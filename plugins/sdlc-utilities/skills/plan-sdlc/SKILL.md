@@ -83,11 +83,10 @@ Write an implementation plan from requirements, a spec, or a user description. P
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-PLAN_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file)
-EXIT_CODE=$?
-echo "PLAN_OUTPUT_FILE=$PLAN_OUTPUT_FILE"
-echo "EXIT_CODE=$EXIT_CODE"
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file
 ```
+
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `PLAN_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 If `--from-openspec <name>` was passed to plan-sdlc, include it in the node command: `node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file --from-openspec <name>`.
 
