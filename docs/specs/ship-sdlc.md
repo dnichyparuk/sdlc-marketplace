@@ -419,7 +419,7 @@ Skipped and conditional-not-met steps are not emitted as steps; the script recor
 - I10: `setup-sdlc` — redirect target for `--init-config`
 - I11: `lib/git.js::deriveWorkspace` — pure workspace derivation (`branch`/`continue`) from cwd + branch; no worktree creation
 - I12: `verify-openspec` step — opt-in, inline Bash; runs `openspec validate --strict <change>` for a matched OpenSpec change between `version` and `archive-openspec`; result contract `{ok, cliAvailable, stderr}` drives proceed/log-warning branching (non-blocking); `→ Run openspec validate --strict <change>` text emitted only when step is not configured (KD6) (implements R-verify-openspec-1..5)
-- I13: `scripts/skill/openspec-step.js` (wraps `lib/openspec.js`) — `detect|flip|validate|archive`
+- I13: `scripts/skill/openspec-step.js` (wraps `lib/openspec.js`) — `detect|flip|validate|archive|tasks`
 - I14: `lib/config-version.js::verifyAndMigrate` — invoked at pipeline entry once per role (project, local) before any step dispatch. Throws halt the pipeline before step 1.
 - I15: `lib/config-migrations.js` — registry consumed by `verifyAndMigrate`; ship-sdlc does not import it directly.
 
