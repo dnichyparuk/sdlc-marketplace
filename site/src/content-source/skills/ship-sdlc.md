@@ -791,7 +791,7 @@ To resume:
 2. Steps with status `completed` or `skipped` are skipped.
 3. Steps with status `in_progress` are retried from the beginning.
 4. Steps with status `pending` run normally.
-5. The same flags from the original run are restored from the state file.
+5. The plan (`flags.planFile`) and the step list are restored from the state file unless `--plan`, `--steps` or `--quick` is given; every other flag resolves from the CLI, then config, then the default. A `--plan` that differs from the ledger's plan stops with `resumePlanMismatch`.
 
 **If multiple state files exist** for the same branch (from multiple failed attempts), the one with the most recent timestamp is used.
 
@@ -836,7 +836,7 @@ ship-sdlc also removes the intermediate prepare output file (`$PLAN_MODE_OUTPUT_
 - **git** — must be run inside a git repository on a feature branch (not the default branch).
 - **Review dimensions** — `.sdlc/review-dimensions/` must contain at least one dimension file for the review step. Run `/setup-sdlc --dimensions` to create them. If review is in the skip set, this is not required.
 - **Plan in context** — for the execute step, a plan must be present in the conversation. If no plan is found and execute is not skipped, the step is auto-skipped.
-- **`--plan <path>` (#505)** — when a plan is present in context and the execute step is not skipped, the plan document must also be passed explicitly via `--plan <path>`; plan autodiscovery (the old `plansDirectory` scan) was removed and there is no fallback. Use [`/plan-sdlc`](plan-sdlc.md) to write the plan document, then pass its path.
+- **`--plan <path>` (#505)** — when a plan is present in context and the execute step is not skipped, the plan document must also be passed explicitly via `--plan <path>` (or `--resume` on a branch whose ledger recorded the plan); plan autodiscovery (the old `plansDirectory` scan) was removed and there is no other fallback. Use [`/plan-sdlc`](plan-sdlc.md) to write the plan document, then pass its path.
 - **Workspace is auto-detected** — there is no workspace mode and no cwd assertion. ship-sdlc derives the workspace from cwd + current branch (R60): on the main worktree on the default branch it auto-creates a feature branch; inside a linked worktree or on a feature branch it runs in place. Invoking from inside a manual git worktree is fully supported (`.sdlc/` stays anchored to the main worktree).
 
 ### Harness Configuration
