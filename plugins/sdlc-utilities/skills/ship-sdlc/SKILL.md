@@ -158,7 +158,7 @@ Auto-skip decisions (from skill/ship.js):
   review:  will_run — not in skip set
   received-review: conditional — depends on review verdict
   commit (fixes): conditional — depends on received-review changes
-  version: skipped (auto) — auto-skipped — tags are repo-global
+  version: skipped (cli) — not in --steps
   verify-openspec: skipped (default) — not in steps[]
   archive-openspec: conditional — openspec change ready for archive
   pr:      will_run — not in skip set
@@ -168,7 +168,7 @@ The parenthetical after `skipped` reflects the step's `skipSource` field:
 - `(cli)` — user passed `--steps` on the command line
 - `(quick)` — step is canonical but absent from `ship.quick` under an active `--quick` run (R-quick-4); `flags.sources.steps === 'quick'` in the prepare output
 - `(config)` — skip set loaded from `.sdlc/local.json`
-- `(auto)` — auto-skipped by `computeSteps` logic (e.g., worktree mode)
+- `(auto)` — skipped by `computeSteps` logic (for example a step whose precondition is absent)
 - `(condition)` — conditional step whose condition was not met
 
 Steps with `skipSource: "none"` are not skipped and show no parenthetical.
