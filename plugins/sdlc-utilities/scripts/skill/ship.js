@@ -1053,6 +1053,54 @@ function branchLedgers(branch) {
   return out;
 }
 
+/**
+ * R-implicit-resume / R64 (Q22a): compare the run's plan with every ledger of the branch before
+ * any state write. Returns the resumePlanMismatch error for the first unfinished ledger (or, with
+ * an explicit --resume, any ledger) that recorded a different plan, and whether the resume
+ * candidate is a finished ledger of another plan. A ledger with no planFile key is not compared.
+ * planFile null (plan mode without --plan; ruling w4-planreview Q1): any unfinished ledger that
+ * recorded a plan refuses, so plan mode never prunes it.
+ */
+function checkPlanMismatch(branch, planFile, { explicitResume = false, resumePath = null } = {}) {
+  let finishedOtherPlan = false;
+  for (const led of branchLedgers(branch)) {
+    if (!led.flags || !('planFile' in led.flags)) continue;
+    if (planFile === null) {
+      if (led.finished || typeof led.flags.planFile !== 'string') continue;
+      return {
+        error: {
+          id: 'resumePlanMismatch',
+          message:
+            'ship-sdlc will not discard a run of another plan (no --plan given). ' +
+            `The ship ledger ${led.fullPath} on this branch belongs to an unfinished run with plan ${led.flags.planFile}. ` +
+            `Fix: continue that run with --resume, or re-run with --plan ${led.flags.planFile}, or discard it yourself with ship's own verbs: ` +
+            `node "${STATE_SHIP_SCRIPT}" skip --step <name> --reason <text> for each leftover step, then node "${STATE_SHIP_SCRIPT}" cleanup-pipeline. ` +
+            'Ship never discards the earlier ledger itself.',
+        },
+        finishedOtherPlan,
+      };
+    }
+    if (samePlanPath(planFile, led.flags.planFile)) continue;
+    if (led.finished && !explicitResume) {
+      if (resumePath && resumePath === led.fullPath) finishedOtherPlan = true;
+      continue;
+    }
+    return {
+      error: {
+        id: 'resumePlanMismatch',
+        message:
+          'ship-sdlc will not resume or discard a run of a different plan. ' +
+          `The ship ledger ${led.fullPath} on this branch belongs to an unfinished run with plan ${led.flags.planFile || '(none recorded)'}; this run was given --plan ${planFile}. ` +
+          'Fix: continue the earlier run with --resume (and its plan), or discard it with ship\'s own verbs: ' +
+          `node "${STATE_SHIP_SCRIPT}" skip --step <name> --reason <text> for each leftover step, then node "${STATE_SHIP_SCRIPT}" cleanup-pipeline. ` +
+          'Ship never resumes a different plan and never discards the earlier ledger itself.',
+      },
+      finishedOtherPlan,
+    };
+  }
+  return { error: null, finishedOtherPlan };
+}
+
 // ---------------------------------------------------------------------------
 // verify-side-effect subcommand (R-b3, issue #478 — F-ship-step-status-integrity-guard-8)
 // ---------------------------------------------------------------------------
@@ -2346,6 +2394,16 @@ function main() {
   // When SKILL.md detects plan mode active, it invokes ship.js with --plan-mode-blocked
   // to persist pipeline init state so the next /ship-sdlc invocation can auto-resume.
   if (flags.planModeBlocked) {
+    // R64 (Q22a; ruling w4-planreview Q1): the plan check runs before the init spawn, whose
+    // cmdInit prunes the branch's ledgers; on a refusal nothing is written. Without --plan, an
+    // unfinished ledger that recorded a plan refuses too.
+    const { error: planModeError } = checkPlanMismatch(gitState.currentBranch, cli.planFile ? path.resolve(cli.planFile) : null, { explicitResume: cli.resume });
+    if (planModeError) {
+      errors.push(planModeError);
+      writeFatalErrors(errors);
+      writeOutput({ errors, warnings }, 'ship-prepare', 1);
+      return;
+    }
     const stateShipPath = path.join(__dirname, '..', 'state', 'ship.js');
     const flagsJson = JSON.stringify(flags);
     const currentBranch = gitState.currentBranch;
@@ -2552,23 +2610,11 @@ function main() {
   let planMismatch = false;
   let finishedOtherPlan = false;
   if (cli.planFile && planFile) {
-    for (const led of branchLedgers(gitState.currentBranch)) {
-      if (!led.flags || !('planFile' in led.flags) || samePlanPath(planFile, led.flags.planFile)) continue;
-      if (led.finished && !cli.resume) {
-        if (resume && resume.fullPath === led.fullPath) finishedOtherPlan = true;
-        continue;
-      }
+    const check = checkPlanMismatch(gitState.currentBranch, planFile, { explicitResume: cli.resume, resumePath: resume ? resume.fullPath : null });
+    finishedOtherPlan = check.finishedOtherPlan;
+    if (check.error) {
       planMismatch = true;
-      errors.push({
-        id: 'resumePlanMismatch',
-        message:
-          'ship-sdlc will not resume or discard a run of a different plan. ' +
-          `The ship ledger ${led.fullPath} on this branch belongs to an unfinished run with plan ${led.flags.planFile || '(none recorded)'}; this run was given --plan ${planFile}. ` +
-          'Fix: continue the earlier run with --resume (and its plan), or discard it with ship\'s own verbs: ' +
-          `node "${STATE_SHIP_SCRIPT}" skip --step <name> --reason <text> for each leftover step, then node "${STATE_SHIP_SCRIPT}" cleanup-pipeline. ` +
-          'Ship never resumes a different plan and never discards the earlier ledger itself.',
-      });
-      break;
+      errors.push(check.error);
     }
   }
 
