@@ -34,26 +34,17 @@ For each finding, apply the appropriate fix:
 
 ### `script-resolution-order` (error)
 
-The `find` pattern searches CWD (`.`) before `~/.claude/plugins`. Reverse the order:
-
-```bash
-# Correct (plugins-first)
-SCRIPT=$(find ~/.claude/plugins -name "<script>.js" 2>/dev/null | sort -V | tail -1)
-[ -z "$SCRIPT" ] && [ -f "plugins/sdlc-utilities/scripts/<script>.js" ] && SCRIPT="plugins/sdlc-utilities/scripts/<script>.js"
-[ -z "$SCRIPT" ] && { echo "ERROR: Could not locate <script>.js. Is the sdlc plugin installed?" >&2; exit 2; }
-```
+A skill resolves a plugin script with a CWD-first `find`. Replace the resolver with the injected-path form (see `script-resolution-version`).
 
 ### `script-resolution-version` (error)
 
-The `find ~/.claude/plugins ... | head -1` pipeline picks an arbitrary cached version
-when multiple plugin versions are present in `~/.claude/plugins/cache/sdlc-marketplace/sdlc/`
-(filesystem-traversal order, not version order). Replace `| head -1` with
-`| sort -V | tail -1` to deterministically select the newest semver. See #258.
+A skill resolves a plugin script by running `find` over `~/.claude/plugins`, which can select a fixture or marketplace-clone copy. Use the injected-path form, substituting `<PLUGIN_ROOT>` from the `sdlc plugin root:` line in session context:
 
 ```bash
-# Correct
-SCRIPT=$(find ~/.claude/plugins -name "<script>.js" -path "*/sdlc*/scripts/<script>.js" 2>/dev/null | sort -V | tail -1)
+node "<PLUGIN_ROOT>/scripts/<script>.js" …
 ```
+
+Subagent prompt templates and `agents/*.md` must contain no resolver at all; pass a pre-computed path into them.
 
 ### `skill-runs-script` (error)
 
@@ -143,17 +134,13 @@ Confirm exit 0 before marking work complete.
 
 ## Reference: The Correct Skill Pattern (for paired skills)
 
-Every skill that has a matching `*-prepare.js` script must follow this exact pattern:
+Every skill paired with a prepare script under `scripts/skill/` follows this pattern:
 
 ```bash
-# Step 0: Resolve and run the prepare script
-SCRIPT=$(find ~/.claude/plugins -name "<name>-prepare.js" 2>/dev/null | sort -V | tail -1)
-[ -z "$SCRIPT" ] && [ -f "plugins/sdlc-utilities/scripts/<name>-prepare.js" ] && SCRIPT="plugins/sdlc-utilities/scripts/<name>-prepare.js"
-[ -z "$SCRIPT" ] && { echo "ERROR: Could not locate <name>-prepare.js. Is the sdlc plugin installed?" >&2; exit 2; }
-
-CONTEXT_FILE=$(node "$SCRIPT" --output-file $ARGUMENTS --json)
+# Step 0: run the prepare script (substitute <PLUGIN_ROOT> from the `sdlc plugin root:` line)
+CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/<name>.js" --output-file $ARGUMENTS)
 EXIT_CODE=$?
-# Cleanup: rm -f "$CONTEXT_FILE" after use
+# No EXIT trap and no rm: the manifest persists under .sdlc/execution/out/ and is swept.
 
 # On non-zero EXIT_CODE:
 # Exit code 1: show stderr message to the user and stop.

@@ -38,7 +38,7 @@ function createOutputFile(prefix) {
 }
 
 /**
- * LLM-skill manifest protocol — writes JSON to a temp file under `os.tmpdir()`
+ * LLM-skill manifest protocol — writes JSON under `<state dir>/out/` (falling back to `os.tmpdir()` outside git)
  * and prints only the path on stdout. The previous stdout-JSON fallback was
  * removed (issue #209) because shell redirects of that fallback could
  * materialize transient `*-context-*.json` artifacts in the consumer cwd.

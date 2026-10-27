@@ -241,7 +241,7 @@ explicitly ADOPT, REJECT-with-rationale, or mark NOT-APPLICABLE in Key Decisions
 
 **Path:** `manifest.outDir/discovery-brief.md` (from manifest JSON `outDir` field).
 
-**DO NOT** write outside `manifest.outDir`, modify `manifest.json`, or delete `manifest.outDir` (plan-sdlc owns cleanup via the EXIT/INT/TERM trap).
+**DO NOT** write outside `manifest.outDir`, modify `manifest.json`, or delete `manifest.outDir` (plan-sdlc owns the dir; stale `sdlc-explore-*` dirs are swept by `ship.js --gc` and the session-start hook).
 
 ---
 
