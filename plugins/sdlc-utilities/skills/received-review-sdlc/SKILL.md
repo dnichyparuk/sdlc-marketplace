@@ -128,11 +128,10 @@ When a PR number or URL is provided (via arguments or user input), run the prepa
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-MANIFEST_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/received-review.js" --output-file $ARGUMENTS --pr <PR_NUMBER>)
-EXIT_CODE=$?
-echo "MANIFEST_FILE=$MANIFEST_FILE"
-echo "EXIT_CODE=$EXIT_CODE"
+node "<PLUGIN_ROOT>/scripts/skill/received-review.js" --output-file $ARGUMENTS --pr <PR_NUMBER>
 ```
+
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `MANIFEST_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 **On exit code 0:** Read the manifest JSON. Extract `flags.auto` from the manifest and store it as a boolean (defaults to `false` if absent). If `--auto` was passed in `$ARGUMENTS` but not in the manifest, treat it as `true`. Display the incremental summary:
 
