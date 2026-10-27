@@ -27,7 +27,6 @@ Use this template in plan-sdlc Step 5 (CRITIQUE) when dispatching the plan revie
 Task tool (general-purpose):
   description: "Plan review for <feature name>"
   model: <reviewer model — different from plan author model when 5+ tasks>
-  mode: bypassPermissions
   prompt: |
     You are reviewing a plan document for completeness, accuracy, and executability.
     The plan will be executed by an automated plan orchestrator (execute-plan-sdlc).
