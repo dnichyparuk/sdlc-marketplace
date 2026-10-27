@@ -405,7 +405,7 @@ Do NOT spawn a separate watchdog Agent.
    rm -f "<SUMMARY_FILE>"
    ```
 
-   Read `schemaOk`, `missingIds`, `extraIds`, `violations` and `parsed` from the JSON line it prints. If no JSON line was printed or `PARSE_EXIT` is not 0, mark no task done: treat the wave as failed (`wave-fail`) and follow Step 6 (RECOVER) with the printed error.
+   Read `schemaOk`, `missingIds`, `extraIds`, `violations` and `parsed` from the JSON line it prints. If no JSON line was printed or `PARSE_EXIT` is not 0, mark no task done: treat the wave as failed (`wave-fail`) and follow Step 6 (RECOVER) with the printed error (E15).
 
    - If `missingIds.length > 0` → **CONTEXT_OVERFLOW** (R-CONTEXT_OVERFLOW): the wave-runner's context was exhausted before it could report all dispatched tasks. This is the sole discriminant — a schema-valid partial response (where `schemaOk` is true but `missingIds` is non-empty) also triggers this path, because absent IDs mean unconfirmed tasks regardless of schema validity. In direct mode every worker was awaited, so a missing ID is a task whose return lacked its `COMPLETE:` lines: report it `FAILED` and apply Step 6 instead of splitting. In runner mode invoke the auto-split-and-retry flow:
 
