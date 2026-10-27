@@ -1,0 +1,2 @@
+{"type":"user","sessionId":"agent-x","timestamp":"2026-10-20T10:01:00Z","message":{"role":"user","content":"orchestrate wave 1"}}
+{"type":"assistant","sessionId":"agent-x","timestamp":"2026-10-20T10:01:05Z","message":{"id":"msg_agent-x","role":"assistant","model":"test-model-a","usage":{"input_tokens":10,"output_tokens":5}}}

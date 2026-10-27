@@ -1,0 +1,73 @@
+# Script execution tests for plugins/sdlc-utilities/scripts/ci/session-map.js.
+# Every case runs against the synthetic fixture in fixtures-fs/session-map.
+# No real transcripts are read.
+
+- description: "session-map: (a) two worktrees with one agent each map to two tags"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-map.js"
+    project_root: "file://fixtures-fs/session-map"
+    script_args: "--agents {{project_root}}/agents-two.json --projects-dir {{project_root}}/projects --json"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.schema === 'sdlc-session-map-1' && JSON.stringify(o.map) === '{"orch":["-fixture-wt-a/s-a1.jsonl"],"exec":["-fixture-wt-b/s-b1.jsonl"]}' && o.unassigned.length === 0;
+
+- description: "session-map: (b) an executor and a planner in one worktree are split by their windows"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-map.js"
+    project_root: "file://fixtures-fs/session-map"
+    script_args: "--agents {{project_root}}/agents-split.json --projects-dir {{project_root}}/projects --json"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return JSON.stringify(o.map) === '{"plan":["-fixture-wt-c/s-plan.jsonl"],"exec":["-fixture-wt-c/s-exec.jsonl"]}' && o.unassigned.length === 0;
+
+- description: "session-map: (c) three executor sessions after clear resets all go to exec via --events"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-map.js"
+    project_root: "file://fixtures-fs/session-map"
+    script_args: "--events {{project_root}}/events-clear.jsonl --projects-dir {{project_root}}/projects --json"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return JSON.stringify(o.map.exec) === '["-fixture-wt-d/s-e1.jsonl","-fixture-wt-d/s-e2.jsonl","-fixture-wt-d/s-e3.jsonl"]' && o.unassigned.length === 0;
+
+- description: "session-map: (d) sessions outside every window or in two windows go to unassigned"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-map.js"
+    project_root: "file://fixtures-fs/session-map"
+    script_args: "--agents {{project_root}}/agents-unassigned.json --projects-dir {{project_root}}/projects --json"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const u = p => o.unassigned.find(x => x.path === p);
+        return u('-fixture-wt-e/s-out.jsonl').reason === 'outside-window' && u('-fixture-wt-e/s-amb.jsonl').reason === 'ambiguous' && JSON.stringify(u('-fixture-wt-e/s-amb.jsonl').candidates) === '["arb","aux-gate"]' && u('-fixture-missing').reason === 'no-project-dir' && o.map.arb.length === 0;
+
+- description: "session-map: (e) the --map-out map is accepted by session-cost.js --sessions"
+  vars:
+    script_path: "-e"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/session-map"
+    script_args: '((cp,fs,f,r)=>{const[a]=[cp.spawnSync("node",[r+"/plugins/sdlc-utilities/scripts/ci/session-map.js","--agents",f+"/agents-two.json","--projects-dir",f+"/projects","--map-out",f+"/map.json"],{encoding:"utf8"})];const[b]=[cp.spawnSync("node",[r+"/plugins/sdlc-utilities/scripts/ci/session-cost.js","--sessions",f+"/map.json","--projects-dir",f+"/projects","--prices",r+"/tests/promptfoo/fixtures-fs/session-cost/prices.json","--json"],{encoding:"utf8"})];console.log(JSON.stringify({mapExit:a.status,costExit:b.status,costErr:b.stderr,map:fs.existsSync(f+"/map.json")?JSON.parse(fs.readFileSync(f+"/map.json","utf8")):null}))})(require("child_process"),require("fs"),process.cwd(),"{{repo_root}}")'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.mapExit === 0 && r.costExit === 0 && r.map.orch.length === 1 && r.map.exec.length === 1;
+
+- description: "session-map: (f) the output holds no usd or token field"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-map.js"
+    project_root: "file://fixtures-fs/session-map"
+    script_args: "--agents {{project_root}}/agents-two.json --projects-dir {{project_root}}/projects --json"
+  assert:
+    - type: not-icontains
+      value: "usd"
+    - type: not-icontains
+      value: "token"
+    - type: javascript
+      value: "JSON.parse(output).map.orch.length === 1"

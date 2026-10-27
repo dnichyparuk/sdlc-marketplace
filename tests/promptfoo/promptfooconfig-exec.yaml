@@ -83,3 +83,4 @@ tests:
   - file://datasets/dimension-to-instructions-exec.yaml
   - file://datasets/post-tool-validate-argv-exec.yaml
   - file://datasets/session-cost-exec.yaml
+  - file://datasets/session-map-exec.yaml

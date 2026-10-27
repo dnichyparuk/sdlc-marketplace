@@ -22,11 +22,12 @@ scripts/
 
 ### CI Scripts (`ci/`)
 
-Besides the `validate-*` validators, `ci/` holds two read-only reporting scripts for the orchestration:
+Besides the `validate-*` validators, `ci/` holds three read-only reporting scripts for the orchestration:
 
 | Script | Purpose |
 |--------|---------|
 | `session-cost.js` | Prices Claude Code session transcripts per tag from `session-prices.json` (cited pricing page); unpriced tokens are listed, never guessed |
+| `session-map.js` | Builds the `session-cost.js --sessions` map from each agent's worktree path and time window (`--agents`, `--events`), reading transcript metadata only up to the first user message; unmatched sessions are listed under `unassigned`, never guessed |
 | `wave-metrics.js` | Sums `m*/metrics.json` wave records into the milestone summary table (`--json` for rows as objects) |
 
 ## Skill-to-Script Mapping
