@@ -83,15 +83,13 @@ Write an implementation plan from requirements, a spec, or a user description. P
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-SCRIPT="<PLUGIN_ROOT>/scripts/skill/plan.js"
-
-PLAN_OUTPUT_FILE=$(node "$SCRIPT" --output-file)
+PLAN_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file)
 EXIT_CODE=$?
 echo "PLAN_OUTPUT_FILE=$PLAN_OUTPUT_FILE"
 echo "EXIT_CODE=$EXIT_CODE"
 ```
 
-If `--from-openspec <name>` was passed to plan-sdlc, include it in the node command: `node "$SCRIPT" --output-file --from-openspec <name>`.
+If `--from-openspec <name>` was passed to plan-sdlc, include it in the node command: `node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file --from-openspec <name>`.
 
 If `EXIT_CODE` is non-zero, print the errors from the JSON output and stop. If `EXIT_CODE` is 0, read the JSON output file. Print context detection summary:
 ```
