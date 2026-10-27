@@ -41,9 +41,10 @@ If the system context contains "Plan mode is active":
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-VERSION_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/version.js" --output-file $ARGUMENTS)
-EXIT_CODE=$?
+node "<PLUGIN_ROOT>/scripts/skill/version.js" --output-file $ARGUMENTS
 ```
+
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `VERSION_CONTEXT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 Read and parse `VERSION_CONTEXT_FILE` as `VERSION_CONTEXT_JSON`.
 
@@ -275,12 +276,12 @@ Run the check (include `--changelog` only when `config.changelog === true`).
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-SCAFFOLD_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --output-file)
+node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --output-file
 # Add --changelog if config.changelog === true:
-# SCAFFOLD_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --changelog --output-file)
+# node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --changelog --output-file
 ```
 
-Read the JSON output. If any files have `action: "outdated"` or `action: "missing"`:
+Run this as one plain Bash call; it prints the path of its JSON output file. Read the JSON output from that path. If any files have `action: "outdated"` or `action: "missing"`:
    - Show what changed and which files would be updated (use `installedVersion` / `currentVersion` from the output)
    - Use AskUserQuestion to ask: "Update CI scripts? (yes / no) — this does not block the release."
    - **Auto mode:** When `flags.auto` is true, skip the AskUserQuestion and treat the response as `yes` — update outdated CI scripts automatically.

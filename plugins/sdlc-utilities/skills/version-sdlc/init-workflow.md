@@ -49,12 +49,12 @@ Run the scaffold (include `--changelog` when `config.changelog === true`):
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 # Without changelog:
-SCAFFOLD_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --output-file)
+node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --output-file
 # With changelog:
-SCAFFOLD_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --changelog --output-file)
+node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --changelog --output-file
 ```
 
-Read the JSON output. For each file in the `files` array:
+Run exactly one of the two commands, as one plain Bash call; it prints the path of its JSON output file. Read the JSON output from that path. For each file in the `files` array:
 - `action: "created"` → show `✓ <path> added (<description>).`
 - `action: "skipped"` → show `✓ <path> (already exists — skipped).`
 
@@ -75,12 +75,12 @@ The check-changelog lines are only shown when `config.changelog === true`.
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-CHECK_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --output-file)
+node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --output-file
 # With changelog:
-CHECK_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --changelog --output-file)
+node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --changelog --output-file
 ```
 
-Read the JSON output. If any files have `action: "outdated"`:
+Run exactly one of the two commands, as one plain Bash call; it prints the path of its JSON output file. Read the JSON output from that path. If any files have `action: "outdated"`:
 
 ```
 ⚠  Outdated CI files detected:
