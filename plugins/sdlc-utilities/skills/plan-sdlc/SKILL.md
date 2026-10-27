@@ -182,7 +182,7 @@ Replace `<resolved-plan-path>` with the actual absolute path: in plan mode it is
 
 After the `fromOpenspecDirect` enrichment block, determine which exploration path to take.
 
-The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()`) is swept by `ship.js --gc` (`gcTempdirs`, prefix `sdlc-explore-`).
+The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()`) is swept by `ship.js --gc` and by the session-start hook (`gcTempdirs`, prefix `sdlc-explore-`).
 
 - **Full pipeline** (`explorePack.manifestPath` is non-null AND scope is 4+ files / unclear scope):
 
