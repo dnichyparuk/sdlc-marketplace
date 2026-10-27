@@ -5,19 +5,13 @@
  * is presented. Exits 2 with the warning on stderr when markers are missing, so
  * the model sees it; exits 0 otherwise.
  *
- * Activation order (state-file-first, transcript-fallback):
- *   1. If a plan state file exists for the current branch, check planIntegrity
- *      markers and stat the recorded planFilePath. Warn on any missing/failed check.
- *   2. If no plan state file exists, scan the last 64 KB of the transcript for
- *      "Plan mode is active". If found, warn that plan-sdlc was not invoked.
- *
- * Reads stdin: only when the state-file primary path misses. The transcript_path
- * is consumed by the fallback signal; the state-file branch returns without ever
- * touching stdin to avoid synchronous I/O on the common path.
+ * Reads the plan state file for the current branch (no stdin). If one exists,
+ * checks the planIntegrity markers and stats the recorded planFilePath, then
+ * deletes the marker (single-shot). Warns on any missing or failed check.
  *
  * Exit codes:
- *   2 = one or more integrity markers missing (warning on stderr)
- *   0 = every other path, including any internal error
+ *   2 = one or more integrity markers missing and the marker was consumed (warning on stderr)
+ *   0 = every other path, including an undeletable marker (warning still on stderr) and any internal error
  *
  * Implements: R20, R21 (issue #285)
  */
@@ -115,11 +109,11 @@ try {
       }
     }
 
-    // Consume-then-delete: remove marker regardless of integrity outcome.
-    // Wrapped in try/catch so a failed unlink cannot break the advisory-only
-    // exit-0 contract. deleteState is silent on errors but we wrap anyway.
-    // The marker is gone before the warning exits 2, so the next Stop exits 0 — no stop_hook_active guard is needed.
+    // Consume-then-delete: remove the marker regardless of integrity outcome,
+    // so the warning fires once. If the unlink fails the marker survives and
+    // every later Stop would block again, so only a consumed marker may exit 2.
     try { deleteState(markerPath); } catch (_) { /* best-effort */ }
+    const consumed = !fs.existsSync(markerPath);
 
     if (missing.length === 0) {
       // All checks passed — silent exit
@@ -141,7 +135,7 @@ try {
     }
 
     process.stderr.write(lines.join('\n') + '\n');
-    process.exit(2);
+    process.exit(consumed ? 2 : 0);
   }
 
   process.exit(0);

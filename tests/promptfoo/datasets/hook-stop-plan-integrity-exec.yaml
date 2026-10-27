@@ -118,3 +118,19 @@
         return inner.exitCode === 0 || 'FAIL: inner exit ' + inner.exitCode;
     - type: not-icontains
       value: '[plan-integrity]'
+
+- description: "stop-plan-integrity-undeletable: marker that cannot be deleted warns once per Stop with exit 0, never exit 2"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
+    script_args: "--project-root {{project_root}} --readonly-state-dir --report-state-files"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-integrity-partial"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        if (inner.exitCode !== 0) return 'FAIL: inner exit ' + inner.exitCode;
+        if (!inner.stderr.includes('[plan-integrity]')) return 'FAIL: no warning on stderr';
+        if (!inner.stateFiles.some(f => /^plan-/.test(f))) return 'FAIL: marker was deleted (root permissions?) ' + JSON.stringify(inner.stateFiles);
+        return true;

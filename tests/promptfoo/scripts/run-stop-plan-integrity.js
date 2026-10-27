@@ -12,6 +12,8 @@
  *                             (omit to test "no transcript" case)
  *   --fix-planfile-path       Rewrite planFilePath in the state file to use
  *                             the actual project-root (handles copied fixtures)
+ *   --readonly-state-dir      chmod the fixture's .sdlc/execution dir 0555 around
+ *                             the hook run (an undeletable marker), 0755 after
  *
  * Outputs JSON { stdout, stderr, exitCode } for promptfoo assertions.
  */
@@ -32,6 +34,7 @@ let transcriptFile = null;
 let fixPlanfilePath = false;
 let branchOverride = null; // passed as SDLC_BRANCH_OVERRIDE to the hook
 let reportStateFiles = false; // when true, append stateFiles[] to output JSON
+let readonlyStateDir = false; // when true, chmod the fixture state dir read-only around the hook run
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) {
@@ -44,6 +47,8 @@ for (let i = 0; i < args.length; i++) {
     branchOverride = args[++i];
   } else if (args[i] === '--report-state-files') {
     reportStateFiles = true;
+  } else if (args[i] === '--readonly-state-dir') {
+    readonlyStateDir = true;
   }
 }
 
@@ -132,6 +137,7 @@ if (fs.existsSync(fixtureStateDir)) {
   spawnEnv.SDLC_STATE_DIR_OVERRIDE = fixtureStateDir;
 }
 
+if (readonlyStateDir && fs.existsSync(fixtureStateDir)) fs.chmodSync(fixtureStateDir, 0o555);
 const result = spawnSync('node', [hookScript], {
   input: stdinData,
   cwd: projectRoot,
@@ -139,6 +145,7 @@ const result = spawnSync('node', [hookScript], {
   encoding: 'utf8',
   timeout: 10_000,
 });
+if (readonlyStateDir && fs.existsSync(fixtureStateDir)) fs.chmodSync(fixtureStateDir, 0o755);
 
 const output = {
   stdout: result.stdout || '',
