@@ -1952,7 +1952,12 @@ function runAfter(stepArgs) {
   // written, as prepare stops before any step runs. The final cleanup call is exempt: no
   // commit step follows it, so it must not be stranded by a plan edited after the commit.
   let commitSubjectPattern = null;
-  try { commitSubjectPattern = (readSection(resolveSdlcRoot(), 'commit') || {}).subjectPattern || null; } catch (_) { /* no commit config */ }
+  try {
+    commitSubjectPattern = (readSection(resolveSdlcRoot(), 'commit') || {}).subjectPattern || null;
+  } catch (err) {
+    // An unreadable config is not "no commit config": prepare stops on it, so must this call.
+    if (after !== 'cleanup') return fail(`--after ${after}: nothing recorded. The project config .sdlc/config.json cannot be read (${err.message}).`);
+  }
   const planCommit = readPlanCommitSubject(flags.planFile, commitSubjectPattern);
   if (planCommit.error && after !== 'cleanup') return fail(`--after ${after}: nothing recorded. ${planCommit.error}`);
   if (!Array.isArray(ledger.history)) ledger.history = [];
