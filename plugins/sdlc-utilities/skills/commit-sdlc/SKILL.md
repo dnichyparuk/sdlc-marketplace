@@ -39,12 +39,13 @@ If the system context contains "Plan mode is active":
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-COMMIT_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/commit.js" --output-file $ARGUMENTS)
-EXIT_CODE=$?
+node "<PLUGIN_ROOT>/scripts/skill/commit.js" --output-file $ARGUMENTS
 # No EXIT trap and no rm: each Bash call is its own shell. The manifest persists under .sdlc/execution/
 # (success path: commit-<slug>-<ts>.json via writeManifestState; error paths: out/ via writeOutput)
 # skill/commit.js prunes this branch's earlier manifests and message files on its next run (R-script-prune).
 ```
+
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `COMMIT_CONTEXT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 Read and parse `COMMIT_CONTEXT_FILE` as `COMMIT_CONTEXT_JSON`.
 
