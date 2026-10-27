@@ -15,7 +15,14 @@ const P = require('../providers/claude-cli.js');
 const pending = new P().callApi('x');
 fs.writeFileSync(path.join(D, 'claude'), '#!/bin/sh\n/bin/cat >/dev/null\necho STUB-OK\n', { mode: 0o755 });
 const after = which();
-pending.then((result) => {
-  process.stdout.write(JSON.stringify({ before, after, result }) + '\n');
+pending.then(
+  (result) => {
+    process.stdout.write(JSON.stringify({ before, after, result }) + '\n');
+  },
+  (err) => {
+    process.stdout.write(JSON.stringify({ before, after, error: String(err && err.message || err) }) + '\n');
+    process.exitCode = 1;
+  },
+).finally(() => {
   fs.rmSync(D, { recursive: true, force: true });
 });
