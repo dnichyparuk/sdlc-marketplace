@@ -84,3 +84,4 @@ tests:
   - file://datasets/post-tool-validate-argv-exec.yaml
   - file://datasets/session-cost-exec.yaml
   - file://datasets/session-map-exec.yaml
+  - file://datasets/fixture-guard-exec.yaml

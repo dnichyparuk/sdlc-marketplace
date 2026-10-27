@@ -5,6 +5,8 @@
 # HEAD) differ from the main worktree's.
 # Re-runnable: every git/worktree state is recreated from scratch on each run.
 set -e
+# Fixture guard (#9161): never git init/config inside an existing work tree.
+if git rev-parse --show-toplevel >/dev/null 2>&1; then echo "refusing: inside a git work tree" >&2; exit 1; fi
 
 git init -q -b main
 git config user.email "test@test.com"

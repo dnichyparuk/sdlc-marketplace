@@ -1,4 +1,6 @@
 #!/bin/bash
+# Fixture guard (#9161): never git init/config inside an existing work tree.
+if git rev-parse --show-toplevel >/dev/null 2>&1; then echo "refusing: inside a git work tree" >&2; exit 1; fi
 # Project with no pr.labels block — section-menu summary should render
 # `[not set]` (issue #205 regression guard: must NOT show "not configured").
 git init -q

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Fixture guard (#9161): never git init/config inside an existing work tree.
+if git rev-parse --show-toplevel >/dev/null 2>&1; then echo "refusing: inside a git work tree" >&2; exit 1; fi
 # Fixture: project with a stubbed git remote for access-probe tests.
 # The remote URL is a placeholder — parseRemoteOwner must return a non-null
 # result so the probe is invoked at all. The actual network call is bypassed
