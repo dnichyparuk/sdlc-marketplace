@@ -50,7 +50,7 @@ Surface warnings from `plan_critique`:
 
 - **Uncovered files** (`uncovered_files.length > 0`): list them
 - **Over-broad** (`over_broad_dimensions`): flag by name
-- **Queued** (`queued_dimensions`): note they were capped out
+- **Batches** (`dimension_cap_applied` true): note that the dispatched dimensions run in batches of 8 (`dimensions[].batch`), and list each batch's dimension names
 
 If `plan_critique.uncovered_suggestions` is non-empty, display a suggestions block after the warnings:
 
@@ -96,13 +96,13 @@ For each dimension with `status: "ACTIVE"` or `status: "TRUNCATED"`:
    - Per-dimension precedence: a dimension's `model:` field (from its frontmatter, see R15) wins; otherwise fall back to `manifest.subagent_model`. Forward the string verbatim — no whitelist, no remap.
    - Use each dimension's precomputed dispatch fields verbatim; do not construct them from the examples above.
 
-**Dispatch ALL active dimensions in a SINGLE message** (multiple Agent tool calls in one response). Do not dispatch one at a time.
+**Dispatch each batch in a SINGLE message** (multiple Agent tool calls in one response), in `batch` order: every dimension whose `batch` is 1, then 2, and so on (R-dimension-cap). Collect every result of a batch before you dispatch the next batch. Do not dispatch one at a time.
 
-**Await barrier (R-orchestrator-await, #487):** Your turn is NOT complete until you have collected exactly one result per dispatched dimension — N = count of dimensions with status ACTIVE or TRUNCATED. Do NOT end your turn, and do NOT proceed to Step 3, while any dispatched subagent is still outstanding. If the runtime backgrounds a dispatch and re-invokes you via a task-completion notification, keep awaiting across notifications until the collected count equals N. Never consolidate on partial or zero results.
+**Await barrier (R-orchestrator-await, #487):** Your turn is NOT complete until you have collected exactly one result per dispatched dimension — N = count of dimensions with status ACTIVE or TRUNCATED, across all batches. Do NOT end your turn, and do NOT proceed to Step 3, while any dispatched subagent is still outstanding. If the runtime backgrounds a dispatch and re-invokes you via a task-completion notification, keep awaiting across notifications until the collected count equals N. Never consolidate on partial or zero results.
 
 ## Step 3 (CRITIQUE) — Review Subagent Results
 
-**Await guard (R-orchestrator-await, #487):** Before critiquing, confirm the collected-result count equals N (dimensions dispatched ACTIVE/TRUNCATED). If it is lower (partial) or zero, the Step 2 await barrier is not satisfied — resume awaiting the outstanding subagents. Do NOT compute a verdict or write `review-comment.md` on partial or zero results.
+**Await guard (R-orchestrator-await, #487):** Before critiquing, confirm the collected-result count equals N (dimensions dispatched ACTIVE/TRUNCATED, all batches). If it is lower (partial) or zero, the Step 2 await barrier is not satisfied — resume awaiting the outstanding subagents. Do NOT compute a verdict or write `review-comment.md` on partial or zero results.
 
 After all subagents return:
 

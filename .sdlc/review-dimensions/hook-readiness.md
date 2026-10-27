@@ -4,6 +4,7 @@ description: "Reviews skills and scripts for reactive patterns better served as 
 triggers:
   - "**/skills/**/SKILL.md"
   - "**/hooks/hooks.json"
+  - "**/hooks/*.js"
   - "**/scripts/*.js"
 skip-when:
   - "**/node_modules/**"

@@ -96,3 +96,47 @@
     # summary_copy_path is absolute and ends with .sdlc/execution/review-summary-<slug>.json (slug of feature/cwd-test)
     - type: regex
       value: '"summary_copy_path": "/[^"]*/\.sdlc/execution/review-summary-feature-cwd-test\.json"'
+
+- description: "review-cap: (a) 10 matching dimensions give 10 dispatched entries with a slice_file and batch 1 or 2, none QUEUED"
+  vars:
+    script_path: "-e"
+    script_args: '(({loadAndMatchDimensions:l,writeDimensionSlices:w,toIndexEntry:t,refinePlan:r},fs,os,p)=>{const[d,o]=[l(process.cwd(),["src/a.js","lib/a.js"],null),fs.mkdtempSync(p.join(os.tmpdir(),"review-cap-"))];w(d.filter(x=>x.status==="ACTIVE"),o,null);const[n,e]=[r(d),d.map(x=>t(x))];const[ok]=[e.filter(x=>x.status==="ACTIVE").every(x=>fs.existsSync(x.slice_file))];fs.rmSync(o,{recursive:true,force:true});console.log(JSON.stringify({n,ok,e}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"),require("fs"),require("os"),require("path"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-cap-dimensions"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output); const x = r.e.filter(e => e.status === "ACTIVE");
+        return r.n === 2 && r.ok === true && x.length === 10 && !r.e.some(e => e.status === "QUEUED") && x.every(e => typeof e.slice_file === "string") && x.filter(e => e.batch === 1).length === 8 && x.filter(e => e.batch === 2).length === 2 && r.e.filter(e => e.status === "SKIPPED").every(e => e.batch === null && e.slice_file === null);
+
+- description: "review-cap: (b) 8 matching dimensions all go to batch 1"
+  vars:
+    script_path: "-e"
+    script_args: '(({loadAndMatchDimensions:l,writeDimensionSlices:w,toIndexEntry:t,refinePlan:r},fs,os,p)=>{const[d,o]=[l(process.cwd(),["src/a.js"],null),fs.mkdtempSync(p.join(os.tmpdir(),"review-cap-"))];w(d.filter(x=>x.status==="ACTIVE"),o,null);const[n,e]=[r(d),d.map(x=>t(x))];const[ok]=[e.filter(x=>x.status==="ACTIVE").every(x=>fs.existsSync(x.slice_file))];fs.rmSync(o,{recursive:true,force:true});console.log(JSON.stringify({n,ok,e}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"),require("fs"),require("os"),require("path"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-cap-dimensions"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output); const x = r.e.filter(e => e.status === "ACTIVE");
+        return r.n === 1 && r.ok === true && x.length === 8 && x.every(e => e.batch === 1) && r.e.filter(e => e.status === "SKIPPED").length === 9;
+
+- description: "review-cap: (b2) 17 matching dimensions give batches of 8, 8 and 1 in priority order"
+  vars:
+    script_path: "-e"
+    script_args: '(({loadAndMatchDimensions:l,writeDimensionSlices:w,toIndexEntry:t,refinePlan:r},fs,os,p)=>{const[d,o]=[l(process.cwd(),["src/a.js","lib/a.js","pkg/a.js"],null),fs.mkdtempSync(p.join(os.tmpdir(),"review-cap-"))];w(d.filter(x=>x.status==="ACTIVE"),o,null);const[n,e]=[r(d),d.map(x=>t(x))];const[ok]=[e.filter(x=>x.status==="ACTIVE").every(x=>fs.existsSync(x.slice_file))];fs.rmSync(o,{recursive:true,force:true});console.log(JSON.stringify({n,ok,e}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"),require("fs"),require("os"),require("path"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-cap-dimensions"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output); const c = k => r.e.filter(e => e.batch === k).length;
+        return r.n === 3 && r.ok === true && r.e.length === 17 && c(1) === 8 && c(2) === 8 && c(3) === 1 && r.e.filter(e => e.severity === "high").every(e => e.batch === 1) && r.e.find(e => e.name === "cap-d17").batch === 3;
+
+- description: "review-cap: (c) the repo's hook-readiness dimension matches plugins/sdlc-utilities/hooks/session-start.js"
+  vars:
+    script_path: "-e"
+    script_args: '(({loadAndMatchDimensions:l})=>{const[h]=[l("{{repo_root}}",["plugins/sdlc-utilities/hooks/session-start.js"],null).find(x=>x.name==="hook-readiness")];console.log(JSON.stringify({status:h&&h.status,matched:h&&h.matched_count}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"))'
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.status === 'ACTIVE' && r.matched === 1"
