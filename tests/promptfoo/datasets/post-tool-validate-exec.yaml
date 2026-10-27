@@ -1,0 +1,11 @@
+# Hook-runner tests for plugins/sdlc-utilities/hooks/post-tool-validate.js (stdin payload).
+
+- description: "stdin-fd0: post-tool-validate reads its payload and exits 2 on an empty .claude/pr-template.md"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/post-tool-validate.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-empty-pr-template"
+    script_stdin: '{"tool_name":"Write","tool_input":{"file_path":"/x/.claude/pr-template.md"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 2"

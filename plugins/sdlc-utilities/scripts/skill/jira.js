@@ -330,7 +330,7 @@ function resolveTemplatesDir(overridePath) {
 
 function readStdin() {
   try {
-    return fs.readFileSync('/dev/stdin', 'utf8');
+    return fs.readFileSync(0, 'utf8');
   } catch (err) {
     writeOutput({ errors: [`Failed to read stdin: ${err.message}`] }, 'jira-context', 1);
   }
