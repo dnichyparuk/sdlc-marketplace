@@ -16,29 +16,13 @@
     "branch": {
       "type": "string"
     },
+    "sessionId": {"type": ["string", "null"], "description": "Session currently driving the pipeline; stamped by initState and re-stamped by claimSession (R73)"},
+    "worktree": {"type": ["string", "null"], "description": "Active worktree at init (realpath); compared on resume (R-resume-worktree)"},
     "flags": {
       "type": "object",
       "properties": {
         "auto": {
           "type": "boolean"
-        },
-        "skip": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": ["execute", "commit", "review", "received-review", "commit-fixes", "version", "pr", "verify-pipeline", "await-remote-review"]
-          }
-        },
-        "preset": {
-          "oneOf": [
-            {
-              "type": "string",
-              "enum": ["A", "B", "C"]
-            },
-            {
-              "type": "null"
-            }
-          ]
         },
         "bump": {
           "oneOf": [
