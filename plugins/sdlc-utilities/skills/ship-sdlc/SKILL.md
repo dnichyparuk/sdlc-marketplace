@@ -20,11 +20,9 @@ If the system context contains "Plan mode is active":
 2. Invoke:
    ```bash
    # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
-   PLAN_MODE_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/ship.js" --output-file --plan-mode-blocked $ARGUMENTS)
-   PLAN_MODE_EXIT=$?
-   echo "PLAN_MODE_OUTPUT_FILE=$PLAN_MODE_OUTPUT_FILE"
-   echo "PLAN_MODE_EXIT=$PLAN_MODE_EXIT"
+   node "<PLUGIN_ROOT>/scripts/skill/ship.js" --output-file --plan-mode-blocked $ARGUMENTS
    ```
+   Run this as one plain Bash call. Take the output path the command prints on stdout as `PLAN_MODE_OUTPUT_FILE`, and the command's exit code from the tool result as `PLAN_MODE_EXIT` (a tool result without an error is exit code 0). Use the literal path in every later step.
 3. If `PLAN_MODE_EXIT` is non-zero: show any errors from the output file and stop.
 4. Read the output JSON from `$PLAN_MODE_OUTPUT_FILE`. Confirm `planModeBlocked === true`. Extract `stateFile`, `flags.bump`, `flags.steps`.
 5. Announce:
@@ -33,7 +31,7 @@ If the system context contains "Plan mode is active":
    > **Pipeline state saved to `<stateFile>` with resolved flags:** bump=`<flags.bump>`, steps=`<flags.steps>`.
    >
    > Exit plan mode and re-invoke `/ship-sdlc` (no args needed) — the existing implicit-resume mechanism will pick up the saved state and resume from the first pending step with the originally-resolved flags intact.
-6. Run `rm -f "$PLAN_MODE_OUTPUT_FILE"` to clean up the temp output file.
+6. Run `rm -f '<PLAN_MODE_OUTPUT_FILE>'` with the literal path to clean up the temp output file.
 7. Stop. Do not proceed to subsequent steps.
 
 All gates in steps 3–5 cite resolved fields from prepare output (`planModeBlocked`, `stateFile`, `flags.bump`, `flags.steps`) — never re-parse `$ARGUMENTS` directly.
@@ -69,15 +67,14 @@ If not found: `No ship config found — using built-in defaults. Run /setup-sdlc
 Locate and run `skill/ship.js` with all CLI flags to pre-compute flags, context, and step statuses:
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
-PREPARE_OUTPUT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/ship.js" --output-file --has-plan $ARGUMENTS)
+node "<PLUGIN_ROOT>/scripts/skill/ship.js" --output-file --has-plan $ARGUMENTS
 # Hook signal: if the session-start system-reminder contains a line matching
 # `/^Active pipeline: ship-sdlc/`, ALSO append `--hook-active-pipeline` to the
 # invocation above. When no state file is found, prepare emits
 # errors[*].id === "implicitResumeNoState" (handled in Step 1e).
-EXIT_CODE=$?
-echo "PREPARE_OUTPUT_FILE=$PREPARE_OUTPUT_FILE"
-echo "EXIT_CODE=$EXIT_CODE"
 ```
+
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `PREPARE_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 **`EXIT_CODE` gate:** `skill/ship.js` uses exit code 2 for an uncaught crash (top-level `try/catch` around `main()`) — on that path `writeOutput()` never runs, so `$PREPARE_OUTPUT_FILE` is empty/unset and there is no JSON to parse; print the `ship-prepare.js error: ...` text already on stderr and STOP without attempting to read the file. Exit code 1 means `writeOutput()` ran with a populated `errors[]` — proceed to parse the file; the render-and-stop rule below applies. Exit code 0 means success — proceed normally to 1d.
 
