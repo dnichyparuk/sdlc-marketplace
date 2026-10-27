@@ -15,7 +15,6 @@ Use this template in plan-sdlc Step 3 when dispatching the G17 Dimension Coverag
 Task tool (general-purpose):
   description: "G17 Dimension Coverage analysis for <plan title>"
   model: <g17Dispatch.model from prepare output>
-  mode: bypassPermissions
   prompt: |
     You are the Dimension Coverage subagent (G17). Your job is to detect coverage
     gaps in the active review-dimension catalog AND in the Copilot mirror at

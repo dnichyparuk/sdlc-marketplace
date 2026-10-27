@@ -95,7 +95,6 @@ Dispatch ALL dimensions in a SINGLE message as parallel `Agent` tool calls. All 
 For each dimension, dispatch one `Agent`:
 - `subagent_type: general-purpose`
 - `model: <dimension.model>`
-- `mode: bypassPermissions`
 - `run_in_background: false` — **mandatory** (R56, #487): Agent dispatch defaults to background; a backgrounded call returns control before the subagent finishes, ending your turn with no results. `false` blocks until it returns.
 - **DO NOT pass `isolation: "worktree"` or any `isolation` value**
 

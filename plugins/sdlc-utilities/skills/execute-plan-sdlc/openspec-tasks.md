@@ -68,20 +68,15 @@ If `openspecSpecs` was loaded in Step 1 (the plan was OpenSpec-sourced), also su
    - `openspec validate --strict <change>` — validate change spec files structurally
    - `openspec archive <change> --yes` — archive the OpenSpec change and merge delta specs after validation passes
 4. **If `ok === true`:** apply the tasks.md coverage gate (implements R38 — Fixes #414) before emitting the suggestion:
-   - Re-parse `openspec/changes/<name>/tasks.md` via `lib/openspec.js::parseTasks` using the `<PLUGIN_ROOT>` path and the env-var contract below:
+   - Re-parse `openspec/changes/<name>/tasks.md` with `openspec-step.js tasks` (it wraps `lib/openspec.js::parseTasks`); inside the single-quoted value write every `'` as `'\''`:
 
      ```bash
      # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
-     # TODO(#9165): openspec-step.js has no tasks/coverage subcommand yet; replace this node -e with it when it lands.
-     OPENSPEC_LIB="<PLUGIN_ROOT>/scripts/lib/openspec.js" \
-     OPENSPEC_TASKS_PATH="openspec/changes/<name>/tasks.md" \
-     node -e "
-     const fs = require('fs');
-     const { parseTasks } = require(process.env.OPENSPEC_LIB);
-     const content = fs.readFileSync(process.env.OPENSPEC_TASKS_PATH, 'utf8');
-     console.log(JSON.stringify(parseTasks(content)));
-     "
+     OPENSPEC_CHANGE='<name>'
+     node "<PLUGIN_ROOT>/scripts/skill/openspec-step.js" tasks --change "$OPENSPEC_CHANGE"
      ```
+
+     It prints one JSON line `{ ok, tasks }` and exits 0; each `tasks[]` entry is `{ ref, line, title, indent, done }`. A missing or unreadable `tasks.md` gives `{ ok: false, error }` with exit 1. A usage error (exit 2: the name fails `^[A-Za-z0-9._-]+$` or is `.` or `..`), exit 1 or output that is not this JSON is handled like `ok === false` in step 5, with the output as `<stderr output>`.
 
      Build `unflippedTitles` from entries where `done === false`.
    - Parse the plan file's `## Out-of-scope OpenSpec tasks` section (a flat bullet list of `- <title> — <rationale>` items) into `outOfScopeTitles: Set<string>` (case-sensitive title match).

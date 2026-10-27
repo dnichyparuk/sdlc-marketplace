@@ -455,3 +455,12 @@
         if (!data.planTemplate.path) return 'planTemplate.path is null or missing';
         if (!data.planTemplate.path.includes('.sdlc/plan-template.md')) return `path does not contain .sdlc/plan-template.md: ${data.planTemplate.path}`;
         return true;
+
+# --- bypassPermissions removal (W8.27) ---
+
+- description: "plan-no-bypass: no agent or skill file instructs a bypassPermissions dispatch"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-no-bypass-permissions.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.ok === true && r.hits.length === 0"
