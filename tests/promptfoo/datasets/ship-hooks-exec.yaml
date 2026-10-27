@@ -907,6 +907,41 @@
         }
         return true;
 
+# 25a. R-pause: `begin-step` clears `paused` (pause first, so the clear is observed).
+- description: "stop-pipeline-continue (R-pause): begin-step clears paused"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,cli,st)=>((p)=>((q)=>((b)=>console.log(JSON.stringify({pause:p.status,pausedSet:q,begin:b.status,pausedGone:JSON.parse(fs.readFileSync(st,"utf8")).paused===undefined})))(cp.spawnSync("node",[cli,"begin-step","--step","execute","--state-file",st],{encoding:"utf8"})))(JSON.parse(fs.readFileSync(st,"utf8")).paused!==undefined))(cp.spawnSync("node",[cli,"pause","--reason","test","--state-file",st],{encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/ship.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-inprogress"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const o = JSON.parse(r.stdout);
+        if (o.pause !== 0 || o.pausedSet !== true) return `FAIL: pause did not set paused: ${r.stdout}`;
+        if (o.begin !== 0) return `FAIL: begin-step exit ${o.begin}`;
+        return o.pausedGone === true ? true : `FAIL: paused still set: ${r.stdout}`;
+
+# 25b. R-pause: `claimSession` (the --resume path) clears `paused`.
+- description: "stop-pipeline-continue (R-pause): claimSession clears paused"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,st,state)=>(fs.writeFileSync(st,JSON.stringify(Object.assign(JSON.parse(fs.readFileSync(st,"utf8")),{paused:{at:"2026-01-01T00:00:00.000Z",reason:"test"}}))),((q)=>((c)=>console.log(JSON.stringify({pausedSet:q,claimed:c,pausedGone:JSON.parse(fs.readFileSync(st,"utf8")).paused===undefined})))(state.claimSession("ship","feat-ship")))(JSON.parse(fs.readFileSync(st,"utf8")).paused!==undefined)))(require("fs"),process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json",require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-inprogress"
+    script_env: '{"CLAUDE_CODE_SESSION_ID":"sess-fixture"}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const o = JSON.parse(r.stdout);
+        if (o.pausedSet !== true) return `FAIL: paused not written: ${r.stdout}`;
+        if (o.claimed !== true) return `FAIL: claimSession returned ${o.claimed}`;
+        return o.pausedGone === true ? true : `FAIL: paused still set: ${r.stdout}`;
+
 # 26. W2.5: with no .sdlc/execution the hooks exit before any git spawn work.
 - description: "stop-pipeline-continue (W2.5): hooks in a repo without .sdlc/execution exit 0 silently"
   vars:

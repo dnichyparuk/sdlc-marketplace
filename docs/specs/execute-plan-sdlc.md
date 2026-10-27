@@ -79,25 +79,25 @@
 
 ### Phases
 
-1. LOAD — load and validate plan (≥2 tasks, clear deliverables, no cycles); detect resume state; derive workspace (`branch`/`continue` via `deriveWorkspace`); rebase; load guardrails
+1. LOAD (Step 1) — load and validate plan (≥2 tasks, clear deliverables, no cycles); detect resume state; derive workspace (`branch`/`continue` via `deriveWorkspace`); rebase; load guardrails
    - **Script:** `state/execute.js read` (when `--resume`)
    - **Params:** state file path (auto-resolved from branch name in `.sdlc/execution/`)
    - **Output:** JSON state object (completed waves/tasks, plan hash, context with file manifests and decisions)
    - **Script:** `skill/execute.js` (prepare script; runs once per invocation, before any other phase)
    - **Params:** A1–A7 forwarded, plus `--commit-waves`, `--wave-timeout`, `--wave-interval`, `--skip-config-check`, `--project-root`, `--output-file`
    - **Output:** JSON → P1–P8 (flags, plan, classification floor, waves, guardrails, workspace, resume, openspec)
-2. CLASSIFY — classify each task (complexity, risk, worker routing); build dependency DAG and wave structure
-3. ROUTE — small-plan direct execution (≤3 tasks) or standard wave execution
-4. CRITIQUE — critique wave structure (file conflicts, dependencies, risk clustering, trivial aggregation)
-5. IMPROVE — fix critique issues; present final wave structure with quality tier (auto-selected via `--quality` or interactive)
-6. DO — execute waves sequentially: high-risk gate → dispatch agents → collect and verify → spec compliance review → post-wave guardrails → progress report → inter-wave critique → state persistence
+2. CLASSIFY (Step 2) — classify each task (complexity, risk, worker routing); build dependency DAG and wave structure
+3. ROUTE (Step 2b) — small-plan direct execution (≤3 tasks) or standard wave execution
+4. CRITIQUE (Step 3) — critique wave structure (file conflicts, dependencies, risk clustering, trivial aggregation)
+5. IMPROVE (Step 4) — fix critique issues; present final wave structure with quality tier (auto-selected via `--quality` or interactive)
+6. DO (Step 5) — execute waves sequentially: high-risk gate → dispatch agents → collect and verify → spec compliance review → post-wave guardrails → progress report → inter-wave critique → state persistence
    - **Script:** `state/execute.js` (per-wave lifecycle)
    - **Params:** subcommands: `init --branch --quality --total-tasks` (first wave), `wave-start --wave N --tasks-json --manifest-json`, `task-done/task-fail --wave --task --name --complexity --risk --files-changed`, `wave-done/wave-fail --wave N`, `context --data '<json>'`
    - **Output:** JSON state object persisted to `.sdlc/execution/execute-<branch>-<timestamp>.json` after each wave; `wave-start --manifest-json` also prints the wave manifest (P9)
-7. RECOVER — error recovery per failure type (model escalation, conflict resolution, inline fix, user escalation)
-8. VERIFY — final verification: full test suite, build, lint, `git diff --stat`
-9. CRITIQUE — final output critique: completeness, orphans, drift, TODO markers
-10. REPORT — summary with task count, waves, retries, verification status, guardrail results
+7. RECOVER (Step 6) — error recovery per failure type (model escalation, conflict resolution, inline fix, user escalation)
+8. VERIFY (Step 7) — final verification: full test suite, build, lint, `git diff --stat`
+9. CRITIQUE (Step 8) — final output critique: completeness, orphans, drift, TODO markers
+10. REPORT (Step 9) — summary with task count, waves, retries, verification status, guardrail results
    - **Script:** `state/execute.js cleanup` (on success) or state preserved (on failure)
    - **Params:** none (operates on current branch's state file)
    - **Output:** state file removed on success, and only when the completeness check passes (R14); preserved on failure for `--resume`
@@ -114,10 +114,9 @@
 
 - R7: Critique wave structure before execution: file conflicts, dependency integrity, risk clustering, context sufficiency
 - R12: Inter-wave critique: detect when actual output differs from what downstream tasks assumed
-- R-main-context-steps: The following steps are main-context responsibilities of execute-plan-sdlc and MUST NOT move into the wave-runner Agent: Step 2b (small-plan direct execution), Step 5 pre-wave trivials (inline), Step 5a (high-risk gate), Step 5c (filesystem verification, canary check, conflict detection, completion-checklist parsing), Step 5c-bis (spec compliance reviewer), Step 5c-ter (post-wave guardrail check), Step 5d (state writes), Step 5e (inter-wave critique), and Step 6 (recovery escalation). When execute is invoked via Skill tool from ship-sdlc, all of these surfaces fire in ship's main context, restoring supervision.
+- R-main-context-steps: The following steps are main-context responsibilities of execute-plan-sdlc and MUST NOT move into the wave-runner Agent: Step 2b (small-plan direct execution), Step 5 pre-wave trivials (inline), Step 5a (high-risk gate), Step 5c (filesystem verification, canary check, conflict detection, completion-checklist parsing), Step 5c-bis (spec compliance reviewer), Step 5c-ter (post-wave guardrail check), Step 5d (state writes), Step 5e (inter-wave critique), and Step 6 (recovery escalation). When ship-sdlc dispatches execute, these surfaces run in execute's own agent context, never inside a wave-runner.
 
 - R17: Pre-execution rebase when `--rebase auto`: fetch, check ancestor, attempt rebase, abort on conflict
-- R21: Context management between waves — compact verbose agent output when context is high
 - R33 (Guardrails-as-execution-guidelines): The wave manifest constructed in Step 1 (LOAD) MUST carry a `guardrails: [{id, description, severity}]` array sourced from `activeGuardrails`. The dispatching context (execute's main context, or the wave-runner Agent on the R8 runner path) MUST inline these as a "## Project Guardrails" section at the top of every worker prompt it dispatches, single-task and batched, including retry dispatches at any tier. Framing is prescriptive ("You MUST respect these constraints"). When `activeGuardrails` is empty, the array is still present as `[]` in the manifest (stable shape) but the rendered "## Project Guardrails" section is omitted entirely from agent prompts (no empty stub, no header). The G11 post-wave main-context guardrail check remains in force as defense-in-depth — guardrail injection into agent prompts is additive, not a replacement.
 - R34 (Wave-design accounts for verification): The wave-build algorithm MUST consider verification-boundary affinity as an ADVISORY tiebreaker after dependency ordering (never sacrifices dependency correctness). Each wave entry in the manifest MUST include `expectedFiles: string[]` — the deterministic union of every `Files: Create:` / `Files: Modify:` / `Files: Test:` path declared across the wave's tasks (no LLM inference; tasks already carry exact paths per plan-sdlc G10 file-existence gate). Each wave entry MAY include an optional `verificationHint: string` derived from per-task `Verify:` values when uniform across the wave; omitted otherwise. Step 5c (filesystem verify) MUST add a sub-check "5c-bis (expectedFiles cross-check)": (a) if `git diff --stat` output's file set has empty intersection with `wave.expectedFiles` AND `wave.expectedFiles` is non-empty → HARD FAILURE (phantom-success path; trigger existing failure flow), (b) if the diff touches files outside `wave.expectedFiles` → SOFT WARNING surfaced as `Wave N touched files outside expectedFiles: <list>` and execution continues to G9. The 5c-bis check is IN ADDITION to the existing `WAVE_SUMMARY.tasks[].filesChanged` check, not a replacement.
 
@@ -246,6 +245,7 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 - E12: Agent status BLOCKED → assess blocker, escalate model, break task, or escalate to user
 - E13: Malformed completion checklist → re-dispatch once with format reminder
 - E14: markTaskDone returns `{ changed: false, reason: 'not-found' | 'io-error' }` instead of throwing. Pipeline continues; warning recorded per R39.
+- E15: The Step 5c wave-summary parse prints no JSON line, or exits non-zero (PARSE_EXIT ≠ 0) → no task of the wave is marked done; the wave is treated as failed (wave-fail) and Step 6 (RECOVER) runs with the printed error.
 
 - R13: Maximum 2 retries per task. The first retry re-dispatches the same worker agent with the failure context and its effort raised one level; the second moves the task to the next worker agent tier. A task already at the top effort below the top agent moves to the next tier for both retries (first at medium, then at high effort). A task on the top worker agent below the top effort gets both retries there at the top effort; a task already on the top agent at the top effort is re-dispatched once with the failure context, then escalated to the user (ladder in `docs/cost-tiers.md` §5). Each retry's agent, model and effort is the task's dispatch entry's `retries` (P4); `model` is recorded for budgets and the manifest and is never passed to the Agent tool, because the agent file pins it; a task extracted from a failed batch is re-dispatched on the batch entry's second retry.
 - R15: Resume verifies plan hash; mismatch offers resume-with-existing or restart. Persisted state file uses field name `quality` (not `preset`) for the model tier.
@@ -301,7 +301,7 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 - C1: Must not stop for user checkpoints between waves (except high-risk gates and R-WAVE-DEADLINE timeout recovery, neither of which is a discretionary checkpoint)
 - C2: Must not dispatch agents that modify the same files in parallel
 - C3: Must not skip final verification
-- C4: Must not reference the plan file inside an agent prompt — paste full task text
+- C4: Must not reference the plan file inside an agent prompt — the prompt points at the task's fact sheet (R-FACT-SHEET-DISPATCH)
 - C5: Must not execute more than 2 retries on any single task
 - C6: Must not automatically commit or push
 - C7: Must not dispatch a separate agent per trivial task when a wave holds 2+ trivials — batch them (R6); pre-wave trivials run inline
@@ -336,7 +336,8 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 ### Withdrawn
 
 - G10 — withdrawn in 0.33.0 (see CHANGELOG 0.33.0): the pre-wave guardrail check is removed; error-severity guardrails reach every worker prompt (R33) and are evaluated once after each wave (G11).
-- R26 — withdrawn in 0.21.0 (see CHANGELOG 0.21.0): The context-heaviness advisory at Step 1 (LOAD) is gone. The `context-stats` hook that wrote the `$TMPDIR/sdlc-context-stats.json` sidecar has been deleted, so the sidecar is never produced and this advisory-only, non-correctness feature is no longer emitted. R21 (between-wave compaction inside the execution loop) is unaffected and remains the live context-management mechanism.
+- R26 — withdrawn in 0.21.0 (see CHANGELOG 0.21.0): The context-heaviness advisory at Step 1 (LOAD) is gone. The `context-stats` hook that wrote the `$TMPDIR/sdlc-context-stats.json` sidecar has been deleted, so the sidecar is never produced and this advisory-only, non-correctness feature is no longer emitted. R21 (between-wave compaction inside the execution loop) is unaffected and remains the live context-management mechanism. R21 was itself withdrawn in 0.23.1.
+- R21 — withdrawn in 0.23.1 (see CHANGELOG 0.23.1): Between-wave compaction of verbose agent output was removed from SKILL.md; bounded `WAVE_SUMMARY` returns (R-BOUNDED-RETURN) and fact sheets (R-FACT-SHEET-DISPATCH) keep wave context small.
 
 ### Issue trail
 

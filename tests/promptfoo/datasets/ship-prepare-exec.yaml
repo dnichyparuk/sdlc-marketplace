@@ -1288,6 +1288,41 @@
     - type: not-icontains
       value: '"planModeBlocked": true'
 
+# #9182 / R64 (owner Q22a): the --plan-mode-blocked path runs the plan check before its init,
+# so another plan's unfinished ledger is never pruned. The case seeds the ledger itself.
+- description: "ship-prepare (R64): --plan-mode-blocked with a different plan on an unfinished ledger is refused and the ledger is unchanged"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(path.join(process.cwd(),"plan-b.md"),"#\x20B\n\n###\x20Task\x201:\x20B\n"),fs.writeFileSync(led,JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,flags:{planFile:path.join(process.cwd(),"plan-a.md"),openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,unchanged:fs.existsSync(led)&&fs.readFileSync(led,"utf8")===before,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f))})))(fs.readFileSync(led,"utf8"),cp.spawnSync("node",[js,"--plan-mode-blocked","--has-plan","--plan",path.join(process.cwd(),"plan-b.md")],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}: ${JSON.stringify(o.out).slice(0, 300)}`;
+        if (o.out.planModeBlocked) return 'FAIL: plan-mode init ran';
+        const m = (o.out.errors || []).find(e => e && e.id === 'resumePlanMismatch');
+        if (!m) return `FAIL: no resumePlanMismatch: ${JSON.stringify(o.out.errors)}`;
+        if (!/plan-a\.md/.test(m.message) || !/plan-b\.md/.test(m.message)) return `FAIL: message lacks the plans: ${m.message}`;
+        if (!m.message.includes('-20261027T120000Z.json')) return `FAIL: message lacks the ledger: ${m.message}`;
+        if (o.unchanged !== true) return 'FAIL: the seeded ledger changed or was pruned';
+        if (o.files.length !== 1) return `FAIL: ledger files ${o.files.join()}`;
+        return o.stderr.includes('resume or discard') ? true : 'FAIL: error not mirrored to stderr';
+
+# #9182 / R64 (ruling w4-planreview Q1 (b)): without --plan, plan mode refuses before its init when
+# an unfinished ledger of the branch recorded a planFile. The case seeds the ledger itself.
+- description: "ship-prepare (R64): --plan-mode-blocked without --plan on an unfinished planned ledger is refused and the ledger is unchanged"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,flags:{planFile:path.join(process.cwd(),"plan-a.md"),openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,unchanged:fs.existsSync(led)&&fs.readFileSync(led,"utf8")===before,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f))})))(fs.readFileSync(led,"utf8"),cp.spawnSync("node",[js,"--plan-mode-blocked","--has-plan"],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        ((o) => o.status === 1 && !o.out.planModeBlocked && (o.out.errors || []).some(e => e && e.id === 'resumePlanMismatch' && e.message.includes('(no --plan given)') && /plan-a\.md/.test(e.message) && e.message.includes('--resume')) && o.unchanged === true && o.files.length === 1 && o.stderr.includes('(no --plan given)'))(JSON.parse(output))
+
 - description: "ship-prepare: --gc orphan sweep includes commit bucket alongside ship/execute/plan (#399/#400)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
@@ -3772,3 +3807,40 @@
         const o = JSON.parse(output);
         const c = (o.steps || []).find(s => s.name === 'commit');
         return c !== undefined && typeof c.args === 'string' && !c.args.includes('--subject');
+
+# #9180 (ii) / R-plan-commit-subject: the --after recompute applies the same subject check as
+# prepare, commit.subjectPattern included, and records nothing when it fails.
+- description: "ship-prepare (R-plan-commit-subject): --after recompute applies commit.subjectPattern and records nothing on a mismatch"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,path,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.mkdirSync(path.join(process.cwd(),".sdlc"),{recursive:true}),fs.writeFileSync(path.join(process.cwd(),".sdlc","config.json"),JSON.stringify({commit:{subjectPattern:"^feat"}})),fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(d+"/ledger.json",JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:"main",flags:{planFile:d+"/plan.md",openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}],history:[]})),fs.writeFileSync(d+"/yes.json",JSON.stringify({success:true,output:{answer:"yes"}})),((before,r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),unchanged:fs.readFileSync(d+"/ledger.json","utf8")===before}))(fs.readFileSync(d+"/ledger.json","utf8"),cp.spawnSync("node",[js,"--after","confirm_pipeline","--result-file",d+"/yes.json","--state",d+"/ledger.json"],{cwd:process.cwd(),encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-after-")))(require("child_process"),require("fs"),require("os"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}: ${JSON.stringify(o.out).slice(0, 300)}`;
+        if (o.out.status !== 'error') return `FAIL: envelope status ${o.out.status}`;
+        const e = String(o.out.error || '');
+        if (!e.includes('nothing recorded') || !e.includes('does not match commit.subjectPattern')) return `FAIL: error ${e}`;
+        return o.unchanged === true ? true : 'FAIL: the ledger was changed';
+
+# #9180 (ii) / R-plan-commit-subject: an unreadable project config blocks the --after recompute
+# (cleanup exempt). The malformed .sdlc/config.json is written as data into the case's own temp
+# directory, which is also the child's cwd, so no fixture is shared or modified.
+- description: "ship-prepare (R-plan-commit-subject): --after recompute blocks on an unreadable .sdlc/config.json and records nothing"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,path,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),"{\x20\"commit\":\x20"),fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(d+"/ledger.json",JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:"main",flags:{planFile:d+"/plan.md",openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}],history:[]})),fs.writeFileSync(d+"/yes.json",JSON.stringify({success:true,output:{answer:"yes"}})),((before,r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),unchanged:fs.readFileSync(d+"/ledger.json","utf8")===before}))(fs.readFileSync(d+"/ledger.json","utf8"),cp.spawnSync("node",[js,"--after","confirm_pipeline","--result-file",d+"/yes.json","--state",d+"/ledger.json"],{cwd:d,encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-after-")))(require("child_process"),require("fs"),require("os"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}: ${JSON.stringify(o.out).slice(0, 300)}`;
+        if (o.out.status !== 'error') return `FAIL: envelope status ${o.out.status}`;
+        const e = String(o.out.error || '');
+        if (!e.includes('nothing recorded') || !e.includes('.sdlc/config.json')) return `FAIL: error ${e}`;
+        return o.unchanged === true ? true : 'FAIL: the ledger was changed';

@@ -85,6 +85,8 @@ Parse the output JSON from `$PREPARE_OUTPUT_FILE`. If `errors` is non-empty, ren
 
 **Plan-file error rendering (implements R72):** If `errors` contains an entry whose `id` is one of `missingPlanFile`, `planFileNotFound`, or `planFileNotMarkdown`, print that entry's `message` VERBATIM before stopping — do NOT summarize, paraphrase, or collapse it into a generic "prepare failed" line. Each such message already states (1) what failed, (2) how to fix it, and (3) why the rule exists; it is composed by `skill/ship.js` (`runValidation`/`resolvePlanFile`) for direct display, not for further rewriting. `errors[]` entries may be plain strings or `{id, message}` objects — render with `typeof e === 'string' ? e : e.message` for every entry. Then STOP: do not dispatch any step.
 
+Print each `warnings[]` entry before the pipeline runs (P11, R-cap-recovery).
+
 **Gitignore warning:** If `context.sdlcGitignored` is `false` in the output, print:
 ```
 ⚠ Warning: .sdlc/ is not gitignored. Run --init-config to fix, or manually create .sdlc/.gitignore:
@@ -158,7 +160,7 @@ Auto-skip decisions (from skill/ship.js):
   review:  will_run — not in skip set
   received-review: conditional — depends on review verdict
   commit (fixes): conditional — depends on received-review changes
-  version: skipped (auto) — auto-skipped — tags are repo-global
+  version: skipped (cli) — not in --steps
   verify-openspec: skipped (default) — not in steps[]
   archive-openspec: conditional — openspec change ready for archive
   pr:      will_run — not in skip set
@@ -168,7 +170,7 @@ The parenthetical after `skipped` reflects the step's `skipSource` field:
 - `(cli)` — user passed `--steps` on the command line
 - `(quick)` — step is canonical but absent from `ship.quick` under an active `--quick` run (R-quick-4); `flags.sources.steps === 'quick'` in the prepare output
 - `(config)` — skip set loaded from `.sdlc/local.json`
-- `(auto)` — auto-skipped by `computeSteps` logic (e.g., worktree mode)
+- `(auto)` — skipped by `computeSteps` logic (for example a step whose precondition is absent)
 - `(condition)` — conditional step whose condition was not met
 
 Steps with `skipSource: "none"` are not skipped and show no parenthetical.
@@ -256,7 +258,7 @@ Display the pipeline table. The confirmation is the loop's first step (`confirm_
 
 ## Step 5 (EXECUTE): Run the step loop
 
-Ask the user only when a step's `llm_decision` is non-null (ship.js sets none under `--auto`); before each step print one line saying what runs next; after each step print the one-line result.
+Ask the user only when a step's `llm_decision` is non-null (ship.js sets none under `--auto`); before each step print one line saying what runs next; after each step print the one-line result. <!-- R-step5-prompting -->
 Dispatch every `will_run` step as computed by `ship.js`, even when the change looks low-risk — the pipeline's value is catching cases the developer under-estimates. `cleanup-pipeline` fails the run if a `will_run` step was not resolved.
 Running a step and the `--after` call that records it are one uninterrupted sequence; do not end the turn between them (the Stop hook blocks such turns).
 

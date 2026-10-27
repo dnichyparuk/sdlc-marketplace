@@ -311,7 +311,7 @@ If multiple state files exist for the same branch (from multiple failed attempts
 
 ## Plan-Mode-Blocked Init
 
-When `/ship-sdlc` is invoked while plan mode is active, Step 0 calls `skill/ship.js --plan-mode-blocked` which invokes `state/ship.js init` to persist an init state file. The state file shape is **byte-identical** to a normal `cmdInit` write — all configured steps with `status: "pending"`, plus `version`, `startedAt`, `branch`, `flags`, `decisions: []`, `deferredFindings: []`.
+When `/ship-sdlc` is invoked while plan mode is active, Step 0 calls `skill/ship.js --plan-mode-blocked` which invokes `state/ship.js init` to persist an init state file. The state file shape is **byte-identical** to a normal `cmdInit` write — the step list `cmdInit` seeds (all `status: "pending"`), plus `version`, `startedAt`, `branch`, `flags`, `decisions: []`, `deferredFindings: []`; the next initial `ship.js` call that adopts the file adds any missing step (`reconcileSteps`).
 
 The `planModeBlocked` flag does NOT appear in the state file — it is an annotation in the prepare output only, telling SKILL.md what happened.
 

@@ -320,7 +320,7 @@ Ship Pipeline
 --------------------------------------------------------------------
 Step  Skill                 Status       Args           Pause?
 --------------------------------------------------------------------
-1     execute-plan-sdlc     will run     --quality balanced no
+1     execute-plan-sdlc     will run     --auto --quality balanced no
 2     commit-sdlc           will run     --auto         no
 3     review-sdlc           will run     --committed    no
 4     received-review-sdlc  conditional  (if crit/high) no
@@ -334,7 +334,7 @@ Interactive pauses: none (--auto mode)
 Auto mode — proceeding without confirmation.
 
 ━━━ Ship Pipeline — Step 1/7: Execute ━━━
-  Invoking: /execute-plan-sdlc --quality balanced
+  Invoking: /execute-plan-sdlc --plan <path> --auto --quality balanced
   Reason: plan detected in context, preset balanced from config
   Expectation: execute all plan tasks in waves
 

@@ -52,7 +52,7 @@ Read and parse `COMMIT_CONTEXT_FILE` as `COMMIT_CONTEXT_JSON`.
 
 - Exit code 1: The JSON still contains an `errors` array. Show each error to the user and stop.
 - Exit code 2: Show `Script error — see output above` and stop.
-- Exit code 3: expected-branch guard failed (`--expected-branch` did not match) — show `errors[0]` (the guard message) and stop.
+- Exit code 3: expected-branch guard failed (`--expected-branch` did not match) — show `errors[0]` (the guard message) and stop. (R-expected-branch)
 
 **On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=commit-sdlc, step=Step 0 — skill/commit.js execution, error=stderr.
 
@@ -188,7 +188,7 @@ Set `Source:` to the flag that supplied the given subject, in the same order (`-
 
 **On `yes`:**
 
-0. **Message file, then subject gate (hard gate):** `<MSG_FILE>` is the Step 0 manifest path with `.json` replaced by `.msg`; substitute that absolute path, and the manifest path for `<COMMIT_CONTEXT_FILE>`, in every block below. Write the message with a quoted heredoc — the quotes around `SDLC_COMMIT_MSG` keep `$`, backticks and `"` literal — replacing the `<message>` line with `MESSAGE` exactly. If `MESSAGE` contains a line that is exactly `SDLC_COMMIT_MSG`, stop and report. Run each block without the list indentation: the closing `SDLC_COMMIT_MSG` must start its line. Every re-run of the gate (the Exit 1/Exit 2 **edit subject** options and **On edit**) first rewrites `<MSG_FILE>` with the heredoc block above, then runs the gate block.
+0. **Message file, then subject gate (hard gate, R16):** `<MSG_FILE>` is the Step 0 manifest path with `.json` replaced by `.msg`; substitute that absolute path, and the manifest path for `<COMMIT_CONTEXT_FILE>`, in every block below. Write the message with a quoted heredoc — the quotes around `SDLC_COMMIT_MSG` keep `$`, backticks and `"` literal — replacing the `<message>` line with `MESSAGE` exactly. If `MESSAGE` contains a line that is exactly `SDLC_COMMIT_MSG`, stop and report. Run each block without the list indentation: the closing `SDLC_COMMIT_MSG` must start its line. Every re-run of the gate (the Exit 1/Exit 2 **edit subject** options and **On edit**) first rewrites `<MSG_FILE>` with the heredoc block above, then runs the gate block.
 
    ```bash
    cat > "<MSG_FILE>" <<'SDLC_COMMIT_MSG'
