@@ -1034,14 +1034,20 @@ function branchLedgers(branch) {
   const slug = slugifyBranch(branch);
   let dir;
   let names = [];
-  try { dir = resolveStateDir(); names = fs.readdirSync(dir).sort(); } catch { return []; }
+  try { dir = resolveStateDir(); names = fs.readdirSync(dir).sort(); } catch (e) {
+    process.stderr.write(`branchLedgers: state dir unreadable, plan-mismatch guard skipped: ${e.message}\n`);
+    return [];
+  }
   const out = [];
   for (const name of names) {
     const parsed = parseStateFilename(name);
     if (!parsed || parsed.prefix !== 'ship' || parsed.slug !== slug) continue;
     const fullPath = path.join(dir, name);
     let data = null;
-    try { data = JSON.parse(fs.readFileSync(fullPath, 'utf8')); } catch { continue; }
+    try { data = JSON.parse(fs.readFileSync(fullPath, 'utf8')); } catch (e) {
+      process.stderr.write(`branchLedgers: ledger unreadable, skipped (${name}): ${e.message}\n`);
+      continue;
+    }
     out.push({ fullPath, flags: data && data.flags && typeof data.flags === 'object' ? data.flags : null, finished: ledgerFinished(data) });
   }
   return out;
