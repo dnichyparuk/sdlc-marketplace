@@ -414,6 +414,16 @@ function checkSkillRunsScript(skills, scriptNames, findings) {
         message: `Skill '${skillName}' is paired with ${rel} but does not invoke it as node "<PLUGIN_ROOT>/scripts/${rel}" in a bash block. Skills must run their own prepare scripts.`,
       });
     }
+
+    const esc = rel.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+    if (new RegExp(`^\\s*[A-Za-z_][A-Za-z0-9_]*="<PLUGIN_ROOT>/scripts/${esc}"\\s*$`, 'm').test(content)) {
+      findings.push({
+        rule: 'skill-runs-script',
+        severity: 'error',
+        file: path.relative(process.cwd(), skill.file),
+        message: `Skill '${skillName}' assigns ${rel} to a shell variable. Invoke it inline as node "<PLUGIN_ROOT>/scripts/${rel}" so rules 2–5 check the real prepare call.`,
+      });
+    }
   }
 }
 

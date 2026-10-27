@@ -126,3 +126,14 @@
       value: '"rule": "skill-passes-arguments"'
     - type: not-icontains
       value: '"rule": "no-exit-trap"'
+
+- description: "prepare-contract: flags a paired prepare script assigned to a shell variable"
+  vars:
+    script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/prepare-contract-cases/indirect-project"
+  assert:
+    - type: icontains
+      value: '"rule": "skill-runs-script"'
+    - type: icontains
+      value: 'assigns skill/commit.js to a shell variable'

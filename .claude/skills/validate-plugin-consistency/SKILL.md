@@ -60,7 +60,7 @@ SCRIPT=$(find ~/.claude/plugins -name "<script>.js" -path "*/sdlc*/scripts/<scri
 A skill listed in `SKILL_TO_SCRIPT` (check-consistency.js) whose prepare script exists under
 `plugins/sdlc-utilities/scripts/skill/` does not invoke it in a bash block as
 `node "<PLUGIN_ROOT>/scripts/skill/<script>.js"`. Skills must run their own prepare scripts;
-write the script path inline in the `node` call, not through a variable.
+write the script path inline in the `node` call, not through a variable. The rule also fails when the paired script is assigned to a shell variable (`SCRIPT="<PLUGIN_ROOT>/scripts/skill/<script>.js"`).
 
 ### `skill-uses-output-file` (error)
 
