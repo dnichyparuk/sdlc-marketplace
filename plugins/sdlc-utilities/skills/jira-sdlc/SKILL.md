@@ -440,7 +440,7 @@ The number it prints is `HOOK_COUNT`. When `HOOK_COUNT` equals 2 (same hook deny
 node "<PLUGIN_ROOT>/scripts/lib/mcp-failure.js" --analyze --class hook-block --tool '<MCP_TOOL_NAME>' --site '<JIRA_SITE>' --project '<PROJECT_KEY>' --error '<permissionDecisionReason>' --recovered no --r-path R21
 ```
 
-The JSON line it prints is `ANALYZE_JSON`. Read `ANALYZE_JSON.proposal.title` and `ANALYZE_JSON.proposal.body`; present to user verbatim with prompt "Y (file issue) / edit / skip". On Y, dispatch `error-report-sdlc` with `--error-type mcp-hook-block`, `--skill jira-sdlc`, `--step "Step 3"`, `--operation "$MCP_TOOL_NAME"`, `--error-text <proposal.body>`, and labels `mcp-failure,class:hook-block`.
+The JSON line it prints is `ANALYZE_JSON`. Read `ANALYZE_JSON.proposal.title` and `ANALYZE_JSON.proposal.body`; present to user verbatim with prompt "Y (file issue) / edit / skip". On Y, dispatch `error-report-sdlc` with `--error-type mcp-hook-block`, `--skill jira-sdlc`, `--step "Step 3"`, `--operation <MCP_TOOL_NAME>`, `--error-text <proposal.body>`, and labels `mcp-failure,class:hook-block`.
 
 **On cloudId authorization error** (response text matches `isn't explicitly granted` or auth/403 with cloudId substring) — implements spec R23:
 
@@ -467,7 +467,7 @@ node "<PLUGIN_ROOT>/scripts/lib/mcp-failure.js" --telemetry --class auth --tool 
 node "<PLUGIN_ROOT>/scripts/lib/mcp-failure.js" --analyze --class auth --tool '<MCP_TOOL_NAME>' --site '<JIRA_SITE>' --project '<PROJECT_KEY>' --error '<AUTH_ERROR>' --recovered no --r-path R23
 ```
 
-The JSON line the `--analyze` command prints is `ANALYZE_JSON`. Read `ANALYZE_JSON.proposal.title` and `ANALYZE_JSON.proposal.body`; present to user verbatim with prompt "Y (file issue) / edit / skip". On Y, dispatch `error-report-sdlc` with `--error-type mcp-auth`, `--skill jira-sdlc`, `--step "Step 3"`, `--operation "$MCP_TOOL_NAME"`, `--error-text <proposal.body>`, and labels `mcp-failure,class:auth`.
+The JSON line the `--analyze` command prints is `ANALYZE_JSON`. Read `ANALYZE_JSON.proposal.title` and `ANALYZE_JSON.proposal.body`; present to user verbatim with prompt "Y (file issue) / edit / skip". On Y, dispatch `error-report-sdlc` with `--error-type mcp-auth`, `--skill jira-sdlc`, `--step "Step 3"`, `--operation <MCP_TOOL_NAME>`, `--error-text <proposal.body>`, and labels `mcp-failure,class:auth`.
 
 After Step 2 classifies the operation type, read `./operations-reference.md` and follow the procedure for the matching operation type.
 
