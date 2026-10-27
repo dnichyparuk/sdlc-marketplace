@@ -3807,3 +3807,21 @@
         const o = JSON.parse(output);
         const c = (o.steps || []).find(s => s.name === 'commit');
         return c !== undefined && typeof c.args === 'string' && !c.args.includes('--subject');
+
+# #9180 (ii) / R-plan-commit-subject: the --after recompute applies the same subject check as
+# prepare, commit.subjectPattern included, and records nothing when it fails.
+- description: "ship-prepare (R-plan-commit-subject): --after recompute applies commit.subjectPattern and records nothing on a mismatch"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,path,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.mkdirSync(path.join(process.cwd(),".sdlc"),{recursive:true}),fs.writeFileSync(path.join(process.cwd(),".sdlc","config.json"),JSON.stringify({commit:{subjectPattern:"^feat"}})),fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(d+"/ledger.json",JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:"main",flags:{planFile:d+"/plan.md",openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}],history:[]})),fs.writeFileSync(d+"/yes.json",JSON.stringify({success:true,output:{answer:"yes"}})),((before,r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),unchanged:fs.readFileSync(d+"/ledger.json","utf8")===before}))(fs.readFileSync(d+"/ledger.json","utf8"),cp.spawnSync("node",[js,"--after","confirm_pipeline","--result-file",d+"/yes.json","--state",d+"/ledger.json"],{cwd:process.cwd(),encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-after-")))(require("child_process"),require("fs"),require("os"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}: ${JSON.stringify(o.out).slice(0, 300)}`;
+        if (o.out.status !== 'error') return `FAIL: envelope status ${o.out.status}`;
+        const e = String(o.out.error || '');
+        if (!e.includes('nothing recorded') || !e.includes('does not match commit.subjectPattern')) return `FAIL: error ${e}`;
+        return o.unchanged === true ? true : 'FAIL: the ledger was changed';

@@ -1947,6 +1947,14 @@ function runAfter(stepArgs) {
   if (missing) {
     return fail(`ledger.flags lacks "${missing}"; re-run /ship-sdlc with --resume so the initial call freezes it.`);
   }
+  // R-plan-commit-subject: the recompute reads the **Commit:** field with prepare's check,
+  // commit.subjectPattern included; a field that fails it stops this call before anything is
+  // written, as prepare stops before any step runs. The final cleanup call is exempt: no
+  // commit step follows it, so it must not be stranded by a plan edited after the commit.
+  let commitSubjectPattern = null;
+  try { commitSubjectPattern = (readSection(resolveSdlcRoot(), 'commit') || {}).subjectPattern || null; } catch (_) { /* no commit config */ }
+  const planCommit = readPlanCommitSubject(flags.planFile, commitSubjectPattern);
+  if (planCommit.error && after !== 'cleanup') return fail(`--after ${after}: nothing recorded. ${planCommit.error}`);
   if (!Array.isArray(ledger.history)) ledger.history = [];
   const result = stepArgs.result;
   const output = (result.output && typeof result.output === 'object') ? result.output : {};
@@ -1976,7 +1984,7 @@ function runAfter(stepArgs) {
     openspecContext: flags.openspecContext,
     expectedBranch: ledger.branch,
     planFile: flags.planFile,
-    planSubject: readPlanCommitSubject(flags.planFile).subject,
+    planSubject: planCommit.subject,
   });
   const total = countTotal(steps);
   const skipped = [];
