@@ -391,20 +391,21 @@ Do NOT spawn a separate watchdog Agent.
 
 0. **Parse `WAVE_SUMMARY` via `lib/wave-summary.js` (R-BOUNDED-RETURN, R-CONTEXT_OVERFLOW):** Call `parseWaveSummary(text, dispatchedIds)` in a brief inline Node.js block, where `text` is the wave's return text (runner mode: the wave-runner's full response; direct mode: the `WAVE_SUMMARY` line you composed) and `dispatchedIds` is the array of task IDs sent in the manifest:
 
-   Run `mktemp` and note the printed path; write the wave-runner's return text to that path with the Write tool; then run (substituting that path for `<TMPFILE>`):
+   Write the wave-runner's return text with the Write tool to `<main-worktree>/.sdlc/execution/out/wave-summary-<runId>-w<N>.txt` (`<SUMMARY_FILE>`; the session-start hook sweeps `out/` after 24 h, so an interrupted run leaves nothing behind), then run:
 
    ```bash
    # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line. Do not run `find`.
-   PARSE_RESULT=$(DISPATCHED_IDS='<json-array-of-dispatched-task-ids>' node -e "
+   DISPATCHED_IDS='<json-array-of-dispatched-task-ids>' node -e "
    const { parseWaveSummary } = require('<PLUGIN_ROOT>/scripts/lib/wave-summary.js');
-   const text = require('fs').readFileSync('/dev/stdin','utf8');
+   const text = require('fs').readFileSync(0, 'utf8');
    const dispatched = JSON.parse(process.env.DISPATCHED_IDS || '[]');
-   process.stdout.write(JSON.stringify(parseWaveSummary(text, dispatched)));
-   " < "<TMPFILE>")
-   rm -f "<TMPFILE>"
+   process.stdout.write(JSON.stringify(parseWaveSummary(text, dispatched)) + '\n');
+   " < "<SUMMARY_FILE>"
+   echo "PARSE_EXIT=$?"
+   rm -f "<SUMMARY_FILE>"
    ```
 
-   Read `schemaOk`, `missingIds`, `extraIds`, `violations`, and `parsed` from the result.
+   Read `schemaOk`, `missingIds`, `extraIds`, `violations` and `parsed` from the JSON line it prints. If no JSON line was printed or `PARSE_EXIT` is not 0, mark no task done: treat the wave as failed (`wave-fail`) and follow Step 6 (RECOVER) with the printed error.
 
    - If `missingIds.length > 0` → **CONTEXT_OVERFLOW** (R-CONTEXT_OVERFLOW): the wave-runner's context was exhausted before it could report all dispatched tasks. This is the sole discriminant — a schema-valid partial response (where `schemaOk` is true but `missingIds` is non-empty) also triggers this path, because absent IDs mean unconfirmed tasks regardless of schema validity. In direct mode every worker was awaited, so a missing ID is a task whose return lacked its `COMPLETE:` lines: report it `FAILED` and apply Step 6 instead of splitting. In runner mode invoke the auto-split-and-retry flow:
 
