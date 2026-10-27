@@ -37,6 +37,5 @@ Default severity: medium
 
 ## Note
 
-In Claude Code reviews, files matching these patterns are excluded: `site/src/**/*.d.ts`, `**/node_modules/**`, `site/dist/**`, `site/.astro/**`.
-Copilot path-specific instructions do not support exclusion patterns — use judgment
-when findings apply to these files.
+In Claude Code reviews, files matching these patterns are excluded: site/src/**/*.d.ts, **/node_modules/**, site/dist/**, site/.astro/**.
+Copilot path-specific instructions do not support exclusion patterns — use judgment when findings apply to these files.
