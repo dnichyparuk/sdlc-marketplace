@@ -256,7 +256,7 @@ Display the pipeline table. The confirmation is the loop's first step (`confirm_
 
 ## Step 5 (EXECUTE): Run the step loop
 
-Ask the user only when a step's `llm_decision` is non-null (ship.js sets none under `--auto`); before each step print one line saying what runs next; after each step print the one-line result.
+Ask the user only when a step's `llm_decision` is non-null (ship.js sets none under `--auto`); before each step print one line saying what runs next; after each step print the one-line result. <!-- R-step5-prompting -->
 Dispatch every `will_run` step as computed by `ship.js`, even when the change looks low-risk — the pipeline's value is catching cases the developer under-estimates. `cleanup-pipeline` fails the run if a `will_run` step was not resolved.
 Running a step and the `--after` call that records it are one uninterrupted sequence; do not end the turn between them (the Stop hook blocks such turns).
 
