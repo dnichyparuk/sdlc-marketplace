@@ -100,7 +100,7 @@
 
 - G1: Manifest file produced — `skill/review.js` exits successfully and produces a valid file path
 - G2: Orchestrator dispatched — agent is spawned (not via Skill tool) with manifest path and project root
-- G3: Manifest file and `diff_dir` cleaned up by the skill after the terminal branch (including failures)
+- G3: `diff_dir` removed by the skill after the terminal branch (including failures); the manifest file persists under `.sdlc/execution/out/` and is pruned by `writeOutput` and the session-start sweep
 - G4: Exactly one `review-orchestrator` Agent dispatch per `/review-sdlc` invocation (a retry on failure counts as the same attempt; user confirmation never triggers a new dispatch)
 - G5: Full comment body displayed — Step 3 emits the verbatim contents of `${diff_dir}/review-comment.md` in the main context before the posting prompt is shown
 - G6: Await barrier — the orchestrator collects one result per dispatched dimension (count == N, ACTIVE+TRUNCATED) before any consolidation, and never computes a verdict or writes `review-comment.md` on partial or zero results (R-orchestrator-await)
@@ -143,7 +143,7 @@
 - C8: Must not independently compute, infer, or fabricate values for any field the prepare script is contracted to provide — if the script fails or a field is absent, the skill must stop rather than fill in data
 - C9: Must not re-derive data the prepare script already computes via shell commands, tool calls, or LLM inference — script output is the sole source for all factual context, preserving deterministic behavior
 - C10: Orchestrator MUST NOT call `gh api` or prompt the user for PR-posting confirmation
-- C11: Orchestrator MUST NOT delete `manifest.diff_dir` — the skill owns cleanup of both the manifest file and the diff dir
+- C11: Orchestrator MUST NOT delete `manifest.diff_dir` — the skill owns removal of the diff dir; neither deletes the manifest file (persistent, swept)
 - C12: Skill MUST NOT re-dispatch the orchestrator to complete a posting flow already computed — `comment_file` from the orchestrator summary is authoritative
 
 ## Integration
