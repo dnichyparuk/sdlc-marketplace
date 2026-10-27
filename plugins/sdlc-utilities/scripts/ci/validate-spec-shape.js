@@ -54,7 +54,7 @@ const RID_CITATION_RE = /\bR(?:\d+[a-z]?|-[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*)\b/g;
 
 function parseArgs(argv) {
   const args = argv.slice(2);
-  let root = resolveSdlcRoot();
+  let root = null;
   let strict = false;
   let json = false;
 
@@ -69,6 +69,7 @@ function parseArgs(argv) {
     }
   }
 
+  if (!root) root = resolveSdlcRoot();
   return { root, strict, json };
 }
 
@@ -105,8 +106,22 @@ function extractDefinitions(lines) {
   return defs;
 }
 
+/** Ids defined under `### Withdrawn`, up to the next heading line. */
+function withdrawnIds(lines) {
+  const ids = new Set();
+  let inWithdrawn = false;
+  for (const [, text] of bodyLines(lines)) {
+    if (text.trimEnd() === '### Withdrawn') { inWithdrawn = true; continue; }
+    if (text.startsWith('#')) { inWithdrawn = false; continue; }
+    if (!inWithdrawn) continue;
+    const m = ID_RE.exec(text);
+    if (m) ids.add(m[1]);
+  }
+  return ids;
+}
+
 function isContractShaped(lines) {
-  return bodyLines(lines).some(([, text]) => text === '## ' + FIRST_SECTION);
+  return bodyLines(lines).some(([, text]) => text.trimEnd() === '## ' + FIRST_SECTION);
 }
 
 function preparePathIsNone(lines) {
@@ -143,6 +158,7 @@ function checkShape(name, lines) {
     if (!m) continue;
     const heading = m[1];
     const idx = CONTRACT_HEADINGS.indexOf(heading);
+    if (seen.includes(heading)) { add('DUPLICATE_SECTION', n, `section "## ${heading}" appears more than once`); continue; }
     seen.push(heading);
     if (idx === -1) {
       add('HEADING_ORDER', n, `unknown section "## ${heading}" — not a contract heading`);
@@ -164,7 +180,7 @@ function checkShape(name, lines) {
   // Body vs appendix
   let inAppendix = false;
   for (const [n, text] of body) {
-    if (text === '## ' + APPENDIX) inAppendix = true;
+    if (text.trimEnd() === '## ' + APPENDIX) inAppendix = true;
     if (/^\*\*Model:\*\*/.test(text)) add('MODEL_HEADER', n, 'tuning value in header — model belongs in frontmatter / docs/cost-tiers.md');
     if (inAppendix) continue;
     if (/#\d+/.test(text)) add('ISSUE_REF', n, 'GitHub issue number in body — move it to the appendix Issue trail');
@@ -267,8 +283,9 @@ function main() {
     for (const file of specFiles) {
       const name = path.basename(file, '.md');
       const lines = splitLines(fs.readFileSync(file, 'utf8'));
+      const withdrawn = withdrawnIds(lines);
       for (const id of extractDefinitions(lines).keys()) {
-        if (id.startsWith('R')) allRids.add(id);
+        if (id.startsWith('R') && !withdrawn.has(id)) allRids.add(id);
       }
       (isContractShaped(lines) ? contractShaped : legacy).push(name);
       findings.push(...checkShape(name, lines));
@@ -298,4 +315,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, CONTRACT_HEADINGS, extractDefinitions, checkShape, checkCitations };
+module.exports = { parseArgs, CONTRACT_HEADINGS, extractDefinitions, withdrawnIds, checkShape, checkCitations };
