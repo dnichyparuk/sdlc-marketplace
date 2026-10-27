@@ -48,6 +48,7 @@ None.
 - G1: Single JSON line on stdout — pass when stdout has exactly one valid JSON object matching one of the verdict shapes (R5).
 - G2: No file edits outside the working tree — pass when all `Edit` calls target paths inside the project root (R8).
 - G3: No commit/push side effects — pass when `git status` shows the same staged/committed state before and after invocation (R7).
+- R11: Before `fix-applied` the skill re-runs the failed check locally when it can; a fix whose check still fails is never reported as `fix-applied`.
 
 ## Prepare script contract
 
@@ -58,6 +59,7 @@ None.
 - E1: `--pr` missing AND `--logs` missing → emit `{"status":"abort","reason":"--pr or --logs required"}`, exit 0.
 - E2: `gh` unauthenticated → emit `{"status":"abort","reason":"gh not authenticated"}`, exit 0.
 - E3: classifier returns `unknown` → fall through to `proposal` verdict with the raw log excerpt as `summary`.
+- E4: Local re-check still fails → `suggestedPatch` = the attempted diff, every edited file restored, verdict `proposal`.
 
 ## Invariants and constraints
 

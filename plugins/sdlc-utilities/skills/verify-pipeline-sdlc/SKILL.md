@@ -57,7 +57,7 @@ The seven categories are: `lint`, `test-failure`, `type-error`, `build-error`, `
 
 Routing by category:
 
-- **`lint`, `test-failure`, `type-error`**: Actionable. When `--auto` is set (R9), use the `Edit` tool to apply the minimal fix (R3): correct the lint violation, fix the failing assertion, add the missing import or correct the type annotation. Do NOT scaffold abstractions or refactor. Before emitting `fix-applied`, run the check that failed (lint/test/type-check for the touched file) when it can run locally; if it still fails, emit `proposal`.
+- **`lint`, `test-failure`, `type-error`**: Actionable. When `--auto` is set (R9), use the `Edit` tool to apply the minimal fix (R3): correct the lint violation, fix the failing assertion, add the missing import or correct the type annotation. Do NOT scaffold abstractions or refactor. Before emitting `fix-applied`, run the check that failed (lint/test/type-check for the touched file) when it can run locally (R11). If it still fails: capture `git diff -- <edited files>` as `suggestedPatch`, restore each edited file to its pre-edit content with the `Edit` tool (reverse each edit), and emit `proposal` — the working tree is left as it was before this skill ran (E4).
 - **`build-error`, `dependency`, `infra`**: Non-trivial. Emit a proposal regardless of `--auto` (R4) — these typically require human judgement.
 - **`unknown`**: fall through to `proposal` verdict with the raw log excerpt as `summary` (E3).
 
