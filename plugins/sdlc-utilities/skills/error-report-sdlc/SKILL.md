@@ -104,21 +104,22 @@ This error may be worth tracking as a GitHub issue. Create one? (yes / no)
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-ERROR_CONTEXT_FILE=$(node "<PLUGIN_ROOT>/scripts/skill/error-report-prepare.js" \
-  --skill "$SKILL_NAME" \
-  --step "$STEP_NAME" \
-  --operation "$OPERATION" \
-  --error-text "$ERROR_TEXT" \
-  --exit-or-http-code "$EXIT_OR_HTTP_CODE" \
-  --error-type "$ERROR_TYPE" \
-  --user-intent "$USER_INTENT" \
-  --args-string "$ARGS_STRING" \
-  --suggested-investigation "$SUGGESTED_INVESTIGATION" \
-  --output-file)
-EXIT_CODE=$?
+node "<PLUGIN_ROOT>/scripts/skill/error-report-prepare.js" \
+  --skill '<SKILL_NAME>' \
+  --step '<STEP_NAME>' \
+  --operation '<OPERATION>' \
+  --error-text '<ERROR_TEXT>' \
+  --exit-or-http-code '<EXIT_OR_HTTP_CODE>' \
+  --error-type '<ERROR_TYPE>' \
+  --user-intent '<USER_INTENT>' \
+  --args-string '<ARGS_STRING>' \
+  --suggested-investigation '<SUGGESTED_INVESTIGATION>' \
+  --output-file
 ```
 
-Substitute the shell variables with the values supplied by the calling skill. Optional
+Run this as one plain Bash call. Take the manifest path the command prints on stdout as `ERROR_CONTEXT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
+
+Substitute each `<…>` placeholder with the value supplied by the calling skill, as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Optional
 fields (`exitOrHttpCode`, `errorType`, `userIntent`, `argsString`,
 `suggestedInvestigation`) may be empty; the script tolerates empty values and the
 orchestrator will omit dependent template sections. The manifest also carries the
