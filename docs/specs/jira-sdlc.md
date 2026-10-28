@@ -125,6 +125,8 @@
 - P3: `fresh` (boolean) — whether cache is within TTL (when `maxAgeHours > 0`)
 - P4: Cache load output (full JSON) — the complete cache object when `--load` is used
 - P5: `candidateSites` (string[]) — populated by `--check` when two or more home-cache entries match the project key without `--site` disambiguation. Empty or absent when the candidate count is 0 or 1. Paired with `exists: false` when ≥2 candidates exist.
+- R-templates-root: `skill/jira.js` resolves the shipped templates directory (R18) from its own location: `skills/jira-sdlc/templates` under the plugin root that holds the script. `--templates-dir <path>` overrides it. There is no search of the home dir and no cwd fallback, so a stale cached install is never picked.
+  - Acceptance: with `HOME` holding a decoy `.claude/plugins/…/skills/jira-sdlc/templates/` install and no `--templates-dir`, `--templates` lists the shipped template names and none of the decoy's.
 
 ## Failure handling and resume
 
