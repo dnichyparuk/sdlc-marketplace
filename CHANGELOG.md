@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.4] - 2026-10-28
+
+### Fixed
+- review-sdlc: the review orchestrator writes the review summary straight to `.sdlc/execution/review-summary-<slug>.json` with its Write tool, so no Bash `mkdir` or `cp` is needed; after `Review complete` review-sdlc reads the file, checks that its `commentPath` is this run's comment, and otherwise stops with `Review summary missing`, keeping the diff dir.
+- review-sdlc: 0.36.3 said a headless standalone review leaves the file ship's review gate reads; that did not hold under `--permission-mode dontAsk`, where the `cp` from the `/tmp` diff dir was denied. The copy is gone (see the line above).
+
 ## [0.36.3] - 2026-10-28
 
 ### Changed
