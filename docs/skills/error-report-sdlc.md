@@ -16,8 +16,8 @@ To add error-reporting to a skill, insert this block at each issue-worthy error 
 **Error-to-GitHub issue proposal**:
 
 If this error is issue-worthy (see error classification in error-report-sdlc/SKILL.md),
-locate the procedure: Glob for `**/error-report-sdlc/SKILL.md` under `~/.claude/plugins`,
-then cwd fallback. If found, follow the procedure with this context:
+read the procedure at `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md` (the plugin root
+from the `sdlc plugin root:` context line) and follow it with this context:
 
 - **Skill**: {this skill's name}
 - **Step**: {current step number and name}

@@ -174,7 +174,7 @@
         with options "dispatch error-report-sdlc" and "skip". The prompt text
         sources the plugin repo URL from the manifest's pluginRepoUrl field
         (not hardcoded). On dispatch, the response describes following the same
-        Glob-then-follow pattern as Step 6 to invoke error-report-sdlc with
+        <PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md path as Step 6 to invoke error-report-sdlc with
         the orchestrator-supplied errorReportPayload. The strengthen-only
         invariant is preserved — no surface is auto-edited; the user must
         explicitly approve.

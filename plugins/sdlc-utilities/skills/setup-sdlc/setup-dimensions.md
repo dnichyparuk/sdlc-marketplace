@@ -14,10 +14,11 @@ and validates with the validation script.
 > Do NOT ask the user to approve file writes individually — the parent (setup-sdlc) manages mode transitions.
 > Write all dimension files in a single Bash block or rapid sequence to minimize permission prompts.
 
-Supporting references (dimension format spec, 5 example dimensions) are in
-`review-sdlc/REFERENCE.md` and `review-sdlc/EXAMPLES.md`. Locate them using Glob
-with `path: ~/.claude` and pattern `**/review-sdlc/REFERENCE.md`. If not found, retry
-Glob with the default path (cwd). Use the same approach for EXAMPLES.md.
+Supporting references (dimension format spec, 5 example dimensions) are the plugin's
+own files `<PLUGIN_ROOT>/skills/review-sdlc/REFERENCE.md` and
+`<PLUGIN_ROOT>/skills/review-sdlc/EXAMPLES.md` (setup-sdlc R-plugin-root-refs;
+`<PLUGIN_ROOT>` is the path from the `sdlc plugin root:` context line). Read them at
+those paths. Do not search for them with Glob: a search can return a stale cached install.
 
 ---
 
@@ -135,7 +136,7 @@ Use AskUserQuestion to ask: "Install which dimensions?" Options: **all** / **sel
 For each selected dimension:
 
 1. `mkdir -p .sdlc/review-dimensions`
-2. Write the full dimension file (frontmatter + tailored body). Use the corresponding example from `review-sdlc/EXAMPLES.md` as the starting template, then customize with project-specific evidence.
+2. Write the full dimension file (frontmatter + tailored body). Use the corresponding example from `<PLUGIN_ROOT>/skills/review-sdlc/EXAMPLES.md` as the starting template, then customize with project-specific evidence.
 3. Confirm each file written with its path.
 
 ---
@@ -151,7 +152,7 @@ EXIT_CODE=$?
 ```
 
 - Exit code **1**: Show validation errors. Use AskUserQuestion: "Fix these validation errors automatically? (yes / no)"
-- Exit code **2**: Show `Script error — see output above` and stop. Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=review-init-sdlc, step=Step 7 — Validate Installation, error=stderr.
+- Exit code **2**: Show `Script error — see output above` and stop. Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=review-init-sdlc, step=Step 7 — Validate Installation, error=stderr.
 
 Present the markdown output table. If any file has errors, show the error detail and offer to fix them automatically.
 

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.3] - 2026-10-28
+
+### Changed
+- commit-sdlc, pr-sdlc, version-sdlc, harden-sdlc, review-sdlc, setup-sdlc: the error-report procedure is read at `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md` instead of a cwd Glob.
+- Specs: review-sdlc C13, setup-sdlc R-plugin-root-refs and jira-sdlc R-templates-root are added; review-sdlc P11 states the copy timing.
+
+### Fixed
+- review-sdlc: the review summary is copied to `.sdlc/execution/review-summary-<slug>.json` right after the review orchestrator returns, before display, posting and self-fix, so a headless standalone review leaves the file ship's review gate reads. The copy is two plain calls (no `$(…)` capture).
+- review-sdlc: the review orchestrator reads REFERENCE.md from the plugin-root path the skill passes (`REFERENCE_MD_PATH`), never by a Glob over `~/.claude`, which could pick another installed version; a missing path fails with an error.
+- setup-sdlc: `--dimensions` reads review-sdlc REFERENCE.md and EXAMPLES.md at the plugin root.
+- jira-sdlc: `jira.js` resolves its shipped templates beside the script; the `~/.claude/plugins` walk (which could return a stale cached version) and the cwd fallback are removed. `--templates-dir` still overrides.
+
 ## [0.36.2] - 2026-10-27
 
 ### Changed

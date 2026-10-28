@@ -39,7 +39,7 @@ None.
 3. ANALYZE — dispatch `harden-orchestrator` agent (model: haiku, tools: Read) with `MANIFEST_FILE` and `PROJECT_ROOT`; agent emits ONLY a JSON object with `classification`, `proposals`, `routeToErrorReport`, `errorReportPayload`
 4. PRESENT — display every proposal with full patch preview; AskUserQuestion per proposal (`apply | skip`) plus global `cancel`
 5. APPLY — for each approved proposal: validate against the surface's schema; on pass, write the file; on fail, surface validator error and offer retry-or-cancel
-6. ROUTE — when classification is `plugin-defect`, dispatch `error-report-sdlc` using the canonical Glob-then-follow pattern with the orchestrator-supplied payload (no surface edits)
+6. ROUTE — when classification is `plugin-defect`, dispatch `error-report-sdlc` by reading and following `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md` (the plugin root from the session-start hook; no Glob search) with the orchestrator-supplied payload (no surface edits)
 7. LEARN — append a one-line entry to `.sdlc/learnings/log.md` summarizing the hardening action
 
 ### Requirements
@@ -81,7 +81,7 @@ None.
 
 - R9: When classification is `plugin-defect`, the orchestrator MUST set `routeToErrorReport=true`, populate `errorReportPayload` with the suggested `--skill / --step / --operation / --error-text` for `error-report-sdlc`, and emit an empty `proposals` array. The SKILL.md MUST then dispatch `error-report-sdlc` instead of editing any user-side surface.
 - R-ambig-offer: When orchestrator returns `classification="ambiguous"` AND `errorReportPayload` is non-null (plugin evidence cited in rationale), SKILL.md MUST present an opt-in AskUserQuestion offering `error-report-sdlc` dispatch alongside the per-proposal apply/skip flow. Strengthen-only invariant preserved — no surface is auto-edited; the user explicitly approves the dispatch.
-  - Acceptance: SKILL.md Step 5 contains a `5c` sub-step gated on `RESULT.classification === 'ambiguous' && RESULT.errorReportPayload != null` that surfaces an `AskUserQuestion` with options `dispatch error-report-sdlc | skip`; on dispatch, the canonical Glob-then-follow path from Step 6 is reused.
+  - Acceptance: SKILL.md Step 5 contains a `5c` sub-step gated on `RESULT.classification === 'ambiguous' && RESULT.errorReportPayload != null` that surfaces an `AskUserQuestion` with options `dispatch error-report-sdlc | skip`; on dispatch, the same `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md` read-then-follow path as Step 6 is reused.
 - R-orchestrator-ambig: `harden-orchestrator` MUST populate `errorReportPayload` on `ambiguous` classification only when the rationale cites plugin evidence (script crash inside `plugins/sdlc-utilities/`, agent malformed JSON, prepare-script exit 2). Pure user-code ambiguity emits `errorReportPayload: null`.
   - Acceptance: orchestrator response-shape rules in `agents/harden-orchestrator.md` document that `ambiguous + errorReportPayload != null` is a valid combination and provide a JSON example; `ambiguous + errorReportPayload == null` remains valid for user-code ambiguity.
 
