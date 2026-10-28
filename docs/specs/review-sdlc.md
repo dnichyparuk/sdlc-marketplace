@@ -99,7 +99,7 @@
 ## Gates
 
 - G1: Manifest file produced — `skill/review.js` exits successfully and produces a valid file path
-- G2: Orchestrator dispatched — agent is spawned (not via Skill tool) with manifest path and project root
+- G2: Orchestrator dispatched — agent is spawned (not via Skill tool) with manifest path, project root and REFERENCE.md path (C13)
 - G3: `diff_dir` removed by the skill after the terminal branch (including failures); the manifest file persists under `.sdlc/execution/out/` and is pruned by `writeOutput` and the session-start sweep
 - G4: Exactly one `review-orchestrator` Agent dispatch per `/review-sdlc` invocation (a retry on failure counts as the same attempt; user confirmation never triggers a new dispatch)
 - G5: Full comment body displayed — Step 3 emits the verbatim contents of `${diff_dir}/review-comment.md` in the main context before the posting prompt is shown
@@ -118,7 +118,7 @@
 - P7: `plan_critique.over_broad_dimensions` (string[]) — dimensions reviewing too many files
 - P8: `plan_critique.uncovered_suggestions` (array) — suggested additional dimensions
 - P10: `dimensions[].slice_file` (string|null) — per-dimension slice file path (per R-manifest-index-slices). For each dispatched dimension (`status` ACTIVE/TRUNCATED), `review.js` writes `${diff_dir}/${name}.slice.json` containing `{ body, matched_files, file_context, warnings }` and sets `slice_file` to its absolute path. Non-dispatched dimensions (SKIPPED) have `slice_file: null`. The slice file is the sole carrier of the heavy per-dimension fields that the thin index (P5) omits — the orchestrator forwards this path to each subagent rather than reading the contents into its own context.
-- P11: `review-summary.json` `{schemaVersion, verdict, counts, dimensions, commentPath, branch}` written beside `review-comment.md` in `diff_dir` by the review-orchestrator (`counts` equals the summary table; `verdict` per the orchestrator's verdict thresholds). `skill/review.js` emits `summary_copy_path` = `<main worktree>/.sdlc/execution/review-summary-<slug>.json` (`resolveStateDir()`, the resolver `writeOutput` and ship.js use; `<slug>` = `slugifyBranch(current_branch)`), which the orchestrator echoes as the `Summary copy path:` line. Before the skill removes `diff_dir`, it copies the file there, so ship-sdlc can read it after cleanup, also from a linked worktree (ship-sdlc R6).
+- P11: `review-summary.json` `{schemaVersion, verdict, counts, dimensions, commentPath, branch}` written beside `review-comment.md` in `diff_dir` by the review-orchestrator (`counts` equals the summary table; `verdict` per the orchestrator's verdict thresholds). `skill/review.js` emits `summary_copy_path` = `<main worktree>/.sdlc/execution/review-summary-<slug>.json` (`resolveStateDir()`, the resolver `writeOutput` and ship.js use; `<slug>` = `slugifyBranch(current_branch)`), which the orchestrator echoes as the `Summary copy path:` line. The skill copies the file there right after the orchestrator returns its summary, before it displays, posts or self-fixes anything, so ship-sdlc can read it after cleanup, also from a linked worktree (ship-sdlc R6). The copy runs only on a successful return; when the summary file is missing, the skill reports it and stops.
 
 ## Failure handling and resume
 
@@ -145,6 +145,7 @@
 - C10: Orchestrator MUST NOT call `gh api` or prompt the user for PR-posting confirmation
 - C11: Orchestrator MUST NOT delete `manifest.diff_dir` — the skill owns removal of the diff dir; neither deletes the manifest file (persistent, swept)
 - C12: Skill MUST NOT re-dispatch the orchestrator to complete a posting flow already computed — `comment_file` from the orchestrator summary is authoritative
+- C13: The orchestrator reads REFERENCE.md only from the path the skill passes in its dispatch (`REFERENCE_MD_PATH` = `skills/review-sdlc/REFERENCE.md` under the plugin root that the session-start hook reports). It never searches the home dir or the project for it; when the line or the file is missing, it fails with an error.
 
 ## Integration
 
