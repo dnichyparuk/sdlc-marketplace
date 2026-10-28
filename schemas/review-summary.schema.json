@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/rnagrodzki/sdlc-marketplace/main/schemas/review-summary.schema.json",
   "title": "Review Summary",
-  "description": "Validates review-summary.json written by the review-orchestrator beside review-comment.md (review-sdlc P11) and read by ship.js review-gate",
+  "description": "Validates review-summary.json written by the review-orchestrator to summary_copy_path (review-sdlc P11) and read by ship.js review-gate",
   "type": "object",
   "properties": {
     "schemaVersion": { "const": 1 },

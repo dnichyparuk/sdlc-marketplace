@@ -88,28 +88,21 @@ NOT prompt the user — the skill handles posting in Step 4.
 
 Wait for the orchestrator to return its summary.
 
-**Copy the review summary right away (P11).** As soon as the orchestrator returns its
+**Check the review summary right away (P11).** As soon as the orchestrator returns its
 summary (first dispatch or the one re-dispatch below), and before Step 3 displays
-anything, copy the summary file to its kept location. ship-sdlc reads that copy, and
-a run can end before Step 6. Take two literal paths from the returned summary: the
-`Summary file:` line (`summary_file`) and the `Summary copy path:` line
-(`summary_copy_path`). Write the directory of `summary_copy_path` yourself as a
-literal: the same path without its last `/` and the file name after it. Then run two
-plain Bash calls, each on its own, with every path single-quoted (write a `'` inside
-a path as `'\''`):
+anything, check the summary file the orchestrator wrote. ship-sdlc reads that file,
+and a run can end before Step 6. Take two literal paths from the returned summary: the
+`Summary copy path:` line (`summary_copy_path`) and the `Comment file:` line
+(`comment_file`). Read `summary_copy_path` with the Read tool; make no Bash call for
+the summary. The check passes when the file is JSON and its `commentPath` value equals
+`comment_file` exactly. `diff_dir` is new for every run, so an equal `commentPath`
+shows that this run wrote the file, not an earlier review on the same branch.
 
-```bash
-mkdir -p '<directory of summary_copy_path>'
-```
-
-```bash
-cp '<summary_file>' '<summary_copy_path>'
-```
-
-If the `cp` call fails (for example, `summary_file` does not exist), show its error,
-`Review summary not copied: <summary_file>` and the path of `review-comment.md` (the
-`Comment file:` line of the summary), so the finished review can still be read, and
-stop. This copy runs only after a successful return: a return whose first line is
+If the file is missing, unreadable or not JSON, or its `commentPath` differs from `comment_file`,
+show `Review summary missing: <summary_copy_path>` and the path of `review-comment.md`
+(the `Comment file:` line), so the finished review can still be read, and stop. Step 6
+does not run on this stop: `diff_dir` is kept, because it holds `review-comment.md`.
+This check runs only after a successful return: a return whose first line is
 `Review complete` is a successful return; any return that starts `Review failed:` is
 an orchestrator failure and goes to the paragraph below instead.
 
@@ -133,8 +126,8 @@ counts and is insufficient.
 2. Parse the summary to extract:
 
    - `comment_file` — absolute path to `${diff_dir}/review-comment.md`
-   - `summary_file` — absolute path to `${diff_dir}/review-summary.json`
-   - `summary_copy_path` — absolute path where the summary is kept for ship-sdlc (the `Summary copy path:` line)
+   - `summary_file` — absolute path of the review summary (the `Summary file:` line; the same value as `summary_copy_path`)
+   - `summary_copy_path` — absolute path where the orchestrator wrote the summary for ship-sdlc (the `Summary copy path:` line; checked in Step 2)
    - `pr.exists` (boolean), `pr.owner`, `pr.repo`, `pr.number`
    - `verdict` — one of `CHANGES REQUESTED`, `APPROVED WITH NOTES`, `APPROVED`
    - `scope` — scope label from the summary
@@ -262,8 +255,8 @@ If verdict is **APPROVED**: skip — nothing to fix.
 
 ## Step 6 — Cleanup
 
-The diff directory is removed here. The review summary was already copied to its
-`summary_copy_path` at the end of Step 2 (P11). Run one plain Bash call with the
+The diff directory is removed here. The review summary is not in it: the orchestrator
+wrote it to `summary_copy_path`, and Step 2 checked it (P11). Run one plain Bash call with the
 literal `diff_dir` path, single-quoted (write a `'` inside the path as `'\''`):
 
 ```bash
