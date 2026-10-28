@@ -13,7 +13,7 @@ Default severity: high
 - The block instructs the model to substitute `<PLUGIN_ROOT>` from the `sdlc plugin root:` line injected into session context by the `SessionStart` hook
 - The script path in `<PLUGIN_ROOT>/scripts/<subdir>/<script>.js` exactly matches the file as it exists in `plugins/*/scripts/` (case-sensitive, no typos, correct extension, correct subdirectory)
 - No resolver of any form (old `find`-based or the new injected-path form) appears in a subagent prompt template (`**/*-prompt.md`) or orchestrator agent template (`agents/*.md`) — the injected line is absent in subagent context, so any resolver there fails silently; pre-computed paths must be passed in instead
-- Glob-based reference file lookups (REFERENCE.md, EXAMPLES.md, agent definitions) use `path: ~/.claude` first and explicitly document a cwd fallback if not found
+- The plugin's own files (REFERENCE.md, EXAMPLES.md, another skill's SKILL.md, agent definitions) are read at `<PLUGIN_ROOT>/…` in the main context, or from an absolute path passed in to a subagent — never located by a Glob over `~/.claude` or the cwd, which can return a stale cached install or no file
 - Glob patterns for reference file lookups are specific enough to match exactly one file — e.g., `**/review-sdlc/REFERENCE.md` not `**/REFERENCE.md`
 - No resolution pattern uses hardcoded absolute paths other than the `<PLUGIN_ROOT>` substitution described above
 - When a skill re-resolves the same script in a later step (e.g., first in Step 2 for validation, then in Step 7 for execution), both resolution blocks use the identical injected-path form — no divergent logic for the same script
@@ -27,7 +27,7 @@ Default severity: high
 | Script path mismatch between resolution pattern and actual file | high |
 | Missing/incorrect instruction to substitute `<PLUGIN_ROOT>` from the `sdlc plugin root:` context line | medium |
 | Glob reference lookup pattern too broad — could match wrong file | medium |
-| Missing cwd fallback for Glob-based reference lookup | medium |
+| Plugin-own file located by a Glob over `~/.claude` or the cwd instead of `<PLUGIN_ROOT>` or a passed-in path — can pick a stale cached install | high |
 | Divergent resolution patterns for the same script across steps | medium |
 | Hardcoded absolute path other than the `<PLUGIN_ROOT>` substitution | medium |
 
