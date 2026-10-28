@@ -112,7 +112,7 @@ Read and parse `PR_CONTEXT_FILE` as `PR_CONTEXT_JSON`.
 - Exit code 1: The JSON still contains an `errors` array. Show each error to the user and stop.
 - Exit code 2: Show `Script error — see output above` and stop.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=pr-sdlc, step=Step 0 — skill/pr.js execution, error=stderr.
+**On script crash (exit 2):** Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=pr-sdlc, step=Step 0 — skill/pr.js execution, error=stderr.
 
 **If `PR_CONTEXT_JSON.errors` is non-empty**, show each error message and stop.
 
@@ -536,7 +536,7 @@ Title: <title>
 <description>
 ```
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=pr-sdlc, step=Step 6 — Create or Update PR, error=gh CLI failure message.
+**On script crash (exit 2):** Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=pr-sdlc, step=Step 6 — Create or Update PR, error=gh CLI failure message.
 
 ---
 
