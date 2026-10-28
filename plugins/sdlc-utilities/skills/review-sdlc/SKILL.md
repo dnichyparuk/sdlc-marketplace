@@ -106,10 +106,12 @@ mkdir -p '<directory of summary_copy_path>'
 cp '<summary_file>' '<summary_copy_path>'
 ```
 
-If the `cp` call fails (for example, `summary_file` does not exist), show its error
-and `Review summary not copied: <summary_file>`, remove the diff directory (the
-`Diff dir:` line of the summary) as in Step 6, and stop. This copy runs only after a successful return; an orchestrator
-failure goes to the paragraph below instead.
+If the `cp` call fails (for example, `summary_file` does not exist), show its error,
+`Review summary not copied: <summary_file>` and the path of `review-comment.md` (the
+`Comment file:` line of the summary), so the finished review can still be read, and
+stop. This copy runs only after a successful return: a return whose first line is
+`Review complete` is a successful return; any return that starts `Review failed:` is
+an orchestrator failure and goes to the paragraph below instead.
 
 **On orchestrator failure:** Re-dispatch once with the same inputs. If the second
 attempt also fails, invoke error-report-sdlc with skill=review-sdlc,
