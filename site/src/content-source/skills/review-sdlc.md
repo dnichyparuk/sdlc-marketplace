@@ -388,7 +388,7 @@ Choosing `fix` invokes `/received-review-sdlc`, which picks up the findings from
 | File / Artifact | Description |
 |-----------------|-------------|
 | GitHub PR comment | Consolidated review findings posted to the current PR |
-| `.sdlc/execution/review-summary-<branch-slug>.json` (main worktree) | Machine-readable review summary (`verdict`, `counts`, `dimensions`; schema `schemas/review-summary.schema.json`), copied from `diff_dir` right after the review orchestrator returns, before the review is displayed or posted; ship-sdlc's `review_gate` reads it (review-sdlc P11). Overwritten by the next review on the branch. |
+| `.sdlc/execution/review-summary-<branch-slug>.json` (main worktree) | Machine-readable review summary (`verdict`, `counts`, `dimensions`; schema `schemas/review-summary.schema.json`), written there by the review orchestrator with its Write tool (no Bash copy). review-sdlc checks it right after the orchestrator returns, before the review is displayed or posted, and stops with `Review summary missing` when it is absent or left by an earlier run; ship-sdlc's `review_gate` reads it (review-sdlc P11). Overwritten by the next review on the branch. |
 
 ## Link Verification (issue #198)
 

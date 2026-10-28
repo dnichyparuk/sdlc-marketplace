@@ -47,7 +47,7 @@ Each sub-skill has its own error recovery. ship-sdlc does not duplicate their re
 
 **Staging gap after execute.** execute-plan-sdlc creates and modifies files but does not stage them. ship-sdlc must run `git add -A -- ':!.sdlc/'` between execute and commit. Missing this produces an empty commit.
 
-**Review gate reads `review-summary.json`.** `ship.js` decides the `review_gate` from the review summary file that review-sdlc copies to `.sdlc/execution/`; a missing, stale or malformed file makes `review_gate` dispatch received-review-sdlc with a warning.
+**Review gate reads `review-summary.json`.** `ship.js` decides the `review_gate` from the review summary file that the review orchestrator writes to `.sdlc/execution/`; a missing, stale or malformed file makes `review_gate` dispatch received-review-sdlc with a warning.
 
 **received-review-sdlc supports `--auto`.** When `--auto` is forwarded, both the Step 10 consent prompt and the Step 12 reply/resolve prompt are skipped. "Will fix" items are auto-implemented and their threads are auto-resolved via in-thread replies. "Disagree" and "won't fix" items are displayed but not auto-implemented; their threads are replied to but left open for the reviewer. Critique gates and verification still run. Without `--auto`, the pipeline pauses for human approval at both gates.
 

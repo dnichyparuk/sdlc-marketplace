@@ -151,9 +151,9 @@ Format the comment using the template from REFERENCE.md section 3.
 
 The skill's main context will read this file when posting or saving.
 
-**Also persist the machine-readable summary** with the `Write` tool, beside the comment (W4.5, review-sdlc P11):
+**Also persist the machine-readable summary** with the `Write` tool, in one Write straight to its kept path (W4.5, review-sdlc P11):
 
-- Path: `{manifest.diff_dir}/review-summary.json`
+- Path: `{manifest.summary_copy_path}`, the absolute path in the manifest (the Write tool creates a missing parent directory). Write no summary file into `diff_dir`, and run no Bash `mkdir` or `cp` for it: the skill checks this file and ship-sdlc reads it, and a headless run can deny a Bash copy.
 - Content (JSON, schema `schemas/review-summary.schema.json`): `{ "schemaVersion": 1, "verdict": "APPROVED"|"APPROVED WITH NOTES"|"CHANGES REQUESTED", "counts": { "critical": int, "high": int, "medium": int, "low": int, "info": int }, "dimensions": [ { "name": string, "status": "ACTIVE"|"TRUNCATED"|"SKIPPED", "findings": int } ], "commentPath": "<absolute path of review-comment.md>", "branch": "<manifest.current_branch>" }`
 - `counts` and `verdict` are the same numbers as the summary table and the verdict computed above.
 
@@ -174,7 +174,7 @@ Review complete
   Scope:           {scope label}
   Branch:          {manifest.current_branch}
   Comment file:    {absolute path to review-comment.md inside diff_dir}
-  Summary file:    {absolute path to review-summary.json inside diff_dir}
+  Summary file:    {manifest.summary_copy_path}
   Summary copy path: {manifest.summary_copy_path}
   PR exists:       {true|false}
   PR owner:        {manifest.pr.owner or "—"}
@@ -195,7 +195,7 @@ Before returning:
 - All findings reference a specific `file:line`
 - Verdict computed from actual severity counts (not hardcoded)
 - Comment body written to `{manifest.diff_dir}/review-comment.md`
-- `review-summary.json` written and its `counts` equal the summary table
+- `review-summary.json` written to `{manifest.summary_copy_path}` and its `counts` equal the summary table
 - Summary contains all required fields (comment file absolute path, PR metadata, diff_dir)
 
 ## DO NOT

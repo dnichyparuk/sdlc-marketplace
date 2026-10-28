@@ -659,7 +659,7 @@ function main() {
       suggested_dimensions:  critique.uncoveredSuggestions.length,
     },
     diff_dir: tmpDir,
-    // Where the skill copies review-summary.json for ship-sdlc (P11); ship.js reads the same path.
+    // Where the review orchestrator writes review-summary.json for ship-sdlc (P11); ship.js reads the same path.
     summary_copy_path: path.join(resolveStateDir(), `review-summary-${slugifyBranch(gitState.currentBranch || 'nobranch')}.json`),
   };
 
