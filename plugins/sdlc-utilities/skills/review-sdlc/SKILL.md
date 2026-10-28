@@ -31,7 +31,7 @@ Run this as one plain Bash call. Take the manifest path the command prints on st
 - Exit code 1: show the stderr message to the user and stop.
 - Exit code 2: show `Script error — see output above` and stop.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=review-sdlc, step=Step 0 — skill/review.js execution, error=stderr.
+**On script crash (exit 2):** Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=review-sdlc, step=Step 0 — skill/review.js execution, error=stderr.
 
 **Do NOT read the manifest file contents into the main context.** The orchestrator will read it.
 
@@ -74,14 +74,42 @@ context as the prompt:
 ```
 MANIFEST_FILE: {the temp file path from Step 0}
 PROJECT_ROOT: {current working directory}
+REFERENCE_MD_PATH: <PLUGIN_ROOT>/skills/review-sdlc/REFERENCE.md
 ```
 
-The orchestrator will read the manifest, resolve REFERENCE.md, dispatch dimension
+Substitute `<PLUGIN_ROOT>` in the `REFERENCE_MD_PATH:` line with the same absolute
+path as in Step 0 (C13). The orchestrator has no `sdlc plugin root:` line of its
+own, so it reads REFERENCE.md only from this path.
+
+The orchestrator will read the manifest and REFERENCE.md, dispatch dimension
 subagents, critique/deduplicate, format the comment, and persist the consolidated
 comment body to `${diff_dir}/review-comment.md`. It does NOT post to a PR and does
 NOT prompt the user — the skill handles posting in Step 4.
 
 Wait for the orchestrator to return its summary.
+
+**Copy the review summary right away (P11).** As soon as the orchestrator returns its
+summary (first dispatch or the one re-dispatch below), and before Step 3 displays
+anything, copy the summary file to its kept location. ship-sdlc reads that copy, and
+a run can end before Step 6. Take two literal paths from the returned summary: the
+`Summary file:` line (`summary_file`) and the `Summary copy path:` line
+(`summary_copy_path`). Write the directory of `summary_copy_path` yourself as a
+literal: the same path without its last `/` and the file name after it. Then run two
+plain Bash calls, each on its own, with every path single-quoted (write a `'` inside
+a path as `'\''`):
+
+```bash
+mkdir -p '<directory of summary_copy_path>'
+```
+
+```bash
+cp '<summary_file>' '<summary_copy_path>'
+```
+
+If the `cp` call fails (for example, `summary_file` does not exist), show its error
+and `Review summary not copied: <summary_file>`, remove the diff directory (the
+`Diff dir:` line of the summary) as in Step 6, and stop. This copy runs only after a successful return; an orchestrator
+failure goes to the paragraph below instead.
 
 **On orchestrator failure:** Re-dispatch once with the same inputs. If the second
 attempt also fails, invoke error-report-sdlc with skill=review-sdlc,
@@ -232,12 +260,12 @@ If verdict is **APPROVED**: skip — nothing to fix.
 
 ## Step 6 — Cleanup
 
-The diff directory is removed here. First copy the review summary to its
-`summary_copy_path` so ship-sdlc can read it after the cleanup (P11):
+The diff directory is removed here. The review summary was already copied to its
+`summary_copy_path` at the end of Step 2 (P11). Run one plain Bash call with the
+literal `diff_dir` path, single-quoted (write a `'` inside the path as `'\''`):
 
 ```bash
-mkdir -p "$(dirname "{summary_copy_path}")" && cp "{summary_file}" "{summary_copy_path}"
-rm -rf "{diff_dir}"
+rm -rf '<diff_dir>'
 ```
 
 ---

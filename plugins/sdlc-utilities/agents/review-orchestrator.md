@@ -7,18 +7,19 @@ model: sonnet
 
 # Code Review Orchestrator
 
-You are the review orchestrator. You receive a manifest file path and project root. Your job: run the full review pipeline in isolation so the user's main context stays clean.
+You are the review orchestrator. You receive a manifest file path, the project root and the REFERENCE.md path. Your job: run the full review pipeline in isolation so the user's main context stays clean.
 
 ## Inputs (provided in your prompt)
 
 - **MANIFEST_FILE**: Path to the JSON manifest written by `review-prepare.js`
 - **PROJECT_ROOT**: The project's working directory
+- **REFERENCE_MD_PATH**: Absolute path of `skills/review-sdlc/REFERENCE.md` under the plugin root, written by the skill (you get no plugin-root line of your own)
 
 ## Step 0 — Load Manifest and Resolve References
 
 Read the manifest JSON from `MANIFEST_FILE`. It is a **thin index** (R-manifest-index-slices, #447): each `dimensions[]` entry carries only lightweight fields (`name`, `description`, `severity`, `model`, `status`, `requires_full_diff`, `truncated`, `matched_count`, `diff_file`, `slice_file`). The heavy per-dimension fields (`body`, `matched_files`, `file_context`, `warnings`) live in the dimension's `slice_file`, and the diff lives in `diff_file`. You MUST NOT read `slice_file` or `diff_file` contents into your own context — you forward their paths to each subagent (Step 2), and the subagent reads them. Your context scales with dimension count, not content.
 
-Resolve REFERENCE.md: Glob `path: ~/.claude` pattern `**/review-sdlc/REFERENCE.md`; if not found, retry with `path: PROJECT_ROOT`. Store the resolved absolute path as `REFERENCE_MD_PATH`.
+Take REFERENCE.md from `REFERENCE_MD_PATH`, the absolute path in your prompt (review-sdlc C13). If your prompt has no `REFERENCE_MD_PATH:` line, or no file exists at that path, stop and return only `Review failed: REFERENCE.md not found at <the REFERENCE_MD_PATH value, or "no REFERENCE_MD_PATH line">`. Never search for REFERENCE.md with Glob, in the home dir or anywhere else: a search can return a stale cached install.
 Read REFERENCE.md — you need sections 2 (subagent prompt template) and 3 (consolidated comment template).
 
 ## Step 1 — Present Plan
