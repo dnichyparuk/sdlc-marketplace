@@ -288,40 +288,12 @@ function getCachePath(projectKey, cacheDir) {
   return path.join(cacheDir, `${projectKey}.json`);
 }
 
-function findPluginInstalls() {
-  const pluginsRoot = path.join(os.homedir(), '.claude', 'plugins');
-  const results     = [];
-
-  function walk(dir, depth) {
-    if (depth > 6) return;
-    let entries;
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch (_) {
-      return;
-    }
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const full = path.join(dir, entry.name);
-      if (entry.name === 'templates' && dir.endsWith('jira-sdlc')) {
-        results.push(full);
-      } else {
-        walk(full, depth + 1);
-      }
-    }
-  }
-
-  walk(pluginsRoot, 0);
-  return results;
-}
-
+// Spec R-templates-root: the shipped templates are the ones next to this script
+// (scripts/skill/ → skills/jira-sdlc/templates). No search of the home dir, which
+// can return a stale cached install; --templates-dir overrides.
 function resolveTemplatesDir(overridePath) {
   if (overridePath) return overridePath;
-
-  const installs = findPluginInstalls();
-  if (installs.length > 0) return installs[0];
-
-  return path.join(process.cwd(), 'plugins', 'sdlc-utilities', 'skills', 'jira-sdlc', 'templates');
+  return path.join(__dirname, '..', '..', 'skills', 'jira-sdlc', 'templates');
 }
 
 // ---------------------------------------------------------------------------
