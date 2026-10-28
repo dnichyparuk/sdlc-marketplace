@@ -53,7 +53,7 @@ Read and parse `VERSION_CONTEXT_FILE` as `VERSION_CONTEXT_JSON`.
 - Exit code 1: The JSON still contains an `errors` array. Show each error to the user and stop.
 - Exit code 2: Show `Script error — see output above` and stop.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=version-sdlc, step=Step 0 — skill/version.js execution, error=stderr.
+**On script crash (exit 2):** Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=version-sdlc, step=Step 0 — skill/version.js execution, error=stderr.
 
 **If `VERSION_CONTEXT_JSON.errors` is non-empty**, show each error message and stop.
 
@@ -331,7 +331,7 @@ The release proceeds regardless of the user's answer. This is informational, not
 
 **If any git command fails** (commit, tag, or push) with a non-auth error, show the error.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Glob `**/error-report-sdlc/SKILL.md`, follow with skill=version-sdlc, step=Step 8 — Release execution, error=git command failure message.
+**On script crash (exit 2):** Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=version-sdlc, step=Step 8 — Release execution, error=git command failure message.
 
 Display result:
 
