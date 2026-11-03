@@ -21,7 +21,7 @@ task test:skill -- pr-sdlc  # Single skill
 task test:view     # Open web UI to inspect results
 ```
 
-Or directly from `tests/promptfoo/`:
+Or directly from `tests/promptfoo/` (first run `cp .env.example .env`; `.env` is untracked and holds local settings):
 
 ```bash
 promptfoo eval --env-file .env
