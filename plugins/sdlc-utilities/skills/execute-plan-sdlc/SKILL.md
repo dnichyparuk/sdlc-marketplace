@@ -127,7 +127,7 @@ Note: this reads `execute.guardrails` (runtime enforcement), not `plan.guardrail
   - Otherwise, use AskUserQuestion:
     > Found execution state from <startedAt> with <N> of <total> waves completed. Resume from Wave <next>?
     Options: **yes** — resume | **restart** — discard state file and start fresh
-    If "yes", follow the resume flow above (steps 2-9). When `flags.selection` or `resume.selection` is non-null, first re-run the prepare command of Step 1 with `--resume` appended and use its output, so the recorded selection wins (R43). If "restart", delete the state file and proceed normally.
+    If "yes", follow the resume flow above (steps 2-9). When `flags.selection` or `resume.selection` is non-null, first re-run the prepare command of Step 1 with `--resume` appended (same exit-code handling as Step 1, and `rm -f` of the earlier `EXECUTE_CONTEXT_FILE`) and use its output as the new `EXECUTE_CONTEXT`, so the recorded selection wins (R43). If "restart", delete the state file and proceed normally.
 
 ### Post-compact recovery (R36)
 
@@ -161,6 +161,8 @@ In addition to the explicit `--resume` flag, Step 0 MUST scan the SessionStart `
 |---|---|---|
 | `--wave-timeout <seconds>` | Per-wave wall-clock deadline, enforced by main context in direct mode and by the wave-runner in runner mode (R-WAVE-DEADLINE). | 1800 (`execute.waveTimeout`) |
 | `--wave-interval <seconds>` | `Monitor` poll interval while waiting on background workers. | 60 (`execute.waveInterval`) |
+| `--tasks <ids>` | Run only the listed plan tasks, a comma-separated list of task numbers; excludes `--from-wave` (A8, R43). | every task |
+| `--from-wave <n>` | Run the plan from wave `n` on; excludes `--tasks` (A9, R43). | every wave |
 
 **Parse `--branch`:** If `--branch <name>` was passed as an argument, set `EXECUTE_NEW_BRANCH = flags.branch`. This is an **INTERNAL flag set by ship-sdlc in pipeline mode**. When present, skip the entire Workspace isolation check below — the caller's branch/cwd are trusted as authoritative. Users do not pass this directly. Implements R30.
 
