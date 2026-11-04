@@ -450,7 +450,7 @@ On success:
    mktemp
    ```
 
-2. Write the final PR body to `<BODY_FILE>` with the Write tool (no shell quoting of the body).
+2. Read `<BODY_FILE>` once (it is empty; the Write tool refuses a file that was not read), then write the final PR body to it with the Write tool (no shell quoting of the body).
 
 3. Validate it, and take the command's exit code from the tool result as `LINK_EXIT` (a tool result without an error is exit code 0):
 
@@ -459,16 +459,13 @@ On success:
    node "<PLUGIN_ROOT>/scripts/skill/pr.js" --validate-body --file '<BODY_FILE>'
    ```
 
-4. Remove the body file:
-
-   ```bash
-   rm -f '<BODY_FILE>'
-   ```
+4. Keep `<BODY_FILE>`: the publish step below passes this same file to `gh` with `--body-file`, so the body that was checked is the body that is published, and removes it afterwards.
 
 On non-zero exit (`LINK_EXIT != 0`):
 - The script has already printed the violation list to stderr (URL, line, reason code, observed/expected detail)
 - Do NOT execute `gh pr create` or `gh pr edit`
 - Surface the violation list verbatim to the user
+- Remove `<BODY_FILE>` with `rm -f '<BODY_FILE>'` as its own plain Bash call
 - Stop. Do not retry. Do not edit URLs without user input. Do not bypass.
 
 On zero exit, continue to label creation and the publish step.
@@ -494,10 +491,10 @@ This is idempotent — the command succeeds silently if the label already exists
 2. Create the PR, with stderr going to the temp file:
 
    ```bash
-   gh pr create --title '<title>' --body '<body>' [--draft] [--label '<l1>' --label '<l2>'] 2> '<ERR_FILE>'
+   gh pr create --title '<title>' --body-file '<BODY_FILE>' [--draft] [--label '<l1>' --label '<l2>'] 2> '<ERR_FILE>'
    ```
 
-   If no labels were approved, omit the `--label` flags entirely. Substitute the title, the body and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Take the command's exit code from the tool result as `GH_EXIT` (a tool result without an error is exit code 0). On `GH_EXIT` 0 the PR is created: go to step 4.
+   If no labels were approved, omit the `--label` flags entirely. Substitute the title and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Take the command's exit code from the tool result as `GH_EXIT` (a tool result without an error is exit code 0). On `GH_EXIT` 0 the PR is created: go to step 4.
 
 3. **Post-failure account-switch recovery (implements spec E7, issue #184):** If `GH_EXIT` is non-zero, invoke the recovery helper exactly once with the captured stderr file:
 
@@ -518,12 +515,26 @@ This is idempotent — the command succeeds silently if the label already exists
    rm -f '<ERR_FILE>'
    ```
 
+5. Remove the body file, after the publish and any retry above have used it:
+
+   ```bash
+   rm -f '<BODY_FILE>'
+   ```
+
 The retry runs at most once per pipeline invocation. The recovery helper is the single source of decision logic — SKILL.md only orchestrates capture, invocation, and re-run.
 
 **Update mode:**
 
+Run each command below as its own plain Bash call, in this order. Substitute the title and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes).
+
 ```bash
-gh pr edit --title "<title>" --body "<body>" [--add-label "<l1>,<l2>"]
+gh pr edit --title '<title>' --body-file '<BODY_FILE>' [--add-label '<l1>,<l2>']
+```
+
+Then remove the body file:
+
+```bash
+rm -f '<BODY_FILE>'
 ```
 
 If no new labels were approved, omit the `--add-label` flag entirely. Note: `--add-label` is additive — it never removes existing labels.

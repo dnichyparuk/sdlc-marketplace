@@ -203,6 +203,21 @@
         if (o.status !== 0) return `FAIL: exit ${o.status}`;
         return o.out.includes('"ok":true') ? true : `FAIL: ${o.out}`;
 
+- description: "pr.js --validate-body: a --file path that cannot be read exits 2 with a message, not a stack trace (#9205)"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr})))(cp.spawnSync("node",[js,"--validate-body","--file","no-such-body.md","--json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pr-link-validate"
+    script_env: '{"SDLC_LINKS_OFFLINE":"1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 2) return `FAIL: exit ${o.status}`;
+        if (o.stderr.includes(' at ')) return `FAIL: stack trace in stderr: ${o.stderr}`;
+        return o.stderr.includes('the body file cannot be read') ? true : `FAIL: stderr ${o.stderr}`;
+
 - description: "pr.js: --output-file writes a manifest path, not JSON (issue #209 regression test)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"

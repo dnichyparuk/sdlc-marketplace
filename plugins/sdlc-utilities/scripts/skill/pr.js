@@ -631,7 +631,12 @@ async function validateBodyMode(argv) {
     process.stdin.setEncoding('utf8');
     for await (const chunk of process.stdin) body += chunk;
   } else {
-    body = fs.readFileSync(fileArg, 'utf8');
+    try {
+      body = fs.readFileSync(fileArg, 'utf8');
+    } catch (e) {
+      process.stderr.write('pr.js --validate-body: the body file cannot be read: ' + e.message + '\n');
+      process.exit(2);
+    }
   }
 
   const expectedRepo = parseRemoteOwner(projectRoot);
