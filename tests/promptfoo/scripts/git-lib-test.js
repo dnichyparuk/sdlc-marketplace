@@ -26,6 +26,7 @@
  *   execMaxBufferOverflow       — proves exec() throws on overflow and reports the actual
  *                         effective byte limit for the call — issue #522.
  *   execNormalFailure          — proves non-overflow failures still return null (throwOnError=false).
+ *   execGhTimeoutApplied       — proves every gh call through exec() carries GH_TIMEOUT_MS and other commands none (#9188).
  */
 'use strict';
 
@@ -146,6 +147,36 @@ switch (op) {
     } catch (e) {
       console.log(JSON.stringify({ threw: true, message: e.message }, null, 2));
     }
+    break;
+  }
+
+  case 'execGhTimeoutApplied': {
+    // #9188: every gh call through exec() carries GH_TIMEOUT_MS; other commands carry none.
+    // A recording execSync is injected before a fresh require of lib/git.js; no gh runs, no timer.
+    const calls = [];
+    const realExecSync = cp.execSync;
+    cp.execSync = (cmd, opts) => {
+      calls.push({ cmd, timeout: opts ? opts.timeout : undefined });
+      if (/^gh auth status --json/.test(cmd)) return '{"hosts":{"github.com":[{"state":"success","active":true,"login":"stub-user"}]}}';
+      if (/^gh auth status/.test(cmd)) return 'Logged in to github.com account stub-user';
+      if (/^gh api user/.test(cmd)) return 'stub-user';
+      return 'ok';
+    };
+    delete require.cache[require.resolve(LIB_PATH)];
+    const fresh = require(LIB_PATH);
+    cp.execSync = realExecSync;
+    const auth = fresh.probeGhAuth();
+    fresh.getGhAccounts('github.com');
+    fresh.exec('git rev-parse --is-inside-work-tree');
+    const gh = calls.filter(c => /^gh\s/.test(c.cmd));
+    const other = calls.filter(c => !/^gh\s/.test(c.cmd));
+    console.log(JSON.stringify({
+      expected: fresh.GH_TIMEOUT_MS,
+      ghCalls: gh.map(c => c.cmd),
+      ghTimeouts: gh.map(c => c.timeout),
+      otherTimeouts: other.map(c => (c.timeout === undefined ? null : c.timeout)),
+      authenticated: auth.authenticated,
+    }));
     break;
   }
 

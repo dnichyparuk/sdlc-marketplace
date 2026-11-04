@@ -1,7 +1,7 @@
 description: "Script execution tests for sdlc-marketplace (runs real scripts against fixture directories, no LLM)"
 
 evaluateOptions:
-  concurrency: 8
+  maxConcurrency: 2
 
 # Script-runner tests only. Hook-runner tests live in promptfooconfig-exec-hooks.yaml.
 # The prompt is unused for script tests but required by the promptfoo config schema.

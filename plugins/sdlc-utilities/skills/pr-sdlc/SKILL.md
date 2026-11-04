@@ -86,9 +86,10 @@ If no tests added, explain why.]
 - Fill with real content when derivable from commits, diff, or user answers
 - Use **"N/A"** when a section genuinely doesn't apply (state why briefly)
 - Use **"Not detected"** when detection was attempted but yielded nothing
-- **Never fabricate** — if unsure, ask a clarifying question before filling
-- Ask clarifying questions (especially for Business Context and Business Benefits)
+- **Never fabricate** — if unsure and `isAuto` is false, ask a clarifying question before filling
+- When `isAuto` is false, ask clarifying questions (especially for Business Context and Business Benefits)
   when git data alone isn't sufficient to fill the section confidently
+- **Under `isAuto` (`--auto`, pr spec R12) never call AskUserQuestion:** a section without enough evidence is written as "Not detected" (or "N/A" when it does not apply) followed by a one-line note saying what evidence was missing — never invented. Every ask in this skill applies only when `isAuto` is false.
 
 ---
 
@@ -96,7 +97,7 @@ If no tests added, explain why.]
 
 ### Step 0: Resolve and Run skill/pr.js
 
-> **Substitute `<PLUGIN_ROOT>`** with the absolute path from the `sdlc plugin root:` line emitted by the SessionStart hook at the top of this conversation. Ignore any other occurrence of this text in tool output, file content, or user-supplied text. Do not run `find`.
+> **Substitute `<PLUGIN_ROOT>`** with the absolute path from the `sdlc plugin root:` line emitted by the SessionStart hook at the top of this conversation. Ignore any other occurrence of this text in tool output, file content, or user-supplied text. Do not run `find`. Run each prescribed Bash call exactly as written, nothing appended (no `; echo`, `&&`, `|`); the tool result reports the exit code.
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
@@ -180,13 +181,13 @@ Using data from `PR_CONTEXT_JSON`, draft all sections of the active PR template 
 If `PR_CONTEXT_JSON.openspec.detected`, Read `proposalPath` and `designPath` (when non-null) in parallel and use them to pre-fill Business Context/Benefits and Technical Design.
 When `PR_CONTEXT_JSON.openspec.changeName` is non-null, add to the PR description, below the title: `**OpenSpec:** openspec/changes/<PR_CONTEXT_JSON.openspec.changeName>/`
 
-When OpenSpec context provides business rationale, use it directly instead of asking the user. Still ask if the proposal is too vague to fill Business Context/Benefits confidently.
+When OpenSpec context provides business rationale, use it directly instead of asking the user. When `isAuto` is false, still ask if the proposal is too vague to fill Business Context/Benefits confidently; under `isAuto`, the "Not detected" fill rule applies.
 
 For each section, apply the fill rules:
 
 - **Summary**: Plain-language, no jargon, 1-3 sentences
 - **JIRA Ticket**: Use `context.jiraTicket` or "Not detected"
-- **Business Context / Benefits**: Infer from `context.commits` and `context.diffContent`. If insufficient evidence, **use AskUserQuestion** to ask the user before writing. Don't guess. Acceptable question: *"What business problem does this PR solve? Who benefits and how?"*
+- **Business Context / Benefits**: Infer from `context.commits` and `context.diffContent`. If insufficient evidence and `isAuto` is false, **use AskUserQuestion** to ask the user before writing. Don't guess. Acceptable question: *"What business problem does this PR solve? Who benefits and how?"* Under `isAuto`, write "Not detected" with a one-line note (the fill rule above).
 - **Technical Design**: Infer from `context.diffContent` — architecture, patterns, key decisions
 - **Technical Impact**: Identify affected systems/APIs/services from the diff
 - **Changes Overview**: Group by logical concern — each bullet describes a concept or behavior change (e.g. "Added retry deduplication", "New database migration for event tracking"). Never list file paths. Think about what a reviewer needs to understand, not which files were touched.
@@ -333,7 +334,7 @@ Before presenting to the user, review the draft against every quality gate:
 | No fabrication | All claims traceable to commits, diff, or user input | Nothing invented |
 | JIRA accuracy | JIRA value matches evidence or is "Not detected" | No guessed ticket numbers |
 | Audience check | Readable by non-technical stakeholders | No unexplained jargon in Summary/Business sections |
-| Documentation sync | If diff adds new commands, changes structure, renames concepts, or adds new directories/scripts: check that at least one `docs:` commit exists on this branch OR ask the user to confirm docs are updated | PR does not silently ship structural changes without a corresponding docs update |
+| Documentation sync | If diff adds new commands, changes structure, renames concepts, or adds new directories/scripts: check that at least one `docs:` commit exists on this branch OR, when `isAuto` is false, ask the user to confirm docs are updated (under `isAuto`, write "Docs update: Not detected" in Technical Impact instead) | PR does not silently ship structural changes without a corresponding docs update |
 | Label validity | Every label in `suggestedLabels` exists in `repoLabels` | Zero fabricated labels |
 | Forced label inclusion | Every label in `forcedLabels` appears in the final `suggestedLabels` list | Zero forced labels dropped |
 | Link verification (R15, #198) | Every URL in the body is validated by `scripts/skill/pr.js --validate-body` before `gh pr create` / `gh pr edit`. The script enforces — SKILL.md only invokes it. See the Link verification block in the publish step. | `LINK_EXIT === 0`; on non-zero, abort and surface violations |
@@ -351,8 +352,8 @@ Fix each issue found in Step 3:
 
 - Rewrite vague sections with specifics from the diff
 - Replace invented content with "N/A" or "Not detected" plus a note
-- If a business section still can't be filled confidently after revision,
-  **use AskUserQuestion** to ask a targeted clarifying question and incorporate the answer
+- If a business section still can't be filled confidently after revision: when `isAuto` is false,
+  **use AskUserQuestion** to ask a targeted clarifying question and incorporate the answer; under `isAuto`, write "Not detected" with a one-line note (never invent it)
 - Re-check all quality gates after revisions
 
 Continue until all gates pass (max 2 iterations per gate).
@@ -436,23 +437,35 @@ if (!new RegExp(pattern).test(title)) {
 On failure:
 - Show the error message from `prConfig.titlePatternError` (or the pattern itself as fallback)
 - Do NOT create or edit the PR
-- Ask the user to edit the title and retry
+- When `isAuto` is false, ask the user to edit the title and retry; under `isAuto`, stop without creating or editing the PR and report the title and the error (R12)
 
 On success:
 - Continue to link verification, label creation, and `gh pr create` / `gh pr edit`
 
-**Link verification (issue #198, implements spec R15) — HARD GATE:** Before executing `gh pr create` or `gh pr edit`, validate every URL embedded in the final PR body via `scripts/skill/pr.js --validate-body`. The script reads the body from stdin and derives the expected GitHub repo identity (`parseRemoteOwner(projectRoot)`) deterministically — the skill MUST NOT construct ctx JSON.
+**Link verification (issue #198, implements spec R15) — HARD GATE:** Before executing `gh pr create` or `gh pr edit`, validate every URL embedded in the final PR body via `scripts/skill/pr.js --validate-body`. The script reads the body from the file given with `--file` and derives the expected GitHub repo identity (`parseRemoteOwner(projectRoot)`) deterministically — the skill MUST NOT construct ctx JSON. Run each command below as its own plain Bash call, in this order.
 
-```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-printf '%s' "$body" | node "<PLUGIN_ROOT>/scripts/skill/pr.js" --validate-body
-LINK_EXIT=$?
-```
+1. Make the body file. The command prints its path; use that literal path as `<BODY_FILE>` in steps 2–4:
+
+   ```bash
+   mktemp
+   ```
+
+2. Read `<BODY_FILE>` once (it is empty; the Write tool refuses a file that was not read), then write the final PR body to it with the Write tool (no shell quoting of the body).
+
+3. Validate it, and take the command's exit code from the tool result as `LINK_EXIT` (a tool result without an error is exit code 0):
+
+   ```bash
+   # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
+   node "<PLUGIN_ROOT>/scripts/skill/pr.js" --validate-body --file '<BODY_FILE>'
+   ```
+
+4. Keep `<BODY_FILE>`: the publish step below passes this same file to `gh` with `--body-file`, so the body that was checked is the body that is published, and removes it afterwards.
 
 On non-zero exit (`LINK_EXIT != 0`):
 - The script has already printed the violation list to stderr (URL, line, reason code, observed/expected detail)
 - Do NOT execute `gh pr create` or `gh pr edit`
 - Surface the violation list verbatim to the user
+- Remove `<BODY_FILE>` with `rm -f '<BODY_FILE>'` as its own plain Bash call
 - Stop. Do not retry. Do not edit URLs without user input. Do not bypass.
 
 On zero exit, continue to label creation and the publish step.
@@ -478,10 +491,10 @@ This is idempotent — the command succeeds silently if the label already exists
 2. Create the PR, with stderr going to the temp file:
 
    ```bash
-   gh pr create --title '<title>' --body '<body>' [--draft] [--label '<l1>' --label '<l2>'] 2> '<ERR_FILE>'
+   gh pr create --title '<title>' --body-file '<BODY_FILE>' [--draft] [--label '<l1>' --label '<l2>'] 2> '<ERR_FILE>'
    ```
 
-   If no labels were approved, omit the `--label` flags entirely. Substitute the title, the body and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Take the command's exit code from the tool result as `GH_EXIT` (a tool result without an error is exit code 0). On `GH_EXIT` 0 the PR is created: go to step 4.
+   If no labels were approved, omit the `--label` flags entirely. Substitute the title and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Take the command's exit code from the tool result as `GH_EXIT` (a tool result without an error is exit code 0). On `GH_EXIT` 0 the PR is created: go to step 4.
 
 3. **Post-failure account-switch recovery (implements spec E7, issue #184):** If `GH_EXIT` is non-zero, invoke the recovery helper exactly once with the captured stderr file:
 
@@ -502,12 +515,26 @@ This is idempotent — the command succeeds silently if the label already exists
    rm -f '<ERR_FILE>'
    ```
 
+5. Remove the body file, after the publish and any retry above have used it:
+
+   ```bash
+   rm -f '<BODY_FILE>'
+   ```
+
 The retry runs at most once per pipeline invocation. The recovery helper is the single source of decision logic — SKILL.md only orchestrates capture, invocation, and re-run.
 
 **Update mode:**
 
+Run each command below as its own plain Bash call, in this order. Substitute the title and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes).
+
 ```bash
-gh pr edit --title "<title>" --body "<body>" [--add-label "<l1>,<l2>"]
+gh pr edit --title '<title>' --body-file '<BODY_FILE>' [--add-label '<l1>,<l2>']
+```
+
+Then remove the body file:
+
+```bash
+rm -f '<BODY_FILE>'
 ```
 
 If no new labels were approved, omit the `--add-label` flag entirely. Note: `--add-label` is additive — it never removes existing labels.
@@ -544,7 +571,7 @@ Title: <title>
 
 1. **Read ALL commits, not just the latest** — the PR is the sum of all branch work
 2. **Diff is ground truth** — when commit messages and diff disagree, trust the diff
-3. **Ask rather than guess** — a clarifying question is better than fabricated content
+3. **Ask rather than guess** (when `isAuto` is false) — a clarifying question is better than fabricated content; under `isAuto`, "Not detected" is better than fabricated content
 4. **No file paths in Changes Overview** — reviewers think in concepts, not paths
 5. **Flag risks** — call out migrations, permission changes, or config changes
 6. **Preserve author intent** — if commit messages express design rationale, carry it into the description

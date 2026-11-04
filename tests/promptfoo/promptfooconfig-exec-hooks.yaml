@@ -1,7 +1,7 @@
 description: "Hook-runner script execution tests (stdin-based hooks, no LLM)"
 
 evaluateOptions:
-  concurrency: 8
+  maxConcurrency: 2
 
 providers:
   - id: file://providers/hook-runner.js

@@ -21,7 +21,7 @@
  *                        rebase-emit | inline-fail-<step-with-dashes> | forced-cleanup |
  *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff | after-pr |
  *                        openspec | resume-plan | resume-plan-auto | resume-plan-quick |
- *                        stale-plan | other-worktree-plan | finished-plan
+ *                        stale-plan | other-worktree-plan | finished-plan | rebase-conflict
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
  *   --steps <csv>        Appended to every initial call as `--steps <csv>`
  *   --no-plan            Initial calls pass --has-plan without --plan (ship-sdlc/SKILL.md always passes --has-plan)
@@ -33,6 +33,7 @@
  *   --exec-cleanup       (after-execute) runs `state/execute.js verify-completeness --branch feat/ship` and then
  *                        `state/execute.js cleanup --branch feat/ship` in the fixture after seeding, as execute's Step 5f and R14 do
  *   --answer <a>         yes | edit | cancel | skip — answer file used for confirm_pipeline/review_gate/confirm_*
+ *   --answer-text <w>    Writes results/answer-text.json with answer <w> and uses it as --answer (one word; script_args split on spaces)
  *   --quality <q>        Patch data.flags.quality into the seed
  *   --again              Rerun `--after confirm_pipeline` (yes) at the end of the scenario
  *   --commit             (pending) seed commit in_progress
@@ -89,6 +90,7 @@ let osChange = 'add-auth';
 let osTasks = '1/3';
 let osValidate = 'ok';
 let osAnswer = null;
+let answerText = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
@@ -105,7 +107,13 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--os-validate' && args[i + 1]) osValidate = args[++i];
   else if (args[i] === '--os-answer' && args[i + 1]) osAnswer = args[++i];
   else if (args[i] === '--steps' && args[i + 1]) stepsCsv = args[++i];
+  else if (args[i] === '--answer-text' && args[i + 1]) answerText = args[++i];
   else if (args[i] === '--no-plan') noPlan = true;
+}
+if (answerText !== null) {
+  fs.mkdirSync(path.join(projectRoot, 'results'), { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, 'results', 'answer-text.json'), JSON.stringify({ success: true, output: { answer: answerText, summary: 'free-text answer' } }));
+  answer = 'answer-text';
 }
 
 // Locate repo root with skill/ship.js.
@@ -497,6 +505,12 @@ switch (scenario) {
   case 'finished-plan':
     initial();
     break;
+  case 'rebase-conflict': {
+    // #9126: an interactive rebase failure emits rebase_conflict; --answer / --answer-text name the answer.
+    const c = after('rebase', 'results/commit-fail.json');
+    if (c.status === 'step' && c.step.id === 'rebase_conflict') after('rebase_conflict', `results/${answer}.json`);
+    break;
+  }
   default:
     if (scenario.startsWith('inline-fail-')) {
       after(scenario.slice('inline-fail-'.length).replace(/-/g, '_'), resultRel || 'results/commit-fail.json');

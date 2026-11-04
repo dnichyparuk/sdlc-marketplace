@@ -174,6 +174,50 @@
     - type: contains
       value: 'url-not-found'
 
+# #9205: without --file the validator never waits on stdin. The program keeps the child's stdin
+# open and prints when the child's exit event fires (the producer-side fact); no timer.
+- description: "pr.js --validate-body: no --file and an open stdin pipe exits 2 at once without reading stdin (#9205)"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((c,e)=>(c.stderr.on("data",(d)=>e.push(String(d))),c.on("exit",(code)=>(console.log(JSON.stringify({code:code,stderr:e.join("")})),c.stdin.destroy()))))(cp.spawn("node",[js,"--validate-body","--json"],{cwd:process.cwd(),stdio:["pipe","pipe","pipe"]}),[]))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pr-link-validate"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.code !== 2) return `FAIL: exit ${o.code}`;
+        return o.stderr.includes('requires --file <path>, or --file -') ? true : `FAIL: stderr ${o.stderr}`;
+
+- description: "pr.js --validate-body: --file - reads the body from stdin (#9205)"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(cp.spawnSync("node",[js,"--validate-body","--file","-","--json"],{cwd:process.cwd(),encoding:"utf8",input:fs.readFileSync("body-clean.md","utf8")})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pr-link-validate"
+    script_env: '{"SDLC_LINKS_OFFLINE":"1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}`;
+        return o.out.includes('"ok":true') ? true : `FAIL: ${o.out}`;
+
+- description: "pr.js --validate-body: a --file path that cannot be read exits 2 with a message, not a stack trace (#9205)"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr})))(cp.spawnSync("node",[js,"--validate-body","--file","no-such-body.md","--json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pr-link-validate"
+    script_env: '{"SDLC_LINKS_OFFLINE":"1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 2) return `FAIL: exit ${o.status}`;
+        if (o.stderr.includes(' at ')) return `FAIL: stack trace in stderr: ${o.stderr}`;
+        return o.stderr.includes('the body file cannot be read') ? true : `FAIL: stderr ${o.stderr}`;
+
 - description: "pr.js: --output-file writes a manifest path, not JSON (issue #209 regression test)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"

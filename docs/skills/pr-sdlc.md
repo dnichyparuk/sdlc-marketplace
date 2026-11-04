@@ -96,7 +96,7 @@ Multiple labels can be forced: `/pr-sdlc --label bug --label urgent`. Forced lab
 /pr-sdlc --auto
 ```
 
-Generates the description, runs critique/improve internally, and creates the PR without prompting for confirmation. Combine with `--draft` for a safety net: `/pr-sdlc --auto --draft`.
+Generates the description, runs critique/improve internally, and creates the PR without prompting for confirmation. Under `--auto` the skill never asks a question: a section it cannot fill from the commits and the diff is written as "Not detected" (or "N/A") with a one-line note, never invented. A title that fails `pr.titlePattern` at the final check stops the run without creating or editing the PR. Combine with `--draft` for a safety net: `/pr-sdlc --auto --draft`.
 
 ---
 
@@ -424,7 +424,7 @@ fix: correct login session expiration
 
 ## Link Verification (issue #198)
 
-Before any `gh pr create` or `gh pr edit` call, the skill pipes the finalized PR body through the shared validator (`scripts/skill/pr.js --validate-body`, which delegates to `scripts/lib/links.js`). Validation runs deterministically — the skill never constructs the validator context.
+Before any `gh pr create` or `gh pr edit` call, the skill writes the finalized PR body to a temp file and passes it to the shared validator (`scripts/skill/pr.js --validate-body --file <path>`, which delegates to `scripts/lib/links.js`); `--file -` reads the body from stdin, and without `--file` the validator exits 2 instead of waiting on stdin. Validation runs deterministically — the skill never constructs the validator context.
 
 URL classes checked:
 
