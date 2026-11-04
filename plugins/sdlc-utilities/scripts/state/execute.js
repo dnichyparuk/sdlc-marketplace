@@ -5,7 +5,7 @@
  * Delegates all I/O to lib/state.js; zero npm dependencies.
  *
  * Usage:
- *   node execute-state.js init        --branch <b> --quality <X> --total-tasks <n> [--planned-task-ids <json>] [--plan-path <p>] [--plan-hash <h>]
+ *   node execute-state.js init        --branch <b> --quality <X> --total-tasks <n> [--planned-task-ids <json>] [--selection <json>] [--plan-path <p>] [--plan-hash <h>]
  *   node execute-state.js wave-start  --wave <n> [--tasks-json <json>] [--manifest-json <json>] [--run-id <id>]
  *   node execute-state.js wave-done   --wave <n> [--decisions <json>] [--status <completed|partial>] [--timed-out] [--usage <json>]
  *   node execute-state.js wave-fail   --wave <n>
@@ -75,6 +75,8 @@ function parseArgs(argv) {
       result.totalTasks = val;
     } else if (a === '--planned-task-ids' && args[i + 1]) {
       result.plannedTaskIds = args[++i];
+    } else if (a === '--selection' && args[i + 1]) {
+      result.selection = args[++i];
     } else if (a === '--plan-path' && args[i + 1]) {
       result.planPath = args[++i];
     } else if (a === '--plan-hash' && args[i + 1]) {
@@ -249,6 +251,19 @@ function cmdInit(opts) {
     }
   }
 
+  let selection = null;
+  if (opts.selection) {
+    try {
+      selection = JSON.parse(opts.selection);
+      if (selection !== null && (typeof selection !== 'object' || Array.isArray(selection))) {
+        throw new Error('must be an object or null');
+      }
+    } catch (e) {
+      process.stderr.write(`Error: --selection must be a JSON object or null: ${e.message}\n`);
+      process.exit(2);
+    }
+  }
+
   const data = {
     version: 1,
     skill: 'execute-plan-sdlc',
@@ -260,6 +275,7 @@ function cmdInit(opts) {
     quality: opts.quality,
     totalTasks: opts.totalTasks,
     plannedTaskIds: plannedTaskIds,
+    selection: selection,
     waves: [],
     context: {},
   };

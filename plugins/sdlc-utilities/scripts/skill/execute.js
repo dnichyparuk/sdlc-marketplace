@@ -12,6 +12,7 @@
  *     [--resume] [--auto] [--commit-waves] [--rebase auto|skip|prompt]
  *     [--wave-timeout <s>] [--wave-interval <s>] [--branch <name>]
  *     [--skip-config-check] [--project-root <dir>] [--output-file]
+ *     [--tasks <ids> | --from-wave <n>]
  *
  * Exit codes:
  *   0 = success, JSON manifest path on stdout
@@ -77,7 +78,7 @@ const TYPE_KEYWORDS = [
   [/\bchore\b/i, 'chore'],
 ];
 
-const VALUE_FLAGS = ['--plan', '--quality', '--rebase', '--wave-timeout', '--wave-interval', '--branch', '--project-root'];
+const VALUE_FLAGS = ['--plan', '--quality', '--rebase', '--wave-timeout', '--wave-interval', '--branch', '--project-root', '--tasks', '--from-wave'];
 const BOOLEAN_FLAGS = ['--resume', '--auto', '--commit-waves', '--skip-config-check', '--output-file'];
 
 // R41 what/how/why text (SKILL.md plan-argument gate), without issue numbers.
@@ -131,6 +132,8 @@ function parseArgs(argv) {
     waveInterval: values['--wave-interval'] !== undefined ? values['--wave-interval'] : null,
     branch: values['--branch'] !== undefined ? values['--branch'] : null,
     projectRoot: values['--project-root'] !== undefined ? path.resolve(values['--project-root']) : resolveSdlcRoot(),
+    tasks: values['--tasks'] !== undefined ? values['--tasks'] : null,
+    fromWave: values['--from-wave'] !== undefined ? values['--from-wave'] : null,
     errors,
   };
 }
@@ -255,7 +258,7 @@ function resolveQuality(cli, stateData, errors, warnings) {
 // ---------------------------------------------------------------------------
 
 function lookupResume(warnings) {
-  const empty = { found: false, stateFile: null, planPath: null, planHash: null, completedWaves: [] };
+  const empty = { found: false, stateFile: null, planPath: null, planHash: null, completedWaves: [], selection: null };
   const branch = exec('git branch --show-current', { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'ignore'] });
   if (!branch) {
     warnings.push('Could not determine the current branch (detached HEAD or git failure); resume lookup skipped.');
@@ -273,9 +276,89 @@ function lookupResume(warnings) {
       completedWaves: (Array.isArray(d.waves) ? d.waves : [])
         .filter(w => w && w.status === 'completed')
         .map(w => w.number),
+      selection: d.selection ?? null,
     },
     data: d,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Task and wave selection (R43; A8 --tasks, A9 --from-wave)
+// ---------------------------------------------------------------------------
+
+/** Validate --tasks / --from-wave; null when neither is given or a value is bad. */
+function parseSelection(cli, errors) {
+  if (cli.tasks === null && cli.fromWave === null) return null;
+  if (cli.tasks !== null && cli.fromWave !== null) {
+    errors.push({ id: 'invalidFlag', flag: '--tasks', value: cli.tasks, message: '--tasks and --from-wave cannot be combined; pass one of them.' });
+    return null;
+  }
+  if (cli.tasks !== null) {
+    if (!/^\d+(,\d+)*$/.test(cli.tasks)) {
+      errors.push({ id: 'invalidFlag', flag: '--tasks', value: cli.tasks, message: `--tasks must be a comma-separated list of task numbers, got "${cli.tasks}".` });
+      return null;
+    }
+    const tasks = [...new Set(cli.tasks.split(',').map(s => parseInt(s, 10)))].sort((a, b) => a - b);
+    return { tasks, fromWave: null };
+  }
+  const n = cliInt(cli.fromWave);
+  if (!(n >= 1)) {
+    errors.push({ id: 'invalidFlag', flag: '--from-wave', value: cli.fromWave, message: `--from-wave must be an integer >= 1, got "${cli.fromWave}".` });
+    return null;
+  }
+  return { tasks: null, fromWave: n };
+}
+
+/** On a found resume the recorded selection wins; a different CLI selection is an error. */
+function resolveSelection(requested, resumeFound, resumeRecorded, cli, stateFile, errors) {
+  if (!(cli.resume && resumeFound)) return { selection: requested, source: requested ? 'cli' : null };
+  const recorded = resumeRecorded ? { tasks: resumeRecorded.tasks ?? null, fromWave: resumeRecorded.fromWave ?? null } : null;
+  if (requested && JSON.stringify(requested) !== JSON.stringify(recorded)) {
+    const flag = requested.tasks ? '--tasks' : '--from-wave';
+    errors.push({
+      id: 'invalidFlag', flag, value: flag === '--tasks' ? cli.tasks : cli.fromWave,
+      message: `This run's selection ${JSON.stringify(requested)} differs from the selection recorded in ${stateFile} (${JSON.stringify(recorded)}). ` +
+        'Fix: resume without --tasks/--from-wave to keep the recorded selection, or start a new run without --resume.',
+    });
+    return { selection: null, source: null };
+  }
+  return { selection: recorded, source: recorded ? 'state' : null };
+}
+
+/**
+ * Build the waves for the selection: --tasks builds from the selected tasks alone (outside
+ * dependencies dropped); --from-wave keeps the whole plan's waves numbered n and above.
+ */
+function selectTasks(parsedTasks, selection, buildAll, warnings, errors) {
+  let waves;
+  if (selection && selection.tasks) {
+    const chosen = new Set(selection.tasks);
+    const unknown = selection.tasks.filter(id => !parsedTasks.some(t => t.id === id));
+    if (unknown.length) {
+      errors.push({ id: 'invalidFlag', flag: '--tasks', value: selection.tasks.join(','), message: `--tasks names task(s) the plan does not have: ${unknown.join(', ')}.` });
+      return { waves: [], taskIds: [], floorTasks: [] };
+    }
+    waves = buildAll(parsedTasks
+      .filter(t => chosen.has(t.id))
+      .map(t => ({ ...t, dependsOn: t.dependsOn.filter(d => chosen.has(d)) })));
+  } else if (selection) {
+    const all = buildAll();
+    if (selection.fromWave > all.length) {
+      errors.push({ id: 'invalidFlag', flag: '--from-wave', value: String(selection.fromWave), message: `--from-wave ${selection.fromWave} is past the last wave (${all.length} waves for this quality tier, guardrails and dispatch budget).` });
+      return { waves: [], taskIds: [], floorTasks: [] };
+    }
+    waves = all.filter(w => w.n >= selection.fromWave);
+  } else {
+    waves = buildAll();
+  }
+  const taskIds = waves.flatMap(w => w.taskIds).sort((a, b) => a - b);
+  const floorTasks = parsedTasks.filter(t => taskIds.includes(t.id));
+  for (const t of floorTasks) {
+    for (const d of new Set(t.dependsOn)) {
+      if (!taskIds.includes(d)) warnings.push(`Task ${t.id} depends on Task ${d}, which is outside the selection; Task ${t.id} runs as if Task ${d} is done.`);
+    }
+  }
+  return { waves, taskIds, floorTasks };
 }
 
 // ---------------------------------------------------------------------------
@@ -566,6 +649,10 @@ function main() {
   const quality = resolveQuality(cli, resume.found ? stateData : null, errors, warnings);
   sources.quality = quality.source;
 
+  const { selection, source: selectionSource } = resolveSelection(
+    parseSelection(cli, errors), resume.found, resume.selection, cli, resume.stateFile, errors);
+  sources.selection = selectionSource;
+
   // --quality minimal forces the per-wave spec reviewer (P1).
   if (quality.value === 'minimal' && resolved.specReviewer !== 'per-wave') {
     resolved.specReviewer = 'per-wave';
@@ -602,6 +689,11 @@ function main() {
   const workspace = plan
     ? deriveWorkspaceInfo({ branchFlag: cli.branch, title: plan.header.title, projectRoot, warnings })
     : null;
+  const picked = planUsable
+    ? selectTasks(parsed.tasks, selection,
+      (tasks = parsed.tasks) => buildWaves(tasks, { quality: quality.value, guardrails, dispatchBudget: execCfg?.dispatchBudget }),
+      warnings, errors)
+    : { waves: [], taskIds: [], floorTasks: [] };
 
   const result = {
     flags: {
@@ -617,13 +709,12 @@ function main() {
       waveRunnerMinPlanTasks: resolved.waveRunnerMinPlanTasks,
       specReviewer: resolved.specReviewer,
       skipConfigCheck,
+      selection: selection ? { tasks: selection.tasks, fromWave: selection.fromWave, taskIds: picked.taskIds } : null,
       sources,
     },
     plan,
-    classificationFloor: planUsable ? buildClassificationFloor(parsed.tasks) : [],
-    waves: planUsable
-      ? buildWaves(parsed.tasks, { quality: quality.value, guardrails, dispatchBudget: execCfg?.dispatchBudget })
-      : [],
+    classificationFloor: planUsable ? buildClassificationFloor(picked.floorTasks) : [],
+    waves: picked.waves,
     guardrails,
     workspace,
     resume,
@@ -649,5 +740,5 @@ if (require.main === module) {
 
 module.exports = {
   EXECUTE_DEFAULTS, TYPE_KEYWORDS, WORKER_ROUTING, AGENT_MODELS, routeWave, retryLadder, parseArgs, resolveFlags, resolveQuality,
-  buildClassificationFloor, buildWaves, deriveWorkspaceInfo, buildOpenspec, main,
+  parseSelection, resolveSelection, selectTasks, buildClassificationFloor, buildWaves, deriveWorkspaceInfo, buildOpenspec, main,
 };
