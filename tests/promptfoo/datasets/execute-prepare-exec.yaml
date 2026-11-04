@@ -574,3 +574,127 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true && r.rows === 4 && r.routeChecks === 12 && r.mismatches.length === 0"
+
+# ---------------------------------------------------------------------------
+# Task and wave selection (R43)
+# ---------------------------------------------------------------------------
+
+- description: "execute-prepare: (sel1) --tasks 2,3 builds waves from the selected tasks only and warns about the outside dependency"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --tasks 2,3 --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.length===0 && o.waves.length===1 && o.waves[0].n===1 && o.waves[0].taskIds.join()==='2,3' && JSON.stringify(o.flags.selection)===JSON.stringify({tasks:[2,3],fromWave:null,taskIds:[2,3]}) && o.flags.sources.selection==='cli' && o.warnings.some(w=>String(w).includes('Task 3 depends on Task 1')) && o.plan.tasks.length===4 && o.classificationFloor.map(f=>f.id).join()==='2,3'"
+
+- description: "execute-prepare: (sel2) --tasks ignores duplicates and sorts the ids"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --tasks 3,2,3 --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.selection.tasks.join()==='2,3'"
+
+- description: "execute-prepare: (sel3) --tasks with an id the plan does not have reports invalidFlag"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --tasks 2,9 --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='invalidFlag' && e.flag==='--tasks' && String(e.message).includes('9'))"
+
+- description: "execute-prepare: (sel4) --tasks with a T prefix reports invalidFlag"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --tasks T3 --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='invalidFlag' && e.flag==='--tasks')"
+
+- description: "execute-prepare: (sel5) --from-wave 2 keeps wave 2 with its number and warns about the outside dependency"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --from-wave 2 --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.waves.length===1 && o.waves[0].n===2 && o.waves[0].taskIds.join()==='2,3' && JSON.stringify(o.flags.selection)===JSON.stringify({tasks:null,fromWave:2,taskIds:[2,3]}) && o.warnings.some(w=>String(w).includes('Task 3 depends on Task 1'))"
+
+- description: "execute-prepare: (sel6) --from-wave past the last wave reports invalidFlag"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --from-wave 3 --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='invalidFlag' && e.flag==='--from-wave' && String(e.message).includes('past the last wave'))"
+
+- description: "execute-prepare: (sel7) --from-wave 0 reports invalidFlag"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --from-wave 0 --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='invalidFlag' && e.flag==='--from-wave')"
+
+- description: "execute-prepare: (sel8) --tasks with --from-wave reports invalidFlag"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --tasks 2 --from-wave 1 --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='invalidFlag' && String(e.message).includes('cannot be combined'))"
+
+- description: "execute-prepare: (sel9) --auto --resume uses the selection recorded in the state file"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>((f)=>((s)=>(s.selection={tasks:[2,3],fromWave:null,taskIds:[2,3]},fs.writeFileSync(f,JSON.stringify(s)),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),before,after:fs.readFileSync(f,"utf8")})))(fs.readFileSync(f,"utf8"),cp.spawnSync("node",[js,"--auto","--resume","--project-root",process.cwd()],{cwd:process.cwd(),encoding:"utf8"}))))(JSON.parse(fs.readFileSync(f,"utf8"))))(path.join(process.cwd(),".sdlc","execution","execute-feat-resume-20260101T000000Z.json")))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/execute.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); const x = o.out; o.status===0 && x.flags.selection.tasks.join()==='2,3' && x.flags.sources.selection==='state' && x.resume.selection.tasks.join()==='2,3' && x.waves.map(w=>w.taskIds.join()).join(';')==='2,3'"
+
+- description: "execute-prepare: (sel10) --resume with a different --tasks reports invalidFlag and leaves the state file unchanged"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>((f)=>((s)=>(s.selection={tasks:[2,3],fromWave:null,taskIds:[2,3]},fs.writeFileSync(f,JSON.stringify(s)),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),before,after:fs.readFileSync(f,"utf8")})))(fs.readFileSync(f,"utf8"),cp.spawnSync("node",[js,"--resume","--tasks","4","--project-root",process.cwd()],{cwd:process.cwd(),encoding:"utf8"}))))(JSON.parse(fs.readFileSync(f,"utf8"))))(path.join(process.cwd(),".sdlc","execution","execute-feat-resume-20260101T000000Z.json")))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/execute.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.status===1 && o.out.errors.some(e=>e.id==='invalidFlag' && String(e.message).includes('differs from the selection recorded')) && o.before===o.after"
+
+- description: "execute-prepare: (sel11) state init records --selection, records null without it, and rejects a non-object"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((run)=>console.log(JSON.stringify({a:run(["--selection","{\"tasks\":[2,3],\"fromWave\":null,\"taskIds\":[2,3]}"]),b:run([]),c:run(["--selection","[1]"])})))((extra)=>((r)=>({status:r.status,file:r.status===0?JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")):null,removed:r.status===0?(fs.unlinkSync(r.stdout.trim()),true):false,stderr:r.stderr}))(cp.spawnSync("node",[js,"init","--branch","main","--quality","balanced","--total-tasks","2","--planned-task-ids","[\"2\",\"3\"]"].concat(extra),{cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.a.status===0 && o.a.file.selection.tasks.join()==='2,3' && o.b.status===0 && o.b.file.selection===null && o.c.status===2 && o.c.file===null"
+
+- description: "execute-prepare: (sel12) a run without selection flags emits a null selection and a null recorded selection"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.selection===null && o.flags.sources.selection===null && o.resume.selection===null && o.waves.map(w=>w.taskIds.join()).join(';')==='1,4;2,3'"

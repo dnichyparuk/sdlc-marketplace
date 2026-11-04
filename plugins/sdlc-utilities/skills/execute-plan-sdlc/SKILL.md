@@ -1,8 +1,8 @@
 ---
 name: execute-plan-sdlc
-description: "Execute an implementation plan: classify tasks, build dependency waves, dispatch workers, verify each wave, recover from failures. Arguments: <plan> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--commit-waves] [--plan <path>] [--wave-timeout <s>] [--wave-interval <s>]. Triggers on: execute plan, run plan, implement plan, autonomous execution."
+description: "Execute an implementation plan: classify tasks, build dependency waves, dispatch workers, verify each wave, recover from failures. Arguments: <plan> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--commit-waves] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <s>] [--wave-interval <s>]. Triggers on: execute plan, run plan, implement plan, autonomous execution."
 user-invocable: true
-argument-hint: "<plan-file-path> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--branch <name>] [--commit-waves] [--plan <path>] [--wave-timeout <seconds>] [--wave-interval <seconds>]"
+argument-hint: "<plan-file-path> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--branch <name>] [--commit-waves] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <seconds>] [--wave-interval <seconds>]"
 model: sonnet
 ---
 
@@ -127,7 +127,7 @@ Note: this reads `execute.guardrails` (runtime enforcement), not `plan.guardrail
   - Otherwise, use AskUserQuestion:
     > Found execution state from <startedAt> with <N> of <total> waves completed. Resume from Wave <next>?
     Options: **yes** — resume | **restart** — discard state file and start fresh
-    If "yes", follow the resume flow above (steps 2-9). If "restart", delete the state file and proceed normally.
+    If "yes", follow the resume flow above (steps 2-9). When `flags.selection` or `resume.selection` is non-null, first re-run the prepare command of Step 1 with `--resume` appended (same exit-code handling as Step 1, and `rm -f` of the earlier `EXECUTE_CONTEXT_FILE`) and use its output as the new `EXECUTE_CONTEXT`, so the recorded selection wins (R43). If "restart", delete the state file and proceed normally.
 
 ### Post-compact recovery (R36)
 
@@ -153,12 +153,16 @@ In addition to the explicit `--resume` flag, Step 0 MUST scan the SessionStart `
 
 **Parse `--commit-waves` (R35):** Read `flags.commitWaves` (default `false`). When it is true → Read `./commit-waves.md` at Step 5c-quater; it also holds the flag's sources and help. Do not read preemptively.
 
+**Parse `--tasks <ids>` / `--from-wave <n>` (implements A8, A9, R43):** Read `flags.selection`. When it is `null`, nothing changes. When it is set, `waves` and `classificationFloor` already hold only the selected tasks (`flags.selection.taskIds`): run only those, and print `Selection: tasks <taskIds, comma-separated> (from <flags.sources.selection>)` once. Print each `warnings[]` entry. Plan-size predicates (Step 2b's small-plan check and Step 5b's runner-mode check) keep counting `plan.tasks.length`; the Step 2b small-plan path runs only `flags.selection.taskIds`.
+
 **Parse `--wave-timeout <seconds>` / `--wave-interval <seconds>` (R-WAVE-DEADLINE):** Set `WAVE_TIMEOUT = flags.waveTimeout` and `WAVE_INTERVAL = flags.waveInterval` (CLI flag, else `execute.waveTimeout` / `execute.waveInterval` in `.sdlc/config.json`, else the legacy `ship.executeWaveTimeout` / `ship.executeWaveInterval` in `.sdlc/local.json`, else the built-in default). Both reach Step 5b through the `wave-start` manifest.
 
 | Flag | Description | Default |
 |---|---|---|
 | `--wave-timeout <seconds>` | Per-wave wall-clock deadline, enforced by main context in direct mode and by the wave-runner in runner mode (R-WAVE-DEADLINE). | 1800 (`execute.waveTimeout`) |
 | `--wave-interval <seconds>` | `Monitor` poll interval while waiting on background workers. | 60 (`execute.waveInterval`) |
+| `--tasks <ids>` | Run only the listed plan tasks, a comma-separated list of task numbers; excludes `--from-wave` (A8, R43). | every task |
+| `--from-wave <n>` | Run the plan from wave `n` on; excludes `--tasks` (A9, R43). | every wave |
 
 **Parse `--branch`:** If `--branch <name>` was passed as an argument, set `EXECUTE_NEW_BRANCH = flags.branch`. This is an **INTERNAL flag set by ship-sdlc in pipeline mode**. When present, skip the entire Workspace isolation check below — the caller's branch/cwd are trusted as authoritative. Users do not pass this directly. Implements R30.
 
@@ -528,9 +532,9 @@ STATE_SCRIPT="<PLUGIN_ROOT>/scripts/state/execute.js"
 
 On the very first wave dispatch, initialize the state file:
 ```bash
-node "$STATE_SCRIPT" init --branch <branch> --quality <X> --total-tasks <N> --planned-task-ids '<json-array-of-all-task-ids>' --plan-path "$PLAN_FILE" --plan-hash "<plan.hash>"
+node "$STATE_SCRIPT" init --branch <branch> --quality <X> --total-tasks <N> --planned-task-ids '<json-array-of-planned-task-ids>' --plan-path "$PLAN_FILE" --plan-hash "<plan.hash>" [--selection '<flags.selection as JSON>']
 ```
-Where `<json-array-of-all-task-ids>` is a JSON array of every task ID from the plan (e.g. `'["1","2","3"]'`), parsed from the plan in Step 1. This seeds `plannedTaskIds` in the state file so the `verify-completeness` gate (Step 5f) can cross-check all planned IDs against accounted task records.
+Where `<json-array-of-planned-task-ids>` is a JSON array of task IDs as strings (e.g. `'["1","2","3"]'`): every task ID from the plan when `flags.selection` is `null`, else `flags.selection.taskIds` converted to strings (`[3,5]` becomes `'["3","5"]'`, the form `verify-completeness` compares against); `<N>` is that array's length. Pass `--selection` only when `flags.selection` is non-null, with its JSON verbatim (implements R43). This seeds `plannedTaskIds` in the state file so the `verify-completeness` gate (Step 5f) can cross-check all planned IDs against accounted task records.
 
 `--plan-path`/`--plan-hash` (implements R40): `$PLAN_FILE` is the absolute path stored in Step 1 (LOAD). The hash is `plan.hash` (P2, computed by the prepare script as the SHA-256 of the plan file's actual bytes) and is passed straight through — `state/execute.js` stays a pure recorder and does not compute or validate the hash itself. Passing both flags is what makes the resume-time plan-hash mismatch check (Step 0, R15) reachable: without them the state file always recorded `planPath: null` / `planHash: null` and the check could never fire.
 

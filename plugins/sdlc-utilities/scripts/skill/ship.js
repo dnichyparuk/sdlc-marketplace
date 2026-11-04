@@ -94,6 +94,8 @@ function parseArgs(argv) {
   let hookActivePipeline = false;
   // R-PLANFILE/R72: path to the active plan markdown, sourced solely from an explicit --plan
   let planFile = null;
+  let tasks = null;     // R76: raw, forwarded to execute-plan-sdlc
+  let fromWave = null;  // R76: raw, forwarded to execute-plan-sdlc
   const errors = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -150,6 +152,11 @@ function parseArgs(argv) {
       }
     } else if (a === '--plan' && args[i + 1]) {
       planFile = args[++i];
+    } else if (a === '--tasks' || a === '--from-wave') {
+      // R76: ship checks only that a value follows; execute-plan-sdlc validates it (execute R43).
+      if (args[i + 1] === undefined || args[i + 1].startsWith('--')) errors.push(`${a} requires a value.`);
+      else if (a === '--tasks') tasks = args[++i];
+      else fromWave = args[++i];
     } else if (a === '--hook-active-pipeline') {
       hookActivePipeline = true;
     } else if (a === '--verify-pipeline') {
@@ -163,7 +170,7 @@ function parseArgs(argv) {
     }
   }
 
-  return { hasPlan, auto, steps, quick, quality, bump, draft, dryRun, resume, rebase, openspecChange, gc, ttlDays, hookActivePipeline, planModeBlocked, planFile, errors };
+  return { hasPlan, auto, steps, quick, quality, bump, draft, dryRun, resume, rebase, openspecChange, gc, ttlDays, hookActivePipeline, planModeBlocked, planFile, tasks, fromWave, errors };
 }
 
 // ---------------------------------------------------------------------------
@@ -289,7 +296,7 @@ function mergeFlags(cli, config) {
   }
 
   // rebase: CLI non-null string wins; otherwise map config boolean/string to
-  // 'auto' | 'skip' | 'prompt'; otherwise default (true → 'auto').
+  // 'auto' | 'skip' | 'prompt'; otherwise default 'skip' (R75, like execute).
   if (cli.rebase !== null && cli.rebase !== undefined) {
     merged.rebase  = cli.rebase; // already a string: 'auto' | 'skip' | 'prompt'
     sources.rebase = 'cli';
@@ -304,9 +311,8 @@ function mergeFlags(cli, config) {
     }
     sources.rebase = 'config';
   } else {
-    // Default is true → 'auto'
-    merged.rebase  = 'auto';
-    sources.rebase = 'default';
+    // R75: no CLI flag and no config → skip (a rebase would rewrite pushed commits).
+    merged.rebase = 'skip'; sources.rebase = 'default';
   }
 
   // -- verify-pipeline / await-remote-review tunables (R57) --
@@ -375,6 +381,9 @@ function mergeFlags(cli, config) {
   merged.resume           = cli.resume;
   merged.openspecChange   = cli.openspecChange || null;
   merged.planModeBlocked  = cli.planModeBlocked === true;
+  // R76: present only when given (mirrors quality); never from config.
+  if (cli.tasks)    merged.tasks    = cli.tasks;
+  if (cli.fromWave) merged.fromWave = cli.fromWave;
   // quick is already set above in step resolution; re-affirm as bool for clarity.
   merged.quick            = cli.quick === true;
 
@@ -449,6 +458,9 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
         // setting (rebase, commit-waves, wave tunables) is read by
         // execute-plan-sdlc's own prepare script from its config.
         flags.quality ? `--quality ${flags.quality}` : '',
+        // R76: execute selection, raw; only the execute step gets it.
+        flags.tasks ? `--tasks ${flags.tasks}` : '',
+        flags.fromWave ? `--from-wave ${flags.fromWave}` : '',
       ].filter(Boolean).join(' '),
       reason: !flags.hasPlan
         ? 'no plan (--has-plan not set)'
@@ -1029,12 +1041,14 @@ function ledgerFinished(data) {
  * Q22a / ruling w2-planreview Q1: every readable ship ledger of the branch — the same set
  * cmdInit's prune would remove (lib/state.js pruneStateFiles) — fresh or stale, any worktree.
  * Read only; sorted by file name.
+ * withUnparseable (R64, plan mode only): an unparseable file is returned with unparseable: true, and a missing state dir is no ledgers.
  */
-function branchLedgers(branch) {
+function branchLedgers(branch, { withUnparseable = false } = {}) {
   const slug = slugifyBranch(branch);
   let dir;
   let names = [];
   try { dir = resolveStateDir(); names = fs.readdirSync(dir).sort(); } catch (e) {
+    if (withUnparseable && e.code === 'ENOENT') return [];
     process.stderr.write(`branchLedgers: state dir unreadable, plan-mismatch guard skipped: ${e.message}\n`);
     return [];
   }
@@ -1045,6 +1059,7 @@ function branchLedgers(branch) {
     const fullPath = path.join(dir, name);
     let data = null;
     try { data = JSON.parse(fs.readFileSync(fullPath, 'utf8')); } catch (e) {
+      if (withUnparseable) { out.push({ fullPath, flags: null, finished: false, unparseable: true }); continue; }
       process.stderr.write(`branchLedgers: ledger unreadable, skipped (${name}): ${e.message}\n`);
       continue;
     }
@@ -1099,6 +1114,34 @@ function checkPlanMismatch(branch, planFile, { explicitResume = false, resumePat
     };
   }
   return { error: null, finishedOtherPlan };
+}
+
+/**
+ * R64 (owner Q22a; ruling w0-plan-1): plan mode never prunes an unfinished ledger of the branch.
+ * Runs after checkPlanMismatch. A ledger is open when it is unfinished or cannot be parsed.
+ * Returns { adopt: <path> } for the single open ledger that is plan mode's own (no planFile key,
+ * planModeBlocked true) or of the same plan; { error } for any other open set; {} when none is open.
+ */
+function planModeLedgerCheck(branch, planFile) {
+  const open = branchLedgers(branch, { withUnparseable: true }).filter(l => l.unparseable || !l.finished);
+  if (open.length === 0) return {};
+  const ownOrSame = (l) => !l.unparseable && !!l.flags && ('planFile' in l.flags
+    ? (planFile === null ? l.flags.planFile == null : samePlanPath(planFile, l.flags.planFile))
+    : l.flags.planModeBlocked === true);
+  if (open.length === 1 && ownOrSame(open[0])) return { adopt: open[0].fullPath };
+  const why = (l) => (l.unparseable ? 'cannot be parsed'
+    : !l.flags || !('planFile' in l.flags) ? 'records no plan'
+      : `plan ${l.flags.planFile || '(none recorded)'}`);
+  return {
+    error: {
+      id: 'resumePlanMismatch',
+      message:
+        'ship-sdlc will not discard an unfinished run in plan mode. ' +
+        `Open ship ledgers on this branch: ${open.map(l => `${l.fullPath} (${why(l)})`).join(', ')}. ` +
+        `Fix: continue the run with --resume, or discard it yourself with ship's own verbs: node "${STATE_SHIP_SCRIPT}" skip --step <name> --reason <text> for each leftover step, then node "${STATE_SHIP_SCRIPT}" cleanup-pipeline; a ledger file that cannot be parsed can only be removed by hand. ` +
+        'Ship never discards the earlier ledger itself.',
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1386,6 +1429,11 @@ function ensureLedger({ flags, flagSources, openspecContext, planFile, gitState,
   const frozen = { planFile, openspecContext, sources: flagSources };
   for (const key of FROZEN_FLAG_KEYS) {
     if (!(key in ledger.flags)) ledger.flags[key] = frozen[key];
+  }
+  // R76 (owner Q22b): dispatch_execute reads the ledger's flags, so the selection lives there,
+  // but every run replaces it with its own CLI values; --resume never restores it.
+  for (const key of ['tasks', 'fromWave']) {
+    if (flags[key]) ledger.flags[key] = flags[key]; else delete ledger.flags[key];
   }
   if (!Array.isArray(ledger.history)) ledger.history = [];
   ledger.currentStep = 'confirm_pipeline';
@@ -2410,11 +2458,24 @@ function main() {
     // R64 (Q22a; ruling w4-planreview Q1): the plan check runs before the init spawn, whose
     // cmdInit prunes the branch's ledgers; on a refusal nothing is written. Without --plan, an
     // unfinished ledger that recorded a plan refuses too.
-    const { error: planModeError } = checkPlanMismatch(gitState.currentBranch, cli.planFile ? path.resolve(cli.planFile) : null, { explicitResume: cli.resume });
+    const planModePlan = cli.planFile ? path.resolve(cli.planFile) : null;
+    const { error: planModeError } = checkPlanMismatch(gitState.currentBranch, planModePlan, { explicitResume: cli.resume });
     if (planModeError) {
       errors.push(planModeError);
       writeFatalErrors(errors);
       writeOutput({ errors, warnings }, 'ship-prepare', 1);
+      return;
+    }
+    // R64 (Q22a): adopt plan mode's own ledger or one of the same plan; stop on any other open ledger.
+    const planModeCheck = planModeLedgerCheck(gitState.currentBranch, planModePlan);
+    if (planModeCheck.error) {
+      errors.push(planModeCheck.error);
+      writeFatalErrors(errors);
+      writeOutput({ errors, warnings }, 'ship-prepare', 1);
+      return;
+    }
+    if (planModeCheck.adopt) {
+      writeOutput({ flags: { ...flags, planModeBlocked: true }, stateFile: planModeCheck.adopt, prunedOrphans: [], planModeBlocked: true }, 'ship-prepare', 0);
       return;
     }
     const stateShipPath = path.join(__dirname, '..', 'state', 'ship.js');

@@ -50,7 +50,10 @@ This skill is for **expert users working on projects with established quality gu
 | `--openspec-change <name>` | Override auto-detected change. Auto-detection matches by branch name or git diff; use this flag when multiple active changes exist or detection fails. | — |
 | `--gc` | Prune stale ship- and execute- state files from `.sdlc/execution/`, then stop without running the pipeline. A file is pruned only when it is older than the TTL AND its branch is no longer in `git branch --list`. Fixes orphan accumulation from interrupted runs (issue #223). | Off |
 | `--ttl-days <N>` | TTL in days used by `--gc` and the terminal cleanup step. Files newer than this are kept regardless of branch existence (in-flight pipelines on detached HEAD or freshly-deleted branches must not be wiped). Configurable via `state.gc.ttlDays` in `.sdlc/config.json`; CLI overrides config. | `7` (or `state.gc.ttlDays`) |
+| `--rebase <auto\|skip\|prompt>` | Rebase strategy for ship's own `rebase` step (A12, R9, R75). `auto` and `prompt` rebase onto the default branch after the commits and before version; `skip` does not rebase. Config key: `rebase` in `ship` (see the config table). | `skip` |
 | `--plan <path>` | Explicit path to the active plan markdown (the old autodiscovery flag was renamed in #505 — no back-compat alias for the previous name). Forwarded to execute-plan-sdlc as `--plan <path>`. Required whenever the `execute` step will run, unless `--resume` restores the plan from the branch's ledger; plan autodiscovery was removed (see note below). A `--plan` that differs from the plan of any unfinished ledger of the branch stops with `resumePlanMismatch` before any state is written: continue that run with `--resume`, or discard it with ship's own verbs (`state/ship.js skip`, then `cleanup-pipeline`). | Required when `execute` runs without `--resume`; unset otherwise |
+| `--tasks <ids>` | Forwarded unchanged to execute-plan-sdlc as `--tasks <ids>` (run only these plan tasks). Not restored by `--resume`; execute-plan-sdlc keeps its own recorded selection. | Unset |
+| `--from-wave <n>` | Forwarded unchanged to execute-plan-sdlc as `--from-wave <n>` (start at wave `n`). Not restored by `--resume`. | Unset |
 
 To enable post-PR CI verification, add `verify-pipeline` to `ship.steps` in `.sdlc/local.json` (or pass it via `--steps`). To await an automated reviewer's verdict, add `await-remote-review`. See R41 / R50 in `docs/specs/ship-sdlc.md`. To validate implementation completeness against the spec before archiving, add `verify-openspec` between `version` and `archive-openspec` — requires a matched OpenSpec change (`flags.openspecChange`, or auto-detection by branch name or git diff); the step is skipped with a clear reason when neither is present.
 
@@ -610,7 +613,7 @@ To migrate explicitly, run `/setup-sdlc --migrate`.
 | `draft` | `boolean` | `false` | Create PRs as drafts by default. |
 | `auto` | `boolean` | `false` | Run in non-interactive mode by default. |
 | `reviewThreshold` | `"critical"` \| `"high"` \| `"medium"` \| `"low"` | `"high"` | Minimum severity that triggers the fix loop. `low` triggers on any finding except `info`. |
-| `rebase` | `true` \| `false` \| `"prompt"` | `true` | Rebase strategy before execution and versioning. |
+| `rebase` | `true` \| `false` \| `"prompt"` | `false` | Rebase strategy before execution and versioning. `true` rebases onto the default branch before version and pr. |
 | `verifyPipelineTimeout` | `integer` (≥30) | `1200` | Maximum seconds verify-pipeline polls before giving up with a warning. (R57) |
 | `verifyPipelineInterval` | `integer` (≥10) | `60` | Seconds between verify-pipeline poll attempts. (R57) |
 | `verifyPipelineMaxIterations` | `integer` (1–10) | `3` | Maximum analyze-fix-recheck iterations before verify-pipeline emits a warning and proceeds. (R47, R57) |
@@ -625,7 +628,7 @@ To migrate explicitly, run `/setup-sdlc --migrate`.
 
 ### `execute.commitWaves` Source
 
-ship-sdlc does not forward `--commit-waves`, `--wave-timeout`, `--wave-interval` or `--rebase`. It passes execute-plan-sdlc only `--plan`, `--auto` and `--quality`. execute-plan-sdlc reads its own `execute.*` config (`execute.commitWaves` in `.sdlc/config.json`) through its prepare script `scripts/skill/execute.js`; a legacy `ship.execute.commitWaves` in `.sdlc/local.json` is still honoured as a fallback. When `execute.commitWaves` is `true`, the execute step commits per-wave WIPs; the subsequent commit step (commit-sdlc) auto-detects them and squashes via soft-reset to fork-point, so the final PR history shows a single feature commit, not the per-wave WIPs.
+ship-sdlc does not forward `--commit-waves`, `--wave-timeout`, `--wave-interval` or `--rebase`. It passes execute-plan-sdlc only `--plan`, `--auto` and `--quality`, plus `--tasks` and `--from-wave` when given. execute-plan-sdlc reads its own `execute.*` config (`execute.commitWaves` in `.sdlc/config.json`) through its prepare script `scripts/skill/execute.js`; a legacy `ship.execute.commitWaves` in `.sdlc/local.json` is still honoured as a fallback. When `execute.commitWaves` is `true`, the execute step commits per-wave WIPs; the subsequent commit step (commit-sdlc) auto-detects them and squashes via soft-reset to fork-point, so the final PR history shows a single feature commit, not the per-wave WIPs.
 
 To opt out, omit the field (or set it to `false`) in `.sdlc/config.json`. There is no ship-sdlc CLI override; the user-facing knob is `execute.commitWaves`.
 
