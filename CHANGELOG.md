@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-04
+
+### Added
+- ship-sdlc: `--tasks` accepts only digits and commas and `--from-wave` only an integer; any other value is a prepare error that names the flag and the value (#9231).
+- ship-sdlc: the normal path stops on an unparseable ledger of the branch with a `resumePlanMismatch` error before any state write, as plan mode already did (#9227).
+- pr-sdlc: under `--auto` the skill never calls AskUserQuestion; a section without evidence is written as "Not detected" or "N/A" with a one-line note (#9220).
+- execute workers (`execute-worker*` agents) change repo files only with the Edit and Write tools, never through a shell, interpreter or heredoc (#9226).
+
+### Changed
+- `pr.js --validate-body` no longer reads an open stdin by default; it reads the body from `--file <path>`, or from stdin only for an explicit `--file -` (#9205).
+- commit-sdlc: the commit message file is written with the Write tool, the link check is a plain call, and the WIP-squash fork point is resolved with plain calls; a given `--subject` that fails the subject pattern gets only `harden` or `cancel` in the interactive menu (#9193, #9190, #9177).
+- ship-sdlc, execute-plan-sdlc, error-report-sdlc, pr-sdlc and commit-sdlc: each prescribed Bash call runs exactly as written with nothing appended, and cross-call `$VAR` uses are gone (#9193, #9190).
+- ship-sdlc: the `review_gate` and `rebase_conflict` steps accept only their exact option keys (#9126).
+- promptfoo exec configs: the ignored `concurrency: 8` key is replaced by `maxConcurrency: 2` (#9145).
+
+### Fixed
+- `gh` calls made through `lib/git.js` have a timeout, and the ship-prepare exec cases use the `stub-bin-gh` stub so none reaches a live `gh` (#9188).
+- ship-sdlc: `--dry-run` writes no ship state; a ledger it resumes keeps its bytes and mtime (#9132).
+- The ship-prepare unreadable-plan exec case is skipped when the tests run as root (#9185).
+
 ## [0.37.0] - 2026-11-04
 
 ### Added
