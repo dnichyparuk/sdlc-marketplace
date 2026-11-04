@@ -513,7 +513,7 @@ For each guardrail in `activeGuardrails`:
 
   Include in the progress report (Step 5d). No user prompt required.
 
-**5c-quater. Per-wave WIP commit (R35).** When `flags.commitWaves` is true → Read `./commit-waves.md` and follow it after G9 + G11 pass. Where `./commit-waves.md` still names its state-script variable, use the absolute path `<PLUGIN_ROOT>/scripts/state/execute.js`: no shell variable carries it from one Bash call to the next.
+**5c-quater. Per-wave WIP commit (R35).** When `flags.commitWaves` is true → Read `./commit-waves.md` and follow it after G9 + G11 pass. Where `./commit-waves.md` still names its state-script variable, use the absolute path `<PLUGIN_ROOT>/scripts/state/execute.js`: no shell variable carries it from one Bash call to the next. The same holds for the commit sha that file captures in a variable: run `git rev-parse HEAD` as its own plain Bash call and pass the sha it prints as a literal value, `--sha '<SHA>'`, to `wave-committed`.
 
 **5d. Progress report** — After each wave:
 ```
