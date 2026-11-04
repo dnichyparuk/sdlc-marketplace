@@ -96,7 +96,7 @@ Multiple labels can be forced: `/pr-sdlc --label bug --label urgent`. Forced lab
 /pr-sdlc --auto
 ```
 
-Generates the description, runs critique/improve internally, and creates the PR without prompting for confirmation. Under `--auto` the skill never asks a question: a section it cannot fill from the commits and the diff is written as "Not detected" (or "N/A") with a one-line note, never invented. Combine with `--draft` for a safety net: `/pr-sdlc --auto --draft`.
+Generates the description, runs critique/improve internally, and creates the PR without prompting for confirmation. Under `--auto` the skill never asks a question: a section it cannot fill from the commits and the diff is written as "Not detected" (or "N/A") with a one-line note, never invented. A title that fails `pr.titlePattern` at the final check stops the run without creating or editing the PR. Combine with `--draft` for a safety net: `/pr-sdlc --auto --draft`.
 
 ---
 
