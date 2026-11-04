@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-04
+
+### Added
+- execute-plan-sdlc: `--tasks` and `--from-wave` select which plan tasks or waves run; ship-sdlc forwards both to the execute step only (#9208).
+
+### Changed
+- ship-sdlc: `--rebase` defaults to `skip` (it was `auto`); `ship.rebase: true` in config still resolves to `auto` (#9212).
+
+### Fixed
+- ship-sdlc: plan mode (`--plan-mode-blocked`) no longer prunes an unfinished ledger; it adopts one that carries `flags.planModeBlocked: true` and stops on every other unfinished ledger (#9186).
+
 ## [0.36.4] - 2026-10-28
 
 ### Fixed
