@@ -151,6 +151,26 @@
         and description are still displayed for visibility. Critique gates are applied internally
         — the description quality is not degraded by auto mode.
 
+- description: "pr-sdlc: --auto never asks — an unfilled business section is written as Not detected (R12)"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md"
+    project_context: "file://fixtures/feature-branch-with-commits.md"
+    user_request: >
+      Run /pr-sdlc --auto. The pr-prepare.js output is provided in the project context above
+      with isAuto set to true. The commits and the diff say nothing about why the change was made
+      or who benefits. Generate the PR and create it without prompting.
+  assert:
+    - type: not-icontains
+      value: "What business problem does this PR solve?"
+    - type: icontains
+      value: "## Business Context"
+    - type: llm-rubric
+      value: >
+        The response produces the PR description without asking the user any question and without
+        offering options to choose from. Where the commits and the diff give no business reason or
+        benefit, the Business Context and Business Benefits sections say "Not detected" or "N/A"
+        with a short note about the missing evidence; they do not invent a business reason.
+
 - description: "pr-sdlc: enforces title type constraint from config"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md"

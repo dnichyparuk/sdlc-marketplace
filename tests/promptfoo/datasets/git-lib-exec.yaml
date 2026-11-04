@@ -141,6 +141,21 @@
     - type: contains
       value: '"returnedNull": true'
 
+- description: "git-lib: exec() gives every gh call the GH_TIMEOUT_MS timeout and no other command (#9188)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
+    script_args: "--op execGhTimeoutApplied"
+    project_root: "file://fixtures-fs/project-openspec-baseline"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.expected !== 30000) return `FAIL: GH_TIMEOUT_MS ${o.expected}`;
+        if (o.ghCalls.length !== 3) return `FAIL: gh calls ${JSON.stringify(o.ghCalls)}`;
+        if (!o.ghTimeouts.every(t => t === o.expected)) return `FAIL: gh timeouts ${JSON.stringify(o.ghTimeouts)}`;
+        if (JSON.stringify(o.otherTimeouts) !== '[null]') return `FAIL: other timeouts ${JSON.stringify(o.otherTimeouts)}`;
+        return o.authenticated === true ? true : 'FAIL: probeGhAuth not authenticated';
+
 - description: "git-lib: getAllSemverTags includes pre-release tags; getTagList excludes them"
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"

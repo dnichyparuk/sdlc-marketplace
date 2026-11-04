@@ -153,10 +153,15 @@ function parseArgs(argv) {
     } else if (a === '--plan' && args[i + 1]) {
       planFile = args[++i];
     } else if (a === '--tasks' || a === '--from-wave') {
-      // R76: ship checks only that a value follows; execute-plan-sdlc validates it (execute R43).
+      // R76 (#9231): ship checks the value's form; execute-plan-sdlc validates the ids and the wave (execute R43).
       if (args[i + 1] === undefined || args[i + 1].startsWith('--')) errors.push(`${a} requires a value.`);
-      else if (a === '--tasks') tasks = args[++i];
-      else fromWave = args[++i];
+      else if (a === '--tasks') {
+        tasks = args[++i];
+        if (!/^[0-9,]+$/.test(tasks)) errors.push(`--tasks must be a comma-separated list of task ids (digits and commas only, no spaces), got "${tasks}".`);
+      } else {
+        fromWave = args[++i];
+        if (!/^[0-9]+$/.test(fromWave)) errors.push(`--from-wave must be an integer, got "${fromWave}".`);
+      }
     } else if (a === '--hook-active-pipeline') {
       hookActivePipeline = true;
     } else if (a === '--verify-pipeline') {
@@ -1041,7 +1046,7 @@ function ledgerFinished(data) {
  * Q22a / ruling w2-planreview Q1: every readable ship ledger of the branch — the same set
  * cmdInit's prune would remove (lib/state.js pruneStateFiles) — fresh or stale, any worktree.
  * Read only; sorted by file name.
- * withUnparseable (R64, plan mode only): an unparseable file is returned with unparseable: true, and a missing state dir is no ledgers.
+ * withUnparseable (R64 plan mode; R-implicit-resume normal path): an unparseable file is returned with unparseable: true, and a missing state dir is no ledgers.
  */
 function branchLedgers(branch, { withUnparseable = false } = {}) {
   const slug = slugifyBranch(branch);
@@ -2058,6 +2063,18 @@ function runAfter(stepArgs) {
     }
   }
 
+  // #9126: review_gate and rebase_conflict match the option key exactly, like execute_tier (et3):
+  // any other answer is an error and nothing is recorded (review_gate's answer gates received-review).
+  if (after === 'rebase_conflict' && !['pause', 'skip', 'merge'].includes(answer)) {
+    return fail(`rebase_conflict: unknown answer "${answer}" (expected pause, skip or merge); nothing recorded.`);
+  }
+  if (after === 'review_gate' && !flags.auto) {
+    const d = reviewGateDecision(ledger);
+    if (d.parseable && d.met && answer !== 'yes' && answer !== 'defer') {
+      return fail(`review_gate: unknown answer "${answer}" (expected yes or defer); nothing recorded.`);
+    }
+  }
+
   // 4. Record the finished step.
   const name = STEP_ID_TO_LEDGER_NAME[after];
   // W44-R3: abort leaves archive-openspec in_progress so --resume re-emits it (R-archive-sync-3).
@@ -2692,6 +2709,21 @@ function main() {
     }
   }
 
+  // R-implicit-resume (owner Q22a, #9227): init's prune must never delete a ledger file of the
+  // branch that cannot be parsed; the normal path stops before any state write, as plan mode does (R64).
+  const unparseableLedgers = branchLedgers(gitState.currentBranch, { withUnparseable: true }).filter(l => l.unparseable);
+  if (unparseableLedgers.length > 0) {
+    planMismatch = true;
+    errors.push({
+      id: 'resumePlanMismatch',
+      message:
+        'ship-sdlc will not discard a ledger file it cannot read. ' +
+        `Ship ledgers on this branch: ${unparseableLedgers.map(l => `${l.fullPath} (cannot be parsed)`).join(', ')}. ` +
+        'Fix: inspect the file and remove it by hand; ship can neither resume nor discard it. ' +
+        'Why: an unreadable ledger may hold an unfinished run, and ship never discards a run on its own.',
+    });
+  }
+
   // R-plan-commit-subject: a malformed **Commit:** header field stops prepare before any step
   // runs, so the commit step never drafts a subject nobody planned.
   let commitSubjectPattern = null;
@@ -2773,8 +2805,8 @@ function main() {
     implicitResume = true;
     flags.resume = true;
     flagSources.resume = 'implicit';
-    if (errors.length === 0) claimSession('ship', slugifyBranch(gitState.currentBranch));
-  } else if (cli.resume && resume && resume.found && errors.length === 0) {
+    if (errors.length === 0 && !flags.dryRun) claimSession('ship', slugifyBranch(gitState.currentBranch));
+  } else if (cli.resume && resume && resume.found && errors.length === 0 && !flags.dryRun) {
     claimSession('ship', slugifyBranch(gitState.currentBranch));
   }
   if (resume && resume.found && resume.worktreeMismatch && !cli.resume) {

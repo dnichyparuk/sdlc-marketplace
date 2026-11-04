@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
-# Stub `gh` binary used by tests/promptfoo/datasets/script-runner-stub-bin-exec.yaml
-# to verify that the script-runner provider's `script_stub_bin` var prepends a
-# fixture's bin/ dir to PATH, intercepting external CLI lookups.
+# Stub `gh` binary (fixtures-fs/stub-bin-gh), put first on PATH by the script-runner
+# provider's `script_stub_bin` var.
+# - ship-prepare-exec.yaml (#9188): answers the calls ship.js prepare makes, so no case
+#   reaches a live gh: `gh auth status` (logged in), `gh auth status --json hosts`,
+#   `gh api user --jq .login` and `gh api repos/<owner>/<repo> -i` (HTTP 200).
+# - script-runner-stub-bin-exec.yaml: every other call prints "STUB-GH-INVOKED <args>"
+#   and exits 0.
+case "$1 $2" in
+  "auth status")
+    if [[ " $* " == *" --json "* ]]; then
+      echo '{"hosts":{"github.com":[{"state":"success","active":true,"host":"github.com","login":"stub-user","tokenSource":"keyring","gitProtocol":"https"}]}}'
+    else
+      echo "github.com"
+      echo "  - Logged in to github.com account stub-user (keyring)"
+    fi
+    exit 0;;
+  "api user")
+    echo "stub-user"
+    exit 0;;
+esac
+if [[ "$1" == "api" && "$2" == repos/* && " $* " == *" -i "* ]]; then
+  echo "HTTP/2 200"
+  exit 0
+fi
 echo "STUB-GH-INVOKED $@"
 exit 0

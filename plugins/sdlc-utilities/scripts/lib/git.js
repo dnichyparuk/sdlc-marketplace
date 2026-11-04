@@ -22,6 +22,9 @@ const { execSync, spawnSync } = require('node:child_process');
 // ---------------------------------------------------------------------------
 
 const MAX_BUFFER = 50 * 1024 * 1024; // 50 MB
+// #9188: a `gh` call that never answers must not hang a prepare script. Applies to every
+// exec() command that starts with `gh `; an explicit opts.timeout wins. Tuning value, not contract.
+const GH_TIMEOUT_MS = 30 * 1000;
 
 /**
  * Run a shell command and return trimmed stdout, or null on failure.
@@ -39,7 +42,8 @@ function exec(cmd, opts = {}) {
   // The limit actually enforced for this call — opts.maxBuffer overrides the default.
   const effectiveMaxBuffer = execOpts.maxBuffer ?? MAX_BUFFER;
   try {
-    return execSync(cmd, { encoding: 'utf8', maxBuffer: MAX_BUFFER, ...execOpts }).trim();
+    const ghTimeout = /^gh\s/.test(cmd) ? { timeout: GH_TIMEOUT_MS } : {};
+    return execSync(cmd, { encoding: 'utf8', maxBuffer: MAX_BUFFER, ...ghTimeout, ...execOpts }).trim();
   } catch (err) {
     const isBufferOverflow = err.code === 'ENOBUFS'
       || err.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
@@ -1359,6 +1363,7 @@ function fetchPrReviewThreads(owner, repo, prNumber) {
 module.exports = {
   // Core
   exec,
+  GH_TIMEOUT_MS,
   retryExec,
   // Shared
   checkGitState,

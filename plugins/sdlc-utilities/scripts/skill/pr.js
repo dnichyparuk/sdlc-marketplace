@@ -605,7 +605,7 @@ function main() {
 // ---------------------------------------------------------------------------
 
 /**
- * Read the proposed PR body from stdin and validate every embedded URL via
+ * Read the proposed PR body from --file <path> (or stdin with --file -) and validate every embedded URL via
  * `lib/links.js`. The expected GitHub repo identity is derived deterministically
  * from `parseRemoteOwner(projectRoot)` — the SKILL.md never constructs ctx.
  *
@@ -618,12 +618,20 @@ async function validateBodyMode(argv) {
   const projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/
   const wantJson = argv.includes('--json');
   const fileIdx = argv.indexOf('--file');
+  const fileArg = fileIdx !== -1 ? argv[fileIdx + 1] : undefined;
+  // #9205: stdin is read only on an explicit `--file -`; an open pipe that never closes must not hang the call.
+  if (!fileArg || (fileArg !== '-' && fileArg.startsWith('--'))) {
+    process.stderr.write('pr.js --validate-body requires --file <path>, or --file - to read the body from stdin. ' +
+      'Fix: write the PR body to a file and pass --file <path>. ' +
+      'Why: without --file the call would wait on stdin, and a pipe that never closes hangs it.\n');
+    process.exit(2);
+  }
   let body = '';
-  if (fileIdx !== -1 && argv[fileIdx + 1]) {
-    body = fs.readFileSync(argv[fileIdx + 1], 'utf8');
-  } else {
+  if (fileArg === '-') {
     process.stdin.setEncoding('utf8');
     for await (const chunk of process.stdin) body += chunk;
+  } else {
+    body = fs.readFileSync(fileArg, 'utf8');
   }
 
   const expectedRepo = parseRemoteOwner(projectRoot);

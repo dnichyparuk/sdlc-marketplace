@@ -290,7 +290,7 @@ Refactor login logic
 | Git commit | A new commit on the current branch, or an amended HEAD commit when `--amend` is passed |
 | Git stash (temporary) | Created from unstaged tracked-file changes before the commit and immediately popped after — not a permanent stash entry |
 | `.sdlc/execution/commit-<slug>-<ts>.json` | Persistent prepare manifest (success path) containing the staged file list, full staged diff, branch metadata, and flags. Survives across Bash invocations to support cross-shell consumers. Error-path manifests instead go to `os.tmpdir()` via `writeOutput`. |
-| `.sdlc/execution/commit-<slug>-<ts>.msg` | The commit message file, written with a quoted heredoc and read by the subject gate, the link check and `git commit -F`. `skill/commit.js` deletes this branch's earlier `.msg` files on its next run. A deleted branch's last `.msg` file is not collected. |
+| `.sdlc/execution/commit-<slug>-<ts>.msg` | The commit message file, written with the skill's Write tool and read by the subject gate, the link check and `git commit -F`. `skill/commit.js` deletes this branch's earlier `.msg` files on its next run. A deleted branch's last `.msg` file is not collected. |
 
 > **Note:** `.sdlc/execution/commit-*.json` files include the full staged diff content. The repo-level `.sdlc/.gitignore` excludes everything under `.sdlc/` except `config.json` and `review-dimensions/`, so these files are not tracked by git — but be aware that the diff sits on disk under the success-path manifest until the next prune-on-write or `--gc` cycle. Do not share or copy `.sdlc/execution/` contents if a stage may have included credentials.
 

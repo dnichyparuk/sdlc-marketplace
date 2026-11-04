@@ -5,6 +5,7 @@
 
 - description: "ship-prepare: .sdlc/.gitignore inner pattern sets sdlcGitignored true"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -17,6 +18,7 @@
 # are each rejected as removed flags. Workspace is derived, never selected.
 - description: "ship-prepare: --workspace is rejected as a removed flag"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --workspace branch"
     script_cwd: "{{project_root}}"
@@ -29,6 +31,7 @@
 
 - description: "ship-prepare: --branch is rejected as a removed flag"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --branch"
     script_cwd: "{{project_root}}"
@@ -39,6 +42,7 @@
 
 - description: "ship-prepare: --tree is rejected as a removed flag"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --tree"
     script_cwd: "{{project_root}}"
@@ -54,6 +58,7 @@
 
 - description: "ship-prepare: --preset is hard-rejected with migration pointer (#190)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --preset balanced"
     script_cwd: "{{project_root}}"
@@ -66,6 +71,7 @@
 
 - description: "ship-prepare: --skip is hard-rejected with migration pointer (#190)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --skip version"
     script_cwd: "{{project_root}}"
@@ -78,6 +84,7 @@
 
 - description: "ship-prepare: config with legacy preset still auto-migrates to v2 steps[]"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -96,6 +103,7 @@
 
 - description: "ship-prepare: --bump with version excluded from --steps produces error"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --bump minor --steps execute,commit,review,archive-openspec,pr"
     script_cwd: "{{project_root}}"
@@ -110,6 +118,7 @@
 
 - description: "ship-state: cleanup rejects state with pending steps"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/state/ship.js"
     script_args: "cleanup"
     script_cwd: "{{project_root}}"
@@ -126,6 +135,7 @@
 
 - description: "ship-state: cleanup succeeds when all steps are terminal"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/state/ship.js"
     script_args: "cleanup"
     script_cwd: "{{project_root}}"
@@ -140,6 +150,7 @@
 
 - description: "ship-prepare: computeSteps includes model field per step"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -160,6 +171,7 @@
 
 - description: "ship-prepare: rejects unrecognized step values in --steps"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps execute,reviw,pr"
     script_cwd: "{{project_root}}"
@@ -172,6 +184,7 @@
 
 - description: "ship-prepare: BUILT_IN_DEFAULTS resolve to balanced steps (no version) when no config exists"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -196,6 +209,7 @@
 # #9225 / R75: ship.rebase true in config maps to auto, source config.
 - description: "ship-prepare (R75): config ship.rebase true resolves auto with source config"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,path,js)=>(fs.mkdirSync(path.join(process.cwd(),".sdlc"),{recursive:true}),fs.writeFileSync(path.join(process.cwd(),".sdlc","local.json"),JSON.stringify({ship:{rebase:true}})),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--has-plan","--plan","plan-a.md"],{cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -210,6 +224,7 @@
 
 - description: "ship-prepare (R75): --rebase auto resolves auto with source cli"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --rebase auto"
     script_cwd: "{{project_root}}"
@@ -222,6 +237,7 @@
 
 - description: "ship-prepare (R75): the default rebase skip is written into the ledger the step emitter reads"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,js)=>(fs.writeFileSync("plan-a.md","#\x20A\n\n###\x20Task\x201:\x20A\n"),((r)=>((out)=>console.log(JSON.stringify({status:r.status,out:out,ledger:JSON.parse(fs.readFileSync(out.state_file,"utf8"))})))(JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))))(cp.spawnSync("node",[js,"--has-plan","--plan","plan-a.md"],{cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -238,6 +254,7 @@
 
 - description: "ship-prepare: openspec present emits openspecAuthoritative with path and specsCount"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -254,6 +271,7 @@
 
 - description: "ship-prepare: no openspec emits null openspecAuthoritative"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -268,6 +286,7 @@
 
 - description: "ship-prepare: archive-openspec step appears between version and pr"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -283,6 +302,7 @@
 
 - description: "ship-prepare: --openspec-change triggers conditional archive-openspec step"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --openspec-change add-auth"
     script_cwd: "{{project_root}}"
@@ -297,6 +317,7 @@
 
 - description: "ship-prepare: archive-openspec skipped when change already archived"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --openspec-change add-auth"
     script_cwd: "{{project_root}}"
@@ -309,6 +330,7 @@
 
 - description: "ship-prepare: --steps without archive-openspec marks step as skipped"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps execute,commit,review,version,pr --openspec-change add-auth"
     script_cwd: "{{project_root}}"
@@ -321,6 +343,7 @@
 
 - description: "ship-prepare: VALID_STEPS includes archive-openspec"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps execute,archive-openspec"
     script_cwd: "{{project_root}}"
@@ -333,6 +356,7 @@
 
 - description: "ship-prepare: verify-openspec step appears between version and archive-openspec"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps execute,commit,review,version,verify-openspec,archive-openspec,pr --openspec-change add-auth"
     script_cwd: "{{project_root}}"
@@ -348,6 +372,7 @@
 
 - description: "ship-prepare: verify-openspec will_run when configured + matched change"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps execute,commit,review,version,verify-openspec,archive-openspec,pr --openspec-change add-auth"
     script_cwd: "{{project_root}}"
@@ -360,6 +385,7 @@
 
 - description: "ship-prepare: verify-openspec skipped when absent from --steps"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps execute,commit,review,version,archive-openspec,pr --openspec-change add-auth"
     script_cwd: "{{project_root}}"
@@ -372,6 +398,7 @@
 
 - description: "ship-prepare: VALID_STEPS includes verify-openspec"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps execute,verify-openspec"
     script_cwd: "{{project_root}}"
@@ -382,6 +409,7 @@
 
 - description: "ship-prepare: BUILT_IN_DEFAULTS do not include verify-openspec (opt-in only)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -400,6 +428,7 @@
 
 - description: "ship-prepare: legacy preset:balanced + skip:[] migrates to steps without version"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -414,6 +443,7 @@
 
 - description: "ship-prepare: legacy preset:minimal + skip:[pr] migrates to [execute, commit]"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -426,6 +456,7 @@
 
 - description: "ship-prepare: legacy preset:full migrates to all six canonical steps"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -439,6 +470,7 @@
 
 - description: "ship-prepare: legacy A/B/C preset codes resolve to canonical equivalents (B → balanced)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -452,6 +484,7 @@
 
 - description: "ship-prepare: already-migrated v2 config passes through unchanged"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -465,6 +498,7 @@
 
 - description: "ship-prepare: CLI --steps fully overrides config (#190)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps execute,commit,pr"
     script_cwd: "{{project_root}}"
@@ -482,6 +516,7 @@
 
 - description: "ship-prepare: #190 repro — config steps without `version` produces version: skipped"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -501,6 +536,7 @@
 
 - description: "ship-prepare: --quality balanced is forwarded to execute step args"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --quality balanced"
     script_cwd: "{{project_root}}"
@@ -516,6 +552,7 @@
 
 - description: "ship-prepare: no --quality means no quality forwarded to execute"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -533,6 +570,7 @@
 
 - description: "ship-prepare: --auto sets pause false for received-review and version"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -547,6 +585,7 @@
 
 - description: "ship-prepare: without --auto received-review and version pause"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -565,6 +604,7 @@
 
 - description: "ship-prepare: SDLC_SKIP_CONFIG_CHECK=1 short-circuits migration"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --plan plan.md"
     script_cwd: "{{project_root}}"
@@ -576,6 +616,7 @@
 
 - description: "ship-prepare: --skip-config-check CLI gate"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --skip-config-check --plan plan.md"
     script_cwd: "{{project_root}}"
@@ -586,6 +627,7 @@
 
 - description: "ship-prepare: without SDLC_SKIP_CONFIG_CHECK the same fixture migrates"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --plan plan.md"
     script_cwd: "{{project_root}}"
@@ -598,6 +640,7 @@
 
 - description: "ship-prepare: config reviewThreshold=low flows through prepare (#275)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -608,6 +651,7 @@
 
 - description: "ship-prepare: config reviewThreshold=medium flows through prepare (#275)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -618,6 +662,7 @@
 
 - description: "ship-prepare: source tracks reviewThreshold=low as config (#275)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -635,6 +680,7 @@
 
 - description: "ship-prepare: v4 config with verify-pipeline + await-remote-review in steps[] -> will_run"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -651,6 +697,7 @@
 
 - description: "ship-prepare: v4 BUILT_IN_DEFAULTS (verify-pipeline excluded) -> skipped with not in steps[]"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -665,6 +712,7 @@
 
 - description: "ship-prepare: v4 await-remote-review with pr excluded -> skipped (condition)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -681,6 +729,7 @@
 
 - description: "ship-prepare: v3 boolean config auto-migrates to v4 with steps + renamed keys"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -711,6 +760,7 @@
 
 - description: "ship-prepare: --verify-pipeline CLI flag is hard-rejected with migration pointer"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --verify-pipeline"
     script_cwd: "{{project_root}}"
@@ -729,6 +779,7 @@
 
 - description: "ship-prepare (issue #292): empty cfg.ship resolves verifyPipelineTimeout=1200 from BUILT_IN_DEFAULTS"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -753,6 +804,7 @@
 
 - description: "ship-prepare: flags output carries no execute tunables (W5.2)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -765,6 +817,7 @@
 
 - description: "ship-prepare: execute step args carry only --plan, --auto and --quality (W5.2)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto --quality balanced"
     script_cwd: "{{project_root}}"
@@ -779,6 +832,7 @@
 # #9208 / R76: --tasks and --from-wave are forwarded raw, to the execute step args only.
 - description: "ship-prepare (R76): --tasks and --from-wave are forwarded raw to the execute step args only"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --quality balanced --tasks 3,4 --from-wave 2"
     script_cwd: "{{project_root}}"
@@ -794,6 +848,7 @@
 
 - description: "ship-prepare (R76): --tasks without a value is a prepare error"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --tasks"
     script_cwd: "{{project_root}}"
@@ -807,6 +862,7 @@
 # execute step args and the ledger file after the run.
 - description: "ship-prepare (R76): --resume does not restore --tasks from the ledger"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,flags:{planFile:path.join(process.cwd(),"plan-a.md"),openspecContext:null,sources:{},steps:["execute","commit"],tasks:"3,4"},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),flags:JSON.parse(fs.readFileSync(led,"utf8")).flags})))(cp.spawnSync("node",[js,"--resume","--has-plan","--steps","execute,commit"],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -821,12 +877,49 @@
         if (exec.args.includes('--tasks')) return `FAIL: execute args restored --tasks: ${exec.args}`;
         return 'tasks' in o.flags ? 'FAIL: ledger flags still hold tasks' : true;
 
+# #9132 / R15: --dry-run never claims the session. The ledger carries a different sessionId and a
+# paused marker, so a claim would change the bytes as well as the mtime.
+- description: "ship-prepare (R15): --dry-run --resume leaves the resumed ledger's bytes and mtime unchanged (#9132)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,sessionId:"earlier-session",paused:{at:"2026-10-27T12:00:00.000Z",reason:"fixture"},flags:{planFile:path.join(process.cwd(),"plan-a.md"),openspecContext:null,sources:{},steps:["execute","commit"]},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),fs.utimesSync(led,1767225600,1767225600),((b,m)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),sameBytes:b===fs.readFileSync(led,"utf8"),sameMtime:m===fs.statSync(led).mtimeMs})))(cp.spawnSync("node",[js,"--dry-run","--resume","--has-plan","--steps","execute,commit"],{cwd:process.cwd(),encoding:"utf8",env:Object.assign({},process.env,{CLAUDE_CODE_SESSION_ID:"w1a-9132"})})))(fs.readFileSync(led,"utf8"),fs.statSync(led).mtimeMs)))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}: ${JSON.stringify(o.out).slice(0, 300)}`;
+        if ((o.out.errors || []).length !== 0) return `FAIL: errors: ${JSON.stringify(o.out.errors)}`;
+        if (o.out.flags.dryRun !== true) return 'FAIL: flags.dryRun is not true';
+        if (!o.sameBytes) return 'FAIL: ledger bytes changed under --dry-run';
+        return o.sameMtime ? true : 'FAIL: ledger mtime changed under --dry-run';
+
+- description: "ship-prepare (R15): --dry-run with an implicit resume leaves the ledger's bytes and mtime unchanged (#9132)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,sessionId:"earlier-session",paused:{at:"2026-10-27T12:00:00.000Z",reason:"fixture"},flags:{planFile:path.join(process.cwd(),"plan-a.md"),openspecContext:null,sources:{},steps:["execute","commit"]},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),((b,m)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),sameBytes:b===fs.readFileSync(led,"utf8"),sameMtime:m===fs.statSync(led).mtimeMs})))(cp.spawnSync("node",[js,"--dry-run","--has-plan","--plan",path.join(process.cwd(),"plan-a.md"),"--steps","execute,commit"],{cwd:process.cwd(),encoding:"utf8",env:Object.assign({},process.env,{CLAUDE_CODE_SESSION_ID:"w1a-9132"})})))(fs.readFileSync(led,"utf8"),fs.statSync(led).mtimeMs)))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}: ${JSON.stringify(o.out).slice(0, 300)}`;
+        if ((o.out.errors || []).length !== 0) return `FAIL: errors: ${JSON.stringify(o.out.errors)}`;
+        if (o.out.flags.implicitResume !== true) return 'FAIL: flags.implicitResume is not true';
+        if (!o.sameBytes) return 'FAIL: ledger bytes changed under --dry-run';
+        return o.sameMtime ? true : 'FAIL: ledger mtime changed under --dry-run';
+
 # ---------------------------------------------------------------------------
 # Issue #337 — Per-step isolation field (agent dispatch worktree isolation)
 # ---------------------------------------------------------------------------
 
 - description: "ship-prepare: computeSteps includes isolation field null on all steps"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -841,6 +934,7 @@
 
 - description: "ship-prepare: cleanup step has isolation null"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -906,6 +1000,7 @@
 # worktree-mode auto-skip. When version is in the resolved steps, it is will_run.
 - description: "ship-prepare: version step will_run when in --steps (no worktree-mode skip, #378)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps execute,commit,version,pr"
     script_cwd: "{{project_root}}"
@@ -924,6 +1019,7 @@
 
 - description: "ship-prepare (issue #366): execute step has dispatchMode=agent"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -937,6 +1033,7 @@
 
 - description: "ship-prepare (issue #366): all sub-skill steps (execute, commit, review, received-review, commit-fixes, version, pr) have dispatchMode=agent"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -953,6 +1050,7 @@
 
 - description: "ship-prepare (issue #353): inline-Bash steps (archive-openspec, learnings-commit, cleanup) all have dispatchMode=null"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -969,6 +1067,7 @@
 
 - description: "ship-prepare (issue #353): no --quality passed → execute step args is empty (no default quality synthesized)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -982,6 +1081,7 @@
 
 - description: "ship-prepare: --auto without --quality forwards no --quality to execute (Q16)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -995,6 +1095,7 @@
 
 - description: "ship-prepare (issue #353): all steps include dispatchMode field (isolation invariant extended)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -1012,6 +1113,7 @@
 
 - description: "ship-prepare: version step forwards --bump as named flag (R-bump-forward, #358)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --bump patch"
     script_cwd: "{{project_root}}"
@@ -1025,6 +1127,7 @@
 
 - description: "ship-prepare: --hook-active-pipeline with fresh state file sets flags.implicitResume=true (R-implicit-resume, #359)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --hook-active-pipeline"
     script_cwd: "{{project_root}}"
@@ -1037,6 +1140,7 @@
 
 - description: "ship-prepare: --hook-active-pipeline without state file emits implicitResumeNoState error (R-implicit-resume, #359)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --hook-active-pipeline"
     script_cwd: "{{project_root}}"
@@ -1054,6 +1158,7 @@
 
 - description: "ship-prepare: active-account-access — accessible probe passes (env=accessible)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -1069,6 +1174,7 @@
 
 - description: "ship-prepare: active-account-access — not-found halts (env=not-found)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -1084,6 +1190,7 @@
 
 - description: "ship-prepare: active-account-access — no origin remote skips probe (env unset)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -1098,6 +1205,7 @@
 
 - description: "ship-prepare: ship.execute.commitWaves=true is not forwarded to the execute step (W5.2)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -1110,6 +1218,7 @@
 
 - description: "ship-prepare: ship.execute.commitWaves=false is not forwarded to the execute step (W5.2)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -1126,6 +1235,7 @@
 
 - description: "ship-prepare: version.preRelease=rc forwarded as --bump rc when no CLI --bump (#394)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -1143,6 +1253,7 @@
 
 - description: "ship-prepare: CLI --bump major overrides version.preRelease=rc — explicit bump graduates (#394)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto --bump major"
     script_cwd: "{{project_root}}"
@@ -1160,6 +1271,7 @@
 
 - description: "ship-prepare: no version.preRelease in config — behaviour unchanged, --bump patch default (#394)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -1177,6 +1289,7 @@
 
 - description: "ship-prepare: invalid version.preRelease=RC (uppercase) — no override applied, exit 0 (#394)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     # R72 (#505): default steps include execute, so a real --plan is now required
     # to keep this unrelated (version prerelease) case error-free.
@@ -1199,6 +1312,7 @@
 
 - description: "ship-prepare: commit step.invocation includes --expected-branch (R-expected-branch-injection, #347)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -1212,6 +1326,7 @@
 
 - description: "ship-prepare: version step.invocation includes --expected-branch (R-expected-branch-injection, #348)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -1225,6 +1340,7 @@
 
 - description: "ship-prepare: pr step.invocation includes --expected-branch (R-expected-branch-injection, #349)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -1238,6 +1354,7 @@
 
 - description: "ship-prepare: context.expectedBranch field present (R-expected-branch-injection, #349)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -1258,6 +1375,7 @@
 # field that the regression mistakenly read.
 - description: "ship-prepare (#451): main worktree on default branch → flags.workspace === 'branch'"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -1273,6 +1391,7 @@
 
 - description: "ship-prepare (#451): main worktree on a feature branch → flags.workspace === 'continue' (re-run idempotency, no re-branch)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --auto"
     script_cwd: "{{project_root}}"
@@ -1288,6 +1407,7 @@
 
 - description: "ship-prepare (#451): linked worktree → flags.workspace === 'continue'"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}/worktrees/wt1"
@@ -1301,6 +1421,7 @@
 
 - description: "ship-prepare: --plan-mode-blocked --bump patch writes ship state file with resolved flags (#400)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--plan-mode-blocked --bump patch --has-plan"
     script_cwd: "{{project_root}}"
@@ -1321,6 +1442,7 @@
 
 - description: "ship-prepare: --plan-mode-blocked --steps csv → state file flags.steps preserved (#400)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--plan-mode-blocked --steps execute,commit,version,pr --has-plan"
     script_cwd: "{{project_root}}"
@@ -1332,6 +1454,7 @@
 
 - description: "ship-prepare: state file from plan-mode-blocked is found by resume detection on next invocation (#400)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -1351,6 +1474,7 @@
 
 - description: "ship-prepare (R64): --plan-mode-blocked twice adopts its own ledger — same stateFile, bytes unchanged, one file"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,js)=>((run)=>((a)=>((x,b)=>console.log(JSON.stringify({status:a.status+b.status,stateFile:b.sf,same:a.sf===b.sf,unchanged:fs.readFileSync(b.sf,"utf8")===x})))(fs.readFileSync(a.sf,"utf8"),run()))(run()))(()=>((r)=>({status:r.status,sf:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")).stateFile}))(cp.spawnSync("node",[js,"--plan-mode-blocked","--bump","patch","--has-plan"],{cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -1368,6 +1492,7 @@
 
 - description: "ship-prepare: --gc wins when combined with --plan-mode-blocked — gc output, no planModeBlocked field (#400)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--plan-mode-blocked --gc --has-plan"
     script_cwd: "{{project_root}}"
@@ -1384,6 +1509,7 @@
 # so another plan's unfinished ledger is never pruned. The case seeds the ledger itself.
 - description: "ship-prepare (R64): --plan-mode-blocked with a different plan on an unfinished ledger is refused and the ledger is unchanged"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(path.join(process.cwd(),"plan-b.md"),"#\x20B\n\n###\x20Task\x201:\x20B\n"),fs.writeFileSync(led,JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,flags:{planFile:path.join(process.cwd(),"plan-a.md"),openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,unchanged:fs.existsSync(led)&&fs.readFileSync(led,"utf8")===before,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f))})))(fs.readFileSync(led,"utf8"),cp.spawnSync("node",[js,"--plan-mode-blocked","--has-plan","--plan",path.join(process.cwd(),"plan-b.md")],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -1406,6 +1532,7 @@
 # an unfinished ledger of the branch recorded a planFile. The case seeds the ledger itself.
 - description: "ship-prepare (R64): --plan-mode-blocked without --plan on an unfinished planned ledger is refused and the ledger is unchanged"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,flags:{planFile:path.join(process.cwd(),"plan-a.md"),openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,unchanged:fs.existsSync(led)&&fs.readFileSync(led,"utf8")===before,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f))})))(fs.readFileSync(led,"utf8"),cp.spawnSync("node",[js,"--plan-mode-blocked","--has-plan"],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -1417,6 +1544,7 @@
 
 - description: "ship-prepare (R64): --plan-mode-blocked adopts an unfinished ledger of the same plan and leaves it unchanged"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,flags:{planFile:path.join(process.cwd(),"plan-a.md"),openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,led:led,unchanged:fs.existsSync(led)&&fs.readFileSync(led,"utf8")===before,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f))})))(fs.readFileSync(led,"utf8"),cp.spawnSync("node",[js,"--plan-mode-blocked","--has-plan","--plan",path.join(process.cwd(),"plan-a.md")],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -1434,6 +1562,7 @@
 
 - description: "ship-prepare (R64): --plan-mode-blocked stops on an unfinished ledger that records no plan and leaves it unchanged"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,path,js)=>((led)=>((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,unchanged:fs.existsSync(led)&&fs.readFileSync(led,"utf8")===before,files:fs.readdirSync(path.dirname(led)).filter(f=>/^ship-/.test(f))})))(fs.readFileSync(led,"utf8"),cp.spawnSync("node",[js,"--plan-mode-blocked","--bump","patch","--has-plan"],{cwd:process.cwd(),encoding:"utf8"})))(path.join(process.cwd(),".sdlc","execution","ship-feat-test-plan-mode-20240101T000000Z.json")))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -1455,6 +1584,7 @@
 
 - description: "ship-prepare (R64): --plan-mode-blocked stops on a ledger file that cannot be parsed and leaves it unchanged"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,"{not-json"),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,led:led,unchanged:fs.existsSync(led)&&fs.readFileSync(led,"utf8")===before,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f))})))(fs.readFileSync(led,"utf8"),cp.spawnSync("node",[js,"--plan-mode-blocked","--has-plan"],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -1472,6 +1602,7 @@
 
 - description: "ship-prepare (R64): --plan-mode-blocked stops on two unfinished plan-mode ledgers and names both"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json"),JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,flags:{planModeBlocked:true},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),fs.writeFileSync(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T130000Z.json"),JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,flags:{planModeBlocked:true},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}]})),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,led:led,unchanged:fs.existsSync(led)&&fs.readdirSync(dir).filter(f=>/^ship-/.test(f)).every(f=>fs.readFileSync(path.join(dir,f),"utf8")===before)&&fs.readdirSync(dir).filter(f=>/^ship-/.test(f)).length===2,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f))})))(((x)=>x)(fs.readFileSync(led,"utf8")),cp.spawnSync("node",[js,"--plan-mode-blocked","--has-plan"],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -1489,6 +1620,7 @@
 
 - description: "ship-prepare (R64): --plan-mode-blocked replaces a finished ledger by init as before"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,path,js)=>((dir,br)=>((led)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(path.join(process.cwd(),"plan-a.md"),"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:br,flags:{planModeBlocked:true},steps:[{name:"execute",status:"completed"},{name:"commit",status:"completed"}]})),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,led:led,unchanged:fs.existsSync(led)&&fs.readFileSync(led,"utf8")===before,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f))})))(fs.readFileSync(led,"utf8"),cp.spawnSync("node",[js,"--plan-mode-blocked","--has-plan"],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -1504,6 +1636,7 @@
 
 - description: "ship-prepare: --gc orphan sweep includes commit bucket alongside ship/execute/plan (#399/#400)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--gc"
     script_cwd: "{{project_root}}"
@@ -1530,6 +1663,7 @@
 
 - description: "ship-prepare: --quick resolves ship.quick into steps with sources.steps === 'quick'"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     # R72 (#505): ship.quick resolves to steps including execute, so a real
     # --plan is now required to keep this quick-resolution case error-free.
@@ -1552,6 +1686,7 @@
 
 - description: "ship-prepare: --quick + --steps together produces R-quick-5 error"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     # R72 (#505): --steps execute,commit resolves execute to will_run, so a real
     # --plan is required to isolate this assertion to the single R-quick-5 error
@@ -1570,6 +1705,7 @@
 
 - description: "ship-prepare: --quick with no ship.quick configured produces R-quick-6 error"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --quick"
     script_cwd: "{{project_root}}"
@@ -1584,6 +1720,7 @@
 
 - description: "ship-prepare: --quick provenance — canonical steps absent from ship.quick carry skipSource 'quick'"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --quick"
     script_cwd: "{{project_root}}"
@@ -1606,6 +1743,7 @@
 
 - description: "ship-prepare: --gc sweeps stale sdlc-explore-* tempdirs; fresh dir kept; exploreTempdirs bucket present (#408)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/test-ship-gc-explore-tempdirs.js"
     script_args: "--project-root {{project_root}}"
     project_root: "file://fixtures-fs/project-ship-gc-explore-tempdirs"
@@ -1632,6 +1770,7 @@
 
 - description: "ship-prepare (R-PLANFILE): --plan sets context.planFile to absolute path"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
     script_cwd: "{{project_root}}"
@@ -1647,6 +1786,7 @@
 
 - description: "ship-prepare (R-PLANFILE): --plan injected into execute step args"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
     script_cwd: "{{project_root}}"
@@ -1663,6 +1803,7 @@
 
 - description: "ship-prepare (R72): no --plan with execute in resolved steps hard-errors with structured missingPlanFile {id,message} before any state write"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -1687,6 +1828,7 @@
 
 - description: "ship-prepare (R72): --plan path that does not exist on disk hard-errors with planFileNotFound"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps commit --plan {{project_root}}/does-not-exist.md"
     script_cwd: "{{project_root}}"
@@ -1705,6 +1847,7 @@
 
 - description: "ship-prepare (R72): --plan path with non-.md extension hard-errors with planFileNotMarkdown"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --steps commit --plan {{project_root}}/src/index.js"
     script_cwd: "{{project_root}}"
@@ -1723,6 +1866,7 @@
 
 - description: "ship-prepare (R72): fatal errors are mirrored to stderr, not only a temp-file path"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -1734,6 +1878,7 @@
 
 - description: "ship-prepare (R72/C19, #505): configured plansDirectory decoy is ignored — context.planFile stays null with no --plan (autodiscovery removed)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--steps commit"
     script_cwd: "{{project_root}}"
@@ -1760,6 +1905,7 @@
 # 1. begin-step marks the execute step in_progress AND prints todos JSON.
 - description: "ship begin-step (R69): marks execute step in_progress and prints todos JSON"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario begin"
     script_cwd: "{{project_root}}"
@@ -1780,6 +1926,7 @@
 # 2. complete-step marks the execute step completed (after begin-step) and prints todos JSON.
 - description: "ship complete-step (R69): marks execute step completed and prints todos JSON"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario begin-then-complete"
     script_cwd: "{{project_root}}"
@@ -1797,6 +1944,7 @@
 # 3. begin-step idempotency — double-call does not corrupt state (still in_progress, both exit 0).
 - description: "ship begin-step (R69): double-call is idempotent (no corruption)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario begin-twice"
     script_cwd: "{{project_root}}"
@@ -1813,6 +1961,7 @@
 # 4. begin-step unknown step name → exits non-zero with informative stderr.
 - description: "ship begin-step (R69): unknown step name exits non-zero with error"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step nonexistent --scenario begin-unknown"
     script_cwd: "{{project_root}}"
@@ -1828,6 +1977,7 @@
 # 5. complete-step unknown step name → exits non-zero with informative stderr.
 - description: "ship complete-step (R69): unknown step name exits non-zero with error"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step nonexistent --scenario complete-unknown"
     script_cwd: "{{project_root}}"
@@ -1843,6 +1993,7 @@
 # 6. complete-step on a never-begun (pending) step → handled gracefully (no corruption / no crash).
 - description: "ship complete-step (R69): completing a pending step does not corrupt state"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step commit --scenario complete-pending"
     script_cwd: "{{project_root}}"
@@ -1865,6 +2016,7 @@
 # the linked tree's openspec change via contentRoot, not main's empty state via projectRoot.
 - description: "ship-prepare (#457): linked-worktree — openspec detection uses active worktree"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--output-file"
     script_cwd: "{{project_root}}/worktrees/wt1"
@@ -1881,6 +2033,7 @@
 # whose setup.sh produces semver tags v1.0.0 and v1.0.1 on main.
 - description: "ship verify-side-effect (R-b3): version tag present → landed:true"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "verify-side-effect --step version --expected v1.0.0"
     script_cwd: "{{project_root}}"
@@ -1897,6 +2050,7 @@
 
 - description: "ship verify-side-effect (R-b3): version tag absent → landed:false"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "verify-side-effect --step version --expected v99.99.99"
     script_cwd: "{{project_root}}"
@@ -1910,6 +2064,7 @@
 # No --expected (version-sdlc produced no tag) is itself the #478 failure mode → landed:false.
 - description: "ship verify-side-effect (R-b3): version with no expected tag → landed:false"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "verify-side-effect --step version"
     script_cwd: "{{project_root}}"
@@ -1923,6 +2078,7 @@
 # Steps without a defined side-effect emit a uniform pass-through (exit 0) so callers need no branch.
 - description: "ship verify-side-effect (R-b3): step without side-effect → no-side-effect pass-through"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "verify-side-effect --step review"
     script_cwd: "{{project_root}}"
@@ -1937,6 +2093,7 @@
 # so a wrapper resolves HEAD of the generated verify-tag-ancestry repo; the pr cases use a stub gh.
 - description: "verify-side-effect: commit with the HEAD sha → landed:true"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-verify-side-effect-commit.js"
     script_args: ""
     script_cwd: "{{project_root}}"
@@ -1951,6 +2108,7 @@
 
 - description: "verify-side-effect: commit with a short HEAD sha → landed:true"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-verify-side-effect-commit.js"
     script_args: "--short"
     script_cwd: "{{project_root}}"
@@ -1961,6 +2119,7 @@
 
 - description: "verify-side-effect: commit with an unknown sha → landed:false"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "verify-side-effect --step commit --expected deadbeef"
     script_cwd: "{{project_root}}"
@@ -2002,6 +2161,7 @@
 
 - description: "ship complete-step (usage): --usage persisted on the step"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-with-usage"
     script_cwd: "{{project_root}}"
@@ -2018,6 +2178,7 @@
 
 - description: "ship complete-step (usage): invalid --usage exits 2"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-bad-usage"
     script_cwd: "{{project_root}}"
@@ -2033,6 +2194,7 @@
 
 - description: "ship complete-step (usage): self-report does not replace a subagent-stop value"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-usage-guard"
     script_cwd: "{{project_root}}"
@@ -2047,6 +2209,7 @@
 
 - description: "ship complete-step (usage): a subagent-stop value replaces an earlier self-report"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
     script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-usage-guard-reverse"
     script_cwd: "{{project_root}}"
@@ -2063,6 +2226,7 @@
 # a warning and resume.capExhausted; the ledger is not modified.
 - description: "ship-prepare: stop-hook cap-exhausted sidecar surfaces a stalled-step warning and resume.capExhausted (R-cap-recovery)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan"
     script_cwd: "{{project_root}}"
@@ -2089,6 +2253,7 @@
 
 - description: "ship-step: (a) initial call emits a confirm_pipeline step beside the prepare keys"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario initial --plan plan.md"
     script_cwd: "{{project_root}}"
@@ -2112,6 +2277,7 @@
 
 - description: "ship-step: (f) fresh initial call creates the ledger with frozen planFile/openspecContext/sources and empty history"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario initial --plan plan.md"
     script_cwd: "{{project_root}}"
@@ -2138,6 +2304,7 @@
 
 - description: "ship-step: (g) resumed legacy ledger gets the frozen keys filled once; a second call leaves them unchanged"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario legacy-twice --plan plan.md --seed legacy"
     script_cwd: "{{project_root}}"
@@ -2160,6 +2327,7 @@
 
 - description: "ship-step: (i) --dry-run initial call emits confirm_pipeline with null llm_decision and creates no ledger"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario initial-dry-run --plan plan.md"
     script_cwd: "{{project_root}}"
@@ -2179,6 +2347,7 @@
 
 - description: "ship-step: (b) --after confirm_pipeline with yes emits branch_prepare or dispatch_execute"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen --result results/yes.json --quality balanced"
     script_cwd: "{{project_root}}"
@@ -2195,6 +2364,7 @@
 
 - description: "ship-step: (m) worktree/continue ledger skips branch_prepare after confirm_pipeline"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen --result results/yes.json --quality balanced"
     script_cwd: "{{project_root}}"
@@ -2212,6 +2382,7 @@
 
 - description: "ship-step: (j) --after confirm_pipeline with edit and nothing run deletes the ledger"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario edit-cancel --seed frozen --result results/edit.json"
     script_cwd: "{{project_root}}"
@@ -2229,6 +2400,7 @@
 
 - description: "ship-step: (j) --after confirm_pipeline with cancel and nothing run deletes the ledger"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario edit-cancel --seed frozen --result results/cancel.json"
     script_cwd: "{{project_root}}"
@@ -2244,6 +2416,7 @@
 
 - description: "ship-step: (j) --after confirm_pipeline on a dry-run ledger returns done without touching the ledger"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen-dryrun --result results/yes.json"
     script_cwd: "{{project_root}}"
@@ -2261,6 +2434,7 @@
 
 - description: "ship-step: (c) --after dispatch_commit records commit completed and emits dispatch_review"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-commit-ok --seed frozen --result results/commit-ok.json"
     script_cwd: "{{project_root}}"
@@ -2279,6 +2453,7 @@
 
 - description: "ship-step: (d) --after dispatch_commit with success:false returns error and records commit failed"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-commit-fail --seed frozen --result results/commit-fail.json"
     script_cwd: "{{project_root}}"
@@ -2296,6 +2471,7 @@
 
 - description: "ship-step: (w46) --after dispatch_commit whose reported commit is not HEAD returns error and records commit failed"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-commit-fail --seed frozen --result results/commit-wrong-sha.json"
     script_cwd: "{{project_root}}"
@@ -2312,6 +2488,7 @@
 
 - description: "ship-step: (w46) --after dispatch_pr whose URL gh confirms records pr completed"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-pr --seed frozen --result results/pr-ok.json --gh-pr-url https://example/pr/1"
     script_cwd: "{{project_root}}"
@@ -2327,6 +2504,7 @@
 
 - description: "ship-step: (w46) --after dispatch_pr whose URL gh cannot confirm returns error and records pr failed"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-pr --seed frozen --result results/pr-ok.json"
     script_cwd: "{{project_root}}"
@@ -2343,6 +2521,7 @@
 
 - description: "ship-step: (l) --after dispatch_version with a tag missing from git returns error and records version failed"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-version-no-tag --seed frozen --result results/version-tag-missing.json"
     script_cwd: "{{project_root}}"
@@ -2359,6 +2538,7 @@
 
 - description: "ship-step: (k) unreadable --result-file returns status error and records nothing"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-bad-result --seed frozen --result results/does-not-exist.json"
     script_cwd: "{{project_root}}"
@@ -2375,6 +2555,7 @@
 
 - description: "ship-step: (e) --after learnings_commit emits cleanup with an absolute script path; --after cleanup returns done"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-cleanup --seed frozen --result results/cleanup-ok.json"
     script_cwd: "{{project_root}}"
@@ -2395,6 +2576,7 @@
 
 - description: "ship-step: (e2) --after cleanup after the ledger is really deleted still returns the Step 6 summary (X1)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-cleanup --seed frozen --result results/cleanup-ok.json"
     script_cwd: "{{project_root}}"
@@ -2415,6 +2597,7 @@
 
 - description: "ship-step: (z) a failed dispatch step sweeps stale state files in-process and keeps the failed ledger (R38 failure path, M7)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-commit-fail-gc --seed frozen --result results/commit-fail.json"
     script_cwd: "{{project_root}}"
@@ -2433,6 +2616,7 @@
 
 - description: "ship-step: (rf2) the rebase step action tells the model to run git rebase --abort on a conflict, in every mode"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario rebase-emit --seed frozen --result results/review-approved.json --summary approved-0.json"
     script_cwd: "{{project_root}}"
@@ -2448,6 +2632,7 @@
 
 - description: "ship-step: (rf5) a failed archive_openspec result halts the pipeline with status error (R25, R-archive-sync-3)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario inline-fail-archive-openspec --seed frozen --result results/commit-fail.json"
     script_cwd: "{{project_root}}"
@@ -2464,6 +2649,7 @@
 
 - description: "ship-step: (rf5) a failed verify_pipeline result (abort) halts the pipeline with status error (R45)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario inline-fail-verify-pipeline --seed frozen --result results/commit-fail.json"
     script_cwd: "{{project_root}}"
@@ -2480,6 +2666,7 @@
 
 - description: "ship-step: (rf5) a failed learnings_commit result stays non-fatal and continues to cleanup"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario inline-fail-learnings-commit --seed frozen --result results/commit-fail.json"
     script_cwd: "{{project_root}}"
@@ -2496,6 +2683,7 @@
 
 - description: "ship-step: (e3) forced cleanup with the ledger still present leaves no summary sidecar behind (RF6)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario forced-cleanup --seed frozen"
     script_cwd: "{{project_root}}"
@@ -2513,6 +2701,7 @@
 
 - description: "ship-step: (h) --after step list equals the initial call's and progress.total never changes"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario step-list-equal"
     script_cwd: "{{project_root}}"
@@ -2539,6 +2728,7 @@
 
 - description: "ship-step: (r) --ttl-days on the initial call is frozen in flags.ttlDays and forwarded by the cleanup command"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario ttl-days"
     script_cwd: "{{project_root}}"
@@ -2556,6 +2746,7 @@
 
 - description: "ship-step: (n) branch mode migrates the ledger and patches --expected-branch"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario branch-migrate --seed frozen-branch --result results/branch-prepare-ok.json"
     script_cwd: "{{project_root}}"
@@ -2576,6 +2767,7 @@
 
 - description: "ship-step: (o) emitted dispatch step is in_progress in the ledger and a paused ledger is cleared on emit"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario emit-in-progress --seed frozen --result results/generic-ok.json"
     script_cwd: "{{project_root}}"
@@ -2595,6 +2787,7 @@
 
 - description: "ship-step: (p) resumed ledger with execute and commit completed emits dispatch_review after confirm_pipeline"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario resumed-completed --seed frozen-resumed --result results/yes.json"
     script_cwd: "{{project_root}}"
@@ -2610,6 +2803,7 @@
 
 - description: "ship-step: (q) review_gate threshold row critical — 1 critical dispatches received-review"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json"
     script_cwd: "{{project_root}}"
@@ -2627,6 +2821,7 @@
 
 - description: "ship-step: (q) review_gate threshold row high — 2 high dispatches received-review"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-high.json --summary high-2.json"
     script_cwd: "{{project_root}}"
@@ -2643,6 +2838,7 @@
 
 - description: "ship-step: (q) review_gate threshold row medium — 1 medium dispatches received-review"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-medium.json --summary medium-1.json"
     script_cwd: "{{project_root}}"
@@ -2659,6 +2855,7 @@
 
 - description: "ship-step: (q) review_gate threshold row low — 3 low findings dispatch received-review"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-low.json --summary low-3.json"
     script_cwd: "{{project_root}}"
@@ -2675,6 +2872,7 @@
 
 - description: "ship-step: (q) review_gate APPROVED verdict does not dispatch received-review"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-approved.json --summary approved-0.json"
     script_cwd: "{{project_root}}"
@@ -2691,6 +2889,7 @@
 
 - description: "ship-step: (q) review_gate below-threshold findings (2 medium, threshold high) do not dispatch"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-approved-notes.json --summary medium-2.json"
     script_cwd: "{{project_root}}"
@@ -2709,6 +2908,7 @@
 
 - description: "ship-step: (q) review_gate missing review summary dispatches received-review with a warnings line"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-unparseable.json --answer generic-ok"
     script_cwd: "{{project_root}}"
@@ -2725,6 +2925,7 @@
 
 - description: "ship-step: (s) worktree-mismatch warning drops 'Use --resume' only when init replaces the ledger"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario worktree-mismatch --plan plan.md --seed frozen"
     script_cwd: "{{project_root}}"
@@ -2750,6 +2951,7 @@
 
 - description: "ship-step: (t) --after dispatch_execute with every planned task accounted records execute completed and emits stage_changes"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --exec-seed complete --result results/execute-ok.json"
     script_cwd: "{{project_root}}"
@@ -2769,6 +2971,7 @@
 
 - description: "ship-step: (u) --after dispatch_execute with an unaccounted planned task returns error and records execute failed (R-INVARIANT-COMPLETENESS)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --exec-seed missing --result results/execute-ok.json"
     script_cwd: "{{project_root}}"
@@ -2793,6 +2996,7 @@
 
 - description: "ship-step: (u2) --after dispatch_execute with no execute state file (R5 small-plan path: no state is ever written) records execute completed and emits stage_changes"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --result results/execute-ok.json"
     script_cwd: "{{project_root}}"
@@ -2812,6 +3016,7 @@
 
 - description: "ship-step: (u4) --after dispatch_execute after the wave path's own verify and R14 cleanup records execute completed and emits stage_changes"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --exec-seed complete --exec-cleanup --result results/execute-ok.json"
     script_cwd: "{{project_root}}"
@@ -2833,6 +3038,7 @@
 
 - description: "ship-step: (u3) --after dispatch_execute with an execute state file lacking plannedTaskIds returns error with exit 2"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --exec-seed noplanned --result results/execute-ok.json"
     script_cwd: "{{project_root}}"
@@ -2851,6 +3057,7 @@
 
 - description: "ship-step: (v) resumed ledger with execute in_progress and an execute state file emits dispatch_execute with --resume"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen-exec --exec-seed complete --result results/yes.json --quality balanced"
     script_cwd: "{{project_root}}"
@@ -2869,6 +3076,7 @@
 
 - description: "ship-step: (v2) execute in_progress and no execute state file emits dispatch_execute without --resume"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen-exec --result results/yes.json --quality balanced"
     script_cwd: "{{project_root}}"
@@ -2884,6 +3092,7 @@
 
 - description: "ship-step: (v3) execute not in_progress emits dispatch_execute without --resume even when an execute state file exists (--auto)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen --exec-seed complete --result results/yes.json --auto-seed"
     script_cwd: "{{project_root}}"
@@ -2900,6 +3109,7 @@
 
 - description: "ship-step: (w) dispatch_execute carries one execute todo per plan task and the execute marker"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-confirm --seed frozen --result results/yes.json --quality balanced"
     script_cwd: "{{project_root}}"
@@ -2920,6 +3130,7 @@
 
 - description: "ship-step: (x) dispatch step data carries isolation only when computeSteps sets it"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-commit-ok --seed frozen --result results/commit-ok.json"
     script_cwd: "{{project_root}}"
@@ -2936,6 +3147,7 @@
 
 - description: "ship-step: (y) dispatch_execute on a plan with zero \"### Task N:\" headings returns error (R-SHIPTODOS-FAILLOUD)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario plan-no-tasks --seed frozen --answer yes --quality balanced"
     script_cwd: "{{project_root}}"
@@ -2956,6 +3168,7 @@
 
 - description: "ship-step: (cf1) --after stage_changes emits confirm_commit with options yes/skip/cancel"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-stage --seed frozen --quality balanced"
     script_cwd: "{{project_root}}"
@@ -2977,6 +3190,7 @@
 
 - description: "ship-step: (cf2) confirm_commit yes emits dispatch_commit with --auto args"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-stage --seed frozen --quality balanced --answer yes"
     script_cwd: "{{project_root}}"
@@ -2994,6 +3208,7 @@
 
 - description: "ship-step: (cf3) confirm_commit skip marks commit skipped with a reason and emits dispatch_review"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario after-stage --seed frozen --quality balanced --answer skip"
     script_cwd: "{{project_root}}"
@@ -3011,6 +3226,7 @@
 
 - description: "ship-step: (cf4) confirm_commit cancel returns done with reason cancel and keeps the ledger; --resume asks again"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario resume-twice --seed frozen"
     script_cwd: "{{project_root}}"
@@ -3030,6 +3246,7 @@
 
 - description: "ship-step: (cf5) confirm_pr skip marks pr, verify-pipeline and await-remote-review skipped"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario confirm-pr --seed frozen --answer skip"
     script_cwd: "{{project_root}}"
@@ -3049,6 +3266,7 @@
 
 - description: "ship-step: (cf6) review_gate yes dispatches received-review directly and its prompt names the --auto args"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json"
     script_cwd: "{{project_root}}"
@@ -3066,6 +3284,7 @@
 
 - description: "ship-step: (cf7) missing review summary (no review_gate answer) emits confirm_received_review"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-unparseable.json --answer generic-ok"
     script_cwd: "{{project_root}}"
@@ -3083,6 +3302,7 @@
 
 - description: "ship-step: (cf8) a flags.auto ledger never emits a confirm_* or execute_* decision and walks to done"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario auto-walk"
     script_cwd: "{{project_root}}"
@@ -3101,6 +3321,7 @@
 
 - description: "ship-step: (et1) interactive ledger without quality emits execute_tier; balanced is frozen and forwarded as --quality"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario tier --seed frozen"
     script_cwd: "{{project_root}}"
@@ -3119,6 +3340,7 @@
 
 - description: "ship-step: (et2) a second --after confirm_pipeline on the same ledger does not ask execute_tier again"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario tier --seed frozen --again"
     script_cwd: "{{project_root}}"
@@ -3136,6 +3358,7 @@
 
 - description: "ship-step: (et3) an unknown execute_tier answer returns error and records nothing"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario tier --seed frozen --result results/tier-bad.json"
     script_cwd: "{{project_root}}"
@@ -3155,6 +3378,7 @@
 
 - description: "ship-step: (es1) execute pending with an execute state file emits execute_state; resume forwards --resume once"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario exec-state --seed frozen --exec-seed complete --quality balanced --result results/resume.json"
     script_cwd: "{{project_root}}"
@@ -3176,6 +3400,7 @@
 
 - description: "ship-step: (es2) execute_state restart deletes only this branch's execute state file and drops --resume"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario exec-state --seed frozen --exec-seed complete --other-exec --quality balanced --result results/restart.json"
     script_cwd: "{{project_root}}"
@@ -3195,6 +3420,7 @@
 
 - description: "ship-step: (es3) after resume and dispatch_execute, a second --after confirm_pipeline emits dispatch_execute --resume without execute_state"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario exec-state --seed frozen --exec-seed complete --quality balanced --result results/resume.json --again"
     script_cwd: "{{project_root}}"
@@ -3213,6 +3439,7 @@
 
 - description: "ship-step: (pq1) a high-risk pending question from dispatch_execute on an interactive ledger emits execute_gate; execute stays in_progress"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --quality balanced --result results/execute-pending-highrisk.json --answer none"
     script_cwd: "{{project_root}}"
@@ -3234,6 +3461,7 @@
 
 - description: "ship-step: (pq2) execute_gate yes re-emits dispatch_execute with --resume --auto, each once"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --exec-seed complete --quality balanced --result results/execute-pending-highrisk.json --answer gate-yes"
     script_cwd: "{{project_root}}"
@@ -3253,6 +3481,7 @@
 
 - description: "ship-step: (pq3) execute_gate stop ends with the pending-question stop envelope and both commands"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --quality balanced --result results/execute-pending-highrisk.json --answer gate-stop"
     script_cwd: "{{project_root}}"
@@ -3274,6 +3503,7 @@
 
 - description: "ship-step: (pq7) a high-risk pending question with no options takes the stop path with both commands, not a plain failure"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --quality balanced --result results/execute-pending-noopts.json --answer none"
     script_cwd: "{{project_root}}"
@@ -3294,6 +3524,7 @@
 
 - description: "ship-step: (pq8) a free-text high-risk answer \"yes, but only task 3\" takes the stop path, never --resume --auto"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --exec-seed complete --quality balanced --result results/execute-pending-highrisk.json --answer gate-freetext"
     script_cwd: "{{project_root}}"
@@ -3316,6 +3547,7 @@
 
 - description: "ship-step: (pq4) a guardrail pending question stops directly without execute_gate"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --quality balanced --result results/execute-pending-guardrail.json --answer none"
     script_cwd: "{{project_root}}"
@@ -3336,6 +3568,7 @@
 
 - description: "ship-step: (pq5) a dispatch_commit pending question stops with only the ship-sdlc resume command"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario pending --seed frozen-resumed --commit --result results/commit-pending.json --answer none"
     script_cwd: "{{project_root}}"
@@ -3352,6 +3585,7 @@
 
 - description: "ship-step: (pq6) a dispatch_execute failure without pendingQuestion is still an error with execute failed"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --exec-seed complete --result results/commit-fail.json --answer none"
     script_cwd: "{{project_root}}"
@@ -3368,6 +3602,7 @@
 
 - description: "ship-step: (eh1) execute in_progress after a pending question with no execute state file emits execute_handoff"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario handoff --seed frozen-pending"
     script_cwd: "{{project_root}}"
@@ -3386,6 +3621,7 @@
 
 - description: "ship-step: (eh2) execute_handoff finished with no state file completes execute as user-attested and the summary carries the source"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario handoff --seed frozen-pending --result results/handoff-finished.json --walk"
     script_cwd: "{{project_root}}"
@@ -3407,6 +3643,7 @@
 
 - description: "ship-step: (eh3a) execute_handoff finished with a complete execute state file passes the completeness gate, no source"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario handoff --seed frozen-pending --exec-seed complete --late-exec --result results/handoff-finished.json"
     script_cwd: "{{project_root}}"
@@ -3426,6 +3663,7 @@
 
 - description: "ship-step: (eh3b) execute_handoff finished with a missing planned task fails execute with the completeness exit code"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario handoff --seed frozen-pending --exec-seed missing --late-exec --result results/handoff-finished.json"
     script_cwd: "{{project_root}}"
@@ -3443,6 +3681,7 @@
 
 - description: "ship-step: (eh4) execute_handoff not finished stops with both commands"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario handoff --seed frozen-pending --result results/handoff-not-finished.json"
     script_cwd: "{{project_root}}"
@@ -3462,6 +3701,7 @@
 
 - description: "ship-step: (eh5) with an execute state file present no execute_handoff is emitted; dispatch_execute resumes"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario handoff --seed frozen-pending --exec-seed complete --quality balanced"
     script_cwd: "{{project_root}}"
@@ -3478,6 +3718,7 @@
 
 - description: "ship-step: (eh6) a flags.auto ledger never emits execute_handoff"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario handoff --seed frozen-pending --auto-seed"
     script_cwd: "{{project_root}}"
@@ -3493,6 +3734,7 @@
 
 - description: "ship-step: (eh7) after execute_handoff finished, a second --after confirm_pipeline emits neither execute_handoff nor dispatch_execute"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario handoff --seed frozen-pending --result results/handoff-finished.json --again"
     script_cwd: "{{project_root}}"
@@ -3508,8 +3750,158 @@
         if (again.status === 'error') return `FAIL: error ${again.error}`;
         return true;
 
+- description: "ship-step: (ft1) a free-text confirm_commit answer is an error"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-stage --seed frozen --quality balanced --answer-text sure"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.calls.length !== 2) return `FAIL: calls ${o.calls.length}`;
+        const [first, second] = o.calls;
+        if (!first.envelope.step || first.envelope.step.id !== 'confirm_commit') return `FAIL: first ${first.envelope.status} ${first.envelope.step && first.envelope.step.id}`;
+        if (second.envelope.status !== 'error') return `FAIL: status ${second.envelope.status}`;
+        if (second.exitCode === 0) return 'FAIL: exit 0';
+        if (!/confirm_commit: unknown answer "sure"/.test(second.envelope.error)) return `FAIL: error ${second.envelope.error}`;
+        return true;
+
+- description: "ship-step: (ft2) a free-text execute_state answer is an error"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario exec-state --seed frozen --exec-seed complete --quality balanced --answer-text sure --result results/answer-text.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.calls.length !== 2) return `FAIL: calls ${o.calls.length}`;
+        const [first, second] = o.calls;
+        if (!first.envelope.step || first.envelope.step.id !== 'execute_state') return `FAIL: first ${first.envelope.status} ${first.envelope.step && first.envelope.step.id}`;
+        if (second.envelope.status !== 'error') return `FAIL: status ${second.envelope.status}`;
+        if (second.exitCode === 0) return 'FAIL: exit 0';
+        if (!/execute_state: unknown answer "sure"/.test(second.envelope.error)) return `FAIL: error ${second.envelope.error}`;
+        return true;
+
+- description: "ship-step: (ft3) a free-text execute_handoff answer is an error"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario handoff --seed frozen-pending --answer-text sure --result results/answer-text.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.calls.length !== 2) return `FAIL: calls ${o.calls.length}`;
+        const [first, second] = o.calls;
+        if (!first.envelope.step || first.envelope.step.id !== 'execute_handoff') return `FAIL: first ${first.envelope.status} ${first.envelope.step && first.envelope.step.id}`;
+        if (second.envelope.status !== 'error') return `FAIL: status ${second.envelope.status}`;
+        if (second.exitCode === 0) return 'FAIL: exit 0';
+        if (!/execute_handoff: unknown answer "sure"/.test(second.envelope.error)) return `FAIL: error ${second.envelope.error}`;
+        return true;
+
+- description: "ship-step: (ft4) a free-text review_gate answer is an error and records nothing"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json --answer-text sure"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [first, second] = o.calls;
+        if (!first.envelope.step || first.envelope.step.id !== 'review_gate' || !first.envelope.llm_decision) return `FAIL: first ${first.envelope.status} ${first.envelope.step && first.envelope.step.id} ${JSON.stringify(first.envelope.llm_decision)}`;
+        if (!second) return 'FAIL: no --after review_gate call';
+        if (second.envelope.status !== 'error') return `FAIL: status ${second.envelope.status}`;
+        if (second.exitCode === 0) return 'FAIL: exit 0';
+        if (!/review_gate: unknown answer "sure" \(expected yes or defer\); nothing recorded\./.test(second.envelope.error)) return `FAIL: error ${second.envelope.error}`;
+        if (o.ledger.history.some(h => h.step === 'review_gate')) return `FAIL: review_gate recorded ${JSON.stringify(o.ledger.history)}`;
+        return true;
+
+- description: "ship-step: (ft5) review_gate defer is taken exactly and skips received-review"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json --answer-text defer"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const second = o.calls[1];
+        if (!second) return 'FAIL: no --after review_gate call';
+        if (second.envelope.status !== 'step') return `FAIL: status ${second.envelope.status} ${second.envelope.error || ''}`;
+        if (second.envelope.step.id === 'dispatch_received_review') return 'FAIL: dispatch_received_review emitted after defer';
+        if (!o.ledger.history.some(h => h.step === 'review_gate')) return 'FAIL: review_gate not recorded';
+        return true;
+
+- description: "ship-step: (rc1) rebase_conflict pause pauses the run"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rebase-conflict --seed frozen --answer-text pause"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [first, second] = o.calls.map(c => c.envelope);
+        if (!first.step || first.step.id !== 'rebase_conflict') return `FAIL: first ${first.status} ${first.step && first.step.id} ${first.error || ''}`;
+        if (!first.llm_decision || JSON.stringify(first.llm_decision.options) !== JSON.stringify(['pause', 'skip', 'merge'])) return `FAIL: options ${JSON.stringify(first.llm_decision)}`;
+        if (!second || second.status !== 'done' || second.ext.reason !== 'paused') return `FAIL: second ${second && second.status} ${second && second.ext && second.ext.reason} ${second && second.error || ''}`;
+        if (!o.ledger.paused) return 'FAIL: ledger.paused not set';
+        return true;
+
+- description: "ship-step: (rc2) a free-text rebase_conflict answer is an error and records nothing"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rebase-conflict --seed frozen --answer-text sure"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const second = o.calls[1];
+        if (!second) return `FAIL: no --after rebase_conflict call: ${JSON.stringify(o.calls.map(x => x.envelope.step && x.envelope.step.id))}`;
+        if (second.envelope.status !== 'error') return `FAIL: status ${second.envelope.status}`;
+        if (second.exitCode === 0) return 'FAIL: exit 0';
+        if (!/rebase_conflict: unknown answer "sure" \(expected pause, skip or merge\); nothing recorded\./.test(second.envelope.error)) return `FAIL: error ${second.envelope.error}`;
+        if (o.ledger.history.some(h => h.step === 'rebase_conflict')) return `FAIL: rebase_conflict recorded ${JSON.stringify(o.ledger.history)}`;
+        return true;
+
+- description: "ship-step: (rc3) rebase_conflict skip continues to the next step"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rebase-conflict --seed frozen --answer skip"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const second = o.calls[1];
+        if (!second) return `FAIL: no --after rebase_conflict call: ${JSON.stringify(o.calls.map(x => x.envelope.step && x.envelope.step.id))}`;
+        if (second.envelope.status !== 'step') return `FAIL: status ${second.envelope.status} ${second.envelope.error || ''}`;
+        if (!o.ledger.history.some(h => h.step === 'rebase_conflict')) return 'FAIL: rebase_conflict not recorded';
+        return true;
+
 - description: "ship-step: openspec archive interactive incomplete emits the sync prompt of the OpenSpec steps file (W44-R2)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 1/3"
     script_cwd: "{{project_root}}"
@@ -3534,6 +3926,7 @@
 
 - description: "ship-step: openspec archive interactive all-done emits the archive prompt of the OpenSpec steps file (W44-R2)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 3/3 --os-validate ok"
     script_cwd: "{{project_root}}"
@@ -3555,6 +3948,7 @@
 
 - description: "ship-step: openspec archive all-done with failed validation emits no prompt"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 3/3 --os-validate fail"
     script_cwd: "{{project_root}}"
@@ -3571,6 +3965,7 @@
 
 - description: "ship-step: openspec archive under --auto emits no prompt and --decision anyway --auto (R-archive-sync-4)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 1/3 --auto-seed"
     script_cwd: "{{project_root}}"
@@ -3587,6 +3982,7 @@
 
 - description: "ship-step: openspec archive on an already-archived change emits no prompt"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-archived"
     script_cwd: "{{project_root}}"
@@ -3603,6 +3999,7 @@
 
 - description: "ship-step: openspec abort leaves archive-openspec in_progress and resume re-emits it (W44-R3)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 1/3 --os-answer abort --os-resume"
     script_cwd: "{{project_root}}"
@@ -3624,6 +4021,7 @@
 
 - description: "ship-step: openspec archive records resultText as the step result (W44-R4)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-tasks 1/3 --os-answer result"
     script_cwd: "{{project_root}}"
@@ -3638,6 +4036,7 @@
 
 - description: "ship-step: openspec verify_openspec emits the quoted validate command (W44-R6)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-verify --os-tasks 1/3"
     script_cwd: "{{project_root}}"
@@ -3654,6 +4053,7 @@
 
 - description: "ship-step: openspec invalid change name returns status error (W44-R6)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-change ../x"
     script_cwd: "{{project_root}}"
@@ -3670,6 +4070,7 @@
 
 - description: "ship-step: openspec change name with shell metacharacters returns status error (W44-R6)"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-change a;b"
     script_cwd: "{{project_root}}"
@@ -3686,6 +4087,7 @@
 
 - description: "ship-resume-plan: (a) a fresh initial call with --steps execute,commit records review, version and pr as skipped"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario initial --plan plan.md --steps execute,commit"
     script_cwd: "{{project_root}}"
@@ -3703,6 +4105,7 @@
 
 - description: "ship-resume-plan: (b) a different --plan without --resume is refused with resumePlanMismatch and the ledger is untouched"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario initial-resume-legacy --seed frozen --plan plan-notasks.md"
     script_cwd: "{{project_root}}"
@@ -3725,6 +4128,7 @@
 
 - description: "ship-resume-plan: (c) the same --plan without --resume resumes the ledger implicitly"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario initial-resume-legacy --seed frozen --plan plan.md"
     script_cwd: "{{project_root}}"
@@ -3742,6 +4146,7 @@
 
 - description: "ship-resume-plan: (d) --resume without --plan restores the ledger's plan and steps and no other flag"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario resume-plan --seed frozen --no-plan"
     script_cwd: "{{project_root}}"
@@ -3763,6 +4168,7 @@
 
 - description: "ship-resume-plan: (e) --resume with an explicit --steps keeps the CLI steps and the ledger's plan"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario resume-plan --seed frozen --no-plan --steps execute"
     script_cwd: "{{project_root}}"
@@ -3781,6 +4187,7 @@
 
 - description: "ship-resume-plan: (f) --resume --auto keeps the ledger's steps and takes auto from the CLI"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario resume-plan-auto --seed frozen --no-plan"
     script_cwd: "{{project_root}}"
@@ -3798,6 +4205,7 @@
 
 - description: "ship-resume-plan: (g) --resume --quick takes the quick steps over the ledger's steps"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario resume-plan-quick --seed frozen --no-plan"
     script_cwd: "{{project_root}}"
@@ -3815,6 +4223,7 @@
 
 - description: "ship-resume-plan: (h) --resume with a different --plan is refused with resumePlanMismatch"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario resume-plan --seed frozen --plan plan-notasks.md"
     script_cwd: "{{project_root}}"
@@ -3837,6 +4246,7 @@
 
 - description: "ship-resume-plan: (i) neither --resume nor --plan reports missingPlanFile naming the ledger and --resume"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario initial-resume-legacy --seed frozen --no-plan"
     script_cwd: "{{project_root}}"
@@ -3860,6 +4270,7 @@
 
 - description: "ship-resume-plan: (j) a stale ledger with a different --plan is refused without init or prune"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario stale-plan --seed frozen --plan plan-notasks.md"
     script_cwd: "{{project_root}}"
@@ -3882,6 +4293,7 @@
 
 - description: "ship-resume-plan: (k) an other-worktree ledger with a different --plan is refused without init or prune"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario other-worktree-plan --seed frozen --plan plan-notasks.md"
     script_cwd: "{{project_root}}"
@@ -3904,6 +4316,7 @@
 
 - description: "ship-resume-plan: (l) a finished ledger is pruned and a new one written, with no plan mismatch"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario finished-plan --seed frozen --plan plan.md"
     script_cwd: "{{project_root}}"
@@ -3926,6 +4339,7 @@
 # into a mkdtemp dir by a whitespace-free one-liner (\x20 space, \x60 backtick, \x24 $).
 - description: "ship-prepare (R-plan-commit-subject): header field forwards --subject to the commit step only"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n\n**Commit:**\x20subject\x20\x60free\x20text\x60\x20note\n"),JSON.parse(fs.readFileSync(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"}).stdout.trim(),"utf8")))))(fs.mkdtempSync(os.tmpdir()+"/ship-commit-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -3944,6 +4358,7 @@
 
 - description: "ship-prepare (R-plan-commit-subject): malformed header field hard-errors with planCommitSubjectInvalid"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20\x24(x)\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),((r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr}))(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-commit-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -3960,14 +4375,16 @@
 
 - description: "ship-prepare (R-plan-commit-subject): unreadable plan hard-errors with planCommitSubjectInvalid"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
-    script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.chmodSync(d+"/plan.md",420),fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n"),fs.chmodSync(d+"/plan.md",0),((r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr}))(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-commit-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_args: '((cp,fs,os,js)=>(process.getuid&&process.getuid()===0)?console.log(JSON.stringify({skipped:"root"})):((d)=>((o)=>(fs.chmodSync(d+"/plan.md",420),fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n"),fs.chmodSync(d+"/plan.md",0),((r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr}))(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-commit-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
   assert:
     - type: javascript
       value: |
         const o = JSON.parse(output);
+        if (o.skipped === 'root') return true; // #9185: chmod 0 cannot make a file unreadable for root
         if (o.status !== 1) return `FAIL: exit ${o.status}`;
         const err = (o.out.errors || []).find(e => e && e.id === 'planCommitSubjectInvalid');
         if (!err) return `FAIL: no planCommitSubjectInvalid: ${JSON.stringify(o.out.errors)}`;
@@ -3976,6 +4393,7 @@
 
 - description: "ship-prepare (R-plan-commit-subject): plan without the field forwards no --subject"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
     script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
     script_cwd: "{{project_root}}"
@@ -3991,6 +4409,7 @@
 # prepare, commit.subjectPattern included, and records nothing when it fails.
 - description: "ship-prepare (R-plan-commit-subject): --after recompute applies commit.subjectPattern and records nothing on a mismatch"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,os,path,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.mkdirSync(path.join(process.cwd(),".sdlc"),{recursive:true}),fs.writeFileSync(path.join(process.cwd(),".sdlc","config.json"),JSON.stringify({commit:{subjectPattern:"^feat"}})),fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(d+"/ledger.json",JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:"main",flags:{planFile:d+"/plan.md",openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}],history:[]})),fs.writeFileSync(d+"/yes.json",JSON.stringify({success:true,output:{answer:"yes"}})),((before,r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),unchanged:fs.readFileSync(d+"/ledger.json","utf8")===before}))(fs.readFileSync(d+"/ledger.json","utf8"),cp.spawnSync("node",[js,"--after","confirm_pipeline","--result-file",d+"/yes.json","--state",d+"/ledger.json"],{cwd:process.cwd(),encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-after-")))(require("child_process"),require("fs"),require("os"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -4010,6 +4429,7 @@
 # directory, which is also the child's cwd, so no fixture is shared or modified.
 - description: "ship-prepare (R-plan-commit-subject): --after recompute blocks on an unreadable .sdlc/config.json and records nothing"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "-e"
     script_args: '((cp,fs,os,path,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),"{\x20\"commit\":\x20"),fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(d+"/ledger.json",JSON.stringify({version:1,startedAt:"2026-10-27T12:00:00.000Z",branch:"main",flags:{planFile:d+"/plan.md",openspecContext:null,sources:{}},steps:[{name:"execute",status:"pending"},{name:"commit",status:"pending"}],history:[]})),fs.writeFileSync(d+"/yes.json",JSON.stringify({success:true,output:{answer:"yes"}})),((before,r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),unchanged:fs.readFileSync(d+"/ledger.json","utf8")===before}))(fs.readFileSync(d+"/ledger.json","utf8"),cp.spawnSync("node",[js,"--after","confirm_pipeline","--result-file",d+"/yes.json","--state",d+"/ledger.json"],{cwd:d,encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-after-")))(require("child_process"),require("fs"),require("os"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
     script_cwd: "{{project_root}}"
@@ -4023,3 +4443,82 @@
         const e = String(o.out.error || '');
         if (!e.includes('nothing recorded') || !e.includes('.sdlc/config.json')) return `FAIL: error ${e}`;
         return o.unchanged === true ? true : 'FAIL: the ledger was changed';
+
+# #9227 / R-implicit-resume: init's prune used to delete a stale unparseable ledger of the branch
+# and a fresh one crashed ensureLedger (exit 2). The normal path now stops before any state write.
+- description: "ship-prepare (R-implicit-resume): a stale ledger file that cannot be parsed stops the normal path and is not pruned (#9227)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>((dir,br)=>((led,plan)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(plan,"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,"{not-json"),fs.utimesSync(led,1767225600,1767225600),((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,content:fs.existsSync(led)?fs.readFileSync(led,"utf8"):null,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f)),name:path.basename(led)})))(cp.spawnSync("node",[js,"--has-plan","--plan",plan],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json"),path.join(process.cwd(),"plan-a.md")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}: ${JSON.stringify(o.out).slice(0, 300)}`;
+        const m = (o.out.errors || []).find(e => e && e.id === 'resumePlanMismatch');
+        if (!m) return `FAIL: no resumePlanMismatch: ${JSON.stringify(o.out.errors)}`;
+        if (!m.message.includes('(cannot be parsed)') || !m.message.includes('remove it by hand')) return `FAIL: message: ${m.message}`;
+        if (!o.stderr.includes('cannot be parsed')) return 'FAIL: error not mirrored to stderr';
+        if (o.content !== '{not-json') return `FAIL: the seeded ledger changed or was pruned: ${o.content}`;
+        return o.files.length === 1 && o.files[0] === o.name ? true : `FAIL: ledger files ${o.files.join()}`;
+
+- description: "ship-prepare (R-implicit-resume): a fresh ledger file that cannot be parsed stops the normal path without a crash (#9227)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>((dir,br)=>((led,plan)=>(fs.mkdirSync(dir,{recursive:true}),fs.writeFileSync(plan,"#\x20A\n\n###\x20Task\x201:\x20A\n"),fs.writeFileSync(led,"{not-json"),((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr,content:fs.existsSync(led)?fs.readFileSync(led,"utf8"):null,files:fs.readdirSync(dir).filter(f=>/^ship-/.test(f)),name:path.basename(led)})))(cp.spawnSync("node",[js,"--has-plan","--plan",plan],{cwd:process.cwd(),encoding:"utf8"}))))(path.join(dir,"ship-"+br.replace(/[^a-zA-Z0-9-]/g,"-")+"-20261027T120000Z.json"),path.join(process.cwd(),"plan-a.md")))(path.join(process.cwd(),".sdlc","execution"),cp.execFileSync("git",["branch","--show-current"],{encoding:"utf8"}).trim()))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status} (2 means ensureLedger crashed): ${JSON.stringify(o.out).slice(0, 300)}`;
+        const m = (o.out.errors || []).find(e => e && e.id === 'resumePlanMismatch');
+        if (!m) return `FAIL: no resumePlanMismatch: ${JSON.stringify(o.out.errors)}`;
+        if (!m.message.includes('(cannot be parsed)') || !m.message.includes('remove it by hand')) return `FAIL: message: ${m.message}`;
+        if (!o.stderr.includes('cannot be parsed')) return 'FAIL: error not mirrored to stderr';
+        if (o.content !== '{not-json') return `FAIL: the seeded ledger changed or was pruned: ${o.content}`;
+        return o.files.length === 1 && o.files[0] === o.name ? true : `FAIL: ledger files ${o.files.join()}`;
+
+# #9231 / R76: ship checks the form of the --tasks and --from-wave values. A value such as
+# "1 --auto" does not start with "--", so it used to pass as the value.
+- description: "ship-prepare (R76): a --tasks value with whitespace is a prepare error (#9231)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim().split("\n").pop(),"utf8"))})))(cp.spawnSync("node",[js,"--has-plan","--tasks","1\x20--auto"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}`;
+        const want = '--tasks must be a comma-separated list of task ids (digits and commas only, no spaces), got "1 --auto".';
+        return (o.out.errors || []).includes(want) ? true : `FAIL: errors ${JSON.stringify(o.out.errors)}`;
+
+- description: "ship-prepare (R76): a --tasks value with a letter is a prepare error (#9231)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --tasks 3,a"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: icontains
+      value: "--tasks must be a comma-separated list of task ids"
+
+- description: "ship-prepare (R76): a --from-wave value that is not an integer is a prepare error (#9231)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --from-wave 2a"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: icontains
+      value: "--from-wave must be an integer, got"

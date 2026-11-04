@@ -3,15 +3,16 @@
  * run-commit-literal-message.js
  * Test wrapper for commit-sdlc Step 5: the commit message reaches git, the subject
  * gate and the link check only through a message file (C14).
- * Extracts three snippets from plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md
- * (the quoted-heredoc block, the subject-gate block, the `git commit -F` command),
- * runs them in a temp git repo with a message holding `"`, `$(...)` and backticks,
- * and reports whether the committed body equals the message and whether anything ran.
+ * Extracts two snippets from plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md
+ * (the subject-gate block, the `git commit -F` command), writes the message file as the
+ * Write tool writes it (literal bytes), runs the snippets in a temp git repo with a message
+ * holding `"`, `$(...)` and backticks, and reports whether the committed body equals the
+ * message and whether anything ran. Also reports that SKILL.md has no heredoc and names the Write tool.
  *
  * Args: none
  *
  * Output JSON (one line):
- *   { gateExit, body, literal, pwned, wipGateExit }
+ *   { gateExit, body, literal, pwned, wipGateExit, noHeredoc, writeTool }
  *   or { error: "block not found: <which>" } with exit 1.
  */
 
@@ -69,11 +70,12 @@ function fencedBlocks() {
 }
 
 const blocks = fencedBlocks();
-const heredocBlock = blocks.find(b => b.includes("<<'SDLC_COMMIT_MSG'"));
+const noHeredoc = !skill.includes("<<'SDLC_COMMIT_MSG'");
+const writeTool = skill.includes('Write `MESSAGE` exactly to `<MSG_FILE>` with the Write tool');
 const gateBlock = blocks.find(b => b.includes('"<COMMIT_CONTEXT_FILE>" "<MSG_FILE>"'));
 const commitMatch = /`(git commit -F "<MSG_FILE>")`/.exec(skill);
 
-for (const [which, found] of [['heredoc', heredocBlock], ['subject gate', gateBlock], ['git commit -F', commitMatch]]) {
+for (const [which, found] of [['subject gate', gateBlock], ['git commit -F', commitMatch]]) {
   if (!found) {
     console.log(JSON.stringify({ error: `block not found: ${which}` }));
     process.exit(1);
@@ -98,10 +100,9 @@ function runOnce(message) {
   git('add', 'a.txt');
   fs.writeFileSync(path.join(repo, 'm.json'), JSON.stringify({ commitConfig: { subjectPattern: '^fix: ' } }));
 
-  // Substitute with split/join: the message holds `$`, which String.replace would expand.
-  const withMessage = heredocBlock.split('\n').map(l => (l === '<message>' ? message : l)).join('\n');
+  // The Write tool writes the bytes literally; no shell is involved.
+  fs.writeFileSync(path.join(repo, 'm.msg'), message);
   const script = [
-    withMessage,
     gateBlock,
     `GATE=$?; echo "GATE=$GATE"; [ "$GATE" -eq 0 ] && ${commitCommand}`,
   ].join('\n')
@@ -128,4 +129,6 @@ console.log(JSON.stringify({
   literal: first.body.trim() === message.trim(),
   pwned: first.pwned || wip.pwned,
   wipGateExit: wip.gateExit,
+  noHeredoc,
+  writeTool,
 }));
