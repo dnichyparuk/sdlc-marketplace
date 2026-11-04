@@ -24,7 +24,8 @@
 - A13: `--tasks <ids>` — forwarded unchanged to execute-plan-sdlc as `--tasks <ids>` (execute A8); ship checks only that a value follows the flag (R76) (default: unset)
 - A14: `--from-wave <n>` — forwarded unchanged to execute-plan-sdlc as `--from-wave <n>` (execute A9); ship checks only that a value follows the flag (R76) (default: unset)
 
-- R15: `--dry-run` displays pipeline table and stops without executing
+- R15: `--dry-run` displays pipeline table and stops without executing. It writes no ship state: no init, no prune and no `claimSession`, so a ledger it resumes, explicitly or implicitly, keeps its bytes and its mtime (the prepare output file is still written).
+  - Acceptance: exec cases in `tests/promptfoo/datasets/ship-prepare-exec.yaml` whose descriptions start with `ship-prepare (R15)`.
 - R16: `--init-config` redirects to `/setup-sdlc`; runs interactive wizard if user insists
 - R28: `--openspec-change <name>` flag explicitly selects the change to archive, overriding branch matching.
 - R63: When `version.preRelease` is set in `.sdlc/config.json` AND the resolved ship `flags.bump` was NOT sourced from the CLI (`flagSources.bump !== 'cli'`), the version step invocation MUST forward `--bump <version.preRelease>` instead of `--bump <flags.bump>`. An explicit CLI `--bump` graduates out of the pre-release train (consistent with version-sdlc R16). The prepare output MUST record the override by setting `flagSources.bump` to `'config (version.preRelease)'`.
