@@ -44,30 +44,47 @@ function tasksOf(text) {
   return map;
 }
 
-/** Table first cells, bullet leads and `### ` headings of a section body. */
-function sectionKeys(body, { bullets }) {
-  const keys = new Set();
+const squash = s => s.replace(/\s+/g, ' ').trim();
+
+/**
+ * Key -> normalised body of a section body. Key: table first cell, bullet bold
+ * lead (or its first 60 chars) or `### ` heading. Body: the row's other cells,
+ * the bullet text after its lead (plus indented continuation lines), or the
+ * heading's section text; whitespace collapsed and trimmed.
+ */
+function sectionEntries(body, { bullets }) {
+  const entries = new Map();
   let headerSeen = false;
+  let cur = null; // key still collecting continuation lines
+  const add = (key, text) => { entries.set(key, text); };
   for (const line of (body || '').split('\n')) {
     if (line.startsWith('|')) {
+      cur = null;
       if (!headerSeen) { headerSeen = true; continue; }
       if (/^\|\s*:?-/.test(line)) continue;
-      keys.add(line.split('|')[1].trim());
+      const cells = line.split('|').slice(1);
+      if (cells.length && cells[cells.length - 1].trim() === '') cells.pop();
+      add(cells[0].trim(), squash(cells.slice(1).map(c => c.trim()).join('|')));
     } else if (bullets && /^\s*[-*]\s+/.test(line)) {
       const text = line.replace(/^\s*[-*]\s+/, '');
       const b = text.match(/^\*\*(.+?)\*\*/);
-      keys.add(b ? b[1] : text.slice(0, 60));
+      cur = b ? b[1] : text.slice(0, 60);
+      add(cur, squash(b ? text.slice(b[0].length) : text));
     } else if (bullets && line.startsWith('### ')) {
-      keys.add(line.slice(4).trim());
+      cur = line.slice(4).trim();
+      add(cur, '');
+    } else if (cur !== null && line.trim() !== '') {
+      add(cur, squash(`${entries.get(cur)} ${line}`));
     }
   }
-  return keys;
+  return entries;
 }
 
 function setDelta(before, after) {
-  const added = [...after].filter(k => !before.has(k)).sort();
-  const removed = [...before].filter(k => !after.has(k)).sort();
-  return added.length || removed.length ? { added, removed } : null;
+  const added = [...after.keys()].filter(k => !before.has(k)).sort();
+  const removed = [...before.keys()].filter(k => !after.has(k)).sort();
+  const changed = [...after.keys()].filter(k => before.has(k) && before.get(k) !== after.get(k)).sort();
+  return added.length || removed.length || changed.length ? { added, removed, changed } : null;
 }
 
 function openspecRef(sec) {
@@ -110,13 +127,15 @@ function diffMaterial(beforeText, afterText) {
     if (refs.length) fire(name, refs);
   }
   const kd = /^## Key Decisions\s*$/;
-  const kdDelta = setDelta(sectionKeys(sectionBody(beforeText, kd), { bullets: true }), sectionKeys(sectionBody(afterText, kd), { bullets: true }));
+  const kdDelta = setDelta(sectionEntries(sectionBody(beforeText, kd), { bullets: true }), sectionEntries(sectionBody(afterText, kd), { bullets: true }));
   if (kdDelta) fire('keyDecisions', kdDelta);
   const refs = changed(openspecRef);
   if (refs.length) fire('openspec', refs);
   const dev = /^## Deviations & assumptions\s*$/;
-  const devDelta = setDelta(sectionKeys(sectionBody(beforeText, dev), { bullets: false }), sectionKeys(sectionBody(afterText, dev), { bullets: false }));
-  if (devDelta) fire('deviations', devDelta);
+  // Deviations compare the key set only (R64 clause is a MAY): bodies are dropped before the delta.
+  const keysOnly = m => new Map([...m.keys()].map(k => [k, '']));
+  const devDelta = setDelta(keysOnly(sectionEntries(sectionBody(beforeText, dev), { bullets: false })), keysOnly(sectionEntries(sectionBody(afterText, dev), { bullets: false })));
+  if (devDelta) fire('deviations', { added: devDelta.added, removed: devDelta.removed });
 
   return { material: triggers.length > 0, triggers, details };
 }

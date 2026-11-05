@@ -6,7 +6,7 @@
 #   fixtures-fs/plan-merge-lanes     - validator report, static-structural, g17-prepare, dimension-coverage, lens and
 #                                      inventory JSON for the `plan-merge:` cases; `no-g17/` repeats the static and
 #                                      validator files without the G17 files (the content-coverage file is left out on purpose)
-#   fixtures-fs/plan-diff-material   - one before plan and two after plans (wording-only, scope change) for the `plan-diff:` cases
+#   fixtures-fs/plan-diff-material   - one before plan and four after plans (wording-only, scope change, reversed decision, whitespace reflow) for the `plan-diff:` cases
 #   fixtures-fs/plan-g17-prepare     - a plan, one review dimension, its Copilot instruction file and a learnings log
 #                                      for the `plan-g17:` cases
 
@@ -538,6 +538,24 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['taskCount', 'files']) && JSON.stringify(r.details.files) === JSON.stringify(['Task 2'])"
+
+- description: "plan-diff: same Key Decision key with a reversed body is material (changed)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before.md --after {{project_root}}/after-reversed.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['keyDecisions']) && JSON.stringify(r.details.keyDecisions.changed) === JSON.stringify(['Standalone module over extending existing:']) && r.details.keyDecisions.added.length === 0 && r.details.keyDecisions.removed.length === 0"
+
+- description: "plan-diff: whitespace-only reflow of a Key Decision is not material"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before.md --after {{project_root}}/after-reflow.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0"
 
 - description: "plan-diff: missing --after is a usage error"
   vars:

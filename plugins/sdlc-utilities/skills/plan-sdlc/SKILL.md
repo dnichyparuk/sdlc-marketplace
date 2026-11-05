@@ -575,7 +575,7 @@ After the plan file is rewritten with the Step 6 fixes, run:
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/plan-before.md" --after "<PLAN_PATH>"
 ```
 
-Set `materialChangeDetected` to its `material` value; on a non-zero exit set it to `true`. The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added or removed (by its title or first words), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
+Set `materialChangeDetected` to its `material` value; on a non-zero exit set it to `true`. The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
 
 Re-dispatch the reviewer (back to Step 5 loop). When `materialChangeDetected` is true, the Step 5 merged dispatch path activates — see "Material change detection and merged re-dispatch" in Step 5.
 
