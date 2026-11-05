@@ -7,9 +7,9 @@
  * Usage:
  *   node plan-prepare.js [--from-openspec <change-name>] [--output-file] [--quality full|balanced|minimal]
  *   node plan-prepare.js --mark <name> [--path <abs>]
- *   node plan.js diff-material --before <path> --after <path>
+ *   node plan.js diff-material --before <path> --after <path> [--full]
  *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
- *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>]
+ *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>] [--carry <prevIterDir>] [--g17-not-run]
  *
  * Options:
  *   --from-openspec <name>  Validate a specific OpenSpec change for direct bridging
@@ -339,10 +339,13 @@ const SUBCOMMANDS = { 'diff-material': runDiffMaterial, 'g17-prepare': runG17Pre
 
 // Flags each subcommand accepts (without `--`); any other flag is a usage error (exit 1).
 const SUBCOMMAND_FLAGS = {
-  'diff-material': ['before', 'after'],
+  'diff-material': ['before', 'after', 'full'],
   'g17-prepare': ['plan', 'dimensions-dir', 'instructions-dir', 'learnings', 'window', 'github-hosting', 'root', 'today'],
-  'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory'],
+  'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory', 'carry', 'g17-not-run'],
 };
+
+// Value-less flags (`--<name>` → flags key); every other flag takes one value.
+const BOOLEAN_FLAGS = { '--no-guardrails': 'noGuardrails', '--full': 'full', '--g17-not-run': 'g17NotRun' };
 
 function usageError(message) {
   return Object.assign(new Error(message), { code: 'USAGE' });
@@ -364,7 +367,7 @@ function readPlanFile(file) {
 function runDiffMaterial(flags) {
   const before = readPlanFile(requireFlag(flags, 'before'));
   const after = readPlanFile(requireFlag(flags, 'after'));
-  return diffMaterial(before, after);
+  return diffMaterial(before, after, { full: flags.full === true });
 }
 
 function runG17Prepare(flags) {
@@ -394,10 +397,12 @@ function runMergeLanes(flags) {
     noGuardrails: flags.noGuardrails === true,
     gateAPath: flags['gate-a'] ?? null,
     inventoryPath: flags.inventory ?? null,
+    carryDir: flags.carry ?? null,
+    g17NotRun: flags.g17NotRun === true,
   });
 }
 
-/** Parse `--<name> <value>` pairs and `--no-guardrails`, run the handler, map outcomes to exit codes. */
+/** Parse `--<name> <value>` pairs and the value-less flags, run the handler, map outcomes to exit codes. */
 function runSubcommand(sub, args) {
   const fail = (code, message) => {
     process.stderr.write(`plan.js ${sub} error: ${message}\n`);
@@ -408,7 +413,7 @@ function runSubcommand(sub, args) {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (!arg.startsWith('--') || !allowed.includes(arg.slice(2))) fail(1, `unknown flag ${arg}`);
-    if (arg === '--no-guardrails') { flags.noGuardrails = true; continue; }
+    if (Object.prototype.hasOwnProperty.call(BOOLEAN_FLAGS, arg)) { flags[BOOLEAN_FLAGS[arg]] = true; continue; }
     const next = args[i + 1];
     if (next === undefined || (next.startsWith('--') && allowed.includes(next.slice(2)))) fail(1, `${arg} needs a value`);
     if (Object.prototype.hasOwnProperty.call(flags, arg.slice(2))) fail(1, `${arg} given twice`);

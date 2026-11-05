@@ -1,0 +1,19 @@
+schema_version: "1.1"
+name: plan-sdlc
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: plan-file-written
+    type: file_exists
+    path: docs/plans/eval-plan-sdlc.md
+  - name: format-gate-ran-final
+    type: tool_used
+    tool: Bash
+    input_match: 'FINAL_FLAG=[\\"'']*--final[\s\S]*validate-plan-format\.js|validate-plan-format\.js[^\n]*--final|ARGS=\([^\n)]*--final|(?:^|\n)(?![^\n]*\[\[? -n )[^\n]*ARGS\+=\(\s*["'']?--final'
+  - name: scorecard-verdict-in-plan
+    type: regex
+    target:
+      source: file
+      path: docs/plans/eval-plan-sdlc.md
+    pattern: '\*\*Verdict:\*\* '
+    match: "count:1"

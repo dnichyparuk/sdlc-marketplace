@@ -106,8 +106,33 @@ function contractOf(sec) {
   return block ? block.join('\n').trimEnd() : null;
 }
 
-/** Compare two plan texts: { material, triggers, details }. */
-function diffMaterial(beforeText, afterText) {
+// R64, R67: fixed trigger → gates and lanes/lenses map (taskCount means everything).
+const TRIGGER_MAP = {
+  files:        { gates: ['G4', 'G6', 'G9', 'G10', 'G13', 'G14', 'G17'], lanes: ['content-coverage', 'dimension-coverage', 'guardrail-compliance'] },
+  contracts:    { gates: ['G14', 'G18', 'G19', 'G20', 'G21'], lanes: ['content-coverage', 'guardrail-compliance', 'lens:architecture', 'lens:risk'] },
+  dependsOn:    { gates: ['G3', 'G5', 'G8', 'G12'], lanes: ['content-coverage', 'lens:architecture'] },
+  keyDecisions: { gates: [], lanes: ['lens:architecture'] },
+  openspec:     { gates: ['G16'], lanes: ['content-coverage', 'lens:requirements'] },
+  deviations:   { gates: ['G11', 'G15'], lanes: ['content-coverage', 'lens:risk'] },
+};
+
+/** { affectedGates, affectedLanes } for the fired triggers (R67). */
+function affectedSets(triggers, afterTaskCount, full) {
+  if (full || triggers.includes('taskCount')) return { affectedGates: [...EXPECTED_GATES], affectedLanes: ['*'] };
+  const gates = new Set();
+  const lanes = new Set();
+  for (const t of triggers) {
+    for (const g of TRIGGER_MAP[t].gates) gates.add(g);
+    for (const l of TRIGGER_MAP[t].lanes) lanes.add(afterTaskCount < 5 && l.startsWith('lens:') ? 'lens:all' : l);
+  }
+  return {
+    affectedGates: [...gates].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))),
+    affectedLanes: [...lanes].sort(),
+  };
+}
+
+/** Compare two plan texts: { material, triggers, details, affectedGates, affectedLanes }. */
+function diffMaterial(beforeText, afterText, { full = false } = {}) {
   const before = tasksOf(beforeText);
   const after = tasksOf(afterText);
   const common = [...before.keys()].filter(k => after.has(k));
@@ -137,7 +162,7 @@ function diffMaterial(beforeText, afterText) {
   const devDelta = setDelta(keysOnly(sectionEntries(sectionBody(beforeText, dev), { bullets: false })), keysOnly(sectionEntries(sectionBody(afterText, dev), { bullets: false })));
   if (devDelta) fire('deviations', { added: devDelta.added, removed: devDelta.removed });
 
-  return { material: triggers.length > 0, triggers, details };
+  return { material: triggers.length > 0, triggers, details, ...affectedSets(triggers, after.size, full) };
 }
 
 // ---------------------------------------------------------------------------
@@ -406,7 +431,7 @@ function readResult(file, valid) {
   }
   try {
     const value = JSON.parse(text);
-    return valid(value) ? { value } : { reason: 'invalid JSON' };
+    return valid(value) ? { value } : { reason: 'invalid result shape' };
   } catch (_) {
     return { reason: 'invalid JSON' };
   }
@@ -501,7 +526,7 @@ function g17Findings(dir, dcCandidates, laneFailures) {
 }
 
 /** Gate B scorecard: dimension counts, traceability rows, verdict and markdown. */
-function renderScorecard(lensResults, gateAFindings, inventory) {
+function renderScorecard(lensResults, gateAFindings, inventory, g17NotRun = false) {
   const allIssues = lensResults.flatMap(l => l.issues);
   const counts = {};
   for (const dim of SCORECARD_DIMENSIONS) {
@@ -519,7 +544,7 @@ function renderScorecard(lensResults, gateAFindings, inventory) {
     })
     : lensRows;
 
-  const severities = [...allIssues.map(i => i.severity), ...gateAFindings.map(f => f && f.severity)];
+  const severities = [...allIssues.map(i => i.severity), ...gateAFindings.map(f => f && f.severity), ...(g17NotRun ? ['WARNING'] : [])];
   const verdict = severities.includes('CRITICAL') ? VERDICTS.critical
     : severities.includes('WARNING') ? VERDICTS.warning
       : VERDICTS.pass;
@@ -536,12 +561,13 @@ function renderScorecard(lensResults, gateAFindings, inventory) {
     const refs = Array.isArray(r.taskRefs) && r.taskRefs.length ? r.taskRefs.join(', ') : '—';
     lines.push(`| ${r.requirement} ${r.name} | ${refs} | ${r.status} |`);
   }
+  if (g17NotRun) lines.push('', '**G17:** not run — g17-prepare failed; no review-dimension suggestions this run (WARNING).');
   lines.push('', `**Verdict:** ${verdict}`);
   return { counts, traceability, verdict, markdown: lines.join('\n') };
 }
 
 /** Merge lane, validator, lens and G17 results from one critique iteration directory. */
-function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAPath = null, inventoryPath = null }) {
+function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAPath = null, inventoryPath = null, carryDir = null, g17NotRun = false }) {
   const usage = message => Object.assign(new Error(message), { code: 'USAGE' });
   if (!lanes.length && !lenses.length) throw usage('--lanes or --lenses is required');
   for (const name of lanes) {
@@ -550,6 +576,26 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
   for (const name of lenses) if (!LENS_NAMES.includes(name)) throw usage(`unknown lens ${name}`);
   const inventory = readFlagJson('--inventory', inventoryPath);
   const gateA = readFlagJson('--gate-a', gateAPath);
+  const carried = [];
+  if (carryDir !== null) {
+    let prevFiles;
+    try {
+      prevFiles = fs.readdirSync(carryDir);
+    } catch (err) {
+      throw usage(`cannot read --carry ${carryDir}: ${err.message}`);
+    }
+    const laneCarry = [...LANE_DEFS.map(d => d.name), 'dimension-coverage']
+      .filter(n => !lanes.includes(n) && !(noGuardrails && n === 'guardrail-compliance'));
+    const lensCarry = prevFiles.map(f => f.match(/^lens-(.+)\.json$/)).filter(Boolean).map(m => m[1])
+      .filter(n => LENS_NAMES.includes(n) && !lenses.includes(n)).sort();
+    for (const file of [...laneCarry.map(n => `${n}.json`), ...lensCarry.map(n => `lens-${n}.json`)]) {
+      if (!prevFiles.includes(file) || fs.existsSync(path.join(dir, file))) continue;
+      fs.copyFileSync(path.join(carryDir, file), path.join(dir, file));
+      carried.push(file);
+    }
+    lanes = [...lanes, ...laneCarry];
+    lenses = [...lenses, ...lensCarry];
+  }
 
   const laneFailures = [];
   const laneIssues = [];
@@ -622,7 +668,7 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
     const r = readResult(path.join(dir, `lens-${name}.json`), v => isObject(v) && LENS_STATUSES.includes(v.status) && Array.isArray(v.issues));
     const tag = i => ({ ...i, gateId: null, lane: `lens:${name}`, blocking: i.severity === 'CRITICAL' ? true : i.blocking });
     if (r.reason) {
-      return { name, status: 'Issues Found', recommendations: [], traceability: [], issues: [tag({ taskRef: null, message: `Lens ${name} returned no valid JSON`, severity: 'WARNING', dimension: null, blocking: true })] };
+      return { name, status: 'Issues Found', recommendations: [], traceability: [], issues: [tag({ taskRef: null, message: `Lens ${name} failed: ${r.reason}`, severity: 'WARNING', dimension: null, blocking: true })] };
     }
     const v = r.value;
     return {
@@ -653,12 +699,13 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
     guardrailCompliancePayload,
     g17Findings: lanes.length ? g17Findings(dir, dcCandidates || [], laneFailures) : null,
     lens,
-    scorecard: lenses.length ? renderScorecard(lensResults, isObject(gateA) && Array.isArray(gateA.findings) ? gateA.findings : [], inventory) : null,
+    scorecard: lenses.length ? renderScorecard(lensResults, isObject(gateA) && Array.isArray(gateA.findings) ? gateA.findings : [], inventory, g17NotRun) : null,
     blockingCount: issues.filter(i => i.blocking === true).length,
+    carried,
   };
 }
 
 module.exports = {
-  LANE_DEFS, diffMaterial, g17Prepare, mirrorPath, rankCandidates, SEVERITY_RANK,
+  LANE_DEFS, TRIGGER_MAP, diffMaterial, g17Prepare, mirrorPath, rankCandidates, SEVERITY_RANK,
   EXPECTED_GATES, PF_GATES, mergeLanes, renderG17, renderScorecard,
 };

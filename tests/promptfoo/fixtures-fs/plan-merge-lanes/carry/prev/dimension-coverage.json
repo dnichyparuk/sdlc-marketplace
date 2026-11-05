@@ -1,0 +1,1 @@
+{"candidates":[{"kind":"CREATE","dimension":"infrastructure-review","why":"Task 1 creates `infra/terraform/main.tf`, which no dimension covers."},{"kind":"UPDATE-behavior","dimension":"code-review","criteria":["B1"],"severity":"high","taskRefs":["Task 3"],"patch":"add a checklist item for CLI flag changes","why":"Task 3 adds a CLI flag in `src/b.js`."}]}

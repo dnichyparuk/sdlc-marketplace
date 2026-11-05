@@ -6,7 +6,7 @@
  * The fixture commits once on `main`, then switches to a feature branch
  * (`eval-<kind>`) so commit-sdlc --auto and ship run off the default branch.
  *
- * Usage: node build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean>
+ * Usage: node build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean|plan>
  * Exit:  0 ok, 1 a git command failed (its stderr is passed through),
  *        2 usage or non-empty working directory.
  */
@@ -17,7 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 
-const USAGE = 'usage: build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean>';
+const USAGE = 'usage: build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean|plan>';
 
 const README = [
   '# Eval fixture',
@@ -121,6 +121,14 @@ const EXECUTE_PLAN = [
   '',
 ].join('\n');
 
+// plan-sdlc writes its plan under plansDirectory when the prompt names no path (R3).
+const CLAUDE_SETTINGS = [
+  '{',
+  '  "plansDirectory": "docs/plans"',
+  '}',
+  '',
+].join('\n');
+
 const BASE_FILES = {
   'README.md': README,
   '.sdlc/config.json': CONFIG,
@@ -155,6 +163,11 @@ const FIXTURES = {
       '.sdlc/review-dimensions/docs-clarity.md': DIMENSION,
       'docs/plans/eval-plan.md': planFor('<!-- eval fixture: comment only -->', '<!-- eval fixture: second comment -->'),
     },
+    staged: false,
+  },
+  plan: {
+    branch: 'eval-plan',
+    files: { ...BASE_FILES, '.sdlc/review-dimensions/docs-clarity.md': DIMENSION, '.claude/settings.json': CLAUDE_SETTINGS },
     staged: false,
   },
 };

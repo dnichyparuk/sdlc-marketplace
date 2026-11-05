@@ -146,6 +146,12 @@ function discoverPromptTemplates(root) {
   return walkForSuffix(dir, '-prompt.md', []);
 }
 
+// Skill markdown files: plugins/sdlc-utilities/skills/**/*.md (SKILL.md and companion files)
+function discoverSkillMarkdown(root) {
+  const dir = path.join(root, 'plugins/sdlc-utilities/skills');
+  return walkForSuffix(dir, '.md', []);
+}
+
 // Orchestrator agent templates: plugins/sdlc-utilities/agents/*.md
 function discoverOrchestratorTemplates(root) {
   const dir = path.join(root, 'plugins/sdlc-utilities/agents');
@@ -727,14 +733,14 @@ function checkInvocationVerbatim(projectRoot, findings) {
  *      (dispatch-bearing). Leaf drafters (`tools: Read` — commit / harden /
  *      error-report orchestrators) do not dispatch subagents and are excluded
  *      structurally.
- *   2. Any SKILL file carrying the `<!-- fan-out-dispatch: await-barrier-required -->`
+ *   2. Any skill markdown file (SKILL.md or a companion file) carrying the `<!-- fan-out-dispatch: await-barrier-required -->`
  *      marker (e.g. the plan-sdlc Step 5 fan-out). The marker declares that the
  *      surrounding fan-out must block on results, so the guard tokens must be
  *      present — without a brittle "detect a fan-out in prose" heuristic.
  * Guard token: a barrier instruction (await barrier / never consolidate on
  * partial / R-orchestrator-await).
  */
-function checkOrchestratorAwaitBarrier(skills, projectRoot, findings) {
+function checkOrchestratorAwaitBarrier(projectRoot, findings) {
   // Surface 1 — dispatch-bearing orchestrator agent templates.
   for (const file of discoverOrchestratorTemplates(projectRoot)) {
     const content = readFile(file);
@@ -752,10 +758,11 @@ function checkOrchestratorAwaitBarrier(skills, projectRoot, findings) {
     });
   }
 
-  // Surface 2 — SKILL files carrying the fan-out-dispatch await-barrier-required marker.
+  // Surface 2 — skill markdown files (SKILL.md or a companion file) carrying the
+  // fan-out-dispatch await-barrier-required marker.
   const MARKER = '<!-- fan-out-dispatch: await-barrier-required -->';
-  for (const skill of skills) {
-    const content = readFile(skill.file);
+  for (const file of discoverSkillMarkdown(projectRoot)) {
+    const content = readFile(file);
     if (!content || !content.includes(MARKER)) continue;
     if (hasAwaitBarrierTokens(content)) continue;
     const lines = content.split('\n');
@@ -763,7 +770,7 @@ function checkOrchestratorAwaitBarrier(skills, projectRoot, findings) {
     findings.push({
       rule: 'orchestrator-await-barrier',
       severity: 'error',
-      file: path.relative(process.cwd(), skill.file),
+      file: path.relative(process.cwd(), file),
       line: markerIdx >= 0 ? markerIdx + 1 : undefined,
       message: 'Fan-out marked `await-barrier-required` but the file is missing the await-barrier guard. Add a barrier instruction (await barrier / never consolidate on partial / R-orchestrator-await, #487).',
     });
@@ -802,7 +809,7 @@ function main() {
   checkReadmeSkillsTable(projectRoot, findings);
   checkNoExitTrap(projectRoot, findings);
   checkInvocationVerbatim(projectRoot, findings);
-  checkOrchestratorAwaitBarrier(skills, projectRoot, findings);
+  checkOrchestratorAwaitBarrier(projectRoot, findings);
 
   const errors   = findings.filter(f => f.severity === 'error');
   const warnings = findings.filter(f => f.severity === 'warning');
