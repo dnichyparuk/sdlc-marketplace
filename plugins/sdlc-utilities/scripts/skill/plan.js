@@ -5,7 +5,7 @@
  * Uses lib/openspec.js for detection and lib/config.js for guardrail loading.
  *
  * Usage:
- *   node plan-prepare.js [--from-openspec <change-name>] [--output-file]
+ *   node plan-prepare.js [--from-openspec <change-name>] [--output-file] [--quality full|balanced|minimal]
  *   node plan-prepare.js --mark <name> [--path <abs>]
  *   node plan.js diff-material --before <path> --after <path>
  *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
@@ -14,6 +14,7 @@
  * Options:
  *   --from-openspec <name>  Validate a specific OpenSpec change for direct bridging
  *   --output-file           Write JSON to temp file, print path (default: stdout)
+ *   --quality <preset>     Plan-review preset (A4): full | balanced (default) | minimal
  *   --mark <name>           Update the latest plan state file with a checkpoint marker.
  *                           Valid names: plan-file, guardrailsEvaluated, critiqueRan
  *   --path <abs>            Absolute path to the plan file (required when --mark plan-file)
@@ -41,6 +42,7 @@ const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, '
 const { initState, findStateFile, readState, writeState, slugifyBranch, pruneStateFiles } = require(path.join(LIB, 'state'));
 const { exec, parseRemoteOwner } = require(path.join(LIB, 'git'));
 const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes } = require(path.join(LIB, 'plan-critique'));
+const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -65,6 +67,7 @@ function parseArgs(argv) {
   let fromOpenspec = null;
   let markName = null;
   let markPath = null;
+  let quality = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--from-openspec' && args[i + 1]) {
@@ -73,11 +76,11 @@ function parseArgs(argv) {
       markName = args[++i];
     } else if (args[i] === '--path' && args[i + 1]) {
       markPath = args[++i];
-    }
+    } else if (args[i] === '--quality') { quality = args[i + 1] ?? ''; i++; }
     // --output-file is handled by writeOutput
   }
 
-  return { fromOpenspec, markName, markPath };
+  return { fromOpenspec, markName, markPath, quality };
 }
 
 // ---------------------------------------------------------------------------
@@ -153,167 +156,100 @@ function buildGithubHosting(projectRoot) {
   }
 }
 
-/**
- * Build P15 g17Dispatch metadata (R33).
- * Resolves the G17 prompt template path:
- *   1. workspace-relative (__dirname-sibling — dev/CI checkout and installed plugin cache both
- *      keep scripts/ and skills/ as siblings, so this deterministically matches the running version)
- *   2. ~/.claude/plugins find cascade (fallback only; Fixes #514 — was tried first, costing
- *      ~10s per call on a non-trivial plugin cache and blowing past the promptfoo exec harness's
- *      30s spawnSync timeout)
- * Returns null promptTemplatePath and adds an error when the file cannot be found.
- * @returns {{ subagentType: string, model: string, promptTemplatePath: string|null, error?: string }}
- */
-function buildG17Dispatch() {
-  const templateName = 'g17-dimension-coverage-prompt.md';
-  const subagentType = 'general-purpose';
-  const model = 'sonnet';
+// P15–P17, P20, P25 — agent dispatch (R33, R35, R36, R39). Agents ship with the
+// plugin next to scripts/, so no other location is searched (#9196).
+const AGENTS_DIR = path.join(__dirname, '..', '..', 'agents');
+const FORMAT_REFERENCE_PATH = path.join(__dirname, '..', '..', 'skills', 'plan-sdlc', 'plan-format-reference.md');
 
-  // 1. Workspace-relative (development / CI / installed plugin cache — scripts/ and skills/ are siblings)
-  const workspacePath = path.join(
-    __dirname,
-    '..', '..', 'skills', 'plan-sdlc', templateName,
-  );
-  if (fs.existsSync(workspacePath)) {
-    return { subagentType, model, promptTemplatePath: workspacePath };
-  }
+const LANE_AGENTS = {
+  'static-structural':    'plan-lane-static',
+  'content-coverage':     'plan-lane-content',
+  'guardrail-compliance': 'plan-lane-guardrail',
+};
 
-  // 2. Fallback: find cascade over installed plugin cache
-  const findResult = spawnSync(
-    'find',
-    [
-      `${process.env.HOME}/.claude/plugins`,
-      '-name', templateName,
-      '-path', '*/plan-sdlc/*',
-    ],
-    { encoding: 'utf8' },
-  );
-  if (!findResult.error && findResult.status === 0) {
-    const lines = (findResult.stdout || '').trim().split('\n').filter(Boolean);
-    if (lines.length > 0) {
-      // sort -V semantics: pick the last (highest version) entry
-      const ver = p => { const m = p.match(/\/(\d+)\.(\d+)\.(\d+)\/skills/); return m ? [+m[1], +m[2], +m[3]] : [0, 0, 0]; };
-      const sorted = lines.slice().sort((a, b) => { const [a1, a2, a3] = ver(a); const [b1, b2, b3] = ver(b); return a1 - b1 || a2 - b2 || a3 - b3; });
-      return { subagentType, model, promptTemplatePath: sorted[sorted.length - 1] };
+const LENS_INPUTS = ['PLAN_FILE_PATH', 'REQUIREMENTS_CHECKLIST', 'LENS', 'LENS_FOCUS', 'BRIEF_FILE', 'GUARDRAILS', 'REQUIREMENTS_JSON'];
+const INPUT_NAMES = {
+  'plan-lane-static':       ['PLAN_FILE_PATH', 'REQUIREMENTS_SUMMARY', 'ACTIVE_GUARDRAILS'],
+  'plan-lane-content':      ['PLAN_FILE_PATH', 'REQUIREMENTS_SUMMARY', 'OPENSPEC_TASKS', 'ACTIVE_GUARDRAILS', 'BRIEF_FINDING_IDS', 'FORMAT_REFERENCE_PATH', 'PLAN_TEMPLATE_PATH'],
+  'plan-lane-guardrail':    ['PLAN_FILE_PATH', 'ACTIVE_GUARDRAILS'],
+  'plan-lane-g17':          ['PLAN_FILE_PATH', 'FIRED_CRITERIA_JSON'],
+  'plan-lens-architecture': LENS_INPUTS,
+  'plan-lens-requirements': [...LENS_INPUTS, 'OPENSPEC_TASKS'],
+  'plan-lens-risk':         LENS_INPUTS,
+  'plan-reviewer':          ['PLAN_FILE_PATH', 'REQUIREMENTS_CHECKLIST', 'SOURCE_REQUIREMENTS', 'BRIEF_FILE', 'OPENSPEC_TASKS', 'REQUIREMENTS_JSON', 'GUARDRAILS'],
+  'plan-intake-verify':     ['PROPOSAL', 'DELTA_SPECS', 'TASKS_MD', 'DESIGN', 'REQUIREMENTS_JSON'],
+};
+
+const LENS_DEFS = [
+  { lens: 'architecture', focusCategories: ['Buildability', 'Task descriptions', 'Decision documentation', 'Dependency accuracy'] },
+  { lens: 'requirements', focusCategories: ['Requirements coverage', 'Metadata completeness', 'Plan completeness', 'OpenSpec G16', 'Exploration provenance', 'Best-practice traceability'] },
+  { lens: 'risk',         focusCategories: ['File paths', 'Verification strategy', 'Scope discipline', 'Guardrail compliance'] },
+];
+
+// A4/P24 — plan quality presets (docs/cost-tiers.md §5 "Plan quality presets"; tuning values).
+const VALID_QUALITY = ['full', 'balanced', 'minimal'];
+const QUALITY_DISPATCH = {
+  full:     { dispatchModel: 'sonnet', dispatchEffort: 'low' },
+  balanced: { dispatchModel: null,     dispatchEffort: null },
+  minimal:  { dispatchModel: 'opus',   dispatchEffort: 'high' },
+};
+
+/** Read agents/<name>.md; model/effort from frontmatter, all null when absent. */
+function readAgent(name) {
+  const p = path.join(AGENTS_DIR, name + '.md');
+  const out = { agent: 'sdlc:' + name, agentPath: null, model: null, effort: null };
+  if (!fs.existsSync(p)) return out;
+  out.agentPath = p;
+  try {
+    const fm = extractFrontmatter(fs.readFileSync(p, 'utf8'));
+    if (fm !== null) {
+      const y = parseSimpleYaml(fm);
+      out.model = y.model ?? null;
+      out.effort = y.effort ?? null;
     }
+  } catch (err) {
+    process.stderr.write(`[plan-prepare] agent ${name}: could not read model/effort from frontmatter: ${err.message}\n`);
   }
+  return out;
+}
 
-  // 3. Not found — surface as error; G17 cannot dispatch without a prompt template
+/** Agent-dispatch shape (P15): readAgent + inputNames + the preset values those names use. */
+function buildDispatch(name, preset) {
+  const inputNames = INPUT_NAMES[name];
+  const presetInputs = {};
+  for (const n of inputNames) if (Object.prototype.hasOwnProperty.call(preset, n)) presetInputs[n] = preset[n];
+  return { ...readAgent(name), inputNames, presetInputs };
+}
+
+/** Values plan.js can compute for every dispatch (P15); noTasks is the OPENSPEC_TASKS sentinel. */
+function buildPreset(guardrails, openspecContext, noTasks) {
+  const tasks = openspecContext && Array.isArray(openspecContext.tasks) ? openspecContext.tasks : null;
+  const reqs = openspecContext && Array.isArray(openspecContext.requirements) ? openspecContext.requirements : null;
   return {
-    subagentType,
-    model,
-    promptTemplatePath: null,
-    error: `G17 prompt template not found: ${templateName}`,
+    FORMAT_REFERENCE_PATH,
+    ACTIVE_GUARDRAILS: JSON.stringify(guardrails),
+    GUARDRAILS: guardrails.length ? guardrails.map(g => `- [${g.id}] (${g.severity}): ${g.description}`).join('\n') : 'none configured',
+    OPENSPEC_TASKS: tasks ? JSON.stringify(tasks) : noTasks,
+    REQUIREMENTS_JSON: reqs ? JSON.stringify(reqs) : 'null',
   };
 }
 
-/**
- * Resolve a skill/plan-sdlc template path: workspace-relative first, find cascade as fallback.
- * See buildG17Dispatch's doc comment for why the order is workspace-first (Fixes #514).
- * @param {string} templateName
- * @returns {string|null}
- */
-function resolveSkillTemplate(templateName) {
-  // 1. Workspace-relative (development / CI / installed plugin cache — scripts/ and skills/ are siblings)
-  const workspacePath = path.join(__dirname, '..', '..', 'skills', 'plan-sdlc', templateName);
-  if (fs.existsSync(workspacePath)) {
-    return workspacePath;
-  }
-
-  // 2. Fallback: find cascade over installed plugin cache
-  const findResult = spawnSync(
-    'find',
-    [
-      `${process.env.HOME}/.claude/plugins`,
-      '-name', templateName,
-      '-path', '*/plan-sdlc/*',
-    ],
-    { encoding: 'utf8' },
-  );
-  if (!findResult.error && findResult.status === 0) {
-    const lines = (findResult.stdout || '').trim().split('\n').filter(Boolean);
-    if (lines.length > 0) {
-      const ver = p => { const m = p.match(/\/(\d+)\.(\d+)\.(\d+)\/skills/); return m ? [+m[1], +m[2], +m[3]] : [0, 0, 0]; };
-      const sorted = lines.slice().sort((a, b) => { const [a1, a2, a3] = ver(a); const [b1, b2, b3] = ver(b); return a1 - b1 || a2 - b2 || a3 - b3; });
-      return sorted[sorted.length - 1];
-    }
-  }
-
-  return null;
-}
-
-/**
- * Build P20 intakeAuditDispatch metadata (R39 — Fixes #445).
- * Resolves the Gate A intake audit prompt template via the same find cascade as
- * resolveSkillTemplate(), following the agent-dispatch-script-driven guardrail.
- * @returns {{ subagentType: string, model: string, promptTemplatePath: string|null }}
- */
-function buildIntakeAuditDispatch() {
-  return {
-    subagentType: 'general-purpose',
-    model: 'sonnet',
-    promptTemplatePath: resolveSkillTemplate('intake-verify-prompt.md'),
-  };
-}
-
-/**
- * Build P16 lanes[] metadata (R35).
- * Four entries per KD1 lane partitioning (G3, G4, G10, G12 are validator checks). Entry [3] mirrors g17Dispatch verbatim.
- * @param {{ subagentType: string, model: string, promptTemplatePath: string|null }} g17Dispatch
- * @returns {Array<{ name: string, subagentType: string, model: string, promptTemplatePath: string|null, gateIds: string[] }>}
- */
-function buildLanes(g17Dispatch) {
-  const lanes = LANE_DEFS.map(def => ({
-    name: def.name,
-    subagentType: 'general-purpose',
-    model: def.model,
-    promptTemplatePath: resolveSkillTemplate(def.templateName),
-    gateIds: def.gateIds,
-  }));
-
-  // Entry [3]: dimension-coverage — mirrors g17Dispatch verbatim (backwards compatibility)
-  lanes.push({
-    name: 'dimension-coverage',
-    subagentType: g17Dispatch.subagentType,
-    model: g17Dispatch.model,
-    promptTemplatePath: g17Dispatch.promptTemplatePath,
-    gateIds: ['G17'],
-  });
-
-  return lanes;
-}
-
-/**
- * Build P17 lensReviewers[] metadata (R36).
- * Three entries per KD3 lens partitioning.
- * @returns {Array<{ lens: string, subagentType: string, model: string, promptTemplatePath: string|null, focusCategories: string[] }>}
- */
-function buildLensReviewers() {
-  const lensDefs = [
-    {
-      lens: 'architecture',
-      templateName: 'lens-architecture-prompt.md',
-      focusCategories: ['Buildability', 'Task descriptions', 'Decision documentation', 'Dependency accuracy'],
-    },
-    {
-      lens: 'requirements',
-      templateName: 'lens-requirements-prompt.md',
-      focusCategories: ['Requirements coverage', 'Metadata completeness', 'Plan completeness', 'OpenSpec G16', 'Exploration provenance', 'Best-practice traceability'],
-    },
-    {
-      lens: 'risk',
-      templateName: 'lens-risk-prompt.md',
-      focusCategories: ['File paths', 'Verification strategy', 'Scope discipline', 'Guardrail compliance'],
-    },
-  ];
-
-  return lensDefs.map(def => ({
+function buildDispatchSet(guardrails, openspecContext, quality) {
+  const lanePreset = buildPreset(guardrails, openspecContext, 'null');                          // content lane sentinel
+  const preset = buildPreset(guardrails, openspecContext, 'none — plan not from OpenSpec');     // lenses and reviewer
+  const q = QUALITY_DISPATCH[quality];
+  const g17Dispatch = buildDispatch('plan-lane-g17', lanePreset);
+  const lanes = LANE_DEFS.map(def => ({ name: def.name, ...buildDispatch(LANE_AGENTS[def.name], lanePreset), gateIds: def.gateIds }));
+  lanes.push({ name: 'dimension-coverage', ...g17Dispatch, gateIds: ['G17'] });
+  const lensReviewers = LENS_DEFS.map(def => ({
     lens: def.lens,
-    subagentType: 'general-purpose',
-    model: 'sonnet',
-    promptTemplatePath: resolveSkillTemplate(def.templateName),
+    ...buildDispatch('plan-lens-' + def.lens, { ...preset, LENS: def.lens, LENS_FOCUS: def.focusCategories.map(c => '- ' + c).join('\n') }),
     focusCategories: def.focusCategories,
+    ...q,
   }));
+  const reviewerDispatch = { lens: 'all', ...buildDispatch('plan-reviewer', preset), ...q };
+  const intakeAuditDispatch = buildDispatch('plan-intake-verify', lanePreset);
+  return { g17Dispatch, lanes, lensReviewers, reviewerDispatch, intakeAuditDispatch };
 }
 
 // plan-explore.js invocation — builds explorePack (R24 / P8–P12)
@@ -491,7 +427,7 @@ function runSubcommand(sub, args) {
 function main() {
   const sub = process.argv[2];
   if (Object.prototype.hasOwnProperty.call(SUBCOMMANDS, sub)) { runSubcommand(sub, process.argv.slice(3)); return; }
-  const { fromOpenspec, markName, markPath } = parseArgs(process.argv);
+  const { fromOpenspec, markName, markPath, quality } = parseArgs(process.argv);
 
   // Read user prompt from stdin (piped by SKILL.md). May be empty when
   // invoked without stdin — e.g. from --mark mode or unit tests.
@@ -516,6 +452,14 @@ function main() {
   // active branch in the active worktree — route them through contentRoot, NOT projectRoot.
   const contentRoot = resolveActiveWorktreeSafe();
   const errors = [];
+
+  // A4/P24 — --quality (default balanced); an invalid value stops before any other work.
+  const flags = { quality: quality === null ? 'balanced' : quality, sources: { quality: quality === null ? 'default' : 'cli' } };
+  if (!VALID_QUALITY.includes(flags.quality)) {
+    errors.push(`Invalid --quality value "${flags.quality}"; expected one of ${VALID_QUALITY.join('|')}.`);
+    writeOutput({ errors, flags }, 'plan-prepare', 1);
+    return;
+  }
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
   const skipConfigCheck = resolveSkipConfigCheck(process.argv);
@@ -669,30 +613,9 @@ function main() {
   // 5. P14/P15 — G17 dispatch signals (R32, R33 — Fixes #417)
   // --mark mode short-circuits before this point, so these only run in --output-file mode.
   const githubHosting = buildGithubHosting(projectRoot);
-  const g17Dispatch = buildG17Dispatch();
-  if (g17Dispatch.error) {
-    process.stderr.write(`[plan-prepare] G17 skipped — ${g17Dispatch.error}\n`);
-  }
-
-  // 6. P16/P17 — lane fan-out and lens reviewer signals (R35, R36 — Fixes #418)
-  const lanes = buildLanes(g17Dispatch);
-  const lensReviewers = buildLensReviewers();
-  // Warn for any lane with null promptTemplatePath (non-G17 lanes only; G17 already warned above)
-  lanes.slice(0, 3).forEach(lane => {
-    if (lane.promptTemplatePath === null) {
-      process.stderr.write(`[plan-prepare] lane "${lane.name}" skipped — prompt template not found\n`);
-    }
-  });
-  lensReviewers.forEach(lens => {
-    if (lens.promptTemplatePath === null) {
-      process.stderr.write(`[plan-prepare] lens "${lens.lens}" skipped — prompt template not found\n`);
-    }
-  });
-
-  // 7a. P20 — intake audit dispatch (R39 — Fixes #445)
-  const intakeAuditDispatch = buildIntakeAuditDispatch();
-  if (intakeAuditDispatch.promptTemplatePath === null) {
-    process.stderr.write('[plan-prepare] intakeAuditDispatch: intake-verify-prompt.md not found — Gate A unavailable\n');
+  const { g17Dispatch, lanes, lensReviewers, reviewerDispatch, intakeAuditDispatch } = buildDispatchSet(guardrails, openspecContext, flags.quality);
+  for (const e of [...lanes, ...lensReviewers, reviewerDispatch, intakeAuditDispatch]) {
+    if (e.agentPath === null) process.stderr.write(`[plan-prepare] ${e.agent}: agent file not found — not dispatched\n`);
   }
 
   // 7b. P22 — critique temp directory
@@ -723,12 +646,14 @@ function main() {
     explorePack,
     planTemplate,
     githubHosting,
-    g17Dispatch: { subagentType: g17Dispatch.subagentType, model: g17Dispatch.model, promptTemplatePath: g17Dispatch.promptTemplatePath },
+    g17Dispatch,
     intakeAuditDispatch,
     lanes,
     lensReviewers,
+    reviewerDispatch,
     critiqueDir,
     commit,
+    flags,
     errors,
   };
 

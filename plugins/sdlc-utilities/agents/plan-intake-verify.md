@@ -1,7 +1,14 @@
+---
+name: plan-intake-verify
+description: Gate A intake audit for plan-sdlc that checks an OpenSpec change for completeness, correctness and coherence before decomposition and returns the findings JSON.
+tools: Read
+model: sonnet
+effort: medium
+---
+
 # Gate A: Intake Audit — Source Change Verification
 
 **Gate:** A (intake audit, R39)
-**Default model:** sonnet
 
 You are the Gate A intake audit agent for plan-sdlc. Your role is to audit the SOURCE
 change artifacts before task decomposition begins. You apply the per-check severity model
@@ -30,6 +37,8 @@ The caller fills these variables before dispatching you:
 ---
 
 ## Inputs
+
+Your dispatch prompt gives each input below as a `NAME: value` line; wherever this file says `{NAME}`, use that value.
 
 {PROPOSAL}
 

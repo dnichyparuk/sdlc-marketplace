@@ -6,9 +6,9 @@
  */
 
 const LANE_DEFS = [
-  { name: 'static-structural',    model: 'haiku',  templateName: 'lane-static-structural-prompt.md',    gateIds: ['G1', 'G2', 'G7'] },
-  { name: 'content-coverage',     model: 'sonnet', templateName: 'lane-content-coverage-prompt.md',     gateIds: ['G5', 'G6', 'G8', 'G9', 'G11', 'G13', 'G15', 'G16', 'G18', 'G19', 'G20', 'G21'] },
-  { name: 'guardrail-compliance', model: 'sonnet', templateName: 'lane-guardrail-compliance-prompt.md', gateIds: ['G14'] },
+  { name: 'static-structural',    gateIds: ['G1', 'G2', 'G7'] },
+  { name: 'content-coverage',     gateIds: ['G5', 'G6', 'G8', 'G9', 'G11', 'G13', 'G15', 'G16', 'G18', 'G19', 'G20', 'G21'] },
+  { name: 'guardrail-compliance', gateIds: ['G14'] },
 ];
 
 // ---------------------------------------------------------------------------

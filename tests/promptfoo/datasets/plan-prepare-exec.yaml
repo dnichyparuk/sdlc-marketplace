@@ -279,13 +279,15 @@
     - type: icontains
       value: '"g17Dispatch"'
     - type: icontains
-      value: '"subagentType": "general-purpose"'
+      value: '"agent": "sdlc:plan-lane-g17"'
     - type: icontains
       value: '"model": "sonnet"'
     - type: icontains
-      value: '"promptTemplatePath"'
+      value: '"agentPath"'
     - type: icontains
-      value: 'g17-dimension-coverage-prompt.md'
+      value: 'agents/plan-lane-g17.md'
+    - type: not-icontains
+      value: '"promptTemplatePath"'
 
 # --- P16/P17 signals: lanes[] and lensReviewers[] (R35, R36 — Fixes #418) ---
 
@@ -304,12 +306,16 @@
         if (data.lanes.length !== 4) return `expected 4 lanes, got ${data.lanes.length}`;
         const names = data.lanes.map(l => l.name).join(',');
         if (names !== 'static-structural,content-coverage,guardrail-compliance,dimension-coverage') return `unexpected lane names: ${names}`;
-        // Check all required fields present on each entry (including null promptTemplatePath entries)
+        // Check all required fields present on each entry (including null agentPath entries)
+        const expectedAgents = { 'static-structural': 'sdlc:plan-lane-static', 'content-coverage': 'sdlc:plan-lane-content', 'guardrail-compliance': 'sdlc:plan-lane-guardrail', 'dimension-coverage': 'sdlc:plan-lane-g17' };
         for (const lane of data.lanes) {
           if (!lane.name) return `lane missing name: ${JSON.stringify(lane)}`;
-          if (!lane.subagentType) return `lane missing subagentType: ${lane.name}`;
+          if (lane.agent !== expectedAgents[lane.name]) return `lane agent mismatch: ${lane.name} -> ${lane.agent}`;
           if (!lane.model) return `lane missing model: ${lane.name}`;
-          if (!('promptTemplatePath' in lane)) return `lane missing promptTemplatePath key: ${lane.name}`;
+          if (!('agentPath' in lane) || !('effort' in lane)) return `lane missing agentPath or effort key: ${lane.name}`;
+          if (!Array.isArray(lane.inputNames)) return `lane inputNames not an array: ${lane.name}`;
+          if (typeof lane.presetInputs !== 'object') return `lane presetInputs not an object: ${lane.name}`;
+          if (('subagentType' in lane) || ('promptTemplatePath' in lane)) return `lane carries a legacy key: ${lane.name}`;
           if (!lane.gateIds || !Array.isArray(lane.gateIds) || lane.gateIds.length === 0) return `lane missing gateIds: ${lane.name}`;
         }
         // Check disjoint gateIds
@@ -341,11 +347,80 @@
         for (let i = 0; i < data.lensReviewers.length; i++) {
           const lr = data.lensReviewers[i];
           if (lr.lens !== expectedLenses[i]) return `expected lens ${expectedLenses[i]} at index ${i}, got ${lr.lens}`;
-          if (!lr.subagentType) return `lensReviewer[${i}] missing subagentType`;
+          if (lr.agent !== 'sdlc:plan-lens-' + lr.lens) return `lensReviewer[${i}] agent mismatch: ${lr.agent}`;
           if (!lr.model) return `lensReviewer[${i}] missing model`;
-          if (!('promptTemplatePath' in lr)) return `lensReviewer[${i}] missing promptTemplatePath key`;
+          if (!('agentPath' in lr)) return `lensReviewer[${i}] missing agentPath key`;
+          if (!lr.presetInputs || lr.presetInputs.LENS !== lr.lens) return `lensReviewer[${i}] presetInputs.LENS mismatch`;
+          if (('subagentType' in lr) || ('promptTemplatePath' in lr)) return `lensReviewer[${i}] carries a legacy key`;
           if (!lr.focusCategories || !Array.isArray(lr.focusCategories) || lr.focusCategories.length === 0) return `lensReviewer[${i}] missing or empty focusCategories`;
         }
+        return true;
+
+- description: "plan-prepare: lane model is read from agent frontmatter"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        const l = data.lanes[0];
+        if (l.agent !== 'sdlc:plan-lane-static') return `lanes[0].agent: ${l.agent}`;
+        if (l.model !== 'haiku') return `lanes[0].model: ${l.model}`;
+        if (l.effort !== 'low') return `lanes[0].effort: ${l.effort}`;
+        if (typeof l.agentPath !== 'string' || !l.agentPath.endsWith('/agents/plan-lane-static.md')) return `lanes[0].agentPath: ${l.agentPath}`;
+        if (data.intakeAuditDispatch.model !== 'sonnet') return `intakeAuditDispatch.model: ${data.intakeAuditDispatch.model}`;
+        if (data.intakeAuditDispatch.effort !== 'medium') return `intakeAuditDispatch.effort: ${data.intakeAuditDispatch.effort}`;
+        return true;
+
+- description: "plan-prepare: --quality defaults to balanced with null dispatch overrides (P24)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'balanced', sources: { quality: 'default' } })) return `flags: ${JSON.stringify(data.flags)}`;
+        for (const e of [...data.lensReviewers, data.reviewerDispatch]) {
+          if (e.dispatchModel !== null || e.dispatchEffort !== null) return `${e.agent}: dispatchModel ${e.dispatchModel}, dispatchEffort ${e.dispatchEffort}`;
+        }
+        if (data.reviewerDispatch.agent !== 'sdlc:plan-reviewer') return `reviewerDispatch.agent: ${data.reviewerDispatch.agent}`;
+        if (data.reviewerDispatch.lens !== 'all') return `reviewerDispatch.lens: ${data.reviewerDispatch.lens}`;
+        return true;
+
+- description: "plan-prepare: --quality minimal sets lens dispatchModel opus and dispatchEffort high"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_args: "--quality minimal"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'minimal', sources: { quality: 'cli' } })) return `flags: ${JSON.stringify(data.flags)}`;
+        for (const e of [...data.lensReviewers, data.reviewerDispatch]) {
+          if (e.dispatchModel !== 'opus' || e.dispatchEffort !== 'high') return `${e.agent}: dispatchModel ${e.dispatchModel}, dispatchEffort ${e.dispatchEffort}`;
+        }
+        if (!data.lanes.every(l => !('dispatchModel' in l))) return 'a lane carries dispatchModel';
+        return true;
+
+- description: "plan-prepare: invalid --quality exits 1 with an errors entry"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({exitCode:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--quality","bogus"],{encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 1) return `exitCode: ${o.exitCode}`;
+        if (JSON.stringify(o.out.errors) !== JSON.stringify(['Invalid --quality value "bogus"; expected one of full|balanced|minimal.'])) return `errors: ${JSON.stringify(o.out.errors)}`;
+        if (Object.keys(o.out).sort().join(',') !== 'errors,flags') return `keys: ${Object.keys(o.out).sort().join(',')}`;
         return true;
 
 # --- openspecContext.requirements (R38 — Fixes #445) ---
@@ -376,7 +451,7 @@
     - type: icontains
       value: '"intakeAuditModel": "sonnet"'
     - type: icontains
-      value: '"intakeAuditSubagentType": "general-purpose"'
+      value: '"intakeAuditAgent": "sdlc:plan-intake-verify"'
 
 # --- contentRoot routing: linked-worktree OpenSpec detection (#457) ---
 # Fixture: main worktree has NO openspec; linked worktree worktrees/wt1 (feat/my-feature)

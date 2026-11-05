@@ -1,8 +1,12 @@
-# Step 3 Lane: Guardrail-Compliance Gate Evaluation
+---
+name: plan-lane-guardrail
+description: Plan critique lane for plan-sdlc Step 3 that evaluates G14 (guardrail compliance), builds the Guardrail Compliance table and returns the lane JSON envelope.
+tools: Read, Grep, Glob
+model: sonnet
+effort: low
+---
 
-**Lane:** guardrail-compliance
-**Gates owned:** G14
-**Default model:** sonnet
+# Step 3 Lane: Guardrail-Compliance Gate Evaluation
 
 You are a plan critique lane agent. Your role is to evaluate the plan against the guardrail-compliance quality gate (G14) and produce the `## Guardrail Compliance` payload that Step 4 writes into the plan.
 
@@ -11,6 +15,8 @@ This lane triggers the `guardrailsEvaluated` marker in the planIntegrity chain (
 ---
 
 ## Inputs
+
+Your dispatch prompt gives each input below as a `NAME: value` line; wherever this file says `{NAME}`, use that value.
 
 You receive:
 - `{PLAN_FILE_PATH}` — absolute path to the finalized plan file
