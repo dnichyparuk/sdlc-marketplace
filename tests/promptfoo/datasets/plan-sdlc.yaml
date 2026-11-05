@@ -34,7 +34,7 @@
     user_request: >
       Run /plan-sdlc. Step 3 (CRITIQUE) is about to begin. The prepare output includes
       lanes[] with 4 entries (static-structural, content-coverage, guardrail-compliance,
-      dimension-coverage) each with a promptTemplatePath, and no guardrails are configured
+      dimension-coverage) each with an agent and inputNames, and no guardrails are configured
       (guardrails is empty). Describe exactly how Step 3 dispatches its gate evaluations.
   assert:
     - type: icontains
@@ -47,7 +47,7 @@
       value: >
         The response dispatches static-structural, content-coverage and dimension-coverage
         in one message, skips guardrail-compliance (no guardrails), after running
-        validate-plan-format.js and g17-prepare; parameters come verbatim from lanes[];
+        validate-plan-format.js and g17-prepare; subagent_type = lane.agent and the prompt is one NAME: value line per lane.inputNames entry; no model or effort is passed (the agent file sets them);
         merge-lanes merges the results; guardrailsEvaluated is written after merge-lanes
         returns and critiqueRan after every dispatched lane has returned; G3, G4, G10 and
         G12 are validator checks (PF4, PF12, PF13) and the lanes plus the validator cover
@@ -69,8 +69,8 @@
         ALL lens reviewers from lensReviewers[] in a SINGLE message per iteration
         (parallel dispatch, not sequential). Key facts:
         (1) all 3 lens reviewers dispatched simultaneously in one message per iteration;
-        (2) dispatch parameters sourced verbatim from lensReviewers[i] — no hardcoded values;
-        (3) since plan is written by sonnet, all lenses use opus (cross-model strategy);
+        (2) subagent_type = lensReviewers[i].agent with the prompt built from its inputNames; model and effort are passed only from non-null dispatchModel/dispatchEffort;
+        (3) dispatchModel is null (balanced preset) and the plan is written by sonnet, so every lens gets model: opus (R8);
         (4) merge semantics: Status=Approved iff ALL lenses approved; Issues=union with
         dedup; Recommendations=prefix-dedup;
         (5) iteration counter increments by 1 per complete fan-out, not per reviewer
@@ -560,10 +560,10 @@
     skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md"
     project_context: "file://fixtures/plan-orchestrator-dispatch.md"
     user_request: >
-      Run /plan-sdlc. The prepare output includes g17Dispatch: { subagentType:
-      "general-purpose", model: "sonnet", promptTemplatePath:
-      "/some/path/g17-dimension-coverage-prompt.md" } and githubHosting: { detected: true,
-      host: "github.com" }. Describe what happens at the START of Step 3.
+      Run /plan-sdlc. The prepare output includes g17Dispatch: { agent: "sdlc:plan-lane-g17",
+      agentPath: "/some/path/agents/plan-lane-g17.md", model: "sonnet", effort: "low",
+      inputNames: ["PLAN_FILE_PATH", "FIRED_CRITERIA_JSON"], presetInputs: {} } and
+      githubHosting: { detected: true, host: "github.com" }. Describe what happens at the START of Step 3.
   assert:
     - type: icontains
       value: "G17"
@@ -571,25 +571,25 @@
       value: >
         The response describes dispatching the G17 Dimension Coverage subagent at the START
         of Step 3, in parallel with main-thread gate evaluations. The dispatch uses
-        g17Dispatch.subagentType ("general-purpose"), g17Dispatch.model ("sonnet"), and
-        g17Dispatch.promptTemplatePath as parameters — it does NOT hardcode these values.
+        subagent_type g17Dispatch.agent ("sdlc:plan-lane-g17") with a prompt of NAME: value lines
+        for its inputNames, and passes no model or effort — it does NOT hardcode these values.
         The response explains that the main thread continues gate evaluations while G17 runs
         concurrently, and that results are joined before writing the critiqueRan marker.
 
-- description: "plan-sdlc: G17 skipped when promptTemplatePath is null (R31, #417)"
+- description: "plan-sdlc: G17 skipped when agentPath is null (R31, #417)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md"
     project_context: "file://fixtures/plan-orchestrator-dispatch.md"
     user_request: >
-      Run /plan-sdlc. The prepare output includes g17Dispatch: { subagentType:
-      "general-purpose", model: "sonnet", promptTemplatePath: null, error: "template not
-      found" }. Describe what happens at Step 3 for G17.
+      Run /plan-sdlc. The prepare output includes g17Dispatch: { agent: "sdlc:plan-lane-g17",
+      agentPath: null, model: null, effort: null, inputNames: ["PLAN_FILE_PATH",
+      "FIRED_CRITERIA_JSON"], presetInputs: {} }. Describe what happens at Step 3 for G17.
   assert:
     - type: llm-rubric
       value: >
-        The response skips G17 dispatch entirely because promptTemplatePath is null. It
+        The response skips G17 dispatch entirely because agentPath is null. It
         treats g17Findings as empty (findings: [], rendering: "", suppressed_count: 0).
-        The response does NOT attempt to dispatch the subagent with a null template path.
+        The response does NOT attempt to dispatch the subagent with a null agent path.
         It logs the skip (or describes logging to .sdlc/learnings/log.md). Plan finalization
         is NOT blocked — G17 is advisory and a skip is not a failure.
 
@@ -804,17 +804,16 @@
     project_context: "file://fixtures/plan-from-openspec-with-requirements.md"
     user_request: >
       Run /plan-sdlc --from-openspec add-resource-indicators. Step 1 is complete.
-      openspecContext.requirements is present. How does SKILL.md determine which model
-      and subagentType to use when dispatching the Gate A audit agent?
+      openspecContext.requirements is present. How does SKILL.md determine which agent and inputs
+      to use when dispatching the Gate A audit agent?
   assert:
     - type: llm-rubric
       value: >
-        The response explains that the model and subagentType are sourced verbatim from
-        the intakeAuditDispatch field in the prepare output (P20). SKILL.md does NOT
-        hardcode the model name or subagentType for Gate A — it reads the values from the
-        script output following the agent-dispatch-script-driven guardrail. Similarly,
-        the promptTemplatePath for intake-verify-prompt.md comes from
-        intakeAuditDispatch.promptTemplatePath in the prepare output.
+        The response explains that subagent_type is intakeAuditDispatch.agent
+        (sdlc:plan-intake-verify) from the prepare output (P20) and the prompt is one
+        NAME: value line per inputNames entry, REQUIREMENTS_JSON preset. SKILL.md does NOT
+        hardcode the agent and passes no model or effort — the agent file sets them
+        (agent-dispatch-script-driven guardrail).
 
 # --- Verdict→action wiring (R41 — Fixes #445) ---
 
@@ -1271,7 +1270,7 @@
 
 - description: "plan-sdlc: G19 PASSES Task 1 that renders a Mermaid fenced block for a call-order/state surface (R46/R50, G19, #472)"
   vars:
-    skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/lane-content-coverage-prompt.md"
+    skill_path: "plugins/sdlc-utilities/agents/plan-lane-content.md"
     project_context: "file://fixtures/plan-g19-mermaid-pass.md"
     user_request: >
       Run /plan-sdlc. Evaluate the Step 3 G19 render-don't-narrate gate for Task 1
@@ -1293,7 +1292,7 @@
 
 - description: "plan-sdlc: G20 flags a Notes block that restates the task's Contract/acceptance (error-severity, blocking) (R48, G20, #472)"
   vars:
-    skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/lane-content-coverage-prompt.md"
+    skill_path: "plugins/sdlc-utilities/agents/plan-lane-content.md"
     project_context: "file://fixtures/plan-deviations-notes.md"
     user_request: >
       Run /plan-sdlc. Evaluate the Step 3 G20 Notes rationale-only gate for all tasks in
@@ -1313,7 +1312,7 @@
 
 - description: "plan-sdlc: G21 PASSES a file:line used as a Contract.mirror pointer but FLAGS a bare file:line change-site reference (R51, G21, #472)"
   vars:
-    skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/lane-content-coverage-prompt.md"
+    skill_path: "plugins/sdlc-utilities/agents/plan-lane-content.md"
     project_context: "file://fixtures/plan-g21-pointer-vs-change.md"
     user_request: >
       Run /plan-sdlc. Evaluate the Step 3 G21 self-contained code references gate for

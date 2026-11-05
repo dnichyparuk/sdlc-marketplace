@@ -55,9 +55,12 @@
     "requirementsError": null
   },
   "intakeAuditDispatch": {
-    "subagentType": "general-purpose",
+    "agent": "sdlc:plan-intake-verify",
+    "agentPath": "/path/to/agents/plan-intake-verify.md",
     "model": "sonnet",
-    "promptTemplatePath": "/path/to/skills/plan-sdlc/intake-verify-prompt.md"
+    "effort": "medium",
+    "inputNames": ["PROPOSAL","DELTA_SPECS","TASKS_MD","DESIGN","REQUIREMENTS_JSON"],
+    "presetInputs": { "REQUIREMENTS_JSON": "[{\"reqId\":\"req-1\",\"capability\":\"ResourceIndicator UI component\",\"type\":\"ADDED\",\"name\":\"ResourceIndicator component with health/capacity/availability variants\",\"scenarioCount\":3},{\"reqId\":\"req-2\",\"capability\":\"ResourceService.getIndicators()\",\"type\":\"ADDED\",\"name\":\"Data service method returning indicator data with 30s cache TTL\",\"scenarioCount\":2}]" }
   },
   "guardrails": [
     { "id": "test-coverage-required", "description": "Every task must include test cases", "severity": "error" }

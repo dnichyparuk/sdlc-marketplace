@@ -2,7 +2,7 @@
 name: plan-sdlc
 description: "Use when writing an implementation plan from requirements, a spec, a design doc, or a user description. ALWAYS use when plan mode is active — this is the designated plan-mode skill. Analyzes scope, maps file structure, decomposes into classified tasks with dependencies, and produces a plan ready for execute-plan-sdlc. Triggers on: write plan, create plan, plan this, break this into tasks, implementation plan, plan mode."
 user-invocable: true
-argument-hint: "[--spec] [--from-openspec <change-name>] [spec-file-path]"
+argument-hint: "[--spec] [--from-openspec <change-name>] [--quality full|balanced|minimal] [spec-file-path]"
 model: opus
 ---
 
@@ -89,6 +89,8 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file
 Run this as one plain Bash call. Take the manifest path the command prints on stdout as `PLAN_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 If `--from-openspec <name>` was passed to plan-sdlc, include it in the node command: `node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file --from-openspec <name>`.
+
+If `--quality <preset>` was passed to plan-sdlc, include it the same way (`--quality <preset>`). plan.js resolves it into `flags.quality` (P24) and applies it as `dispatchModel`/`dispatchEffort` on the reviewer entries; no later step reads the raw flag.
 
 If `EXIT_CODE` is non-zero, print the errors from the JSON output; when the output file holds a non-null `critiqueDir`, remove it (one `rm -rf` on that literal path) before you stop. If `EXIT_CODE` is 0, read the JSON output file. Print context detection summary:
 ```
@@ -244,16 +246,9 @@ Identify constraints: language, framework, existing conventions, testing approac
 
 When `openspecContext.requirements` is present (non-null) in the prepare output:
 
-1. Dispatch one Gate A audit Agent using `intakeAuditDispatch` parameters from the prepare output (P20). Source `subagentType`, `model`, and `promptTemplatePath` verbatim from `intakeAuditDispatch` — do NOT hardcode model or template path (`agent-dispatch-script-driven` guardrail). If `intakeAuditDispatch.promptTemplatePath` is null, skip Gate A and emit one note: `Gate A skipped — intake-verify-prompt.md not found.`
+1. Dispatch one Gate A audit Agent from `intakeAuditDispatch` (P20) by the Step 3 dispatch rule: `subagent_type: intakeAuditDispatch.agent`, `description: "plan gate A"`, prompt = one `NAME: value` line per name in `intakeAuditDispatch.inputNames` (values from `presetInputs`, else from the run-time input table in Step 3). Do not pass `model` or `effort` (`agent-dispatch-script-driven` guardrail). If `intakeAuditDispatch.agentPath` is null, skip Gate A and emit one note: `Gate A skipped — plan-intake-verify agent file not found.`
 
-   Read the file at `intakeAuditDispatch.promptTemplatePath`; fill the following template variables before dispatching.
-
-2. Fill the prompt template variables:
-   - `{PROPOSAL}` — content of `openspec/changes/<name>/proposal.md` (already read in Step 0), or `"[artifact missing]"` if absent
-   - `{DELTA_SPECS}` — concatenated content of all `openspec/changes/<name>/specs/*.md` files (already read in Step 0), or `"[artifact missing]"` if none found
-   - `{TASKS_MD}` — content of `openspec/changes/<name>/tasks.md` (already read in Step 0), or `"[artifact missing]"` if absent
-   - `{DESIGN}` — content of `openspec/changes/<name>/design.md` if present, or `"[artifact missing]"`
-   - `{REQUIREMENTS_JSON}` — `JSON.stringify(openspecContext.requirements)` from prepare output, or `"null"` if null
+2. The artifacts read in Step 0 are the values of `PROPOSAL`, `DELTA_SPECS`, `TASKS_MD` and `DESIGN` (see the run-time input table in Step 3); `REQUIREMENTS_JSON` is preset.
 
 3. Parse the agent's JSON response `{ findings, verdict, skipped }`.
 
@@ -411,17 +406,26 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" g17-prepare --plan "<PLAN_PATH>" --di
 
 Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2, or any non-zero exit from g17-prepare or merge-lanes, means stop and invoke `error-report-sdlc`.
 
-**Fan-out dispatch:** Dispatch the Step 3 lanes from `lanes[]` (P16) in a SINGLE message as parallel Agent tool calls; skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. For each dispatched lane, `subagent_type`, `model` and the prompt body (read from `promptTemplatePath`) come verbatim from its `lanes[]` entry (`agent-dispatch-script-driven` guardrail). Template variables:
-- All lanes: `{PLAN_FILE_PATH}` (absolute path to the plan file), `{PROJECT_ROOT}` (cwd).
-- static-structural, content-coverage and guardrail-compliance: `{REQUIREMENTS_SUMMARY}` (the numbered requirements list from Step 1 CONSUME — same content as `{REQUIREMENTS_CHECKLIST}` in Step 5), `{ACTIVE_GUARDRAILS}` (from `guardrails[]` P7), `{OPENSPEC_TASKS}` (from `openspecContext.tasks` P13, null when not OpenSpec-sourced), `{BRIEF_FINDING_IDS}` (from the discovery brief, null when no brief).
-- content-coverage additionally: `{FORMAT_REFERENCE_PATH}` — `plan-format-reference.md` in the directory of that lane's `promptTemplatePath`; `{PLAN_TEMPLATE_PATH}` — `activeTemplatePath` from Step 0.
-- dimension-coverage: `{PLAN_FILE_PATH}`, `{FIRED_CRITERIA_JSON}` (contents of `<ITER_DIR>/g17-prepare.json`).
+**Fan-out dispatch:** For each `lane` in `lanes[]` (P16), issue one Agent call — all in one message: `subagent_type: lane.agent`, `description: "plan lane <lane.name>"`, `prompt`: one `NAME: value` line per name in `lane.inputNames`, taking the value from `lane.presetInputs` when present, otherwise from the run-time table below. Do not pass `model` or `effort`; the agent file sets both (`agent-dispatch-script-driven` guardrail). Skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. When `lane.agentPath` is null, do not dispatch that lane (see below).
 
-**Null `promptTemplatePath`:** skip that lane's dispatch and write nothing for it; merge-lanes reports the missing result as a blocking lane failure (dimension-coverage: advisory, R31). For dimension-coverage also log `## YYYY-MM-DD — plan-sdlc: G17 skipped — promptTemplatePath null (template not found at prepare time)` to `.sdlc/learnings/log.md`.
+Run-time input table (values the prepare script cannot know; Step 5 and Gate A use the same table):
+
+| Input | Value |
+|---|---|
+| `PLAN_FILE_PATH` | absolute path to the plan file |
+| `REQUIREMENTS_SUMMARY`, `REQUIREMENTS_CHECKLIST` | the numbered requirements list from Step 1 (CONSUME) |
+| `SOURCE_REQUIREMENTS` | spec file path or inline text, or `not provided` |
+| `BRIEF_FILE` | absolute path to `discovery-brief.md`, or `none — orchestrator skipped` |
+| `BRIEF_FINDING_IDS` | the `F-<DIM>-<n>` IDs from the discovery brief, or `null` |
+| `PLAN_TEMPLATE_PATH` | `activeTemplatePath` from Step 0 |
+| `FIRED_CRITERIA_JSON` | contents of `<ITER_DIR>/g17-prepare.json` |
+| `PROPOSAL`, `DELTA_SPECS`, `TASKS_MD`, `DESIGN` | the artifacts read in Step 0 (`DELTA_SPECS` concatenated), or `[artifact missing]` |
+
+**Null `agentPath`:** a lane whose `agentPath` is null is not dispatched and gets no file; merge-lanes reports the missing result as a blocking lane failure (dimension-coverage: advisory, R31). For dimension-coverage also log `## YYYY-MM-DD — plan-sdlc: G17 skipped — plan-lane-g17 agent file not found` to `.sdlc/learnings/log.md`.
 
 **No `isolation` parameter on lane dispatches:** lanes read the plan file by absolute path, and a worktree copy would read a stale or absent file.
 
-**Collect and merge:** Write each lane's final fenced `json` block verbatim to `<ITER_DIR>/<lane name>.json` with the Write tool (write nothing for a lane that returned nothing). Then run, listing every `lanes[]` name except `guardrail-compliance` when it was skipped (a lane skipped for a null `promptTemplatePath` stays in the list, so `merge-lanes` reports its missing result; `dimension-coverage` stays in the list when its file was written by hand):
+**Collect and merge:** Write each lane's final fenced `json` block verbatim to `<ITER_DIR>/<lane name>.json` with the Write tool (write nothing for a lane that returned nothing). Then run, listing every `lanes[]` name except `guardrail-compliance` when it was skipped (a lane skipped for a null `agentPath` stays in the list, so `merge-lanes` reports its missing result; `dimension-coverage` stays in the list when its file was written by hand):
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "<lane names, comma-separated>" [--no-guardrails] > "<ITER_DIR>/merged.json"
@@ -514,21 +518,17 @@ When `materialChangeDetected` is false (or unset), dispatch only the Step 5 lens
 
 **Await barrier:** collect exactly N lens results (N = lenses dispatched) before consolidating or advancing; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns. <!-- R-orchestrator-await, R-c1 -->
 
-For each `lensReviewers[]` entry:
-- `subagent_type`: `lensReviewers[i].subagentType`
-- `model`: `lensReviewers[i].model`, unless it equals the plan author's model; then dispatch the lens with the opposite model (opus ↔ sonnet), the dispatch-time override P17 allows, so every lens runs on the model opposite to the plan author. <!-- R36, R8, P17 -->
-- prompt body: Read `lensReviewers[i].promptTemplatePath` and fill template variables:
-  - `{PLAN_FILE_PATH}` — absolute path to the plan file
-  - `{LENS}` — `lensReviewers[i].lens` (one of `architecture`, `requirements`, `risk`)
-  - `{LENS_FOCUS}` — `lensReviewers[i].focusCategories` rendered as a bullet list
-  - `{REQUIREMENTS_CHECKLIST}` — numbered list from Step 1 (CONSUME)
-  - `{SOURCE_REQUIREMENTS}` — file path or inline text of spec (if available)
-  - `{BRIEF_FILE}` — absolute path to `discovery-brief.md`, or `"none — orchestrator skipped"`
-  - `{OPENSPEC_TASKS}` — serialized JSON from `openspecContext.tasks[]`, or `"none — plan not from OpenSpec"`
-  - `{GUARDRAILS}` — one guardrail per line (`- [id] (severity): description`), or `"none configured"`
-  - `{REQUIREMENTS_JSON}` — `JSON.stringify(openspecContext.requirements)` when present, or `"null"` (null-safe; lens prompts render `"null"` as `"none — inventory unavailable, use checklist"`)
+For each `lensReviewers[]` entry, dispatch by the Step 3 dispatch rule: `subagent_type: entry.agent`, `description: "plan lens <entry.lens>"`, `prompt` from `entry.inputNames` (`LENS` and `LENS_FOCUS` are preset). Pass `model: entry.dispatchModel` and `effort: entry.dispatchEffort` only when non-null; per-invocation parameters override the agent file. When `entry.dispatchModel` is null (the `balanced` preset), pass `model: opus` only when the plan author ran on sonnet (R8). <!-- R36, R8, P17 -->
 
-When `lensReviewers[i].promptTemplatePath` is null, skip that lens and log to `.sdlc/learnings/log.md`: `## YYYY-MM-DD — plan-sdlc: lens "<name>" skipped — promptTemplatePath null (template not found at prepare time)`. Continue with remaining lenses.
+**Plan quality presets** (`--quality`, A4; values are tuning, `docs/cost-tiers.md` §5):
+
+| Preset | Lanes | Lens / reviewer model | Lens / reviewer effort |
+|---|---|---|---|
+| `full` (Speed) | agent-file defaults | `sonnet` | `low` |
+| `balanced` (default) | agent-file defaults | opposite of the plan author's model (R8: `opus` when the author ran on sonnet, else the agent file's `sonnet`) | agent-file default |
+| `minimal` (Quality) | agent-file defaults | `opus` | `high` |
+
+When `entry.agentPath` is null, skip that lens and log to `.sdlc/learnings/log.md`: `## YYYY-MM-DD — plan-sdlc: lens "<name>" skipped — agent file not found`. Continue with remaining lenses.
 
 **No `isolation` parameter on lens reviewer dispatches:** lenses read the plan file by absolute path, and a worktree copy would read a stale or absent file.
 
@@ -540,7 +540,7 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lane
 
 Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Use `lens` from `merged.json`: `lens.status` is the iteration status (`Approved` iff every lens is Approved), `lens.issues` the issues, `lens.recommendations` the recommendations. Increment the iteration counter by 1 only after the await barrier above is satisfied (exactly N lens results collected); never on partial or zero returns. <!-- R36, R-orchestrator-await, R-c1 -->
 
-For plans with <5 tasks, dispatch one reviewer with `{LENS}=all` using `./plan-reviewer-prompt.md`. Its JSON goes to `<ITER_DIR>/lens-all.json` and merge-lanes runs with `--lenses all`.
+For plans with <5 tasks, dispatch one reviewer, `reviewerDispatch` (P25), by the same rule, including the R8 author rule (`description: "plan review"`). Its JSON goes to `<ITER_DIR>/lens-all.json` and merge-lanes runs with `--lenses all`.
 
 **Gate B — Verification Scorecard:** <!-- implements R40, R42, R44 -->
 
@@ -729,6 +729,6 @@ On selection, invoke the chosen skill using the Skill tool. On "done", end witho
 ## See Also
 
 - `./plan-template-default.md` — shipped default plan template (section list, discovery questions, verification patterns)
-- `./plan-reviewer-prompt.md` — plan review subagent template
+- `agents/` (`plan-lane-*`, `plan-lens-*`, `plan-reviewer`, `plan-intake-verify`) — critique lanes, lenses, reviewer and Gate A
 - `./plan-format-reference.md` — plan document format specification
 - [`/execute-plan-sdlc`](../execute-plan-sdlc/SKILL.md) — skill that executes the plans this skill produces

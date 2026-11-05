@@ -90,8 +90,7 @@ const iad = data.intakeAuditDispatch || null;
 const dispatchReport = {
   intakeAuditDispatchPresent: iad !== null && typeof iad === 'object',
   intakeAuditModel:           iad ? iad.model : null,
-  intakeAuditSubagentType:    iad ? iad.subagentType : null,
-  intakeAuditHasTemplatePath: iad ? ('promptTemplatePath' in iad) : false,
+  intakeAuditAgent:           iad ? iad.agent : null,
 };
 
 const report = checkDispatchOnly
