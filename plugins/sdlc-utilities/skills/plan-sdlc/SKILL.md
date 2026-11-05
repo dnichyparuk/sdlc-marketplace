@@ -101,6 +101,8 @@ Context detection (from skill/plan.js):
 
 Extract `guardrails` from the output → store as `activeGuardrails`. If the array is non-empty, print: "Loaded N plan guardrails." If empty: "No plan guardrails configured."
 
+Extract `critiqueDir` (P22) from the output and keep it for Steps 3, 5 and 7. If it is null or absent (the directory could not be created, or `plan.js` is an older version), print the `errors[]` entry and stop by invoking `error-report-sdlc`; never create `<ITER_DIR>` or run an `rm -rf` on an unset value.
+
 **Template resolution:** After parsing the plan.js output, resolve the active plan template: <!-- implements R61 -->
 
 1. Read `planTemplate.path` from the plan.js output (P21).
@@ -391,7 +393,7 @@ R62 is a writing-quality convention judged by the Step 5 lens reviewers alongsid
 
 G1–G21 are partitioned: the four lanes own the judgment gates (G20 and G21 in content-coverage); `validate-plan-format.js` owns G3 and G12 (PF4), G4 (PF12) and G10 (PF13). <!-- R35 -->
 
-**Iteration directory:** `<ITER_DIR>` is `<critiqueDir>/iter-0` at Step 3 and `<critiqueDir>/iter-<k>` at Step 5 iteration k (`critiqueDir` is P22). Do not add an EXIT trap: each Bash tool call is its own shell.
+**Iteration directory:** `<ITER_DIR>` is `<critiqueDir>/iter-0` at Step 3 and `<critiqueDir>/iter-<k>` at Step 5 iteration k (`critiqueDir` is P22). Do not add an EXIT trap: each Bash tool call is its own shell. Every stop below that invokes `error-report-sdlc` first removes `<critiqueDir>` (one `rm -rf` on the literal path).
 
 **Deterministic checks (before the lane dispatch):**
 
@@ -419,13 +421,13 @@ Run each block as one plain Bash call and take its exit code from the tool resul
 
 **No `isolation` parameter on lane dispatches:** lanes read the plan file by absolute path, and a worktree copy would read a stale or absent file.
 
-**Collect and merge:** Write each lane's final fenced `json` block verbatim to `<ITER_DIR>/<lane name>.json` with the Write tool (write nothing for a lane that returned nothing). Then run, listing every lane that was dispatched plus `dimension-coverage` when its file was written by hand:
+**Collect and merge:** Write each lane's final fenced `json` block verbatim to `<ITER_DIR>/<lane name>.json` with the Write tool (write nothing for a lane that returned nothing). Then run, listing every `lanes[]` name except `guardrail-compliance` when it was skipped (a lane skipped for a null `promptTemplatePath` stays in the list, so `merge-lanes` reports its missing result; `dimension-coverage` stays in the list when its file was written by hand):
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "<lane names, comma-separated>" [--no-guardrails] > "<ITER_DIR>/merged.json"
 ```
 
-Pass `--no-guardrails` exactly when `guardrail-compliance` was skipped. Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Read `merged.json`: `issues` is the Step 3 issue list (blocking ones carry `blocking: true`); `guardrailCompliancePayload` feeds Step 4's `## Guardrail Compliance`; `g17Findings` feeds Step 4's `## Suggested Review Dimensions`. Do NOT write to the plan file in this step.
+Pass `--no-guardrails` exactly when `guardrail-compliance` was skipped. `merge-lanes` reads `<ITER_DIR>/pf-report.json` itself from `--dir` and turns the validator's failures into blocking G3, G4, G10 and G12 issues; do not pass it separately. Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Read `merged.json`: `issues` is the Step 3 issue list (blocking ones carry `blocking: true`); `guardrailCompliancePayload` feeds Step 4's `## Guardrail Compliance`; `g17Findings` feeds Step 4's `## Suggested Review Dimensions`. Do NOT write to the plan file in this step.
 
 **JOIN barrier — `guardrailsEvaluated`:** After `merge-lanes` has returned (with the guardrail-compliance result or its synthesized constant), record the checkpoint. <!-- implements R20, R35 -->
 
@@ -499,7 +501,7 @@ When `materialChangeDetected` is true (set by the Step 6 IMPROVE pass — see be
 
 - **Dispatch contents:** run the Step 3 deterministic-check block in this iteration's `<ITER_DIR>`, then dispatch the Step 3 lanes (same skip rules) and all `lensReviewers[]` (P17, or the single reviewer for <5-task plans) in one message. Each agent uses the dispatch parameters, template variables and model rules of Step 3 (lanes) and Step 5 (lenses).
 - **Await barrier:** do not consolidate or advance until exactly N = (lanes dispatched + M lenses) results are collected; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns. <!-- R-orchestrator-await, R-c1 -->
-- **Merge:** write each lane's JSON to `<ITER_DIR>/<lane name>.json` and each lens's to `<ITER_DIR>/lens-<lens>.json`, then run `merge-lanes` once with both `--lanes` and `--lenses` on that directory (plus `--inventory` and `--gate-a` as in the lens merge below). `issues` in `merged.json` is the unified blocking-issue set (lane, lens and cross-source dedup are done by the script).
+- **Merge:** write each lane's JSON to `<ITER_DIR>/<lane name>.json` and each lens's to `<ITER_DIR>/lens-<lens>.json`, then run `merge-lanes` once with both `--lanes` and `--lenses` on that directory (`--lanes` and `--no-guardrails` exactly as in Step 3, plus `--inventory` and `--gate-a` as in the lens merge below). `issues` in `merged.json` is the unified blocking-issue set (lane, lens and cross-source dedup are done by the script).
 - **G17 on re-dispatch (advisory only):** `g17Findings` from the re-dispatch are not re-spliced into the plan (Step 4 has already run); keep them for scorecard reference only.
 - **Guardrail-block gate preservation:** guardrail-compliance (G14) issues in the re-dispatch's `merged.json` are scanned the same way Step 4 scans them. If any error-severity guardrail violation is present in the re-dispatch merge, do NOT route it silently into Step 6's blocking-issue set — surface the same guardrail-block harden offer described in Step 4 (offer **harden** alongside the user-revision options; dispatch `Skill(harden-sdlc)` with `--failure-text "Plan blocked by error-severity guardrail <id>: <description> — <rationale>"`, `--skill plan-sdlc`, `--step "Step 5 — merged re-dispatch"`, `--operation "error-severity guardrail block"` only if the user selects harden, suppressed when `--auto` is set) before proceeding with Step 6 fixes. This preserves R19 across the merged re-dispatch path. <!-- R19 -->
 - **`guardrailsEvaluated` / `critiqueRan`:** NOT re-written (once-per-run checkpoints — see Step 3).

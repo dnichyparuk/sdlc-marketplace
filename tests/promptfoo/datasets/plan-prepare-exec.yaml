@@ -585,6 +585,15 @@
     - type: icontains
       value: "--plan"
 
+- description: "plan-g17: a non-numeric --window is a usage error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-g17-prepare"
+    script_args: "g17-prepare --plan {{project_root}}/plans/plan.md --dimensions-dir {{project_root}}/.sdlc/review-dimensions --instructions-dir {{project_root}}/.github/instructions --learnings {{project_root}}/.sdlc/learnings/log.md --window abc --today 2026-11-05"
+  assert:
+    - type: icontains
+      value: "--window must be"
+
 # --- merge-lanes (W7.3 change 3) ---
 
 - description: "plan-merge: PF4 failures become blocking G3 and G12 issues"

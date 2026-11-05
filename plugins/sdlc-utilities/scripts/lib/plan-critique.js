@@ -260,7 +260,12 @@ function groupFirings(firings, mirrorMap, githubHosting) {
 /** Step I: dimension name → harden-sdlc entry date within the window. */
 function readDeferrals(learningsPath, windowDays, today) {
   let text;
-  try { text = fs.readFileSync(learningsPath, 'utf8'); } catch (_) { return new Map(); }
+  try {
+    text = fs.readFileSync(learningsPath, 'utf8');
+  } catch (err) {
+    if (err && err.code === 'ENOENT') return new Map();
+    throw Object.assign(new Error(`cannot read ${learningsPath}: ${err.message}`), { code: 'USAGE' });
+  }
   const lines = text.split(/\r?\n/).slice(-100);
   const todayMs = Date.parse(`${today}T00:00:00Z`);
   const deferred = new Map();
@@ -283,6 +288,12 @@ function g17Prepare({ planPath, dimensionsDir, instructionsDir, learningsPath, w
     content = fs.readFileSync(planPath, 'utf8');
   } catch (err) {
     throw Object.assign(new Error(`cannot read ${planPath}: ${err.message}`), { code: 'USAGE' });
+  }
+  if (!Number.isFinite(windowDays) || windowDays < 0) {
+    throw Object.assign(new Error(`--window must be a non-negative number of days, got ${windowDays}`), { code: 'USAGE' });
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || Number.isNaN(Date.parse(`${today}T00:00:00Z`))) {
+    throw Object.assign(new Error(`--today must be YYYY-MM-DD, got ${today}`), { code: 'USAGE' });
   }
   const appendix = content.search(/^## OpenSpec Appendix/m);
   const sections = extractTasksRaw(appendix === -1 ? content : content.slice(0, appendix)).map(t => taskSection(t.body));
@@ -369,7 +380,11 @@ const prefix = m => String(m || '').toLowerCase().replace(/\s+/g, ' ').trim().sl
 /** Parsed JSON from `file` when `valid(value)`, else `{ reason }`. */
 function readResult(file, valid) {
   let text;
-  try { text = fs.readFileSync(file, 'utf8'); } catch (_) { return { reason: 'no result file' }; }
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (err) {
+    return { reason: err && err.code === 'ENOENT' ? 'no result file' : `cannot read result file (${(err && err.code) || 'error'})` };
+  }
   try {
     const value = JSON.parse(text);
     return valid(value) ? { value } : { reason: 'invalid JSON' };
