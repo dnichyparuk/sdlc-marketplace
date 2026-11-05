@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-05
+
+### Added
+- plan-sdlc: nine plugin agents (`plan-lane-static`, `plan-lane-content`, `plan-lane-guardrail`, `plan-lane-g17`, `plan-lens-architecture`, `plan-lens-requirements`, `plan-lens-risk`, `plan-reviewer`, `plan-intake-verify`) carry the gate lanes, lens reviewers, plan reviewer and Gate A, with `model` and `effort` in their frontmatter (#9268).
+- plan-sdlc: `--quality full|balanced|minimal` sets the model and effort of the Step 5 plan reviewers; `plan.js` resolves it into `flags` (P24) and applies it as `dispatchModel`/`dispatchEffort`; new `reviewerDispatch` (P25) for plans with fewer than five tasks (#9196, #9268).
+- `docs/cost-tiers.md`: rows for the nine plan agents and a "Plan quality presets" table (#9268).
+
+### Changed
+- plan.js: `g17Dispatch`, `lanes`, `lensReviewers` and `intakeAuditDispatch` use one agent-dispatch shape (`agent`, `agentPath`, `model`, `effort`, `inputNames`, `presetInputs`); `agentPath` is read only from the `agents/` directory next to `plan.js` (#9196, #9267).
+- plan-sdlc SKILL.md: one dispatch rule for lanes, lenses, the reviewer and Gate A (`subagent_type` from the entry, one `NAME: value` line per input name) (#9268).
+- `plan-critique.js`: `LANE_DEFS` follows the agent files (#9268).
+- plan-sdlc spec: A4, R8, R31, R33, R35, R36, R39, P15-P17, P20, P24, P25 and I8 describe the agent dispatch shape and `--quality` (#9268).
+
+### Removed
+- plan-sdlc: the nine `*-prompt.md` template files, and `promptTemplatePath` with its plugin-cache `find` fallback from the plan.js prepare output (#9196, #9268).
+
 ## [0.40.0] - 2026-11-05
 
 ### Added
