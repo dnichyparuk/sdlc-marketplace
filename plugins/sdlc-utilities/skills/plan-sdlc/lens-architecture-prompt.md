@@ -49,20 +49,27 @@ Approve unless there are genuine blockers in your focus areas.
 
 ---
 
-## Per-Check Severity Classification (for scorecard, Gate B)
-
-For each issue you find, emit a severity tag on the issue line:
-`[SEVERITY: CRITICAL|WARNING|SUGGESTION] [DIMENSION: Completeness|Correctness|Coherence]`
-
-Architecture findings typically map to Correctness (design decisions) or Completeness (missing deps).
-This tag is used by the main context scorecard aggregator only — do not alter your Approved/Issues-Found status logic.
+Severity guidance: Architecture findings typically map to Correctness (design decisions) or Completeness (missing deps).
 
 ## Output
 
-**Status:** Approved | Issues Found
+Return one fenced `json` block as the last content of your response, with no prose after it:
 
-**Issues (if any — list only execution blockers within architecture focus areas):**
-- Task N: [specific issue] — [why this would cause execution failure] [SEVERITY: WARNING] [DIMENSION: Correctness]
+```json
+{
+  "status": "Approved",
+  "issues": [
+    { "taskRef": "Task 3", "message": "<specific issue> — <why it would cause execution failure>", "severity": "WARNING", "dimension": "Correctness", "blocking": false }
+  ],
+  "recommendations": ["<optional advisory suggestion within your focus areas>"],
+  "traceability": []
+}
+```
 
-**Recommendations (advisory, do not block approval):**
-- [optional suggestions within architecture focus areas]
+Field rules:
+- `status` — `"Approved"` when no issue has `blocking: true`; otherwise `"Issues Found"`.
+- `issues[].taskRef` — `"Task N"`, or `null` for a plan-level issue.
+- `issues[].severity` — `CRITICAL`, `WARNING` or `SUGGESTION`; `issues[].dimension` — `Completeness`, `Correctness` or `Coherence`.
+- `issues[].blocking` — `true` only for execution blockers in your focus areas.
+- `recommendations` — advisory strings; `[]` when none.
+- `traceability` — filled only by the requirements lens (see Traceability Output); every other lens returns `[]`.

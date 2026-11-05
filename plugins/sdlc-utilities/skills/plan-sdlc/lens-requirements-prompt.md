@@ -58,27 +58,27 @@ Approve unless there are genuine blockers in your focus areas.
 
 ## Traceability Output (for scorecard aggregation — Gate B, R40)
 
-When `{REQUIREMENTS_JSON}` is NOT `"null"`, emit a `## Traceability Rows` block after your standard output (do NOT omit this when the inventory is present). Each row covers one `reqId`:
-
-```
-TRACEABILITY: reqId=<id> name="<name>" status=covered|partial|uncovered covering_tasks=<comma-separated task numbers or "none">
-```
-
-When `{REQUIREMENTS_JSON}` is `"null"`, omit the Traceability Rows block entirely.
-
-Per-check severity classification (for scorecard dimension table):
-
-For each issue you find, additionally emit a severity tag on the issue line:
-`[SEVERITY: CRITICAL|WARNING|SUGGESTION] [DIMENSION: Completeness|Correctness|Coherence]`
-
-This is used by the main context to build the scorecard dimension counts. Do NOT add severity tags to findings that are clearly outside your requirements focus area.
+Fill `traceability` with one entry per requirement: when `{REQUIREMENTS_JSON}` is not `"null"`, one per `reqId` — `{ "requirement": "<reqId>", "name": "<name>", "status": "covered|partial|uncovered", "taskRefs": ["Task 2"] }`; when it is `"null"`, one per numbered item in `{REQUIREMENTS_CHECKLIST}` with `"requirement"` = the item number as a string and `"name"` = the item text. `taskRefs` is `[]` when uncovered.
 
 ## Output
 
-**Status:** Approved | Issues Found
+Return one fenced `json` block as the last content of your response, with no prose after it:
 
-**Issues (if any — list only execution blockers within requirements focus areas):**
-- Task N: [specific issue] — [why this would cause execution failure] [SEVERITY: CRITICAL] [DIMENSION: Completeness]
+```json
+{
+  "status": "Approved",
+  "issues": [
+    { "taskRef": "Task 3", "message": "<specific issue> — <why it would cause execution failure>", "severity": "WARNING", "dimension": "Correctness", "blocking": false }
+  ],
+  "recommendations": ["<optional advisory suggestion within your focus areas>"],
+  "traceability": []
+}
+```
 
-**Recommendations (advisory, do not block approval):**
-- [optional suggestions within requirements focus areas]
+Field rules:
+- `status` — `"Approved"` when no issue has `blocking: true`; otherwise `"Issues Found"`.
+- `issues[].taskRef` — `"Task N"`, or `null` for a plan-level issue.
+- `issues[].severity` — `CRITICAL`, `WARNING` or `SUGGESTION`; `issues[].dimension` — `Completeness`, `Correctness` or `Coherence`.
+- `issues[].blocking` — `true` only for execution blockers in your focus areas.
+- `recommendations` — advisory strings; `[]` when none.
+- `traceability` — filled only by the requirements lens (see Traceability Output); every other lens returns `[]`.

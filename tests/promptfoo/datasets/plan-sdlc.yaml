@@ -27,28 +27,25 @@
 
 # --- Fan-out parallelization cases (P1/P2/P3 — Fixes #418) ---
 
-- description: "plan-sdlc: P1-fanout — Step 3 dispatches 5 lane Agents in a single message using lanes[] (Fixes #418)"
+- description: "plan-sdlc: P1-fanout — Step 3 runs validate-plan-format.js and g17-prepare, then dispatches 3 lane Agents in a single message using lanes[]"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md"
     project_context: "file://fixtures/plan-orchestrator-dispatch.md"
     user_request: >
       Run /plan-sdlc. Step 3 (CRITIQUE) is about to begin. The prepare output includes
-      lanes[] with 5 entries (static-structural, content-coverage, file-existence,
-      guardrail-compliance, dimension-coverage) each with a promptTemplatePath.
-      Describe exactly how Step 3 dispatches its gate evaluations.
+      lanes[] with 4 entries (static-structural, content-coverage, guardrail-compliance,
+      dimension-coverage) each with a promptTemplatePath, and no guardrails are configured
+      (guardrails is empty). Describe exactly how Step 3 dispatches its gate evaluations.
   assert:
     - type: llm-rubric
       value: >
-        The response accurately describes Step 3 as dispatching ALL FIVE lane Agents
-        in a SINGLE message (parallel dispatch). Key facts that must be present:
-        (1) all 5 lanes are dispatched simultaneously in one message, not sequentially;
-        (2) dispatch parameters (subagent_type, model, prompt) are sourced verbatim from
-        lanes[i] entries in the prepare output — no hardcoded values;
-        (3) the main agent JOINs on all five lanes before writing the critiqueRan marker;
-        (4) the guardrailsEvaluated marker fires only after the guardrail-compliance lane
-        (lanes[3]) returns — not before;
-        (5) all 21 gate IDs (G1–G21) are covered across the 5 lanes with no gate
-        appearing in two lanes (disjoint partitioning).
+        The response dispatches static-structural, content-coverage and dimension-coverage
+        in one message, skips guardrail-compliance (no guardrails), after running
+        validate-plan-format.js and g17-prepare; parameters come verbatim from lanes[];
+        merge-lanes merges the results; guardrailsEvaluated is written after merge-lanes
+        returns and critiqueRan after every dispatched lane has returned; G3, G4, G10 and
+        G12 are validator checks (PF4, PF12, PF13) and the lanes plus the validator cover
+        G1–G21.
 
 - description: "plan-sdlc: P2-fanout — Step 5 dispatches 2-3 lens reviewers in a single message per iteration for >=5-task plans (Fixes #418)"
   vars:
@@ -1379,9 +1376,9 @@
       value: >
         The response identifies that the task-count-delta trigger fires (4 -> 5) so
         `materialChangeDetected` is set to true. It then describes the next Step 5 iteration as
-        dispatching ALL FIVE Step 3 `lanes[]` entries AND ALL THREE `lensReviewers[]` entries
+        dispatching the Step 3 `lanes[]` entries except guardrail-compliance (no guardrails) AND ALL THREE `lensReviewers[]` entries
         together in a SINGLE message as parallel Agent tool calls (not two separate dispatches,
-        not sequential). It states the await barrier requires all 8 results (5 lanes + 3 lenses)
+        not sequential). It states the await barrier requires all 6 results (3 lanes + 3 lenses)
         before consolidating. It states this merged dispatch counts as exactly ONE iteration of
         the review loop (the counter increments by 1, not 2), and that `materialChangeDetected`
         is cleared back to false once the merged issue set is assembled.

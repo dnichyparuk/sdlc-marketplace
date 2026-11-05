@@ -21,9 +21,8 @@
     "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/g17-dimension-coverage-prompt.md"
   },
   "lanes": [
-    { "name": "static-structural", "subagentType": "general-purpose", "model": "haiku", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-static-structural-prompt.md", "gateIds": ["G1","G2","G3","G7","G12"] },
+    { "name": "static-structural", "subagentType": "general-purpose", "model": "haiku", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-static-structural-prompt.md", "gateIds": ["G1","G2","G7"] },
     { "name": "content-coverage", "subagentType": "general-purpose", "model": "sonnet", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-content-coverage-prompt.md", "gateIds": ["G5","G6","G8","G9","G11","G13","G15","G16"] },
-    { "name": "file-existence", "subagentType": "general-purpose", "model": "haiku", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-file-existence-prompt.md", "gateIds": ["G4","G10"] },
     { "name": "guardrail-compliance", "subagentType": "general-purpose", "model": "sonnet", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-guardrail-compliance-prompt.md", "gateIds": ["G14"] },
     { "name": "dimension-coverage", "subagentType": "general-purpose", "model": "sonnet", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/g17-dimension-coverage-prompt.md", "gateIds": ["G17"] }
   ],

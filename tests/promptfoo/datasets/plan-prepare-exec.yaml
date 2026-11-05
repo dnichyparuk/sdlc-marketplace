@@ -281,7 +281,7 @@
 
 # --- P16/P17 signals: lanes[] and lensReviewers[] (R35, R36 — Fixes #418) ---
 
-- description: "plan-prepare T4a: lanes[] has exactly 5 entries with disjoint gateIds covering G1-G21 (R35, Fixes #418; G18 R45 Fixes #459; G20/G21 R48/R51 Fixes #472)"
+- description: "plan-prepare T4a: lanes[] has exactly 4 entries with disjoint gateIds covering G1-G21 minus the validator gates (R35)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
     script_cwd: "{{project_root}}"
@@ -293,7 +293,9 @@
       value: |
         const data = JSON.parse(output);
         if (!data.lanes || !Array.isArray(data.lanes)) return 'lanes field missing or not array';
-        if (data.lanes.length !== 5) return `expected 5 lanes, got ${data.lanes.length}`;
+        if (data.lanes.length !== 4) return `expected 4 lanes, got ${data.lanes.length}`;
+        const names = data.lanes.map(l => l.name).join(',');
+        if (names !== 'static-structural,content-coverage,guardrail-compliance,dimension-coverage') return `unexpected lane names: ${names}`;
         // Check all required fields present on each entry (including null promptTemplatePath entries)
         for (const lane of data.lanes) {
           if (!lane.name) return `lane missing name: ${JSON.stringify(lane)}`;
@@ -306,8 +308,8 @@
         const allGateIds = data.lanes.flatMap(l => l.gateIds);
         const uniqueGateIds = new Set(allGateIds);
         if (allGateIds.length !== uniqueGateIds.size) return `duplicate gateIds across lanes: ${allGateIds}`;
-        // Check G1-G21 coverage (G20/G21 added additively per R48/R51, Fixes #472 — R42 union bound is {G1..G21})
-        const expectedGates = new Set(['G1','G2','G3','G4','G5','G6','G7','G8','G9','G10','G11','G12','G13','G14','G15','G16','G17','G18','G19','G20','G21']);
+        // Check G1-G21 coverage minus the validator gates G3, G4, G10, G12
+        const expectedGates = new Set(['G1','G2','G5','G6','G7','G8','G9','G11','G13','G14','G15','G16','G17','G18','G19','G20','G21']);
         for (const g of expectedGates) {
           if (!uniqueGateIds.has(g)) return `missing gate in lanes[].gateIds: ${g}`;
         }
@@ -415,6 +417,50 @@
         }
         return true;
 
+- description: "plan-prepare T4d: critiqueDir is an absolute sdlc-plan-critique- temp directory (P22)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        if (typeof data.critiqueDir !== 'string') return 'critiqueDir missing or not a string';
+        if (!data.critiqueDir.startsWith('/')) return `critiqueDir not absolute: ${data.critiqueDir}`;
+        if (!data.critiqueDir.split('/').pop().startsWith('sdlc-plan-critique-')) return `unexpected critiqueDir basename: ${data.critiqueDir}`;
+        return true;
+
+- description: "plan-prepare T4e: commit fields are null without a commit config (P23)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        const want = { subjectPattern: null, subjectPatternError: null, allowedTypes: null };
+        if (JSON.stringify(data.commit) !== JSON.stringify(want)) return `unexpected commit: ${JSON.stringify(data.commit)}`;
+        return true;
+
+- description: "plan-prepare T4f: commit carries the project commit config (P23)"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>(cp.spawnSync("git",["init","-q"],{cwd:d}),fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({commit:{subjectPattern:"^fix:\x20.+$",allowedTypes:["fix"]}})),((r)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))(JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))))(cp.spawnSync("node",[js,"--output-file"],{cwd:d,encoding:"utf8"}))))(fs.mkdtempSync(os.tmpdir()+"/plan-commit-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        const c = data.commit;
+        if (!c) return 'commit missing';
+        if (c.subjectPattern !== '^fix: .+$') return `subjectPattern: ${c.subjectPattern}`;
+        if (JSON.stringify(c.allowedTypes) !== '["fix"]') return `allowedTypes: ${JSON.stringify(c.allowedTypes)}`;
+        if (c.subjectPatternError !== null) return `subjectPatternError: ${c.subjectPatternError}`;
+        return true;
+
 - description: "plan-prepare (#457): linked-worktree — tasks.md ref-injection writes to active worktree path"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
@@ -464,3 +510,179 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true && r.hits.length === 0"
+
+# --- diff-material (W7.3 change 3) ---
+
+- description: "plan-diff: wording-only edit is not material"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before.md --after {{project_root}}/after-wording.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0"
+
+- description: "plan-diff: added task and changed Files are material"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before.md --after {{project_root}}/after-scope.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['taskCount', 'files']) && JSON.stringify(r.details.files) === JSON.stringify(['Task 2'])"
+
+- description: "plan-diff: missing --after is a usage error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before.md"
+  assert:
+    - type: icontains
+      value: "--after"
+
+# --- g17-prepare (W7.3 change 3) ---
+
+- description: "plan-g17: C4 candidate ranked first with severity critical"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-g17-prepare"
+    script_args: "g17-prepare --plan {{project_root}}/plans/plan.md --dimensions-dir {{project_root}}/.sdlc/review-dimensions --instructions-dir {{project_root}}/.github/instructions --learnings {{project_root}}/.sdlc/learnings/log.md --window 14 --github-hosting true --root {{project_root}} --today 2026-11-05"
+  assert:
+    - type: javascript
+      value: |
+        const c = JSON.parse(output).candidates[0];
+        return c.kind === 'CREATE' && c.dimension === 'infrastructure-review' && c.criteria.includes('C4') && c.severity === 'critical' && JSON.stringify(c.triggers) === JSON.stringify(['**/infra/**'])
+
+- description: "plan-g17: U1 fires for the .ts path of a covered dimension"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-g17-prepare"
+    script_args: "g17-prepare --plan {{project_root}}/plans/plan.md --dimensions-dir {{project_root}}/.sdlc/review-dimensions --instructions-dir {{project_root}}/.github/instructions --learnings {{project_root}}/.sdlc/learnings/log.md --window 14 --github-hosting true --root {{project_root}} --today 2026-11-05"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const u = r.candidates.find(c => c.kind === 'UPDATE-path' && c.dimension === 'code-review');
+        return !!u && JSON.stringify(u.criteria) === JSON.stringify(['U1']) && JSON.stringify(u.paths) === JSON.stringify(['src/a.ts']) && u.patch === 'add trigger `src/**/*.ts`' && u.copilotMirror === '.github/instructions/code.instructions.md' && r.mirrorMap['code-review'] === 'code'
+
+- description: "plan-g17: harden-sdlc deferral suppresses database-migrations-review"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-g17-prepare"
+    script_args: "g17-prepare --plan {{project_root}}/plans/plan.md --dimensions-dir {{project_root}}/.sdlc/review-dimensions --instructions-dir {{project_root}}/.github/instructions --learnings {{project_root}}/.sdlc/learnings/log.md --window 14 --github-hosting true --root {{project_root}} --today 2026-11-05"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.deferred.includes('database-migrations-review') && r.suppressed[0].dimension === 'database-migrations-review' && r.candidates.length === 2
+
+- description: "plan-g17: missing --plan is a usage error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-g17-prepare"
+    script_args: "g17-prepare --dimensions-dir {{project_root}}/.sdlc/review-dimensions"
+  assert:
+    - type: icontains
+      value: "--plan"
+
+# --- merge-lanes (W7.3 change 3) ---
+
+- description: "plan-merge: PF4 failures become blocking G3 and G12 issues"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --lanes static-structural"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const has = (g, t) => r.issues.some(i => i.gateId === g && i.taskRef === t && i.lane === 'validate-plan-format' && i.blocking === true);
+        return has('G12', 'Task 3') && has('G3', 'Task 1') && r.passes.includes('G4') && r.passes.includes('G10')
+
+- description: "plan-merge: missing content-coverage file gives lane-failure and 12 missing gates"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --lanes static-structural,content-coverage --no-guardrails"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const failure = r.issues.some(i => i.gateId === 'lane-failure' && i.lane === 'content-coverage' && i.message.startsWith('Lane content-coverage failed: no result file'));
+        const want = ['G5', 'G6', 'G8', 'G9', 'G11', 'G13', 'G15', 'G16', 'G18', 'G19', 'G20', 'G21'].sort();
+        return failure && JSON.stringify(r.coverage.missing.slice().sort()) === JSON.stringify(want)
+
+- description: "plan-merge: missing dimension-coverage file is advisory"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}}/no-g17 --lanes static-structural,dimension-coverage --no-guardrails"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const advisory = lane => r.laneFailures.some(f => f.lane === lane && f.advisory === true);
+        return r.blockingCount === 14 && advisory('dimension-coverage') && advisory('g17-prepare') && !r.issues.some(i => i.lane === 'dimension-coverage')
+
+- description: "plan-merge: present dimension-coverage file keeps blockingCount 14"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --lanes static-structural,dimension-coverage --no-guardrails"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.blockingCount === 14 && !r.laneFailures.some(f => f.lane === 'dimension-coverage')
+
+- description: "plan-merge: --no-guardrails synthesizes the guardrail payload"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --lanes static-structural --no-guardrails"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.guardrailCompliancePayload === 'No active guardrails configured.' && r.passes.includes('G14')
+
+- description: "plan-merge: lens CRITICAL gives the Fix before archiving verdict"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --lenses architecture,requirements,risk --inventory {{project_root}}/inventory.json"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const md = r.scorecard.markdown;
+        return r.scorecard.verdict === '…Fix before archiving.' &&
+          md.includes('| Completeness | 0 | 1 | 0 | 1 |') &&
+          md.includes('| Correctness | 1 | 0 | 0 | 2 |') &&
+          md.includes('| REQ-3 Prepare G17 | — | uncovered |') &&
+          r.lens.status === 'Issues Found' && r.blockingCount === 1 && r.coverage === null
+
+- description: "plan-merge: G17 findings ranked, capped and rendered"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --lanes static-structural,dimension-coverage --no-guardrails"
+  assert:
+    - type: javascript
+      value: |
+        const g = JSON.parse(output).g17Findings;
+        const f = g.findings;
+        return JSON.stringify(f.map(x => x.dimension)) === JSON.stringify(['infrastructure-review', 'auth-review', 'code-review']) &&
+          f[0].why.startsWith('Task 1 creates') && f[2].kind === 'UPDATE-behavior' && g.suppressed_count === 3 &&
+          g.rendering.includes('### UPDATE: code-review (B1)') &&
+          g.rendering.includes('regenerate .github/instructions/code.instructions.md') &&
+          g.rendering.includes('_3 additional candidates suppressed_')
+
+- description: "plan-merge: unknown lane name is a usage error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --lanes nope"
+  assert:
+    - type: icontains
+      value: "unknown lane nope"
