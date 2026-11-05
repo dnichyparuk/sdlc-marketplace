@@ -88,6 +88,7 @@ claude plugin eval plugins/sdlc-utilities --case commit-auto --runs 1 --ablation
 | `execute-two-task` | `execute-plan-sdlc` on a 2-task plan | `Bash Write Edit` | created files; state cleaned |
 | `ship-auto-commit-review` | `ship-sdlc --auto` (execute, commit, review) | `Bash Write Edit` | reflog; review summary; ledger and cap sidecar absent |
 | `ship-review-zero-findings` | same, on a change with nothing to review | `Bash Write Edit` | review summary written with 0 critical/high findings (the gate's skip condition; inferred, not observed) |
+| `plan-sdlc` | `plan-sdlc --auto` on a five-file request (menu answer `done`) | `Bash Write Edit` | `docs/plans/eval-plan-sdlc.md` written; `--final` format-gate call; one scorecard verdict line |
 
 Defaults: `--runs 3` (the case's own `runs`, else 3; repeated runs give the flakiness signal), `--threshold 1.0`, `--ablation with-without` (doubles the runs; pass `--ablation none` for a smoke check), turn and time limits from each `prompt.md`. Exit 0 = every case at or above the threshold, 1 = below it or a load error, 2 = partial (for example the cost ceiling). `--json <path>.json` writes the result document (`schemaVersion: 1`).
 

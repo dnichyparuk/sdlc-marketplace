@@ -603,7 +603,7 @@
     script_args: "diff-material --before {{project_root}}/before.md --after {{project_root}}/after-wording.md"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0"
+      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0 && r.affectedGates.length === 0 && r.affectedLanes.length === 0"
 
 - description: "plan-diff: added task and changed Files are material"
   vars:
@@ -612,7 +612,7 @@
     script_args: "diff-material --before {{project_root}}/before.md --after {{project_root}}/after-scope.md"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['taskCount', 'files']) && JSON.stringify(r.details.files) === JSON.stringify(['Task 2'])"
+      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['taskCount', 'files']) && JSON.stringify(r.details.files) === JSON.stringify(['Task 2']) && JSON.stringify(r.affectedLanes) === JSON.stringify(['*']) && r.affectedGates.length === 21"
 
 - description: "plan-diff: same Key Decision key with a reversed body is material (changed)"
   vars:
@@ -621,7 +621,7 @@
     script_args: "diff-material --before {{project_root}}/before.md --after {{project_root}}/after-reversed.md"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['keyDecisions']) && JSON.stringify(r.details.keyDecisions.changed) === JSON.stringify(['Standalone module over extending existing:']) && r.details.keyDecisions.added.length === 0 && r.details.keyDecisions.removed.length === 0"
+      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['keyDecisions']) && JSON.stringify(r.details.keyDecisions.changed) === JSON.stringify(['Standalone module over extending existing:']) && r.details.keyDecisions.added.length === 0 && r.details.keyDecisions.removed.length === 0 && r.affectedGates.length === 0 && JSON.stringify(r.affectedLanes) === JSON.stringify(['lens:all'])"
 
 - description: "plan-diff: whitespace-only reflow of a Key Decision is not material"
   vars:
@@ -631,6 +631,24 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0"
+
+- description: "plan-diff: one Contract change affects content-coverage, guardrail-compliance and the architecture and risk lenses"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/after-contract.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['contracts']) && JSON.stringify(r.affectedGates) === JSON.stringify(['G14', 'G18', 'G19', 'G20', 'G21']) && JSON.stringify(r.affectedLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance', 'lens:architecture', 'lens:risk']) && !r.affectedLanes.includes('static-structural')"
+
+- description: "plan-diff: --full forces every lane without changing material"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before.md --after {{project_root}}/after-wording.md --full"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0 && JSON.stringify(r.affectedLanes) === JSON.stringify(['*']) && r.affectedGates.length === 21"
 
 - description: "plan-diff: missing --after is a usage error"
   vars:
@@ -796,6 +814,51 @@
           g.rendering.includes('### UPDATE: code-review (B1)') &&
           g.rendering.includes('regenerate .github/instructions/code.instructions.md') &&
           g.rendering.includes('_3 additional candidates suppressed_')
+
+- description: "plan-merge: --carry copies the results of lanes and lenses not re-dispatched and keeps coverage complete"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}}/carry/cur --lanes content-coverage --lenses architecture,risk --no-guardrails --carry {{project_root}}/carry/prev"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return JSON.stringify(r.carried) === JSON.stringify(['static-structural.json', 'lens-requirements.json']) && r.coverage.missing.length === 0
+
+- description: "plan-merge: --carry without --lanes still merges the carried lane results"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}}/carry/cur --lenses architecture,risk --carry {{project_root}}/carry/prev"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return JSON.stringify(r.carried) === JSON.stringify(['static-structural.json', 'lens-requirements.json']) && r.coverage.covered.includes('G1') && r.lens !== null
+
+- description: "plan-merge: --g17-not-run adds the G17 WARNING line and raises a clean verdict to the warnings label"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}}/carry/lens-only --lenses requirements --g17-not-run"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.scorecard.verdict === '…Ready for archive (with noted improvements).' && r.scorecard.markdown.includes('**G17:** not run — g17-prepare failed') && r.lens.status === 'Approved'
+
+- description: "plan-merge: a parsed result with the wrong shape is reported as invalid result shape"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}}/bad-shape --lanes static-structural --lenses all --no-guardrails"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.issues.some(i => i.message === 'Lane static-structural failed: invalid result shape — gate IDs G1, G2, G7 not evaluated') &&
+          r.issues.some(i => i.lane === 'lens:all' && i.message === 'Lens all failed: invalid result shape')
 
 - description: "plan-merge: unknown lane name is a usage error"
   vars:

@@ -19,38 +19,7 @@ Write an implementation plan from requirements, a spec, or a user description. P
 **Gather requirements:** If no spec or requirements document is in context, use AskUserQuestion:
 > What do you want to implement? (describe in free form, bullet points, or provide a file path)
 
-**OpenSpec integration (opt-in — requires `--spec` flag or explicit spec path):**
-
-1. Run `node "<PLUGIN_ROOT>/scripts/skill/openspec-step.js" detect` (substitute `<PLUGIN_ROOT>` from the `sdlc plugin root:` context line) and keep its JSON as `openspecDetect`. If `openspecDetect.detected` is false, skip this entire block — no OpenSpec in this project.
-2. **Gate check:** If `openspec/config.yaml` exists but neither `--spec` flag was passed NOR the user provided a path into `openspec/changes/`:
-   a. **Classify the request:** Determine whether the user's task involves functional changes (new features, behavior modifications, API changes, new integrations, capability additions) vs non-functional changes (refactoring, config, docs, CI/CD, dependency updates, formatting, infrastructure).
-   b. **Non-functional changes:** Print:
-      > OpenSpec detected — pass `--spec` to include spec context in planning.
-      Then skip the rest of this block. `openspecContext` remains empty.
-   c. **Functional changes:** Check whether an active OpenSpec change already covers this work — a match is `openspecDetect.matchedBy === "branch"` (the change is `openspecDetect.changeName`). If a match is found, treat it as if the user passed `--spec` and continue to step 3. If no match, use AskUserQuestion:
-      > This looks like a functional change. This project uses OpenSpec for spec-driven development.
-      >
-      > Options:
-      > 1. **Start OpenSpec flow** — use the openspec CLI to author a change first (for non-trivial features requiring full spec workflow)
-      > 2. **Generate OpenSpec artifacts as plan appendix** — plan generates proposal, spec deltas, and tasks as inline appendix content (recommended default)
-      > 3. **Use existing spec** — pass `--spec` if you already have an OpenSpec change for this
-      >
-      > Select (1/2/3):
-      When `--from-openspec` was not passed and prepare output `openspec.branchMatch` names a change at stage `ready-for-plan`, show option 3 as: `3. **Use existing spec** — re-invoke with /plan-sdlc --from-openspec <matched-change-name>`.
-
-      - On **1**: Stop plan-sdlc. Tell the user to use the openspec CLI directly to create a change (run `openspec --help` for available commands). In plan mode, call ExitPlanMode first.
-      - On **2** (recommended default — implements R63): Do NOT prompt the user further at this gate (R22 single-touchpoint). Set `openspecInlineGenerate = true`. `openspecContext` stays empty, so OpenSpec enrichment, Gate A, and openspec-task annotations do not activate — artifact authoring is deferred to Step 4 (OpenSpec Appendix generation), where exploration and decomposition data are available. Skip the rest of the OpenSpec block (steps 3–6 — there is no on-disk change to load). Continue with standard planning.
-      - On **3**: Re-run the OpenSpec loading logic (steps 3–6) to resolve and load the active change.
-3. If the user provided a spec file path pointing into `openspec/changes/<name>/`, extract `<name>` as the active change.
-4. Otherwise, use `openspecDetect.changeName` when it is non-null (`matchedBy` `branch` or `single-active`). If it is null and `openspecDetect.activeChanges` has more than one entry, use AskUserQuestion:
-   > Multiple active OpenSpec changes found. Which one are you working on?
-   List the change names as options.
-5. Once the active change is identified, Read in parallel:
-   - `openspec/changes/<name>/proposal.md` — intent and scope
-   - `openspec/changes/<name>/design.md` — technical approach (may not exist yet; skip if absent)
-   - All files matching `openspec/changes/<name>/specs/*.md` — delta specs (the requirements)
-   - `openspec/changes/<name>/tasks.md` — OpenSpec's task checklist (may not exist; skip if absent)
-6. Store these as `openspecContext` for use in Steps 1–5. Update the plan file header `**Source:**` to `openspec/changes/<name>/`.
+**OpenSpec integration:** runs after the prepare call; see the **OpenSpec:** pointer after the guardrail summary below.
 
 **Complexity routing:**
 
@@ -103,6 +72,9 @@ Context detection (from skill/plan.js):
 
 Extract `guardrails` from the output → store as `activeGuardrails`. If the array is non-empty, print: "Loaded N plan guardrails." If empty: "No plan guardrails configured."
 
+**OpenSpec:** when prepare output shows `openspec.present: true` or a non-null `fromOpenspec`, Read `./openspec-flow.md` now and apply each rule at the step it names.
+Otherwise `openspecContext`, `fromOpenspecDirect` and `openspecInlineGenerate` stay unset and every OpenSpec rule is skipped.
+
 Extract `critiqueDir` (P22) from the output and keep it for Steps 3, 5 and 7. If it is null or absent (the directory could not be created, or `plan.js` is an older version), print the `errors[]` entry and stop by invoking `error-report-sdlc`; never create `<ITER_DIR>` or run an `rm -rf` on an unset value.
 
 **Template resolution:** After parsing the plan.js output, resolve the active plan template: <!-- implements R61 -->
@@ -128,19 +100,6 @@ Extract `critiqueDir` (P22) from the output and keep it for Steps 3, 5 and 7. If
 **Lightweight plan adjustment:** When Step 0 routing selects the lightweight branch (Step 5 skipped), sections whose content is produced exclusively by a skipped step (e.g., `Verification Scorecard` is produced by Step 5) get body `Not applicable — lightweight plan` instead of `[TBD]`. This prevents dead placeholders in the final plan. This is a best-effort readability improvement, not a correctness requirement: it names known step-owned sections by their default-template name, so a project override that renames or adds a step-5-owned section simply falls back to the generic `[TBD]` body for that section rather than breaking — the section still appears (per the "do not hardcode which sections appear" rule below), only the friendlier substitute body is skipped.
 
 Do NOT hardcode which sections appear in the skeleton, or their order. The template's `## Required Sections` list (and `./plan-format-reference.md`'s `## Section Order`) is the single source of truth for section presence and ordering — never an explicit roster coded into this SKILL.md. Section-specific BODY FORMATTING for a small, named set of sections (the Deviations table above, the lightweight-adjustment substitution above) is a distinct, narrower exception: it improves the placeholder body for sections this doc already knows by name, and degrades gracefully to the generic `[TBD]` body for any section it doesn't recognize — it never controls whether a section is written.
-
-**Contradictory-signal override:** After reading the prepare output, IF `openspec.authoritative.path` is set AND the current session-start `<system-reminder>` contains a line matching `/openspec.*not initialized|not initialized.*openspec/i`, print exactly one line: <!-- implements R16 -->
-`Ignoring contradictory 'not initialized' signal in session context — openspec/config.yaml exists (authoritative source: SDLC's own check via plan.js prepare output).`
-Then continue the flow. If the contradictory phrase is absent, emit nothing.
-
-**`--from-openspec` handling (after prepare output, before gate check):**
-
-If `fromOpenspec.valid` is true in the prepare output:
-1. Read in parallel: `openspec/changes/<name>/proposal.md`, `openspec/changes/<name>/design.md` (optional), all `openspec/changes/<name>/specs/*.md`, `openspec/changes/<name>/tasks.md` (optional)
-2. Store as `openspecContext`. Set `fromOpenspecDirect = true`
-3. Skip to Step 1 — bypass the gate check entirely
-
-If `fromOpenspec` is present but `valid` is false and errors exist: display errors and stop.
 
 **Normal mode path resolution:** Resolve the output path before writing:
 1. User-specified path (if provided in conversation)
@@ -169,11 +128,6 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark plan-file --path "<resolved-pl
 Replace `<resolved-plan-path>` with the actual absolute path: in plan mode it is the designated plan file path extracted at the top of Step 0; in normal mode it is the path resolved above (from `plansDirectory` or the default fallback).
 
 ## Step 1 (CONSUME): Requirements Discovery and Exploration
-
-**`fromOpenspecDirect` enrichment:** When `fromOpenspecDirect` is true (set by `--from-openspec` handling in Step 0):
-- Use `tasks.md` as the PRIMARY decomposition skeleton — OpenSpec tasks were deliberately authored
-- Skip the "Structured discovery" AskUserQuestion below — the proposal and delta specs already provide scope, integration, and success criteria
-- Delta specs remain the authoritative requirements for Step 3 coverage validation
 
 **Orchestrator dispatch (full pipeline only, implements R24–R28):**
 
@@ -226,13 +180,6 @@ Wait for answers before continuing.
 
 Identify constraints: language, framework, existing conventions, testing approach.
 
-**OpenSpec enrichment (when `openspecContext` is available):**
-- Use `proposal.md` for goal and scope understanding (what's in, what's out)
-- Use delta specs (`specs/*.md`) with their ADDED/MODIFIED/REMOVED sections as the authoritative requirements — each delta entry is a requirement
-- Use `design.md` for architecture constraints and technical approach decisions
-- Use `tasks.md` as a coarse reference for decomposition — OpenSpec tasks are higher-level than plan-sdlc tasks, so decompose further rather than copying verbatim
-- When the OpenSpec artifacts provide sufficient scope, integration, and success criteria, skip the "Structured discovery" AskUserQuestion — the proposal and delta specs already answer those questions
-
 **Write to plan file:** After exploration, update the plan file:
 - Fill in Goal, Architecture, Verification header fields
 - Write the `**Commit:**` header line directly below the title: `` **Commit:** `<subject>` ``, the subject of the single commit a ship run makes for this plan. Form it from the request, the branch and the prepare output's `commit` field (P23): the type and scope the changes imply and the issue or tracking id the request or branch names; at most 72 characters; no `"`, backtick, `$` or `\`; matching `commit.subjectPattern` when it is non-null. When no subject meeting these rules can be formed (for example, the pattern requires an issue id and none is known), leave the line out and add a `## Deviations & assumptions` row saying why. Step 6.6 checks the line (PF11). <!-- implements R66 -->
@@ -242,22 +189,7 @@ Identify constraints: language, framework, existing conventions, testing approac
 
 **Re-anchor:** Before leaving Step 1, re-read the plan file's Requirements section.
 
-**Gate A — Intake Audit:** <!-- implements R39 -->
-
-When `openspecContext.requirements` is present (non-null) in the prepare output:
-
-1. Dispatch one Gate A audit Agent from `intakeAuditDispatch` (P20) by the Step 3 dispatch rule: `subagent_type: intakeAuditDispatch.agent`, `description: "plan gate A"`, prompt = one `NAME: value` line per name in `intakeAuditDispatch.inputNames` (values from `presetInputs`, else from the run-time input table in Step 3). Do not pass `model` or `effort` (`agent-dispatch-script-driven` guardrail). If `intakeAuditDispatch.agentPath` is null, skip Gate A and emit one note: `Gate A skipped — plan-intake-verify agent file not found.`
-
-2. The artifacts read in Step 0 are the values of `PROPOSAL`, `DELTA_SPECS`, `TASKS_MD` and `DESIGN` (see the run-time input table in Step 3); `REQUIREMENTS_JSON` is preset.
-
-3. Parse the agent's JSON response `{ findings, verdict, skipped }`.
-
-4. Verdict handling:
-   - `verdict: "CRITICAL"` — **block decomposition**. Do NOT proceed to Step 2. Surface findings to user with E7 menu: (a) fix source change artifacts and re-run; (b) override (proceed anyway, recording the override in `## Intake Audit Caveats`). No `--auto` bypass for CRITICAL.
-   - `verdict: "WARNING"` or `"SUGGESTION"` — append a `## Intake Audit Caveats` section to the plan file listing the findings. Proceed to Step 2.
-   - `verdict: "PASS"` — proceed to Step 2 without any caveat section.
-
-5. When `openspecContext` is absent (non-OpenSpec plan), skip Gate A entirely. Emit one note: `Gate A skipped — plan is not OpenSpec-sourced.`
+**Gate A — Intake Audit (R39):** when `openspecContext` is absent, skip Gate A and emit one note: `Gate A skipped — plan is not OpenSpec-sourced.`
 
 ## Step 2 (PLAN): Decompose Into Tasks
 
@@ -277,35 +209,11 @@ Wait for answer.
 - Files to modify (path + what changes)
 - Test files (aligned with source files)
 
-**`fromOpenspecDirect` decomposition:** When `fromOpenspecDirect` is true:
-- Adopt the task structure from `tasks.md` as the starting skeleton
-- For each OpenSpec task: map to one plan task (or split if > 5 files), add Complexity/Risk/Depends on/Verify metadata, and expand the description to be self-contained for agent dispatch
-- If `tasks.md` is absent (prepare output shows `hasTasks: false`), fall back to standard decomposition from delta specs below
-
-**OpenSpec task annotation:** When `fromOpenspecDirect` is true AND `openspecContext.tasks[]` is non-null in the prepare output, each plan task derived from one or more OpenSpec tasks MUST carry an `openspec-task:` block beneath its standard metadata fields. Format documented in `./plan-format-reference.md`: <!-- implements R29 -->
-
-```
-**openspec-task:**
-- change: <change-name>
-- ref: <kebab-slug-6char-hash from openspecContext.tasks[i].ref>
-- line: <openspecContext.tasks[i].line>
-- title: <openspecContext.tasks[i].title>
-```
-
-Plan tasks NOT derived from any OpenSpec task MUST omit the field. N:1 mapping (multiple plan tasks → same `ref`) is allowed when one OpenSpec task expands into several plan tasks — copy the same `change`/`ref`/`line`/`title` quad on each.
-
-**Out-of-scope OpenSpec tasks:** When the plan introduces a plan-only task with no OpenSpec source, the plan-author MUST also append (or extend) an `## Out-of-scope OpenSpec tasks` section listing each uncovered OpenSpec task title with a one-line rationale — OR add at least one plan task carrying that `ref`. Every entry from `openspecContext.tasks[]` must be either covered by ≥1 plan task's `openspec-task.ref` OR listed in `## Out-of-scope OpenSpec tasks`. This is enforced by G16 in Step 3. <!-- implements R30 -->
-
 **Task decomposition rules:**
 - Each task = one independently completable unit with a clear deliverable
 - Each task touches 1–5 files (more than 5 → split)
 - Order: foundations → features → integration → polish
 - Dependencies explicit (task B names task A if it needs A's output)
-
-**OpenSpec-aware decomposition (when `openspecContext` is available):**
-- Map each ADDED and MODIFIED requirement from the delta specs to at least one task
-- In the Key Decisions section, note which OpenSpec `design.md` decisions were adopted and which (if any) were overridden with rationale
-- Set the plan header `**Source:**` field to `openspec/changes/<name>/` (not "conversation context")
 
 **Key decisions:** Note every decision where you chose between valid approaches. Focus on choices where a reasonable implementer might differ without the rationale. Skip obvious decisions.
 
@@ -404,7 +312,7 @@ node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --json --file "<PLAN_PAT
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" g17-prepare --plan "<PLAN_PATH>" --dimensions-dir .sdlc/review-dimensions --instructions-dir .github/instructions --learnings .sdlc/learnings/log.md --window 14 --github-hosting <githubHosting.detected> > "<ITER_DIR>/g17-prepare.json"
 ```
 
-Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2, or any non-zero exit from g17-prepare or merge-lanes, means stop and invoke `error-report-sdlc`.
+Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2 means stop and invoke `error-report-sdlc` (E9). A non-zero exit from g17-prepare does not stop the run (R31): G17 is not run, so do not dispatch `dimension-coverage`, leave it out of `--lanes`, log `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare exited <code>` to `.sdlc/learnings/log.md`, and pass `--g17-not-run` to every Step 5 `merge-lanes` call of this run.
 
 **Step 3 dispatch rule (fan-out dispatch):** For each `lane` in `lanes[]` (P16), issue one Agent call — all in one message: `subagent_type: lane.agent`, `description: "plan lane <lane.name>"`, `prompt`: one `NAME: value` line per name in `lane.inputNames`, taking the value from `lane.presetInputs` when present, otherwise from the run-time table below. A value that spans several lines goes after `NAME:` on the lines that follow, inside one fenced `text` block, so a line inside the value is never read as another input. Do not pass `model` or `effort`; the agent file sets both (`agent-dispatch-script-driven` guardrail). Skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. When `lane.agentPath` is null, do not dispatch that lane (see below).
 
@@ -455,8 +363,6 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark critiqueRan 2>/dev/null || tru
 
 Fix all issues from Step 3. Rewrite the plan file with fixes applied (edit the existing file, don't append). If any revision changes the scope or approach from what was originally recorded, update the `## Deviations & assumptions` table accordingly.
 
-**G16 (OpenSpec tasks.md coverage) failure resolution:** When G16 reports uncovered OpenSpec task entries, resolve each one by EITHER (a) adding a plan task with the missing `openspec-task` block carrying the corresponding `ref`, OR (b) appending the uncovered title under the `## Out-of-scope OpenSpec tasks` section with a one-line rationale. Both paths are valid; choose based on whether the implementation actually covers the work.
-
 If `activeGuardrails` is non-empty, append a `## Guardrail Compliance` section to the plan file listing each guardrail's evaluation result. Error-severity failures must be resolved before presenting to user. When an error-severity failure cannot be resolved by plan revision and blocks the workflow, offer **harden** (run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time — opt-in, no surface is edited without your approval) alongside the user-revision options. When the user selects **harden** (interactive mode only — suppressed when `--auto` is set), dispatch `Skill(harden-sdlc)` with `--failure-text "Plan blocked by error-severity guardrail <id>: <description> — <rationale>"`, `--skill plan-sdlc`, `--step "Step 4 — IMPROVE"`, `--operation "error-severity guardrail block"`. Implements R19. Format:
 
 ```markdown
@@ -476,114 +382,12 @@ When `g17Findings.findings` is non-empty, append the `g17Findings.rendering` mar
 
 When `g17Findings.findings` is empty (or `g17Findings` is the empty-fallback from a dispatch failure), do nothing. Absent proposals are not a failure — G17 is advisory. <!-- R31 -->
 
-**OpenSpec Appendix generation:** Three-way conditional: <!-- implements R59, R63 -->
-
-**(a)** When `fromOpenspecDirect` is true (full-pipeline OpenSpec path), populate the `## OpenSpec Appendix` section with:
-
-1. **Requirement inventory table** — one row per entry from `openspecContext.requirements[]` with columns: reqId, capability, type, covering task(s).
-2. **Delta-spec fragments** — reproduce each delta-spec file's content so a reviewer does not need to open OpenSpec files separately.
-
-**Nested-fence safety (N+1 backticks):** Delta-spec fragments are themselves markdown containing fenced code blocks. Before fencing a fragment, count the longest consecutive backtick run (N) appearing anywhere inside the fragment's content. Wrap the fragment in a fence of max(N+1, 4) backticks — CommonMark closes a fence only on a run at least as long as the opening run, so the longer outer fence passes shorter inner runs through untouched. Each fragment is fenced independently (different fragments may need different outer fence lengths).
-
-**(b)** When `openspecInlineGenerate` is true (inline generate path from gate check Option 2, implements R63), populate the `## OpenSpec Appendix` section with an **OpenSpec Artifacts (Draft)** label and author fresh artifacts from exploration and decomposition data:
-
-1. **`### Proposal Summary`** — author a proposal summary from the user's request and exploration findings. Wrap with `<!-- openspec-target: proposal.md -->`.
-2. **`### Delta Specs`** — author spec deltas with ADDED/MODIFIED/REMOVED sections derived from exploration and decomposition. Wrap with `<!-- openspec-target: specs/<feature-name>.md -->`.
-3. **`### Tasks List`** — author a tasks checklist derived from the plan's task decomposition. Wrap with `<!-- openspec-target: tasks.md -->`.
-
-Each fragment MUST be wrapped with `<!-- openspec-target: <path> -->` annotations as shown above. The appendix MUST be complete enough that `openspec create`/`openspec validate` can run directly off it after handoff, with no further interactive authoring step. Apply the same nested-fence safety (N+1 backticks) rule to any fenced content within the authored artifacts.
-
 **(c)** When `fromOpenspecDirect` is false AND `openspecInlineGenerate` is false, the skeleton placeholder from Step 0 already reads `Not applicable — no OpenSpec change` — leave it as-is.
 
 Step 4 is autonomous (implements R22 single-touchpoint handoff). After fixes are applied (Guardrail Compliance section written when `activeGuardrails` is non-empty, and Suggested Review Dimensions spliced when `g17Findings.findings` is non-empty per R34), proceed directly to Step 5. The single user touchpoint for the finalized plan is Step 7 (Handoff); the error-severity guardrail-block harden offer above is the one decision gate inside Step 4. <!-- R19 -->
 
-## Step 5 (CRITIQUE): Plan Review Loop — Multi-Lens Fan-Out <!-- R36 -->
-
-Skip for lightweight plans (2–3 file scope from Step 0 routing).
-
-**Material change detection and merged re-dispatch:** <!-- implements R64 -->
-
-When `materialChangeDetected` is true (set by the Step 6 IMPROVE pass — see below), dispatch Step 3 lanes AND Step 5 lens reviewers in a SINGLE message as parallel Agent tool calls. This merged dispatch counts as **one** iteration of the existing review loop — the iteration counter increments by 1, not 2, and the max-3 cap fires normally. <!-- R8, R-c1 -->
-
-- **Dispatch contents:** run the Step 3 deterministic-check block in this iteration's `<ITER_DIR>`, then dispatch the Step 3 lanes (same skip rules) and all `lensReviewers[]` (P17, or the single reviewer for <5-task plans) in one message. Each agent uses the dispatch parameters, template variables and model rules of Step 3 (lanes) and Step 5 (lenses).
-- **Await barrier:** do not consolidate or advance until exactly N = (lanes dispatched + M lenses) results are collected; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns. <!-- R-orchestrator-await, R-c1 -->
-- **Merge:** write each lane's JSON to `<ITER_DIR>/<lane name>.json` and each lens's to `<ITER_DIR>/lens-<lens>.json`, then run `merge-lanes` once with both `--lanes` and `--lenses` on that directory (`--lanes` and `--no-guardrails` exactly as in Step 3, plus `--inventory` and `--gate-a` as in the lens merge below). `issues` in `merged.json` is the unified blocking-issue set (lane, lens and cross-source dedup are done by the script).
-- **G17 on re-dispatch (advisory only):** `g17Findings` from the re-dispatch are not re-spliced into the plan (Step 4 has already run); keep them for scorecard reference only.
-- **Guardrail-block gate preservation:** guardrail-compliance (G14) issues in the re-dispatch's `merged.json` are scanned the same way Step 4 scans them. If any error-severity guardrail violation is present in the re-dispatch merge, do NOT route it silently into Step 6's blocking-issue set — surface the same guardrail-block harden offer described in Step 4 (offer **harden** alongside the user-revision options; dispatch `Skill(harden-sdlc)` with `--failure-text "Plan blocked by error-severity guardrail <id>: <description> — <rationale>"`, `--skill plan-sdlc`, `--step "Step 5 — merged re-dispatch"`, `--operation "error-severity guardrail block"` only if the user selects harden, suppressed when `--auto` is set) before proceeding with Step 6 fixes. This preserves R19 across the merged re-dispatch path. <!-- R19 -->
-- **`guardrailsEvaluated` / `critiqueRan`:** NOT re-written (once-per-run checkpoints — see Step 3).
-- **Clear flag:** set `materialChangeDetected = false` after the merged issue set is assembled.
-
-When `materialChangeDetected` is false (or unset), dispatch only the Step 5 lens reviewers as below (normal path).
-
-<!-- fan-out-dispatch: await-barrier-required -->
-**For plans with ≥5 tasks — Multi-lens fan-out:** Dispatch ALL lens reviewers from `lensReviewers[]` (P17) in a SINGLE message as parallel Agent tool calls. Do not dispatch them sequentially. <!-- R-orchestrator-await -->
-
-**Await barrier:** collect exactly N lens results (N = lenses dispatched) before consolidating or advancing; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns. <!-- R-orchestrator-await, R-c1 -->
-
-For each `lensReviewers[]` entry, dispatch by the Step 3 dispatch rule: `subagent_type: entry.agent`, `description: "plan lens <entry.lens>"`, `prompt`: one `NAME: value` line per name in `entry.inputNames`, the value from `entry.presetInputs` when present (`LENS` and `LENS_FOCUS` are preset), otherwise from the run-time table in Step 3. Pass `model: entry.dispatchModel` and `effort: entry.dispatchEffort` only when non-null; per-invocation parameters override the agent file. When `entry.dispatchModel` is null (the `balanced` preset), pass `model: opus` only when the plan author ran on sonnet (R8). <!-- R36, R8, P17 -->
-
-**Plan quality presets** (`--quality`, A4; values are tuning, `docs/cost-tiers.md` §5):
-
-| Preset | Lanes | Lens / reviewer model | Lens / reviewer effort |
-|---|---|---|---|
-| `full` (Speed) | agent-file defaults | `sonnet` | `low` |
-| `balanced` (default) | agent-file defaults | opposite of the plan author's model (R8: `opus` when the author ran on sonnet, else the agent file's `sonnet`) | agent-file default |
-| `minimal` (Quality) | agent-file defaults | `opus` | `high` |
-
-`full` and `minimal` pass a fixed model whatever the plan author ran on, so they waive the R8 opposite-model rule; only `balanced` keeps it.
-
-When `entry.agentPath` is null, skip that lens and log to `.sdlc/learnings/log.md`: `## YYYY-MM-DD — plan-sdlc: lens "<name>" skipped — agent file not found`. Continue with remaining lenses.
-
-**No `isolation` parameter on lens reviewer dispatches:** lenses read the plan file by absolute path, and a worktree copy would read a stale or absent file.
-
-**Merge lens reviewer results (per iteration):** Write each lens's final fenced `json` block verbatim to `<ITER_DIR>/lens-<lens>.json` with the Write tool (`lens-all.json` for the single reviewer). Write `JSON.stringify(openspecContext.requirements)` once to `<critiqueDir>/inventory.json` when it is non-null, and Gate A's JSON to `<critiqueDir>/gate-a.json` when Gate A ran. Then run (omit an option whose file was not written):
-
-```bash
-node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "" --lenses "<lens names dispatched, comma-separated, or all>" --inventory "<critiqueDir>/inventory.json" --gate-a "<critiqueDir>/gate-a.json" > "<ITER_DIR>/merged.json"
-```
-
-Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Use `lens` from `merged.json`: `lens.status` is the iteration status (`Approved` iff every lens is Approved), `lens.issues` the issues, `lens.recommendations` the recommendations. Increment the iteration counter by 1 only after the await barrier above is satisfied (exactly N lens results collected); never on partial or zero returns. <!-- R36, R-orchestrator-await, R-c1 -->
-
-For plans with <5 tasks, dispatch one reviewer, `reviewerDispatch` (P25), by the same rule, including the R8 author rule (`description: "plan review"`). Its JSON goes to `<ITER_DIR>/lens-all.json` and merge-lanes runs with `--lenses all`.
-
-**Gate B — Verification Scorecard:** <!-- implements R40, R42, R44 -->
-
-Write `scorecard.markdown` from `merged.json` verbatim to the plan file, replacing any previous `## Verification Scorecard` section (regenerated each iteration, R44). Placement: immediately after the last Task block, or after `## Suggested Review Dimensions` when that section exists, or after `## Guardrail Compliance` if no Suggested Review Dimensions. The script builds the dimension table from the lens issues' `severity` and `dimension`, the traceability matrix (inventory rows with `--inventory`; otherwise the lens rows under the note *(Matrix built from requirements checklist — requirement inventory unavailable)*), and the verdict from lens and Gate A severities with the verbatim labels: any CRITICAL → *"…Fix before archiving."*; no CRITICAL, any WARNING → *"…Ready for archive (with noted improvements)."*; otherwise *"All checks passed. Ready for archive."* <!-- R40, R48, R51 -->
-
-**Review loop:**
-- Approved → Step 6 is a no-op, proceed to Step 6.5 (hard gates 6.5 and 6.6 run before Step 7)
-- Issues found → go to Step 6
-- Max 3 iterations → use AskUserQuestion to surface unresolved issues to user. Offer **harden** (run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time — opt-in, no surface is edited without your approval) alongside the existing escalation options. When the user selects **harden** (interactive mode only — suppressed when `--auto` is set), dispatch `Skill(harden-sdlc)` with `--failure-text "Plan reviewer loop did not converge after 3 iterations. Outstanding issues: <union-of-blocking-issues-across-all-lenses>"`, `--skill plan-sdlc`, `--step "Step 5 — review loop"`, `--operation "reviewer-loop max iterations"`. Implements R19.
-
-## Step 6 (IMPROVE): Apply Review Fixes
-
-Fix each blocking issue identified by the reviewer. Rewrite the plan file with fixes applied. If any revision changes the scope or approach from what was originally recorded, update the `## Deviations & assumptions` table accordingly.
-
-**Gate B verdict wiring:** The Gate B Verification Scorecard verdict is treated as an additional blocking-issue source using the same `Issues Found` path. This avoids divergent gate phrasing (`no-opposite-logical-vectors` guardrail) — the CRITICAL verdict does not have a separate code path; it injects findings into the same blocking-issue set that the `Issues Found` path already processes. <!-- implements R41 -->
-
-- When the Gate B verdict is CRITICAL: inject the scorecard CRITICAL findings into the blocking-issue list as if they were additional `Issues Found` findings. The plan enters Step 6 IMPROVE with these injected findings. The iteration counter (max 3) continues normally — Gate B CRITICAL does not create a new loop or counter.
-- When the Gate B verdict is WARNING or SUGGESTION: no injection into Step 6. Caveats remain in the plan file. Proceed to Step 6.5 / Step 7 normally.
-- When the Gate B verdict is PASS (clean): proceed normally.
-
-**Material change detection:** <!-- implements R64 -->
-
-Before rewriting the plan file, copy it:
-
-```bash
-cp "<PLAN_PATH>" "<ITER_DIR>/plan-before.md"
-```
-
-After the plan file is rewritten with the Step 6 fixes, run:
-
-```bash
-node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/plan-before.md" --after "<PLAN_PATH>"
-```
-
-Set `materialChangeDetected` to its `material` value; on a non-zero exit set it to `true`. The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
-
-Re-dispatch the reviewer (back to Step 5 loop). When `materialChangeDetected` is true, the Step 5 merged dispatch path activates — see "Material change detection and merged re-dispatch" in Step 5.
-
-If this is the 3rd iteration, use AskUserQuestion to surface remaining issues instead of looping.
+## Steps 5–6 (CRITIQUE / IMPROVE): Review loop — full pipeline only (R36, R40–R44, R64)
+Full-pipeline plans: Read `./review-loop.md` now and follow it for Steps 5–6. Lightweight plans skip Steps 5–6 and continue at Step 6.5.
 
 ## Step 6.5 (LINK VERIFICATION): Validate URLs in plan content — HARD GATE <!-- R18 -->
 

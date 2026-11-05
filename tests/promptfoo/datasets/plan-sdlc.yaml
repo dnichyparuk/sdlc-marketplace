@@ -23,6 +23,7 @@
 #   plan-g19-prose-flood               -- CORRECT: code plan, T1 narrates its HTTP payload surface (#1) entirely in prose while rendering an unrelated config-delta surface (#7) as a table; exercises the NEW per-surface G19 rule — the incidental render must NOT excuse the prose-narrated surface (R46, Fixes #488)
 #   plan-sdlc-c1-inline-openspec       -- CORRECT: gate-check Option 2 inline OpenSpec artifact generation; exercises R63 openspec-target annotations, Gate A/openspec-task suppression (Fixes #523)
 #   plan-sdlc-c2-material-change       -- CORRECT: Step 6 task-count delta sets materialChangeDetected; exercises R64 merged Step 3 lane + Step 5 lens re-dispatch (Fixes #523)
+#   plan-sdlc-c2-contract-change       -- CORRECT: one Contract edit; R64 selective re-dispatch of the affectedLanes, the rest carried with merge-lanes --carry
 #   plan-sdlc-c3-ambiguity             -- CORRECT: conflicting codebase caching patterns with no dominant convention; exercises Step 1 Structured discovery trigger (c), interactive and --auto paths (R65, Fixes #523)
 
 # --- Fan-out parallelization cases (P1/P2/P3 — Fixes #418) ---
@@ -1387,6 +1388,31 @@
         before consolidating. It states this merged dispatch counts as exactly ONE iteration of
         the review loop (the counter increments by 1, not 2), and that `materialChangeDetected`
         is cleared back to false once the merged issue set is assembled.
+
+- description: "plan-sdlc: contract change re-dispatches only the affected lanes and lenses and carries the rest (R64)"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md"
+    project_context: "file://fixtures/plan-sdlc-c2-contract-change.md"
+    user_request: >
+      Run /plan-sdlc. Step 5 iteration 1 returned Issues Found. Step 6 IMPROVE just changed one
+      Contract line in Task 3 (see context, including the diff-material output). Describe exactly
+      how the NEXT Step 5 iteration dispatches its agents and how it merges the results.
+  assert:
+    - type: icontains
+      value: "affectedLanes"
+    - type: icontains
+      value: "--carry"
+    - type: llm-rubric
+      value: >
+        The response sets `materialChangeDetected` to true from the `contracts` trigger and uses
+        `affectedLanes` to choose the agents. In ONE message it dispatches only the content-coverage
+        lane and the architecture and risk lens reviewers; it skips guardrail-compliance because no
+        guardrails are configured. It does NOT re-dispatch static-structural, dimension-coverage or
+        the requirements lens. It runs the Step 3 deterministic checks (validate-plan-format and
+        g17-prepare) again in the new iteration directory. It runs merge-lanes once with
+        `--carry` naming the previous iteration directory (iter-1), so the results of the lanes and
+        lenses it did not re-dispatch are copied in and gate coverage stays complete. The merged
+        dispatch counts as one iteration of the review loop.
 
 - description: "plan-sdlc: conflicting codebase caching patterns trigger AskUserQuestion at Step 1 structured discovery, trigger c (interactive, C3)"
   vars:

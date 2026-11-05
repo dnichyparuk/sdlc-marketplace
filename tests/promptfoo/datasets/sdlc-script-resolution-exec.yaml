@@ -62,6 +62,17 @@
     - type: not-icontains
       value: '"rule": "orchestrator-await-barrier"'
 
+- description: "orchestrator-await-barrier: flags a fan-out-marked companion file (skills/**/*.md) missing the barrier guard"
+  vars:
+    script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/orchestrator-await-barrier-cases/companion-project"
+  assert:
+    - type: icontains
+      value: '"rule": "orchestrator-await-barrier"'
+    - type: icontains
+      value: 'plugins/sdlc-utilities/skills/example-skill/review-loop.md'
+
 # Validator regression (#452 / Task 12 subtask a — F-closed-issue-retrospective-guards-1):
 # the invocation-verbatim rule must flag a dispatch example that constructs its call from
 # a precomputed field (subagent_type: + model: + dotted reference, or a fenced `.invocation`
