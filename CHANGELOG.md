@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-05
+
+### Added
+- plan-sdlc: writes the optional `**Commit:**` plan header line (the exact subject of the ship commit) when it can form a valid one, and records why in Deviations when it cannot (#9176).
+- `validate-plan-format.js`: new check PF11 validates the `**Commit:**` header line with the same rules ship-sdlc applies (one line, 1-72 characters, no `"`, backtick, `$` or `\`, the project's `commit.subjectPattern`); a plan without the line passes (#9176).
+
+### Changed
+- plan-explore-orchestrator: derives 3-5 dimensions instead of 3-7, assigns only `haiku` or `sonnet`, runs at `effort: medium`, and passes `effort: low` to haiku dimensions (#9242).
+- plan-sdlc: one `<PLUGIN_ROOT>` paragraph with a fallback sentence and the "run each prescribed Bash call exactly as written" sentence replaces the repeated fence comments; spec ids are kept as HTML comments (#9193, #9242).
+- plan-sdlc: lens reviewers run on `lensReviewers[i].model` (sonnet), or opus when the plan author ran on sonnet; the Approved routes go through the link and gate steps before the handoff (#9242).
+
+### Fixed
+- plan-sdlc and its prompts no longer name `TodoWrite`, `LSP`, `run_in_background`, `Task tool` or `mode: bypassPermissions`, and carry no change-log phrasing or issue numbers; the DO NOT list keeps its seven reasoned items (#9242).
+
+### Removed
+- plan-sdlc: the Superpowers directive bullet in the plan format reference and the duplicate parallel-call, attention-drift and TodoWrite sentences (#9242).
+
 ## [0.38.0] - 2026-11-04
 
 ### Added
