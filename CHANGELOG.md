@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-05
+
+### Added
+- plan-sdlc: `openspec-flow.md` and `review-loop.md` companion files hold the OpenSpec rules and the Step 5 and Step 6 review loop; SKILL.md reads each only on its branch, so the common and lightweight path loads less (#9273).
+- `plan.js diff-material` prints `affectedGates` and `affectedLanes` from a fixed trigger map, and takes `--full` to force every lane (#9273).
+- `plan.js merge-lanes --carry <prevIterDir>` copies the results of the lanes and lenses that were not re-dispatched and lists them in `carried`; `--g17-not-run` marks G17 as not run with a WARNING in the Gate B scorecard (#9260, #9273).
+- plan-sdlc: a `claude plugin eval` close-e2e case under `plugins/sdlc-utilities/evals/plan-sdlc/` (written, not run), and a behavioural `contract change` case with its fixture (#9273).
+- plan-sdlc spec: E9 names every critique-script stop path (#9259).
+
+### Changed
+- plan-sdlc: after a material plan change only the lanes and lenses the change affects are re-dispatched; a task-count change re-runs everything (#9273).
+- plan-sdlc: a failing `plan.js g17-prepare` no longer stops the run; G17 is reported as not run and the plan continues (#9260).
+- Consistency rule 13 scans every `skills/**/*.md` file for the fan-out marker, so the marker in `review-loop.md` stays checked (#9273).
+- plan-sdlc spec: R31, R64 and R67 describe the selective re-dispatch, the carry and the G17 fallback (#9259, #9260, #9273).
+
+### Fixed
+- `plan-critique.js`: a schema-invalid lane result is reported as `invalid result shape` instead of "invalid JSON" (#9261).
+
 ## [0.41.0] - 2026-11-05
 
 ### Added
