@@ -72,10 +72,10 @@ Context detection (from skill/plan.js):
 
 Extract `guardrails` from the output → store as `activeGuardrails`. If the array is non-empty, print: "Loaded N plan guardrails." If empty: "No plan guardrails configured."
 
-**OpenSpec:** when prepare output shows `openspec.present: true` or a non-null `fromOpenspec`, Read `./openspec-flow.md` now and apply each rule at the step it names.
-Otherwise `openspecContext`, `fromOpenspecDirect` and `openspecInlineGenerate` stay unset and every OpenSpec rule is skipped.
-
 Extract `critiqueDir` (P22) from the output and keep it for Steps 3, 5 and 7. If it is null or absent (the directory could not be created, or `plan.js` is an older version), print the `errors[]` entry and stop by invoking `error-report-sdlc`; never create `<ITER_DIR>` or run an `rm -rf` on an unset value.
+
+**OpenSpec:** when prepare output shows `openspec.present: true` or a non-null `fromOpenspec`, Read `./openspec-flow.md` now and apply each rule at the step it names. A "Skip to Step 1" in its Step 0 ends only that Step 0 section: continue here with template resolution, the skeleton and the planFile marker. A stop inside it first removes `<critiqueDir>` (one `rm -rf` on that literal path).
+Otherwise `openspecContext`, `fromOpenspecDirect` and `openspecInlineGenerate` stay unset and every OpenSpec rule is skipped.
 
 **Template resolution:** After parsing the plan.js output, resolve the active plan template: <!-- implements R61 -->
 
@@ -131,7 +131,7 @@ Replace `<resolved-plan-path>` with the actual absolute path: in plan mode it is
 
 **Orchestrator dispatch (full pipeline only, implements R24–R28):**
 
-After applying any Step 1 OpenSpec rules from `./openspec-flow.md` (when it was read), determine which exploration path to take.
+After applying the Step 1 OpenSpec enrichment rules from `./openspec-flow.md` (when it was read; Gate A stays at its own place below), determine which exploration path to take.
 
 The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()`) is swept by `ship.js --gc` and by the session-start hook (`gcTempdirs`, prefix `sdlc-explore-`).
 
@@ -541,4 +541,6 @@ On selection, invoke the chosen skill using the Skill tool. On "done", end witho
 - `./plan-template-default.md` — shipped default plan template (section list, discovery questions, verification patterns)
 - `agents/` (`plan-lane-*`, `plan-lens-*`, `plan-reviewer`, `plan-intake-verify`) — critique lanes, lenses, reviewer and Gate A
 - `./plan-format-reference.md` — plan document format specification
+- `./openspec-flow.md` — the OpenSpec rules of Steps 0, 1, 2 and 4, read only when OpenSpec applies
+- `./review-loop.md` — Steps 5 and 6 (review loop, material change detection and merged re-dispatch), read only for the full pipeline
 - [`/execute-plan-sdlc`](../execute-plan-sdlc/SKILL.md) — skill that executes the plans this skill produces
