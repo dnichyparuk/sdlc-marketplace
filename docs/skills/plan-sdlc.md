@@ -29,7 +29,7 @@ When Claude Code's plan mode is active, this skill activates automatically — n
 |------|-------------|---------|
 | `--spec` | Include OpenSpec artifacts (proposal, delta specs, design, tasks) in planning context. Without this flag, OpenSpec presence is detected but artifacts are not read. | Off |
 | `--from-openspec <change-name>` | Direct bridge from OpenSpec to planning. Validates the named change, loads all artifacts, and uses `tasks.md` as the primary decomposition skeleton. Bypasses the gate check entirely. | Off |
-| `--quality full\|balanced\|minimal` | Plan-review preset: the model and effort of the Step 5 lens reviewers and the single reviewer. `full` = sonnet, low effort; `balanced` = the agent files' values, with opus when the plan author ran on sonnet; `minimal` = opus, high effort (`docs/cost-tiers.md` §5). Lanes and Gate A always use their agent files. An invalid value stops plan-sdlc at prepare time. | `balanced` |
+| `--quality full\|balanced\|minimal` | Plan-review preset: the model and effort of the Step 5 lens reviewers and the single reviewer. `full` = sonnet, low effort; `balanced` = the agent files' values, with opus when the plan author ran on sonnet; `minimal` = opus, high effort (`docs/cost-tiers.md` §5). `full` and `minimal` fix the model whatever the plan author ran on, so only `balanced` keeps the opposite-model rule. Lanes and Gate A always use their agent files. An invalid value stops plan-sdlc at prepare time. | `balanced` |
 
 Providing an explicit `openspec/changes/<name>/` path as the spec-file-path argument implicitly enables spec context loading — `--spec` is not needed in that case.
 

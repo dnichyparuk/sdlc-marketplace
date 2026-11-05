@@ -406,7 +406,7 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" g17-prepare --plan "<PLAN_PATH>" --di
 
 Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2, or any non-zero exit from g17-prepare or merge-lanes, means stop and invoke `error-report-sdlc`.
 
-**Fan-out dispatch:** For each `lane` in `lanes[]` (P16), issue one Agent call — all in one message: `subagent_type: lane.agent`, `description: "plan lane <lane.name>"`, `prompt`: one `NAME: value` line per name in `lane.inputNames`, taking the value from `lane.presetInputs` when present, otherwise from the run-time table below. Do not pass `model` or `effort`; the agent file sets both (`agent-dispatch-script-driven` guardrail). Skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. When `lane.agentPath` is null, do not dispatch that lane (see below).
+**Step 3 dispatch rule (fan-out dispatch):** For each `lane` in `lanes[]` (P16), issue one Agent call — all in one message: `subagent_type: lane.agent`, `description: "plan lane <lane.name>"`, `prompt`: one `NAME: value` line per name in `lane.inputNames`, taking the value from `lane.presetInputs` when present, otherwise from the run-time table below. A value that spans several lines goes after `NAME:` on the lines that follow, inside one fenced `text` block, so a line inside the value is never read as another input. Do not pass `model` or `effort`; the agent file sets both (`agent-dispatch-script-driven` guardrail). Skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. When `lane.agentPath` is null, do not dispatch that lane (see below).
 
 Run-time input table (values the prepare script cannot know; Step 5 and Gate A use the same table):
 
@@ -420,6 +420,8 @@ Run-time input table (values the prepare script cannot know; Step 5 and Gate A u
 | `PLAN_TEMPLATE_PATH` | `activeTemplatePath` from Step 0 |
 | `FIRED_CRITERIA_JSON` | contents of `<ITER_DIR>/g17-prepare.json` |
 | `PROPOSAL`, `DELTA_SPECS`, `TASKS_MD`, `DESIGN` | the artifacts read in Step 0 (`DELTA_SPECS` concatenated), or `[artifact missing]` |
+
+Inputs not in this table come from the entry's `presetInputs` (P15), which `plan.js` computes: `FORMAT_REFERENCE_PATH`, `ACTIVE_GUARDRAILS`, `GUARDRAILS`, `OPENSPEC_TASKS`, `REQUIREMENTS_JSON`, `LENS` and `LENS_FOCUS`. Never rebuild them by hand.
 
 **Null `agentPath`:** a lane whose `agentPath` is null is not dispatched and gets no file; merge-lanes reports the missing result as a blocking lane failure (dimension-coverage: advisory, R31). For dimension-coverage also log `## YYYY-MM-DD — plan-sdlc: G17 skipped — plan-lane-g17 agent file not found` to `.sdlc/learnings/log.md`.
 
@@ -518,7 +520,7 @@ When `materialChangeDetected` is false (or unset), dispatch only the Step 5 lens
 
 **Await barrier:** collect exactly N lens results (N = lenses dispatched) before consolidating or advancing; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns. <!-- R-orchestrator-await, R-c1 -->
 
-For each `lensReviewers[]` entry, dispatch by the Step 3 dispatch rule: `subagent_type: entry.agent`, `description: "plan lens <entry.lens>"`, `prompt` from `entry.inputNames` (`LENS` and `LENS_FOCUS` are preset). Pass `model: entry.dispatchModel` and `effort: entry.dispatchEffort` only when non-null; per-invocation parameters override the agent file. When `entry.dispatchModel` is null (the `balanced` preset), pass `model: opus` only when the plan author ran on sonnet (R8). <!-- R36, R8, P17 -->
+For each `lensReviewers[]` entry, dispatch by the Step 3 dispatch rule: `subagent_type: entry.agent`, `description: "plan lens <entry.lens>"`, `prompt`: one `NAME: value` line per name in `entry.inputNames`, the value from `entry.presetInputs` when present (`LENS` and `LENS_FOCUS` are preset), otherwise from the run-time table in Step 3. Pass `model: entry.dispatchModel` and `effort: entry.dispatchEffort` only when non-null; per-invocation parameters override the agent file. When `entry.dispatchModel` is null (the `balanced` preset), pass `model: opus` only when the plan author ran on sonnet (R8). <!-- R36, R8, P17 -->
 
 **Plan quality presets** (`--quality`, A4; values are tuning, `docs/cost-tiers.md` §5):
 
@@ -527,6 +529,8 @@ For each `lensReviewers[]` entry, dispatch by the Step 3 dispatch rule: `subagen
 | `full` (Speed) | agent-file defaults | `sonnet` | `low` |
 | `balanced` (default) | agent-file defaults | opposite of the plan author's model (R8: `opus` when the author ran on sonnet, else the agent file's `sonnet`) | agent-file default |
 | `minimal` (Quality) | agent-file defaults | `opus` | `high` |
+
+`full` and `minimal` pass a fixed model whatever the plan author ran on, so they waive the R8 opposite-model rule; only `balanced` keeps it.
 
 When `entry.agentPath` is null, skip that lens and log to `.sdlc/learnings/log.md`: `## YYYY-MM-DD — plan-sdlc: lens "<name>" skipped — agent file not found`. Continue with remaining lenses.
 

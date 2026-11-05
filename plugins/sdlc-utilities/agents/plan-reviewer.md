@@ -67,6 +67,10 @@ Only flag issues that would cause real problems during execution:
 
 Approve unless there are genuine execution blockers within your focus areas.
 
+## Traceability Output (for scorecard aggregation — Gate B, R40)
+
+Fill `traceability` with one entry per requirement: when `{REQUIREMENTS_JSON}` is not `"null"`, one per `reqId` — `{ "requirement": "<reqId>", "name": "<name>", "status": "covered|partial|uncovered", "taskRefs": ["Task 2"] }`; when it is `"null"`, one per numbered item in `{REQUIREMENTS_CHECKLIST}` with `"requirement"` = the item number as a string and `"name"` = the item text. `taskRefs` is `[]` when uncovered.
+
 ## Output
 
 Return one fenced `json` block as the last content of your response, with no prose after it:
@@ -88,5 +92,4 @@ Field rules:
 - `issues[].severity` — `CRITICAL`, `WARNING` or `SUGGESTION`; `issues[].dimension` — `Completeness`, `Correctness` or `Coherence`.
 - `issues[].blocking` — `true` only for execution blockers in your focus areas.
 - `recommendations` — advisory strings; `[]` when none.
-- `traceability` — filled only by the requirements lens (see Traceability Output); every other lens returns `[]`.
-- Since the lens is `all`, fill `traceability` by the requirements-lens rule.
+- `traceability` — filled by you, the single reviewer covering every focus area, by the Traceability Output section above.

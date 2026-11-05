@@ -200,11 +200,15 @@ function readAgent(name) {
   const out = { agent: 'sdlc:' + name, agentPath: null, model: null, effort: null };
   if (!fs.existsSync(p)) return out;
   out.agentPath = p;
-  const fm = extractFrontmatter(fs.readFileSync(p, 'utf8'));
-  if (fm !== null) {
-    const y = parseSimpleYaml(fm);
-    out.model = y.model ?? null;
-    out.effort = y.effort ?? null;
+  try {
+    const fm = extractFrontmatter(fs.readFileSync(p, 'utf8'));
+    if (fm !== null) {
+      const y = parseSimpleYaml(fm);
+      out.model = y.model ?? null;
+      out.effort = y.effort ?? null;
+    }
+  } catch (err) {
+    process.stderr.write(`[plan-prepare] agent ${name}: could not read model/effort from frontmatter: ${err.message}\n`);
   }
   return out;
 }
