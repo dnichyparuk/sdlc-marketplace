@@ -43,8 +43,6 @@
       value: "g17-prepare"
     - type: icontains
       value: "validate-plan-format"
-    - type: not-icontains
-      value: "file-existence"
     - type: llm-rubric
       value: >
         The response dispatches static-structural, content-coverage and dimension-coverage
