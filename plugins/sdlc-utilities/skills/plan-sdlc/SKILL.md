@@ -57,7 +57,7 @@ Write an implementation plan from requirements, a spec, or a user description. P
 | Scope Signal | Normal Mode | Plan Mode |
 |---|---|---|
 | 1 file, clear change | Stop — no plan needed. Tell the user. | Lightweight plan (user explicitly chose to plan) |
-| 2–3 files, clear scope | Lightweight: skip exploration and review loop | Lightweight |
+| 2–3 files, clear scope | Lightweight: inline exploration only, no review loop | Lightweight |
 | 4+ files or unclear scope | Full pipeline (Steps 1–7) | Full pipeline |
 | Multiple independent subsystems | Decompose into separate plans | Decompose |
 
@@ -90,7 +90,7 @@ Run this as one plain Bash call. Take the manifest path the command prints on st
 
 If `--from-openspec <name>` was passed to plan-sdlc, include it in the node command: `node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file --from-openspec <name>`.
 
-If `EXIT_CODE` is non-zero, print the errors from the JSON output and stop. If `EXIT_CODE` is 0, read the JSON output file. Print context detection summary:
+If `EXIT_CODE` is non-zero, print the errors from the JSON output; when the output file holds a non-null `critiqueDir`, remove it (one `rm -rf` on that literal path) before you stop. If `EXIT_CODE` is 0, read the JSON output file. Print context detection summary:
 ```
 Context detection (from skill/plan.js):
   OpenSpec:          [detected, N active changes | not present]
@@ -393,7 +393,7 @@ R62 is a writing-quality convention judged by the Step 5 lens reviewers alongsid
 
 G1–G21 are partitioned: the four lanes own the judgment gates (G20 and G21 in content-coverage); `validate-plan-format.js` owns G3 and G12 (PF4), G4 (PF12) and G10 (PF13). <!-- R35 -->
 
-**Iteration directory:** `<ITER_DIR>` is `<critiqueDir>/iter-0` at Step 3 and `<critiqueDir>/iter-<k>` at Step 5 iteration k (`critiqueDir` is P22). Do not add an EXIT trap: each Bash tool call is its own shell. Every stop below that invokes `error-report-sdlc` first removes `<critiqueDir>` (one `rm -rf` on the literal path).
+**Iteration directory:** `<ITER_DIR>` is `<critiqueDir>/iter-0` at Step 3 and `<critiqueDir>/iter-<k>` at Step 5 iteration k (`critiqueDir` is P22). Do not add an EXIT trap: each Bash tool call is its own shell. Any stop, cancel or exit before Step 7 first removes `<critiqueDir>` (one `rm -rf` on the literal path, only when it is non-null); this is the same rule as the Error Recovery table.
 
 **Deterministic checks (before the lane dispatch):**
 
@@ -575,7 +575,7 @@ After the plan file is rewritten with the Step 6 fixes, run:
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/plan-before.md" --after "<PLAN_PATH>"
 ```
 
-Set `materialChangeDetected` to its `material` value; on a non-zero exit set it to `true`. The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed, an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
+Set `materialChangeDetected` to its `material` value; on a non-zero exit set it to `true`. The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added or removed (by its title or first words), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
 
 Re-dispatch the reviewer (back to Step 5 loop). When `materialChangeDetected` is true, the Step 5 merged dispatch path activates — see "Material change detection and merged re-dispatch" in Step 5.
 

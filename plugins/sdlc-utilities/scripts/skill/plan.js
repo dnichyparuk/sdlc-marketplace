@@ -473,7 +473,9 @@ function runSubcommand(sub, args) {
     const arg = args[i];
     if (!arg.startsWith('--') || !allowed.includes(arg.slice(2))) fail(1, `unknown flag ${arg}`);
     if (arg === '--no-guardrails') { flags.noGuardrails = true; continue; }
-    if (i + 1 >= args.length) fail(1, `${arg} needs a value`);
+    const next = args[i + 1];
+    if (next === undefined || (next.startsWith('--') && allowed.includes(next.slice(2)))) fail(1, `${arg} needs a value`);
+    if (Object.prototype.hasOwnProperty.call(flags, arg.slice(2))) fail(1, `${arg} given twice`);
     flags[arg.slice(2)] = args[++i];
   }
   let result;

@@ -1,6 +1,14 @@
 # Script execution tests for plan-prepare.js (plan.js).
 # These tests run plan.js directly against fixture directories (no LLM).
 # Covers: OpenSpec authoritative output (issue #164).
+#
+# Fixture appropriateness (W7.3 subcommand cases; the fixtures are JSON and markdown only, no git repo):
+#   fixtures-fs/plan-merge-lanes     - validator report, static-structural, g17-prepare, dimension-coverage, lens and
+#                                      inventory JSON for the `plan-merge:` cases; `no-g17/` repeats the static and
+#                                      validator files without the G17 files (the content-coverage file is left out on purpose)
+#   fixtures-fs/plan-diff-material   - one before plan and two after plans (wording-only, scope change) for the `plan-diff:` cases
+#   fixtures-fs/plan-g17-prepare     - a plan, one review dimension, its Copilot instruction file and a learnings log
+#                                      for the `plan-g17:` cases
 
 - description: "plan-prepare: openspec present emits authoritative field with path and specsCount"
   vars:
@@ -593,6 +601,15 @@
   assert:
     - type: icontains
       value: "--window must be"
+
+- description: "plan-merge: a flag followed directly by another flag is a usage error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir --lanes static-structural"
+  assert:
+    - type: icontains
+      value: "--dir needs a value"
 
 # --- merge-lanes (W7.3 change 3) ---
 

@@ -398,8 +398,8 @@ function readFlagJson(flag, file) {
   if (file === null || file === undefined) return null;
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (_) {
-    throw Object.assign(new Error(`cannot read ${flag} ${file}`), { code: 'USAGE' });
+  } catch (err) {
+    throw Object.assign(new Error(`cannot read ${flag} ${file}: ${err.message}`), { code: 'USAGE' });
   }
 }
 
