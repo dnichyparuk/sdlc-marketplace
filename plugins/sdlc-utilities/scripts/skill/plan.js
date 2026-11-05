@@ -7,6 +7,9 @@
  * Usage:
  *   node plan-prepare.js [--from-openspec <change-name>] [--output-file]
  *   node plan-prepare.js --mark <name> [--path <abs>]
+ *   node plan.js diff-material --before <path> --after <path>
+ *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
+ *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>]
  *
  * Options:
  *   --from-openspec <name>  Validate a specific OpenSpec change for direct bridging
@@ -26,6 +29,7 @@
 
 const path = require('node:path');
 const fs   = require('node:fs');
+const os   = require('node:os');
 const { spawnSync } = require('node:child_process');
 const LIB = path.join(__dirname, '..', 'lib');
 
@@ -36,6 +40,7 @@ const { writeOutput } = require(path.join(LIB, 'output'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { initState, findStateFile, readState, writeState, slugifyBranch, pruneStateFiles } = require(path.join(LIB, 'state'));
 const { exec, parseRemoteOwner } = require(path.join(LIB, 'git'));
+const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes } = require(path.join(LIB, 'plan-critique'));
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -253,39 +258,12 @@ function buildIntakeAuditDispatch() {
 
 /**
  * Build P16 lanes[] metadata (R35).
- * Five entries per KD1 lane partitioning. Entry [4] mirrors g17Dispatch verbatim.
+ * Four entries per KD1 lane partitioning (G3, G4, G10, G12 are validator checks). Entry [3] mirrors g17Dispatch verbatim.
  * @param {{ subagentType: string, model: string, promptTemplatePath: string|null }} g17Dispatch
  * @returns {Array<{ name: string, subagentType: string, model: string, promptTemplatePath: string|null, gateIds: string[] }>}
  */
 function buildLanes(g17Dispatch) {
-  const laneDefs = [
-    {
-      name: 'static-structural',
-      model: 'haiku',
-      templateName: 'lane-static-structural-prompt.md',
-      gateIds: ['G1', 'G2', 'G3', 'G7', 'G12'],
-    },
-    {
-      name: 'content-coverage',
-      model: 'sonnet',
-      templateName: 'lane-content-coverage-prompt.md',
-      gateIds: ['G5', 'G6', 'G8', 'G9', 'G11', 'G13', 'G15', 'G16', 'G18', 'G19', 'G20', 'G21'],
-    },
-    {
-      name: 'file-existence',
-      model: 'haiku',
-      templateName: 'lane-file-existence-prompt.md',
-      gateIds: ['G4', 'G10'],
-    },
-    {
-      name: 'guardrail-compliance',
-      model: 'sonnet',
-      templateName: 'lane-guardrail-compliance-prompt.md',
-      gateIds: ['G14'],
-    },
-  ];
-
-  const lanes = laneDefs.map(def => ({
+  const lanes = LANE_DEFS.map(def => ({
     name: def.name,
     subagentType: 'general-purpose',
     model: def.model,
@@ -293,7 +271,7 @@ function buildLanes(g17Dispatch) {
     gateIds: def.gateIds,
   }));
 
-  // Entry [4]: dimension-coverage — mirrors g17Dispatch verbatim (backwards compatibility)
+  // Entry [3]: dimension-coverage — mirrors g17Dispatch verbatim (backwards compatibility)
   lanes.push({
     name: 'dimension-coverage',
     subagentType: g17Dispatch.subagentType,
@@ -421,7 +399,98 @@ function runExplorePack(fromOpenspec, userPrompt) {
 // Main
 // ---------------------------------------------------------------------------
 
+const SUBCOMMANDS = { 'diff-material': runDiffMaterial, 'g17-prepare': runG17Prepare, 'merge-lanes': runMergeLanes };
+
+// Flags each subcommand accepts (without `--`); any other flag is a usage error (exit 1).
+const SUBCOMMAND_FLAGS = {
+  'diff-material': ['before', 'after'],
+  'g17-prepare': ['plan', 'dimensions-dir', 'instructions-dir', 'learnings', 'window', 'github-hosting', 'root', 'today'],
+  'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory'],
+};
+
+function usageError(message) {
+  return Object.assign(new Error(message), { code: 'USAGE' });
+}
+
+function requireFlag(flags, name) {
+  if (flags[name] === undefined) throw usageError(`--${name} is required`);
+  return flags[name];
+}
+
+function readPlanFile(file) {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch (err) {
+    throw usageError(`cannot read ${file}: ${err.message}`);
+  }
+}
+
+function runDiffMaterial(flags) {
+  const before = readPlanFile(requireFlag(flags, 'before'));
+  const after = readPlanFile(requireFlag(flags, 'after'));
+  return diffMaterial(before, after);
+}
+
+function runG17Prepare(flags) {
+  const planPath = requireFlag(flags, 'plan');
+  const dimensionsDir = requireFlag(flags, 'dimensions-dir');
+  const instructionsDir = requireFlag(flags, 'instructions-dir');
+  const learningsPath = requireFlag(flags, 'learnings');
+  return g17Prepare({
+    planPath,
+    dimensionsDir,
+    instructionsDir,
+    learningsPath,
+    windowDays: flags.window === undefined ? undefined : Number(flags.window),
+    githubHosting: flags['github-hosting'] === 'true',
+    rootDir: flags.root,
+    today: flags.today,
+  });
+}
+
+function runMergeLanes(flags) {
+  const dir = requireFlag(flags, 'dir');
+  const list = v => (v === undefined ? [] : v.split(',').map(s => s.trim()).filter(Boolean));
+  return mergeLanes({
+    dir,
+    lanes: list(flags.lanes),
+    lenses: list(flags.lenses),
+    noGuardrails: flags.noGuardrails === true,
+    gateAPath: flags['gate-a'] ?? null,
+    inventoryPath: flags.inventory ?? null,
+  });
+}
+
+/** Parse `--<name> <value>` pairs and `--no-guardrails`, run the handler, map outcomes to exit codes. */
+function runSubcommand(sub, args) {
+  const fail = (code, message) => {
+    process.stderr.write(`plan.js ${sub} error: ${message}\n`);
+    process.exit(code);
+  };
+  const allowed = SUBCOMMAND_FLAGS[sub];
+  const flags = {};
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg.startsWith('--') || !allowed.includes(arg.slice(2))) fail(1, `unknown flag ${arg}`);
+    if (arg === '--no-guardrails') { flags.noGuardrails = true; continue; }
+    const next = args[i + 1];
+    if (next === undefined || (next.startsWith('--') && allowed.includes(next.slice(2)))) fail(1, `${arg} needs a value`);
+    if (Object.prototype.hasOwnProperty.call(flags, arg.slice(2))) fail(1, `${arg} given twice`);
+    flags[arg.slice(2)] = args[++i];
+  }
+  let result;
+  try {
+    result = SUBCOMMANDS[sub](flags);
+  } catch (err) {
+    fail(err.code === 'USAGE' ? 1 : 2, err.message);
+  }
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  process.exit(0);
+}
+
 function main() {
+  const sub = process.argv[2];
+  if (Object.prototype.hasOwnProperty.call(SUBCOMMANDS, sub)) { runSubcommand(sub, process.argv.slice(3)); return; }
   const { fromOpenspec, markName, markPath } = parseArgs(process.argv);
 
   // Read user prompt from stdin (piped by SKILL.md). May be empty when
@@ -609,7 +678,7 @@ function main() {
   const lanes = buildLanes(g17Dispatch);
   const lensReviewers = buildLensReviewers();
   // Warn for any lane with null promptTemplatePath (non-G17 lanes only; G17 already warned above)
-  lanes.slice(0, 4).forEach(lane => {
+  lanes.slice(0, 3).forEach(lane => {
     if (lane.promptTemplatePath === null) {
       process.stderr.write(`[plan-prepare] lane "${lane.name}" skipped — prompt template not found\n`);
     }
@@ -626,6 +695,25 @@ function main() {
     process.stderr.write('[plan-prepare] intakeAuditDispatch: intake-verify-prompt.md not found — Gate A unavailable\n');
   }
 
+  // 7b. P22 — critique temp directory
+  let critiqueDir = null;
+  try {
+    critiqueDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdlc-plan-critique-'));
+  } catch (err) {
+    errors.push(`Failed to create critiqueDir: ${err.message}`);
+  }
+
+  // 7c. P23 — commit config
+  let commit = { subjectPattern: null, subjectPatternError: null, allowedTypes: null };
+  try {
+    const c = readSection(projectRoot, 'commit') || {};
+    commit = {
+      subjectPattern: c.subjectPattern ?? null,
+      subjectPatternError: c.subjectPatternError ?? null,
+      allowedTypes: Array.isArray(c.allowedTypes) ? c.allowedTypes : null,
+    };
+  } catch (_) { /* commit config absent or unreadable — keep nulls */ }
+
   // 7. Output
   const output = {
     openspec,
@@ -639,6 +727,8 @@ function main() {
     intakeAuditDispatch,
     lanes,
     lensReviewers,
+    critiqueDir,
+    commit,
     errors,
   };
 

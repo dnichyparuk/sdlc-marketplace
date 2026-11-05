@@ -1,6 +1,6 @@
 # Script execution tests for validate-plan-format.js.
 # These tests run validate-plan-format.js directly against fixture plan files (no LLM).
-# They validate that plan format validation produces correct output for PF1-PF11 checks.
+# They validate that plan format validation produces correct output for PF1-PF13 checks.
 #
 # Fixture appropriateness:
 #   project-valid-plan                        -- CORRECT: valid 3-task plan should pass all checks (no Notes);
@@ -21,6 +21,12 @@
 #                                                 openspec Source with no real "## OpenSpec Appendix" -> PF10 fail
 #   project-plan-custom-template              -- CORRECT: project .sdlc/plan-template.md drops Research Findings
 #                                                 and adds Security Impact -> PF10 follows the custom template, not the default
+#   project-plan-shared-modify                -- CORRECT: Tasks 2 and 3 both modify src/routes/index.js with no Depends on
+#                                                 link -> PF12 fail; Task 3 modifies src/utils/helper.js that Task 1
+#                                                 (not its ancestor) creates -> PF13 fail under --root
+#   project-plan-shared-modify-ordered        -- CORRECT: Tasks 1 and 3 both modify README.md, Task 3 reaches Task 1
+#                                                 through Task 2 -> PF12 pass; Task 3's src/utils/helper.js is created
+#                                                 by its ancestor Task 1 -> PF13 exempts it
 
 - description: "plan-format: valid plan passes all checks (JSON)"
   vars:
@@ -259,7 +265,7 @@
     - type: regex
       value: '"failed":\s*0'
     - type: regex
-      value: '"total":\s*10'
+      value: '"total":\s*11'
     - type: regex
       value: '"id":\s*"PF10",\s*"status":\s*"pass"'
     - type: not-icontains
@@ -276,7 +282,7 @@
     - type: regex
       value: '"failed":\s*0'
     - type: regex
-      value: '"total":\s*10'
+      value: '"total":\s*11'
     - type: regex
       value: '"id":\s*"PF10",\s*"status":\s*"pass"'
     - type: not-icontains
@@ -319,7 +325,7 @@
     - type: regex
       value: '"failed":\s*0'
     - type: regex
-      value: '"total":\s*10'
+      value: '"total":\s*11'
     - type: regex
       value: '"id":\s*"PF10",\s*"status":\s*"pass"'
     - type: icontains
@@ -433,3 +439,72 @@
   assert:
     - type: javascript
       value: 'JSON.parse(output).checks.some(x => x.id === "PF11" && x.status === "fail" && x.message.includes("contains"))'
+
+# --- PF12: shared Modify paths in dependency order; PF13: Modify path existence (under --root only); PF4 details ---
+
+- description: "plan-format: PF12 flags shared Modify path without Depends on link"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/test-plan.md --json"
+    project_root: "file://fixtures-fs/project-plan-shared-modify"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF12" && x.status === "fail" && x.details[0].gateId === "G4" && x.details[0].taskRef === "Task 3" && x.message.includes("`src/routes/index.js`"))'
+
+- description: "plan-format: PF12 passes when sharing tasks are transitively dependent"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/test-plan.md --json"
+    project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
+  assert:
+    - type: javascript
+      value: '((r) => r.passed === true && r.checks.some(x => x.id === "PF12" && x.status === "pass"))(JSON.parse(output))'
+
+- description: "plan-format: PF13 flags missing Modify path under --root"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/test-plan.md --json --root {{project_root}}"
+    project_root: "file://fixtures-fs/project-valid-plan"
+  assert:
+    - type: icontains
+      value: "PF13"
+    - type: icontains
+      value: "src/routes/index.js"
+    - type: regex
+      value: '"gateId":\s*"G10"'
+
+- description: "plan-format: PF13 not run without --root"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/test-plan.md --json"
+    project_root: "file://fixtures-fs/project-valid-plan"
+  assert:
+    - type: not-icontains
+      value: "PF13"
+
+- description: "plan-format: PF4 details map missing target to G12"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/bad-plan.md --json"
+    project_root: "file://fixtures-fs/project-invalid-plan"
+  assert:
+    - type: regex
+      value: '"gateId":\s*"G12"'
+
+- description: "plan-format: PF13 fails a Modify path created by a task outside the Depends on chain"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/test-plan.md --json --root {{project_root}}"
+    project_root: "file://fixtures-fs/project-plan-shared-modify"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "fail" && x.details.some(d => d.taskRef === "Task 3" && d.message.includes("`src/utils/helper.js`")))'
+
+- description: "plan-format: PF13 skips a Modify path that a dependency creates"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/test-plan.md --json --root {{project_root}}"
+    project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "fail" && x.details.some(d => d.message.includes("README.md")) && !x.details.some(d => d.message.includes("src/utils/helper.js")))'

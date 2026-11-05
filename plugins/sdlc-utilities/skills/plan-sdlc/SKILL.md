@@ -57,7 +57,7 @@ Write an implementation plan from requirements, a spec, or a user description. P
 | Scope Signal | Normal Mode | Plan Mode |
 |---|---|---|
 | 1 file, clear change | Stop — no plan needed. Tell the user. | Lightweight plan (user explicitly chose to plan) |
-| 2–3 files, clear scope | Lightweight: skip exploration and review loop | Lightweight |
+| 2–3 files, clear scope | Lightweight: inline exploration only, no review loop | Lightweight |
 | 4+ files or unclear scope | Full pipeline (Steps 1–7) | Full pipeline |
 | Multiple independent subsystems | Decompose into separate plans | Decompose |
 
@@ -90,7 +90,7 @@ Run this as one plain Bash call. Take the manifest path the command prints on st
 
 If `--from-openspec <name>` was passed to plan-sdlc, include it in the node command: `node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file --from-openspec <name>`.
 
-If `EXIT_CODE` is non-zero, print the errors from the JSON output and stop. If `EXIT_CODE` is 0, read the JSON output file. Print context detection summary:
+If `EXIT_CODE` is non-zero, print the errors from the JSON output; when the output file holds a non-null `critiqueDir`, remove it (one `rm -rf` on that literal path) before you stop. If `EXIT_CODE` is 0, read the JSON output file. Print context detection summary:
 ```
 Context detection (from skill/plan.js):
   OpenSpec:          [detected, N active changes | not present]
@@ -100,6 +100,8 @@ Context detection (from skill/plan.js):
 ```
 
 Extract `guardrails` from the output → store as `activeGuardrails`. If the array is non-empty, print: "Loaded N plan guardrails." If empty: "No plan guardrails configured."
+
+Extract `critiqueDir` (P22) from the output and keep it for Steps 3, 5 and 7. If it is null or absent (the directory could not be created, or `plan.js` is an older version), print the `errors[]` entry and stop by invoking `error-report-sdlc`; never create `<ITER_DIR>` or run an `rm -rf` on an unset value.
 
 **Template resolution:** After parsing the plan.js output, resolve the active plan template: <!-- implements R61 -->
 
@@ -212,13 +214,13 @@ Wait for answers before continuing.
 
 **`--auto` suppression:** When `--auto` is set, suppress the AskUserQuestion above. Pick the most conservative approach autonomously: for approach-pattern ambiguities (triggers a/c), prefer whichever viable option most closely matches existing codebase patterns as a tiebreaker between equally-conservative choices; for scope-boundary or vague-requirement ambiguities (trigger b, or an underspecified goal), default to the narrowest scope that still satisfies the stated requirement. Record the choice in `## Key Decisions` with rationale, and add a `## Deviations & assumptions` row with `asked=no`. <!-- R65 -->
 
-**Codebase exploration (skip for lightweight):** Use read-only tools (Glob, Grep, Read):
+**Codebase exploration:** Use read-only tools (Glob, Grep, Read):
 - Relevant file structure and patterns in affected areas
 - Existing modules, interfaces, and types the feature touches
 - Testing patterns used in the project
 - Build/lint/test commands (from Makefile, package.json, or similar)
 - Naming conventions and code style
-- Inline exploration (lightweight scope and error fallback included): Read, Glob and Grep calls that don't depend on each other go in one message. <!-- implements R37 -->
+- Read, Glob and Grep calls that don't depend on each other go in one message (lightweight scope and error fallback included). <!-- implements R37 -->
 
 Identify constraints: language, framework, existing conventions, testing approach.
 
@@ -231,7 +233,7 @@ Identify constraints: language, framework, existing conventions, testing approac
 
 **Write to plan file:** After exploration, update the plan file:
 - Fill in Goal, Architecture, Verification header fields
-- Write the `**Commit:**` header line directly below the title: `` **Commit:** `<subject>` ``, the subject of the single commit a ship run makes for this plan. Form it from the request, the branch and `.sdlc/config.json#commit`: the type and scope the changes imply and the issue or tracking id the request or branch names; at most 72 characters; no `"`, backtick, `$` or `\`; matching `commit.subjectPattern` when set. When no subject meeting these rules can be formed (for example, the pattern requires an issue id and none is known), leave the line out and add a `## Deviations & assumptions` row saying why. Step 6.6 checks the line (PF11). <!-- implements R66 -->
+- Write the `**Commit:**` header line directly below the title: `` **Commit:** `<subject>` ``, the subject of the single commit a ship run makes for this plan. Form it from the request, the branch and the prepare output's `commit` field (P23): the type and scope the changes imply and the issue or tracking id the request or branch names; at most 72 characters; no `"`, backtick, `$` or `\`; matching `commit.subjectPattern` when it is non-null. When no subject meeting these rules can be formed (for example, the pattern requires an issue id and none is known), leave the line out and add a `## Deviations & assumptions` row saying why. Step 6.6 checks the line (PF11). <!-- implements R66 -->
 - Write the `## Context` section — answers to the Discovery Questions in plain language <!-- R62 -->
 - Write the `## Research Findings` section — captures exploration output: file patterns, existing modules, naming conventions, testing patterns, and build/lint/test commands discovered during codebase exploration. This section persists in the final plan (template-required, narrative).
 - Append a `## Requirements` section with numbered checklist (one bullet per requirement) — this is temporary scaffolding, removed in Step 2 post-write cleanup
@@ -352,9 +354,9 @@ Files + Contract + Acceptance criteria — do not restate it here.]
 
 **G19 — Render-don't-narrate (error-severity):** For each render-trigger surface (REST/RPC endpoint, CLI flag, schema field, status enum, state/flow/enum, config delta, error taxonomy) a task touches, flags that surface if its shape is narrated in prose instead of rendered as a fenced block, table, or before→after diff — a render for one surface does NOT excuse prose for another surface in the same task. Owned by the content-coverage lane. Blocks plan approval until every touched surface is rendered. Not-applicable for trivial tasks and pure docs/rename tasks. **Template-driven exemption:** content under a section name marked `<!-- narrative: true -->` in the active template is exempt — the exempt set comes entirely from the template's markers, not from hardcoded section names. LLM-only (semantic — render-trigger detection); hardened by prose. No deterministic floor (KD2). <!-- R61 -->
 
-**G20 — Notes rationale-only (error-severity):** Flags a `Notes:` block that restates the task's Contract/acceptance instead of carrying only rationale. Owned by the content-coverage lane (lanes[1]). Blocks plan approval until the `Notes:` block is rationale-only. **Template-driven exemption:** content under a section name marked `<!-- narrative: true -->` in the active template is exempt. <!-- R61 -->
+**G20 — Notes rationale-only (error-severity):** Flags a `Notes:` block that restates the task's Contract/acceptance instead of carrying only rationale. Owned by the content-coverage lane. Blocks plan approval until the `Notes:` block is rationale-only. **Template-driven exemption:** content under a section name marked `<!-- narrative: true -->` in the active template is exempt. <!-- R61 -->
 
-**G21 — Self-contained code refs (error-severity):** Flags a bare `file:line` change reference not anchored with surrounding lines (or the full function body) plus an inline diff. A `file:line` used as a pointer / `Contract.mirror` precedent anchor is exempt. Owned by the content-coverage lane (lanes[1]). Blocks plan approval until the reference is self-contained. LLM-only (semantic — change-site vs precedent ref); no deterministic floor (KD6).
+**G21 — Self-contained code refs (error-severity):** Flags a bare `file:line` change reference not anchored with surrounding lines (or the full function body) plus an inline diff. A `file:line` used as a pointer / `Contract.mirror` precedent anchor is exempt. Owned by the content-coverage lane. Blocks plan approval until the reference is self-contained. LLM-only (semantic — change-site vs precedent ref); no deterministic floor (KD6).
 
 **Verification strategy — match to task type.** When the active template provides `## Verification Patterns`, draw `**Verify:**` values from those patterns. When the template has no Verification Patterns (project override omitted it), use these defaults:
 - Feature/logic → TDD (write failing test, implement, pass)
@@ -385,61 +387,56 @@ R62 is a writing-quality convention judged by the Step 5 lens reviewers alongsid
 
 **Post-write cleanup:** Remove the `## Requirements` working section from the plan file. Requirements are traceable through task acceptance criteria; the section was temporary scaffolding.
 
-## Step 3 (CRITIQUE): Self-Review Plan — 5-Lane Parallel Gate Evaluation <!-- R35 -->
+## Step 3 (CRITIQUE): Self-Review Plan — Four Lanes Plus Deterministic Checks <!-- R35 -->
 
 **Re-anchor:** Re-read the plan file before dispatching lanes. The file — not your memory of it — is the source of truth.
 
-**Fan-out dispatch: Dispatch ALL FIVE Step 3 lanes from `lanes[]` (P16) in a SINGLE message as parallel Agent tool calls. Do not dispatch them sequentially.**
+G1–G21 are partitioned: the four lanes own the judgment gates (G20 and G21 in content-coverage); `validate-plan-format.js` owns G3 and G12 (PF4), G4 (PF12) and G10 (PF13). <!-- R35 -->
 
-All 21 quality gates (G1–G21) are partitioned across five lanes — each gate belongs to exactly one lane. G20 and G21 are owned by the content-coverage lane (lanes[1]). Lane dispatch parameters (`subagent_type`, `model`, and prompt body read from `promptTemplatePath`) MUST be sourced verbatim from the corresponding `lanes[i]` entry in the prepare output (`agent-dispatch-script-driven` guardrail — do NOT hardcode these values).
+**Iteration directory:** `<ITER_DIR>` is `<critiqueDir>/iter-0` at Step 3 and `<critiqueDir>/iter-<k>` at Step 5 iteration k (`critiqueDir` is P22). Do not add an EXIT trap: each Bash tool call is its own shell. Any stop, cancel or exit before Step 7 first removes `<critiqueDir>` (one `rm -rf` on the literal path, only when it is non-null); this is the same rule as the Error Recovery table.
 
-For each `lanes[i]` entry (i = 0..4):
+**Deterministic checks (before the lane dispatch):**
 
-- `subagent_type`: `lanes[i].subagentType`
-- `model`: `lanes[i].model`
-- prompt body: Read `lanes[i].promptTemplatePath` and fill template variables:
-  - All lanes: `{PLAN_FILE_PATH}` (absolute path to plan file), `{PROJECT_ROOT}` (cwd)
-  - Lanes 0–3 non-G17: `{REQUIREMENTS_SUMMARY}` (the numbered requirements list from Step 1 CONSUME — same content as `{REQUIREMENTS_CHECKLIST}` in Step 5; retained in memory from Step 1), `{ACTIVE_GUARDRAILS}` (from `guardrails[]` P7), `{OPENSPEC_TASKS}` (from `openspecContext.tasks` P13, null when not OpenSpec-sourced), `{BRIEF_FINDING_IDS}` (from `explorePack.manifestPath` context, null when no brief)
-  - Lane 1 (content-coverage) additionally: `{FORMAT_REFERENCE_PATH}` — absolute path to plan-format-reference.md (sibling of lane-content-coverage-prompt.md in the same skill directory; resolve as `dirname(lanes[1].promptTemplatePath)/plan-format-reference.md`), `{PLAN_TEMPLATE_PATH}` — `activeTemplatePath` resolved in Step 0 (the absolute path to the active plan template — project override or shipped default)
-  - Lane 4 (G17/dimension-coverage): `{DIMENSIONS_DIR}` (`.sdlc/review-dimensions/`), `{COPILOT_DIR}` (`.github/instructions/`), `{GITHUB_HOSTING_DETECTED}` (`githubHosting.detected` from P14), `{LEARNINGS_LOG_PATH}` (`.sdlc/learnings/log.md`), `{PR_COMMIT_WINDOW}` (best-effort "last 14 days" if unknown)
+```bash
+mkdir -p "<ITER_DIR>"
+```
 
-**Null `promptTemplatePath` handling:** When `lanes[i].promptTemplatePath` is null (prepare script reported it could not find the template), skip that lane's dispatch and immediately add a synthetic blocking issue:
+```bash
+node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --json --file "<PLAN_PATH>" --root "$PWD" > "<ITER_DIR>/pf-report.json"
 ```
-{ laneStatus: "failed", gateIds: lanes[i].gateIds, issues: [{ gateId: lanes[i].gateIds[0], severity: "error", message: "Lane <name> skipped — promptTemplatePath null (template not found at prepare time)", blocking: true }], passes: [] }
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" g17-prepare --plan "<PLAN_PATH>" --dimensions-dir .sdlc/review-dimensions --instructions-dir .github/instructions --learnings .sdlc/learnings/log.md --window 14 --github-hosting <githubHosting.detected> > "<ITER_DIR>/g17-prepare.json"
 ```
-Exception: lane 4 (G17/dimension-coverage) — when `lanes[4].promptTemplatePath` is null, treat as empty findings (advisory per R31 dispatch-failure fallback) and continue. Log to `.sdlc/learnings/log.md`:
-```
-## YYYY-MM-DD — plan-sdlc: G17 skipped — promptTemplatePath null (template not found at prepare time)
-```
+
+Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2, or any non-zero exit from g17-prepare or merge-lanes, means stop and invoke `error-report-sdlc`.
+
+**Fan-out dispatch:** Dispatch the Step 3 lanes from `lanes[]` (P16) in a SINGLE message as parallel Agent tool calls; skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. For each dispatched lane, `subagent_type`, `model` and the prompt body (read from `promptTemplatePath`) come verbatim from its `lanes[]` entry (`agent-dispatch-script-driven` guardrail). Template variables:
+- All lanes: `{PLAN_FILE_PATH}` (absolute path to the plan file), `{PROJECT_ROOT}` (cwd).
+- static-structural, content-coverage and guardrail-compliance: `{REQUIREMENTS_SUMMARY}` (the numbered requirements list from Step 1 CONSUME — same content as `{REQUIREMENTS_CHECKLIST}` in Step 5), `{ACTIVE_GUARDRAILS}` (from `guardrails[]` P7), `{OPENSPEC_TASKS}` (from `openspecContext.tasks` P13, null when not OpenSpec-sourced), `{BRIEF_FINDING_IDS}` (from the discovery brief, null when no brief).
+- content-coverage additionally: `{FORMAT_REFERENCE_PATH}` — `plan-format-reference.md` in the directory of that lane's `promptTemplatePath`; `{PLAN_TEMPLATE_PATH}` — `activeTemplatePath` from Step 0.
+- dimension-coverage: `{PLAN_FILE_PATH}`, `{FIRED_CRITERIA_JSON}` (contents of `<ITER_DIR>/g17-prepare.json`).
+
+**Null `promptTemplatePath`:** skip that lane's dispatch and write nothing for it; merge-lanes reports the missing result as a blocking lane failure (dimension-coverage: advisory, R31). For dimension-coverage also log `## YYYY-MM-DD — plan-sdlc: G17 skipped — promptTemplatePath null (template not found at prepare time)` to `.sdlc/learnings/log.md`.
 
 **No `isolation` parameter on lane dispatches:** lanes read the plan file by absolute path, and a worktree copy would read a stale or absent file.
 
-**Collect lane results and merge:**
+**Collect and merge:** Write each lane's final fenced `json` block verbatim to `<ITER_DIR>/<lane name>.json` with the Write tool (write nothing for a lane that returned nothing). Then run, listing every `lanes[]` name except `guardrail-compliance` when it was skipped (a lane skipped for a null `promptTemplatePath` stays in the list, so `merge-lanes` reports its missing result; `dimension-coverage` stays in the list when its file was written by hand):
 
-Each lane returns a JSON object with schema:
-```json
-{ "gateIds": [...], "issues": [...], "passes": [...], "laneStatus": "ok"|"failed"|"timeout" }
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "<lane names, comma-separated>" [--no-guardrails] > "<ITER_DIR>/merged.json"
 ```
-Lane 3 (guardrail-compliance) additionally returns `guardrailCompliancePayload` in the JSON object — store this for Step 4's `## Guardrail Compliance` section.
-Lane 4 (dimension-coverage/G17) returns the G17 findings JSON — parse the `findings` object and persist as `g17Findings` for Step 4.
 
-**Merge algorithm:**
-1. `allIssues` = union of `issues[]` from all lanes
-2. `allPasses` = union of `passes[]` from all lanes
-3. `coverageCheck`: the union of all `gateIds[]` arrays returned by lanes MUST equal {G1..G21} exactly. Any missing gate ID → add a blocking issue: `{ gateId: "<missing>", severity: "error", message: "Gate <missing> not evaluated by any lane", blocking: true }`
-4. Lane returning `laneStatus !== "ok"`: append to `allIssues` as blocking error `{ gateId: "lane-failure", severity: "error", message: "Lane <name> failed: <reason> — gate IDs <list> not evaluated", blocking: true }` — **exception: G17 lane (lanes[4]) failure is advisory, not blocking** (per R31 dispatch-failure fallback)
-5. Dedup `allIssues` by `(gateId, taskRef, message-normalized-prefix)` — keep first occurrence
+Pass `--no-guardrails` exactly when `guardrail-compliance` was skipped. `merge-lanes` reads `<ITER_DIR>/pf-report.json` itself from `--dir` and turns the validator's failures into blocking G3, G4, G10 and G12 issues; do not pass it separately. Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Read `merged.json`: `issues` is the Step 3 issue list (blocking ones carry `blocking: true`); `guardrailCompliancePayload` feeds Step 4's `## Guardrail Compliance`; `g17Findings` feeds Step 4's `## Suggested Review Dimensions`. Do NOT write to the plan file in this step.
 
-Note every issue from `allIssues`. Do NOT write to the plan file in this step.
-
-**JOIN barrier — `guardrailsEvaluated`:** After the guardrail-compliance lane (lanes[3]) result is incorporated into the merged issue list, record the checkpoint. **Do NOT write this marker before lanes[3] returns.** <!-- implements R20, R35 -->
+**JOIN barrier — `guardrailsEvaluated`:** After `merge-lanes` has returned (with the guardrail-compliance result or its synthesized constant), record the checkpoint. <!-- implements R20, R35 -->
 
 ```bash
 # writes planIntegrity marker consumed by stop-plan-integrity Stop hook
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark guardrailsEvaluated 2>/dev/null || true
 ```
 
-**JOIN barrier — `critiqueRan`:** After ALL five lanes have returned and the merged issue list is complete (including G17/lanes[4] findings parsed into `g17Findings`), record the checkpoint. **Do NOT write this marker until all five lanes have returned.** <!-- implements R20, R35 -->
+**JOIN barrier — `critiqueRan`:** After every dispatched lane has returned and `merged.json` has been read, record the checkpoint. **Do NOT write this marker before then.** <!-- implements R20, R35 -->
 
 ```bash
 # writes planIntegrity marker consumed by stop-plan-integrity Stop hook
@@ -502,11 +499,11 @@ Skip for lightweight plans (2–3 file scope from Step 0 routing).
 
 When `materialChangeDetected` is true (set by the Step 6 IMPROVE pass — see below), dispatch Step 3 lanes AND Step 5 lens reviewers in a SINGLE message as parallel Agent tool calls. This merged dispatch counts as **one** iteration of the existing review loop — the iteration counter increments by 1, not 2, and the max-3 cap fires normally. <!-- R8, R-c1 -->
 
-- **Dispatch contents:** all five `lanes[]` (P16) + all `lensReviewers[]` (P17, or the single reviewer for <5-task plans). Each agent uses the same dispatch parameters, template variables, and model rules defined in Step 3 (lanes) and Step 5 (lenses) respectively.
-- **Await barrier:** do not consolidate or advance until exactly N = (5 lanes + M lenses) results are collected; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns.
-- **Merge:** lane results are processed by the Step 3 merge algorithm verbatim (coverageCheck {G1..G21}, null-template handling, lane-failure handling). Lens results are processed by the Step 5 merge below. The unified blocking-issue set is the union of both — lane issues deduped by `(gateId, taskRef, message-normalized-prefix)`, lens issues deduped by `(taskRef, message-normalized-prefix)`, cross-source union deduped by `(taskRef, message-normalized-prefix)` (keep first occurrence).
-- **G17 on re-dispatch (advisory only):** lanes[4]/G17 findings from the re-dispatch merge as advisory only. Step 4 has already run, so there is no `## Suggested Review Dimensions` consumer — do not re-splice G17 findings into the plan file. Persist updated `g17Findings` in memory for scorecard reference only.
-- **Guardrail-block gate preservation:** lanes[3] (guardrail-compliance) findings from the re-dispatch are scanned the same way Step 4 scans them. If any error-severity guardrail violation is present in the re-dispatch merge, do NOT route it silently into Step 6's blocking-issue set — surface the same guardrail-block harden offer described in Step 4 (offer **harden** alongside the user-revision options; dispatch `Skill(harden-sdlc)` with `--failure-text "Plan blocked by error-severity guardrail <id>: <description> — <rationale>"`, `--skill plan-sdlc`, `--step "Step 5 — merged re-dispatch"`, `--operation "error-severity guardrail block"` only if the user selects harden, suppressed when `--auto` is set) before proceeding with Step 6 fixes. This preserves R19 across the merged re-dispatch path. <!-- R19 -->
+- **Dispatch contents:** run the Step 3 deterministic-check block in this iteration's `<ITER_DIR>`, then dispatch the Step 3 lanes (same skip rules) and all `lensReviewers[]` (P17, or the single reviewer for <5-task plans) in one message. Each agent uses the dispatch parameters, template variables and model rules of Step 3 (lanes) and Step 5 (lenses).
+- **Await barrier:** do not consolidate or advance until exactly N = (lanes dispatched + M lenses) results are collected; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns. <!-- R-orchestrator-await, R-c1 -->
+- **Merge:** write each lane's JSON to `<ITER_DIR>/<lane name>.json` and each lens's to `<ITER_DIR>/lens-<lens>.json`, then run `merge-lanes` once with both `--lanes` and `--lenses` on that directory (`--lanes` and `--no-guardrails` exactly as in Step 3, plus `--inventory` and `--gate-a` as in the lens merge below). `issues` in `merged.json` is the unified blocking-issue set (lane, lens and cross-source dedup are done by the script).
+- **G17 on re-dispatch (advisory only):** `g17Findings` from the re-dispatch are not re-spliced into the plan (Step 4 has already run); keep them for scorecard reference only.
+- **Guardrail-block gate preservation:** guardrail-compliance (G14) issues in the re-dispatch's `merged.json` are scanned the same way Step 4 scans them. If any error-severity guardrail violation is present in the re-dispatch merge, do NOT route it silently into Step 6's blocking-issue set — surface the same guardrail-block harden offer described in Step 4 (offer **harden** alongside the user-revision options; dispatch `Skill(harden-sdlc)` with `--failure-text "Plan blocked by error-severity guardrail <id>: <description> — <rationale>"`, `--skill plan-sdlc`, `--step "Step 5 — merged re-dispatch"`, `--operation "error-severity guardrail block"` only if the user selects harden, suppressed when `--auto` is set) before proceeding with Step 6 fixes. This preserves R19 across the merged re-dispatch path. <!-- R19 -->
 - **`guardrailsEvaluated` / `critiqueRan`:** NOT re-written (once-per-run checkpoints — see Step 3).
 - **Clear flag:** set `materialChangeDetected = false` after the merged issue set is assembled.
 
@@ -517,9 +514,9 @@ When `materialChangeDetected` is false (or unset), dispatch only the Step 5 lens
 
 **Await barrier:** collect exactly N lens results (N = lenses dispatched) before consolidating or advancing; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns. <!-- R-orchestrator-await, R-c1 -->
 
-For each `lensReviewers[i]` entry (i = 0..2):
+For each `lensReviewers[]` entry:
 - `subagent_type`: `lensReviewers[i].subagentType`
-- `model`: `lensReviewers[i].model` (sonnet). Lenses run on sonnet as a cost choice; because this skill runs on opus, that also keeps R8's cross-model property. If the plan author ran on sonnet, dispatch the lenses with `model: opus` instead.
+- `model`: `lensReviewers[i].model`, unless it equals the plan author's model; then dispatch the lens with the opposite model (opus ↔ sonnet), the dispatch-time override P17 allows, so every lens runs on the model opposite to the plan author. <!-- R36, R8, P17 -->
 - prompt body: Read `lensReviewers[i].promptTemplatePath` and fill template variables:
   - `{PLAN_FILE_PATH}` — absolute path to the plan file
   - `{LENS}` — `lensReviewers[i].lens` (one of `architecture`, `requirements`, `risk`)
@@ -535,32 +532,19 @@ When `lensReviewers[i].promptTemplatePath` is null, skip that lens and log to `.
 
 **No `isolation` parameter on lens reviewer dispatches:** lenses read the plan file by absolute path, and a worktree copy would read a stale or absent file.
 
-**Merge lens reviewer results (per iteration):**
-1. **Status**: `Approved` iff ALL lens reviewers returned `Approved`; otherwise `Issues Found`
-2. **Issues**: union of blocking issues across all lenses — dedup by `(taskRef, message-normalized-prefix)` (keep first occurrence)
-3. **Recommendations**: collect all recommendations, dedup by string prefix (first 60 chars)
-4. **Iteration counter**: increment by 1 only after the await barrier above is satisfied (exactly N lens results collected, N = lenses dispatched); never increment on partial or zero returns <!-- R-orchestrator-await, R-c1 -->
+**Merge lens reviewer results (per iteration):** Write each lens's final fenced `json` block verbatim to `<ITER_DIR>/lens-<lens>.json` with the Write tool (`lens-all.json` for the single reviewer). Write `JSON.stringify(openspecContext.requirements)` once to `<critiqueDir>/inventory.json` when it is non-null, and Gate A's JSON to `<critiqueDir>/gate-a.json` when Gate A ran. Then run (omit an option whose file was not written):
 
-For plans with <5 tasks, dispatch one reviewer with `{LENS}=all` using `./plan-reviewer-prompt.md`.
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "" --lenses "<lens names dispatched, comma-separated, or all>" --inventory "<critiqueDir>/inventory.json" --gate-a "<critiqueDir>/gate-a.json" > "<ITER_DIR>/merged.json"
+```
+
+Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Use `lens` from `merged.json`: `lens.status` is the iteration status (`Approved` iff every lens is Approved), `lens.issues` the issues, `lens.recommendations` the recommendations. Increment the iteration counter by 1 only after the await barrier above is satisfied (exactly N lens results collected); never on partial or zero returns. <!-- R36, R-orchestrator-await, R-c1 -->
+
+For plans with <5 tasks, dispatch one reviewer with `{LENS}=all` using `./plan-reviewer-prompt.md`. Its JSON goes to `<ITER_DIR>/lens-all.json` and merge-lanes runs with `--lenses all`.
 
 **Gate B — Verification Scorecard:** <!-- implements R40, R42, R44 -->
 
-Assemble the `## Verification Scorecard` section (regenerated each iteration, R44). <!-- R48, R51 -->
-
-**Scorecard assembly (in main context after lens merge, per iteration):**
-
-1. **Dimension table** — Aggregate CRITICAL/WARNING/SUGGESTION/PASS counts by dimension across all lens findings that carry a severity tag. Three rows: Completeness, Correctness, Coherence. Counts sourced from lens output; when a lens did not emit per-check severity tags, treat its findings as unclassified (exclude from counts).
-
-2. **Traceability matrix** — One row per requirement source:
-   - When `openspecContext.requirements[]` is present (non-null): use each `{ reqId, name }` as a row. For each row, map to covering Task(s) by matching task descriptions that reference the requirement (by `reqId`, `name`, or delta-spec section title). Status: `covered` (≥1 task), `partial` (task exists but incomplete per lens finding), `uncovered` (no task maps to this requirement).
-   - When `openspecContext.requirements` is null: build the matrix from the Step 1 requirements checklist instead. Note the downgrade in the scorecard header: `*(Matrix built from requirements checklist — requirement inventory unavailable)*`
-
-3. **Verdict** — Derived from the aggregate of all findings across lens outputs AND Gate A caveats (when present), using the verbatim opsx:verify labels: <!-- R40 -->
-   - Any finding with severity CRITICAL → verdict: *"…Fix before archiving."*
-   - No CRITICAL, any WARNING → verdict: *"…Ready for archive (with noted improvements)."*
-   - Only SUGGESTION or zero findings → verdict: *"All checks passed. Ready for archive."*
-
-4. **Write the scorecard section** to the plan file. Placement: immediately after the last Task block, or after `## Suggested Review Dimensions` when that section exists, or after `## Guardrail Compliance` if no Suggested Review Dimensions. REGENERATE (replace) on each iteration — do not append a second copy.
+Write `scorecard.markdown` from `merged.json` verbatim to the plan file, replacing any previous `## Verification Scorecard` section (regenerated each iteration, R44). Placement: immediately after the last Task block, or after `## Suggested Review Dimensions` when that section exists, or after `## Guardrail Compliance` if no Suggested Review Dimensions. The script builds the dimension table from the lens issues' `severity` and `dimension`, the traceability matrix (inventory rows with `--inventory`; otherwise the lens rows under the note *(Matrix built from requirements checklist — requirement inventory unavailable)*), and the verdict from lens and Gate A severities with the verbatim labels: any CRITICAL → *"…Fix before archiving."*; no CRITICAL, any WARNING → *"…Ready for archive (with noted improvements)."*; otherwise *"All checks passed. Ready for archive."* <!-- R40, R48, R51 -->
 
 **Review loop:**
 - Approved → Step 6 is a no-op, proceed to Step 6.5 (hard gates 6.5 and 6.6 run before Step 7)
@@ -579,30 +563,19 @@ Fix each blocking issue identified by the reviewer. Rewrite the plan file with f
 
 **Material change detection:** <!-- implements R64 -->
 
-Before rewriting the plan file, snapshot these values from the current plan content:
-1. `taskCountBefore` — number of `### Task N:` headings
-2. `deviationsRowsBefore` — set of row keys (first cell) in the `## Deviations & assumptions` table
-3. `filesSetBefore` — map of `{ taskRef: <set of paths in that task's **Files:** block> }` for every task
-4. `contractsBefore` — map of `{ taskRef: <verbatim Contract: block text> }` for every task carrying a `**Contract:**` block
-5. `dependsOnBefore` — map of `{ taskRef: <verbatim Depends on: value> }` for every task
-6. `keyDecisionsBefore` — set of row/entry keys in the `## Key Decisions` section
-7. `openspecTaskMappingBefore` — map of `{ taskRef: <openspec-task.ref, or null if absent> }` for every task (R29/R30)
+Before rewriting the plan file, copy it:
 
-After the plan file is rewritten with Step 6 fixes applied, compute the same values from the updated plan content and compare:
+```bash
+cp "<PLAN_PATH>" "<ITER_DIR>/plan-before.md"
+```
 
-| Trigger | Condition | Material? | R64 source |
-|---|---|---|---|
-| Task count delta | `taskCountAfter !== taskCountBefore` (task added or removed) | Yes | task added/removed |
-| Task re-scoped — Files | Any task's `filesSetAfter[taskRef]` differs from `filesSetBefore[taskRef]` (paths added or removed) | Yes | task re-scoped (Files) |
-| Task re-scoped — Contract | Any task's `contractsAfter[taskRef]` differs from `contractsBefore[taskRef]` | Yes | task re-scoped (Contract) |
-| Task re-scoped — Depends on | Any task's `dependsOnAfter[taskRef]` differs from `dependsOnBefore[taskRef]` | Yes | task re-scoped (Depends on) |
-| Key Decision changed | `keyDecisionsAfter` differs from `keyDecisionsBefore` (an entry reversed, or a new entry introduced) | Yes | Key Decision reversed/introduced |
-| OpenSpec task mapping changed | Any task's `openspecTaskMappingAfter[taskRef]` differs from `openspecTaskMappingBefore[taskRef]` | Yes | OpenSpec task mapping (R29/R30) changed |
-| Deviations table modified | Any new or changed row key in the Deviations table compared to `deviationsRowsBefore` | Yes (R64's conservative superset — a deviations-table edit usually co-occurs with a scope/approach change worth re-validating) | R64 conservative superset clause |
+After the plan file is rewritten with the Step 6 fixes, run:
 
-If **any** trigger fires, set `materialChangeDetected = true`. Otherwise leave it `false` (or unset).
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/plan-before.md" --after "<PLAN_PATH>"
+```
 
-Wording-only, formatting-only, and metadata-only fixes that leave all seven snapshotted values unchanged are NOT material and do not trigger re-validation. <!-- R64 -->
+Set `materialChangeDetected` to its `material` value; on a non-zero exit set it to `true`. The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
 
 Re-dispatch the reviewer (back to Step 5 loop). When `materialChangeDetected` is true, the Step 5 merged dispatch path activates — see "Material change detection and merged re-dispatch" in Step 5.
 
@@ -626,7 +599,7 @@ On zero exit, proceed to Step 7. `SDLC_LINKS_OFFLINE=1` skips network reachabili
 
 ## Step 6.6 (FORMAT VALIDATION): Validate plan structure — HARD GATE
 
-After link verification passes, run the deterministic plan format validator. PF9 (Verification Scorecard presence) is applied only when this run executed Step 5 (the multi-lens review). PF10 (template-required sections) is applied only on full-pipeline plans (`--final`, which also passes `--template`), like PF9. PF11 (the `**Commit:**` header line) always runs and is checked only when the line is present: a missing line passes (the omission is explained in a `## Deviations & assumptions` row), a malformed one fails.
+After link verification passes, run the deterministic plan format validator. PF9 (Verification Scorecard presence) is applied only when this run executed Step 5 (the multi-lens review). PF10 (template-required sections) is applied only on full-pipeline plans (`--final`, which also passes `--template`), like PF9. PF11 (the `**Commit:**` header line) always runs and is checked only when the line is present: a missing line passes (the omission is explained in a `## Deviations & assumptions` row), a malformed one fails. PF12 (shared Modify paths in dependency order) always runs; PF13 (Modify paths exist) runs because the block passes `--root`, the active worktree.
 
 **Set `FINAL_FLAG` from the Step 0 routing branch THIS run took** — NOT from scorecard presence (deriving it from the artifact it checks would make PF9 circular):
 
@@ -648,6 +621,7 @@ Substitute the correct values into the block below before running it; `${FINAL_F
 ARGS=(--markdown --file "$plan_path")
 [ -n "$FINAL_FLAG" ] && ARGS+=(--final)
 [ -n "$TEMPLATE_PATH" ] && ARGS+=(--template "$TEMPLATE_PATH")
+ARGS+=(--root "$PWD")
 node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" "${ARGS[@]}"
 ```
 
@@ -660,6 +634,12 @@ Take the command's exit code from the tool result (a tool result without an erro
 On zero exit, proceed to Step 7.
 
 ## Step 7: Handoff
+
+Remove the critique directory (P22) once, before the menu below; the plan file now holds every result:
+
+```bash
+rm -rf "<critiqueDir>"
+```
 
 **Gate B scorecard pointer:** Before the plan-mode or normal-mode branch below, when a `## Verification Scorecard` section exists in the plan file (i.e., Gate B ran during Step 5), surface a one-line verdict reference above the `ship` / `execute` / `done` menu: <!-- implements R41 -->
 
@@ -688,6 +668,7 @@ Do NOT report the plan as "validated" on format-floor PASS alone. Format floor =
 | Plan reviewer loop exceeds 3 iterations | Surface to user for guidance |
 | Requirements are contradictory | Flag specific contradictions, ask user to resolve |
 | User approves but output path fails | Retry with a different path; offer to print plan to screen |
+| The run ends before Step 7 (error, stop or cancel) | Remove the critique directory: `rm -rf "<critiqueDir>"` (P22) |
 
 ## DO NOT
 

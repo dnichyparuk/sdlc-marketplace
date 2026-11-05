@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-05
+
+### Added
+- `plan.js` subcommands `merge-lanes` (lane, validator, lens and G17 merge with the Verification Scorecard), `diff-material` (decides whether a plan change is material) and `g17-prepare` (G17 candidates, criteria and suppression), with their logic in the new `scripts/lib/plan-critique.js` (#9257).
+- `validate-plan-format.js`: new checks PF12 (two tasks that modify the same path are in dependency order) and PF13 (a `Modify:` path exists under `--root`, unless an earlier task in its dependency chain creates it); PF4 results now carry per-task `details` (#9257).
+- plan.js prepare output: `critiqueDir` (P22), a fresh per-run directory for the critique JSON, and `commit` (P23), the project's commit config (#9245, #9257).
+- `lib/plan-parse.js`: shared plan parsing helpers, including one `**Commit:**` header rule set used by PF11 and ship-sdlc (#9244).
+
+### Changed
+- plan-sdlc: Step 3 runs four gate lanes instead of five; G3 and G12 move to PF4, G4 to PF12 and G10 to PF13 in the validator, and the guardrail lane is skipped when no guardrail is configured (#9257).
+- plan-sdlc: lens reviewers return one JSON block, and `merge-lanes` builds the scorecard; the G17 prompt keeps only the behaviour criteria B1-B4 plus a `why` sentence (#9257).
+- plan-sdlc: the `**Commit:**` header subject is formed from the prepare output's `commit` field; the exploration heading and lens model text no longer contradict the spec (#9245, #9249, #9250).
+- plan-sdlc spec R56(a): Step 2 dispatches pass no `run_in_background` parameter; awaiting the completion notifications is the barrier (#9255).
+
+### Removed
+- plan-sdlc: the file-existence lane and its prompt (`lane-file-existence-prompt.md`); PF13 checks the same thing (#9257).
+
 ## [0.39.0] - 2026-11-05
 
 ### Added

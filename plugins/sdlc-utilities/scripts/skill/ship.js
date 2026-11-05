@@ -56,6 +56,7 @@ const { detectActiveChanges, isArchived, getTaskCounts, validateChangeStrict } =
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { PRE_RELEASE_LABEL_RE } = require(path.join(LIB, 'version'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
+const { parsePlanCommit } = require(path.join(LIB, 'plan-parse'));
 
 const VALID_QUALITY = ['full', 'balanced', 'minimal'];
 
@@ -1480,28 +1481,22 @@ function readPlanCommitSubject(planFile, subjectPattern = null) {
     if (err.code === 'ENOENT') return { subject: null, error: null };
     return { subject: null, error: `The plan ${planFile} cannot be read (${err.code || err.message}), so its **Commit:** field cannot be checked. Fix: make the plan a readable markdown file. Why: ship forwards the planned subject verbatim to commit-sdlc.` };
   }
-  const lines = text.split(/\r?\n/);
-  const end = lines.findIndex(l => l === '---' || l.startsWith('## ') || l.startsWith('### '));
-  const fields = (end === -1 ? lines : lines.slice(0, end)).filter(l => l.startsWith('**Commit:**'));
-  if (fields.length === 0) return { subject: null, error: null };
+  const { subject, failure } = parsePlanCommit(text, subjectPattern);
+  if (!failure) return { subject, error: null };
   const fail = (why) => ({
     subject: null,
     error: `The **Commit:** field in the header of ${planFile} ${why}. ` +
       'Fix: write it once, as **Commit:** `<subject>` — one line of at most 72 characters, without ", `, $ or \\, matching commit.subjectPattern. ' +
       'Why: ship forwards it verbatim to commit-sdlc as --subject.',
   });
-  if (fields.length > 1) return fail('appears more than once');
-  const m = /^\*\*Commit:\*\* `([^`]+)`\s*$/.exec(fields[0]);
-  if (!m) return fail('is not one backticked subject');
-  const subject = m[1];
-  if (subject.length > 72) return fail(`is ${subject.length} characters long`);
-  if (/["$\\]/.test(subject)) return fail('contains ", $ or \\');
-  if (subjectPattern) {
-    let ok;
-    try { ok = new RegExp(subjectPattern).test(subject); } catch (err) { return fail(`cannot be checked: commit.subjectPattern is not a valid regex (${err.message})`); }
-    if (!ok) return fail(`does not match commit.subjectPattern ${subjectPattern}`);
+  switch (failure.code) {
+    case 'duplicate': return fail('appears more than once');
+    case 'format': return fail('is not one backticked subject');
+    case 'length': return fail(`is ${failure.length} characters long`);
+    case 'chars': return fail('contains ", $ or \\');
+    case 'pattern-invalid': return fail(`cannot be checked: commit.subjectPattern is not a valid regex (${failure.error})`);
+    default: return fail(`does not match commit.subjectPattern ${subjectPattern}`);
   }
-  return { subject, error: null };
 }
 
 function lastHistory(ledger, id) {

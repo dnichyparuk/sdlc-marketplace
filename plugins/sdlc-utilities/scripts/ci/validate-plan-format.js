@@ -13,6 +13,7 @@
  *   --markdown              Formatted markdown output to stdout
  *   --final                 Also enforce PF9 (Verification Scorecard)
  *   --template <path>       Active plan template; enables PF10 (under --final only)
+ *   --root <dir>            Active worktree root; enables PF13 (Modify paths exist)
  *
  * Exit codes: 0 = all pass, 1 = issues found, 2 = script error
  *
@@ -27,6 +28,8 @@
  *   PF9  — Scorecard presence (under --final only)
  *   PF10 — Template-driven required section presence (under --final, when --template given)
  *   PF11 — **Commit:** header field (R66; optional, checked when present)
+ *   PF12 — Shared Modify paths in dependency order
+ *   PF13 — Modify path existence (under --root only)
  *
  * Uses only Node.js built-in modules. No npm install required.
  */
@@ -37,7 +40,9 @@ const fs   = require('node:fs');
 const path = require('node:path');
 
 const { resolveSdlcRoot, readSection } = require(path.join(__dirname, '..', 'lib', 'config'));
-const { extractField, stripFences, extractTasks } = require(path.join(__dirname, '..', 'lib', 'plan-parse'));
+const {
+  extractField, stripFences, extractTasks, taskSection, parseFilesEntries, parseDependsOn, parsePlanCommit,
+} = require(path.join(__dirname, '..', 'lib', 'plan-parse'));
 
 // ---------------------------------------------------------------------------
 // CLI parsing
@@ -51,6 +56,7 @@ function parseArgs(argv) {
   let outputFormat = 'json';
   let requireScorecard = false;
   let templatePath = null;
+  let rootDir = null;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -66,10 +72,12 @@ function parseArgs(argv) {
       requireScorecard = true;
     } else if (a === '--template' && args[i + 1]) {
       templatePath = path.resolve(args[++i]);
+    } else if (a === '--root' && args[i + 1]) {
+      rootDir = path.resolve(args[++i]);
     }
   }
 
-  return { projectRoot, filePath, outputFormat, requireScorecard, templatePath };
+  return { projectRoot, filePath, outputFormat, requireScorecard, templatePath, rootDir };
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +268,7 @@ function checkPF3(tasks) {
 function checkPF4(tasks) {
   const taskNumbers = new Set(tasks.map(t => t.number));
   const issues      = [];
+  const details     = [];
   const depGraph    = new Map(); // number -> [dependency numbers]
 
   for (const task of tasks) {
@@ -276,7 +285,9 @@ function checkPF4(tasks) {
       const refNum = parseInt(match[1], 10);
       refs.push(refNum);
       if (!taskNumbers.has(refNum)) {
-        issues.push(`Task ${task.number}: depends on nonexistent Task ${refNum}`);
+        const message = `Task ${task.number}: depends on nonexistent Task ${refNum}`;
+        issues.push(message);
+        details.push({ taskRef: `Task ${task.number}`, message, gateId: 'G12' });
       }
     }
     depGraph.set(task.number, refs);
@@ -290,7 +301,9 @@ function checkPF4(tasks) {
     if (inStack.has(node)) {
       const cycleStart = path.indexOf(node);
       const cycle = path.slice(cycleStart).concat(node);
-      issues.push(`Circular dependency: ${cycle.map(n => 'Task ' + n).join(' -> ')}`);
+      const message = `Circular dependency: ${cycle.map(n => 'Task ' + n).join(' -> ')}`;
+      issues.push(message);
+      details.push({ taskRef: `Task ${cycle[0]}`, message, gateId: 'G3' });
       return true;
     }
     if (visited.has(node)) return false;
@@ -314,9 +327,9 @@ function checkPF4(tasks) {
   }
 
   if (issues.length > 0) {
-    return { id: 'PF4', status: 'fail', message: issues.join('; ') };
+    return { id: 'PF4', status: 'fail', message: issues.join('; '), details };
   }
-  return { id: 'PF4', status: 'pass', message: 'All dependencies valid, no cycles' };
+  return { id: 'PF4', status: 'pass', message: 'All dependencies valid, no cycles', details: [] };
 }
 
 function checkPF5(tasks) {
@@ -423,30 +436,112 @@ function checkPF10(content, requiredSections) {
 /**
  * PF11 — the optional `**Commit:**` header field (R66). The header is every line
  * before the first `---`, `## ` or `### ` line; `**Commit:**` lines below it are
- * per-task prose and are not read. Same rules as ship's readPlanCommitSubject.
+ * per-task prose and are not read. The rules live in plan-parse's parsePlanCommit.
  */
 function checkPF11(content, subjectPattern) {
-  const lines = content.split(/\r?\n/);
-  const end = lines.findIndex(l => l === '---' || l.startsWith('## ') || l.startsWith('### '));
-  const fields = (end === -1 ? lines : lines.slice(0, end)).filter(l => l.startsWith('**Commit:**'));
-  if (fields.length === 0) {
+  const { subject, failure } = parsePlanCommit(content, subjectPattern);
+  if (failure) {
+    const why = {
+      'duplicate':        () => 'appears more than once',
+      'format':           () => 'is not one backticked subject',
+      'length':           () => `is ${failure.length} characters long (at most 72)`,
+      'chars':            () => 'contains ", $ or \\',
+      'pattern-invalid':  () => `cannot be checked: commit.subjectPattern is not a valid regex (${failure.error})`,
+      'pattern-mismatch': () => 'does not match commit.subjectPattern',
+    }[failure.code]();
+    return { id: 'PF11', status: 'fail', message: `The **Commit:** header field ${why}` };
+  }
+  if (subject === null) {
     return { id: 'PF11', status: 'pass', message: 'No **Commit:** header field (optional)' };
   }
-  const fail = (why) => ({ id: 'PF11', status: 'fail', message: `The **Commit:** header field ${why}` });
-  if (fields.length > 1) return fail('appears more than once');
-  const m = /^\*\*Commit:\*\* `([^`]+)`\s*$/.exec(fields[0]);
-  if (!m) return fail('is not one backticked subject');
-  const subject = m[1];
-  if (subject.length > 72) return fail(`is ${subject.length} characters long (at most 72)`);
-  if (/["$\\]/.test(subject)) return fail('contains ", $ or \\');
-  if (subjectPattern) {
-    let ok;
-    try { ok = new RegExp(subjectPattern).test(subject); } catch (err) {
-      return fail(`cannot be checked: commit.subjectPattern is not a valid regex (${err.message})`);
-    }
-    if (!ok) return fail('does not match commit.subjectPattern');
-  }
   return { id: 'PF11', status: 'pass', message: `**Commit:** header field valid (${subject.length} characters)` };
+}
+
+/** Task numbers reachable from `start` through `Depends on` edges (cycle-safe). */
+function dependencyClosure(depsOf, start) {
+  const seen  = new Set();
+  const stack = [...(depsOf.get(start) || [])];
+  while (stack.length > 0) {
+    const n = stack.pop();
+    if (seen.has(n)) continue;
+    seen.add(n);
+    stack.push(...(depsOf.get(n) || []));
+  }
+  return seen;
+}
+
+/** Per task: its Files entries and its Depends on numbers, read from the task section. */
+function taskFilesAndDeps(tasks) {
+  const depsOf = new Map();
+  const entries = tasks.map((t) => {
+    const section = taskSection(t.body);
+    depsOf.set(t.number, parseDependsOn(section));
+    return parseFilesEntries(section);
+  });
+  return { entries, depsOf };
+}
+
+/**
+ * PF12 — a `Modify` path shared by two tasks needs a Depends on link (direct
+ * or transitive, either direction) between them.
+ */
+function checkPF12(tasks) {
+  const { entries, depsOf } = taskFilesAndDeps(tasks);
+  const modifies = entries.map(es => new Set(es.filter(e => e.kind === 'Modify').map(e => e.path)));
+  const details = [];
+
+  for (let j = 0; j < tasks.length; j++) {
+    for (let i = 0; i < j; i++) {
+      const a = tasks[i].number;
+      const b = tasks[j].number;
+      for (const p of modifies[j]) {
+        if (!modifies[i].has(p)) continue;
+        if (dependencyClosure(depsOf, a).has(b) || dependencyClosure(depsOf, b).has(a)) continue;
+        details.push({
+          taskRef: `Task ${b}`,
+          message: `\`${p}\` is modified by Task ${a} and Task ${b} with no Depends on link between them`,
+          gateId: 'G4',
+        });
+      }
+    }
+  }
+
+  if (details.length > 0) {
+    return { id: 'PF12', status: 'fail', message: details.map(d => d.message).join('; '), details };
+  }
+  return { id: 'PF12', status: 'pass', message: 'No shared Modify paths without a dependency link', details: [] };
+}
+
+/**
+ * PF13 — every `Modify` path (no `*`) exists under rootDir, unless a task in
+ * this task's Depends on closure lists the same path as `Create`.
+ */
+function checkPF13(tasks, rootDir) {
+  const { entries, depsOf } = taskFilesAndDeps(tasks);
+  const creates = new Map(tasks.map((t, k) => [
+    t.number, new Set(entries[k].filter(e => e.kind === 'Create').map(e => e.path)),
+  ]));
+  const details = [];
+
+  tasks.forEach((t, k) => {
+    const ancestors = dependencyClosure(depsOf, t.number);
+    for (const e of entries[k]) {
+      if (e.kind !== 'Modify' || e.path.includes('*')) continue;
+      if ([...ancestors].some(n => creates.has(n) && creates.get(n).has(e.path))) continue;
+      if (!fs.existsSync(path.resolve(rootDir, e.path))) {
+        details.push({
+          taskRef: `Task ${t.number}`,
+          message: `Modify path \`${e.path}\` does not exist under ${rootDir}`,
+          gateId: 'G10',
+        });
+      }
+    }
+  });
+
+  if (details.length > 0) {
+    return { id: 'PF13', status: 'fail', message: details.map(d => d.message).join('; '), details };
+  }
+  return { id: 'PF13', status: 'pass', message: `All Modify paths exist under ${rootDir}`, details: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -481,64 +576,70 @@ function formatMarkdown(report) {
 // Entry point
 // ---------------------------------------------------------------------------
 
-try {
-  const { projectRoot, filePath, outputFormat, requireScorecard, templatePath } = parseArgs(process.argv);
+if (require.main === module) {
+  try {
+    const { projectRoot, filePath, outputFormat, requireScorecard, templatePath, rootDir } = parseArgs(process.argv);
 
-  if (!filePath) {
-    process.stderr.write('validate-plan-format.js error: --file <path> is required\n');
+    if (!filePath) {
+      process.stderr.write('validate-plan-format.js error: --file <path> is required\n');
+      process.exit(2);
+    }
+
+    if (!fs.existsSync(filePath)) {
+      process.stderr.write(`validate-plan-format.js error: file not found: ${filePath}\n`);
+      process.exit(2);
+    }
+
+    if (templatePath && !fs.existsSync(templatePath)) {
+      process.stderr.write(`validate-plan-format.js error: template file not found: ${templatePath}\n`);
+      process.exit(2);
+    }
+
+    const content = fs.readFileSync(filePath, 'utf8');
+    const tasks   = extractTasks(content);
+
+    const checks = [
+      checkPF1(content),
+      checkPF2(tasks),
+      checkPF3(tasks),
+      checkPF4(tasks),
+      checkPF5(tasks),
+      checkPF6(content),
+      checkPF7(tasks),
+    ];
+    let subjectPattern = null;
+    try { subjectPattern = (readSection(projectRoot, 'commit') || {}).subjectPattern || null; } catch (_) { /* no commit config */ }
+    checks.push(checkPF11(content, subjectPattern));
+    checks.push(checkPF12(tasks));
+    if (rootDir) checks.push(checkPF13(tasks, rootDir));
+    if (requireScorecard) checks.push(checkPF9(content));
+    if (requireScorecard && templatePath) {
+      const template = parseTemplate(templatePath);
+      checks.push(checkPF10(content, template.sections));
+    }
+
+    const passed = checks.every(c => c.status === 'pass');
+    const report = {
+      passed,
+      checks,
+      summary: {
+        total:  checks.length,
+        passed: checks.filter(c => c.status === 'pass').length,
+        failed: checks.filter(c => c.status === 'fail').length,
+      },
+    };
+
+    if (outputFormat === 'markdown') {
+      process.stdout.write(formatMarkdown(report) + '\n');
+    } else {
+      process.stdout.write(formatJson(report) + '\n');
+    }
+
+    process.exit(passed ? 0 : 1);
+  } catch (err) {
+    process.stderr.write(`validate-plan-format.js error: ${err.message}\n`);
     process.exit(2);
   }
-
-  if (!fs.existsSync(filePath)) {
-    process.stderr.write(`validate-plan-format.js error: file not found: ${filePath}\n`);
-    process.exit(2);
-  }
-
-  if (templatePath && !fs.existsSync(templatePath)) {
-    process.stderr.write(`validate-plan-format.js error: template file not found: ${templatePath}\n`);
-    process.exit(2);
-  }
-
-  const content = fs.readFileSync(filePath, 'utf8');
-  const tasks   = extractTasks(content);
-
-  const checks = [
-    checkPF1(content),
-    checkPF2(tasks),
-    checkPF3(tasks),
-    checkPF4(tasks),
-    checkPF5(tasks),
-    checkPF6(content),
-    checkPF7(tasks),
-  ];
-  let subjectPattern = null;
-  try { subjectPattern = (readSection(projectRoot, 'commit') || {}).subjectPattern || null; } catch (_) { /* no commit config */ }
-  checks.push(checkPF11(content, subjectPattern));
-  if (requireScorecard) checks.push(checkPF9(content));
-  if (requireScorecard && templatePath) {
-    const template = parseTemplate(templatePath);
-    checks.push(checkPF10(content, template.sections));
-  }
-
-  const passed = checks.every(c => c.status === 'pass');
-  const report = {
-    passed,
-    checks,
-    summary: {
-      total:  checks.length,
-      passed: checks.filter(c => c.status === 'pass').length,
-      failed: checks.filter(c => c.status === 'fail').length,
-    },
-  };
-
-  if (outputFormat === 'markdown') {
-    process.stdout.write(formatMarkdown(report) + '\n');
-  } else {
-    process.stdout.write(formatJson(report) + '\n');
-  }
-
-  process.exit(passed ? 0 : 1);
-} catch (err) {
-  process.stderr.write(`validate-plan-format.js error: ${err.message}\n`);
-  process.exit(2);
 }
+
+module.exports = { checkPF4, checkPF11, checkPF12, checkPF13 };

@@ -79,13 +79,27 @@ Agent tool:
 
     ## Output
 
-    **Status:** Approved | Issues Found
+    Return one fenced `json` block as the last content of your response, with no prose after it:
 
-    **Issues (if any — list only execution blockers within your focus areas):**
-    - Task N: [specific issue] — [why this would cause execution failure]
+    ```json
+    {
+      "status": "Approved",
+      "issues": [
+        { "taskRef": "Task 3", "message": "<specific issue> — <why it would cause execution failure>", "severity": "WARNING", "dimension": "Correctness", "blocking": false }
+      ],
+      "recommendations": ["<optional advisory suggestion within your focus areas>"],
+      "traceability": []
+    }
+    ```
 
-    **Recommendations (advisory, do not block approval):**
-    - [optional suggestions that improve the plan but are not blocking]
+    Field rules:
+    - `status` — `"Approved"` when no issue has `blocking: true`; otherwise `"Issues Found"`.
+    - `issues[].taskRef` — `"Task N"`, or `null` for a plan-level issue.
+    - `issues[].severity` — `CRITICAL`, `WARNING` or `SUGGESTION`; `issues[].dimension` — `Completeness`, `Correctness` or `Coherence`.
+    - `issues[].blocking` — `true` only for execution blockers in your focus areas.
+    - `recommendations` — advisory strings; `[]` when none.
+    - `traceability` — filled only by the requirements lens (see Traceability Output); every other lens returns `[]`.
+    - Since `{LENS}=all`, fill `traceability` by the requirements-lens rule.
 ```
 
 ## Handling Reviewer Output
@@ -95,6 +109,6 @@ Agent tool:
 - Issues Found → Fix each blocking issue in the plan document; re-dispatch the reviewer; maximum 3 reviewer iterations — if still unresolved, surface to user
 
 **Multi-lens reviewer (plans ≥5 tasks — merge in Step 5):**
-- Main agent merges lens results: Status = `Approved` iff ALL lenses approved; Issues = union of blocking issues (dedup by taskRef + message-prefix); Recommendations = prefix-dedup
+- `plan.js merge-lanes --lenses` merges lens results (SKILL.md Step 5): Status = `Approved` iff ALL lenses approved; Issues = union of blocking issues (dedup by taskRef + message-prefix); Recommendations = prefix-dedup
 - Merged Approved → Proceed to Step 6.5
 - Merged Issues Found → Fix blocking issues; re-dispatch all lenses in next iteration; maximum 3 iterations total

@@ -207,4 +207,99 @@ function parsePlan(content) {
   };
 }
 
-module.exports = { extractField, stripFences, extractTasks, parsePlan };
+// ---------------------------------------------------------------------------
+// Parser helpers (fence-aware, pure)
+// ---------------------------------------------------------------------------
+
+/** Task blocks with fences kept in the body. Returns [{ number, title, body }]. */
+function extractTasksRaw(content) {
+  const lines = String(content).replace(/\r\n/g, '\n').split('\n');
+  const marks = [];
+  walkLines(lines, (line, i, inFence) => {
+    if (inFence) return;
+    const t = line.match(/^### Task (\d+):\s*(.+)$/);
+    if (t) marks.push({ i, number: parseInt(t[1], 10), title: t[2].trim() });
+  });
+  return marks.map((mk, k) => ({
+    number: mk.number,
+    title: mk.title,
+    body: lines.slice(mk.i, k + 1 < marks.length ? marks[k + 1].i : lines.length).join('\n'),
+  }));
+}
+
+/** The task body cut before the first `## ` line outside a fence. */
+function taskSection(body) {
+  const lines = body.split('\n');
+  let cut = -1;
+  walkLines(lines, (line, i, inFence) => {
+    if (cut === -1 && !inFence && line.startsWith('## ')) cut = i;
+  });
+  return cut === -1 ? body : lines.slice(0, cut).join('\n');
+}
+
+/** Files entries of a task body: [{ kind, path }]. */
+function parseFilesEntries(body) {
+  const entries = [];
+  const re = /^\s*[-*]\s+(Create|Modify|Test):\s+(.+)$/gm;
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    const tick = m[2].match(/`([^`]+)`/);
+    const raw = tick ? tick[1] : m[2].trim().split(/\s+/)[0];
+    entries.push({ kind: m[1], path: raw.replace(/:\d+(-\d+)?$/, '') });
+  }
+  return entries;
+}
+
+/** Task numbers named by the `**Depends on:**` field; [] when absent or none. */
+function parseDependsOn(body) {
+  const dep = extractField(body, 'Depends on');
+  if (dep === null) return [];
+  if (['none', '—', '-'].includes(dep.toLowerCase())) return [];
+  return Array.from(dep.matchAll(/Task\s+(\d+)/gi), m => parseInt(m[1], 10));
+}
+
+/** Text of the section opened by the first fenced-out line matching headingRegex, or null. */
+function sectionBody(content, headingRegex) {
+  const lines = String(content).replace(/\r\n/g, '\n').split('\n');
+  let start = -1;
+  let end = lines.length;
+  walkLines(lines, (line, i, inFence) => {
+    if (inFence || end !== lines.length) return;
+    if (start === -1) {
+      if (headingRegex.test(line)) start = i;
+    } else if (line.startsWith('## ') || /^### Task \d+:/.test(line)) {
+      end = i;
+    }
+  });
+  return start === -1 ? null : lines.slice(start + 1, end).join('\n');
+}
+
+/**
+ * The plan header's `**Commit:**` field: { subject, failure }. failure is null
+ * or { code } with code duplicate | format | length | chars | pattern-invalid |
+ * pattern-mismatch (plus length / error where noted).
+ */
+function parsePlanCommit(content, subjectPattern) {
+  const lines = String(content).split(/\r?\n/);
+  const end = lines.findIndex(l => l === '---' || l.startsWith('## ') || l.startsWith('### '));
+  const fields = (end === -1 ? lines : lines.slice(0, end)).filter(l => l.startsWith('**Commit:**'));
+  const bad = failure => ({ subject: null, failure });
+  if (fields.length === 0) return { subject: null, failure: null };
+  if (fields.length > 1) return bad({ code: 'duplicate' });
+  const m = /^\*\*Commit:\*\* `([^`]+)`\s*$/.exec(fields[0]);
+  if (!m) return bad({ code: 'format' });
+  const subject = m[1];
+  if (subject.length > 72) return bad({ code: 'length', length: subject.length });
+  if (/["$\\]/.test(subject)) return bad({ code: 'chars' });
+  if (subjectPattern) {
+    let ok;
+    try { ok = new RegExp(subjectPattern).test(subject); } catch (err) { return bad({ code: 'pattern-invalid', error: err.message }); }
+    if (!ok) return bad({ code: 'pattern-mismatch' });
+  }
+  return { subject, failure: null };
+}
+
+module.exports = {
+  extractField, stripFences, extractTasks, parsePlan,
+  extractTasksRaw, taskSection, parseFilesEntries, parseDependsOn, sectionBody, parsePlanCommit,
+};

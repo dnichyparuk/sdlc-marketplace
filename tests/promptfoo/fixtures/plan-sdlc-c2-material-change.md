@@ -13,9 +13,8 @@ review-loop iteration.
   "fromOpenspec": null,
   "guardrails": [],
   "lanes": [
-    { "name": "static-structural", "subagentType": "general-purpose", "model": "haiku", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-static-structural-prompt.md", "gateIds": ["G1","G2","G3","G7","G12"] },
+    { "name": "static-structural", "subagentType": "general-purpose", "model": "haiku", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-static-structural-prompt.md", "gateIds": ["G1","G2","G7"] },
     { "name": "content-coverage", "subagentType": "general-purpose", "model": "sonnet", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-content-coverage-prompt.md", "gateIds": ["G5","G6","G8","G9","G11","G13","G15","G16"] },
-    { "name": "file-existence", "subagentType": "general-purpose", "model": "haiku", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-file-existence-prompt.md", "gateIds": ["G4","G10"] },
     { "name": "guardrail-compliance", "subagentType": "general-purpose", "model": "sonnet", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/lane-guardrail-compliance-prompt.md", "gateIds": ["G14"] },
     { "name": "dimension-coverage", "subagentType": "general-purpose", "model": "sonnet", "promptTemplatePath": "/home/user/.claude/plugins/cache/sdlc/0.20.21/skills/plan-sdlc/g17-dimension-coverage-prompt.md", "gateIds": ["G17"] }
   ],
@@ -58,12 +57,12 @@ To resolve the lens findings, the plan author:
 
 Per R64, because `materialChangeDetected` is true, iteration 2 must dispatch, in a single message,
 as parallel Agent tool calls:
-- all 5 entries of `lanes[]` (static-structural, content-coverage, file-existence,
-  guardrail-compliance, dimension-coverage) — the SAME lanes Step 3 uses, re-run against the
+- the Step 3 lanes of `lanes[]` except guardrail-compliance (no guardrails are configured): static-structural, content-coverage,
+  dimension-coverage — the SAME lanes Step 3 uses, re-run against the
   updated 5-task plan
 - all 3 entries of `lensReviewers[]` (architecture, requirements, risk)
 
-This is 8 total dispatched agents, awaited as one barrier (N = 5 lanes + 3 lenses = 8) before any
+This is 6 total dispatched agents, awaited as one barrier (N = 3 lanes + 3 lenses = 6) before any
 consolidation. This merged fan-out counts as exactly ONE iteration of the Step 5 review loop (the
 counter goes from 1 to 2, not to 3), and `materialChangeDetected` is cleared back to `false` once
 the merged issue set is assembled.
