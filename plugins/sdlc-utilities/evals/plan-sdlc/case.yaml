@@ -9,7 +9,7 @@ graders:
   - name: format-gate-ran-final
     type: tool_used
     tool: Bash
-    input_match: 'FINAL_FLAG=[\\"'']*--final[\s\S]*validate-plan-format\.js|validate-plan-format\.js[^\n]*--final'
+    input_match: 'FINAL_FLAG=[\\"'']*--final[\s\S]*validate-plan-format\.js|validate-plan-format\.js[^\n]*--final|ARGS=\([^\n)]*--final|(?:^|\n)(?![^\n]*\[\[? -n )[^\n]*ARGS\+=\(\s*["'']?--final'
   - name: scorecard-verdict-in-plan
     type: regex
     target:
