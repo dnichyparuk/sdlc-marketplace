@@ -626,7 +626,7 @@ On zero exit, proceed to Step 7. `SDLC_LINKS_OFFLINE=1` skips network reachabili
 
 ## Step 6.6 (FORMAT VALIDATION): Validate plan structure — HARD GATE
 
-After link verification passes, run the deterministic plan format validator. PF9 (Verification Scorecard presence) is applied only when this run executed Step 5 (the multi-lens review). PF10 (template-required sections) is applied only when `--template` is passed. PF11 (the `**Commit:**` header line) always runs and is checked only when the line is present: a missing line passes (the omission is explained in a `## Deviations & assumptions` row), a malformed one fails.
+After link verification passes, run the deterministic plan format validator. PF9 (Verification Scorecard presence) is applied only when this run executed Step 5 (the multi-lens review). PF10 (template-required sections) is applied only on full-pipeline plans (`--final`, which also passes `--template`), like PF9. PF11 (the `**Commit:**` header line) always runs and is checked only when the line is present: a missing line passes (the omission is explained in a `## Deviations & assumptions` row), a malformed one fails.
 
 **Set `FINAL_FLAG` from the Step 0 routing branch THIS run took** — NOT from scorecard presence (deriving it from the artifact it checks would make PF9 circular):
 
