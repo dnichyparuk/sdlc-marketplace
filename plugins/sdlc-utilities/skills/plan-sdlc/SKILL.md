@@ -614,10 +614,9 @@ After the reviewer loop converges (or the user resolves remaining issues), valid
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/lib/links.js" --file "$plan_path" --json
-LINK_EXIT=$?
 ```
 
-On non-zero exit (`LINK_EXIT != 0`):
+Take the command's exit code from the tool result (a tool result without an error is exit code 0). On non-zero exit:
 - The script has already printed the violation list to stderr.
 - Do NOT proceed to Step 7 (Handoff). The plan is not ready.
 - Surface the violation list verbatim to the user.
@@ -627,7 +626,7 @@ On zero exit, proceed to Step 7. `SDLC_LINKS_OFFLINE=1` skips network reachabili
 
 ## Step 6.6 (FORMAT VALIDATION): Validate plan structure — HARD GATE
 
-After link verification passes, run the deterministic plan format validator. PF9 (Verification Scorecard presence) is applied only when this run executed Step 5 (the multi-lens review).
+After link verification passes, run the deterministic plan format validator. PF9 (Verification Scorecard presence) is applied only when this run executed Step 5 (the multi-lens review). PF10 (template-required sections) is applied only when `--template` is passed. PF11 (the `**Commit:**` header line) always runs and is checked only when the line is present: a missing line passes (the omission is explained in a `## Deviations & assumptions` row), a malformed one fails.
 
 **Set `FINAL_FLAG` from the Step 0 routing branch THIS run took** — NOT from scorecard presence (deriving it from the artifact it checks would make PF9 circular):
 
@@ -650,10 +649,9 @@ ARGS=(--markdown --file "$plan_path")
 [ -n "$FINAL_FLAG" ] && ARGS+=(--final)
 [ -n "$TEMPLATE_PATH" ] && ARGS+=(--template "$TEMPLATE_PATH")
 node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" "${ARGS[@]}"
-FORMAT_EXIT=$?
 ```
 
-On non-zero exit (`FORMAT_EXIT != 0`):
+Take the command's exit code from the tool result (a tool result without an error is exit code 0). On non-zero exit:
 - The script has already printed the violation report to stdout (markdown format).
 - Do NOT proceed to Step 7 (Handoff). The plan is not ready.
 - Surface the violation report verbatim to the user.
