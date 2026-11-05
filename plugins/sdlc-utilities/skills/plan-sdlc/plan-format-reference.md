@@ -11,6 +11,7 @@ Every plan document must begin with this header:
 ```markdown
 # [Feature Name] Implementation Plan
 
+**Commit:** `[Subject of the single ship commit — optional, see below]`
 **Goal:** [One sentence describing what this plan implements]
 **Architecture:** [2–3 sentences about the overall approach and key design decisions]
 **Source:** [Spec file path, or "conversation context" if no file]
@@ -21,6 +22,8 @@ Every plan document must begin with this header:
 
 All four fields are required. `execute-plan-sdlc` uses `Verification` as the default test command.
 
+The optional `**Commit:**` line (R66) sits directly below the title. It holds one backticked subject for the single commit a ship run makes: at most 72 characters, no `"`, backtick, `$` or `\`, matching `commit.subjectPattern` when set. `validate-plan-format.js` checks it (PF11); `**Commit:**` lines inside tasks are prose and are not read.
+
 ## Section Order
 
 A plan document assembles its sections top to bottom in this order. Sections marked "required" must
@@ -29,7 +32,7 @@ is the order `plan-sdlc` writes; it is a convention documented here, not somethi
 PF10 (the active template's `## Required Sections` list, see `## Plan Template` below) checks
 presence only, not order.
 
-1. **Document Header** — Goal / Architecture / Source / Verification (required)
+1. **Document Header** — optional `**Commit:**` line, then Goal / Architecture / Source / Verification (required)
 2. **Context** — problem, prompt, success definition (required, narrative)
 3. **Research Findings** — what Step 1 exploration turned up (required, narrative)
 4. **Deviations & assumptions** — divergences from the literal request (required, table)
@@ -697,7 +700,6 @@ Middleware (not per-route guards) keeps auth enforcement in one place and reuses
   stay excluded. See `## Concrete Artifacts (render don't narrate)` for the 8-artifact catalog and
   rendering conventions.
 - Absolute file paths (always use paths relative to project root)
-- Superpowers-specific directives or REQUIRED SUB-SKILL headers
 - References to tools or skills the executing agent should use
 - Tasks with fewer than 2 acceptance criteria (not specific enough)
 - Tasks that touch more than 5 files (split them)

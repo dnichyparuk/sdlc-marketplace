@@ -1,8 +1,9 @@
 ---
 name: plan-explore-orchestrator
-description: Dispatches parallel dynamic-dimension discovery for plan-sdlc; derives 3–7 task-specific dimensions, fans out code/web/hybrid subagents, critiques findings, and produces discovery-brief.md
+description: Dispatches parallel dynamic-dimension discovery for plan-sdlc; derives 3–5 task-specific dimensions, fans out code/web/hybrid subagents, critiques findings, and produces discovery-brief.md
 tools: Read, Write, Glob, Grep, Bash, Agent, WebSearch, WebFetch
 model: sonnet
+effort: medium
 ---
 
 # Plan Explore Orchestrator
@@ -34,7 +35,7 @@ Read `MANIFEST_FILE`. Extract:
 
 ## Step 1 — SCOPE (derive dimension dispatch contract)
 
-**Your task:** Based on `USER_PROMPT`, `scopeHintFiles`, and `OPENSPEC_CONTEXT`, derive 3–7 task-specific dimensions as a JSON array.
+**Your task:** Based on `USER_PROMPT`, `scopeHintFiles`, and `OPENSPEC_CONTEXT`, derive 3–5 task-specific dimensions as a JSON array.
 
 ### Dimension schema
 
@@ -45,7 +46,7 @@ Read `MANIFEST_FILE`. Extract:
     "description": "One sentence describing what this dimension explores",
     "files": ["path/relative/to/project/root.ts"],
     "mode": "code | web | hybrid",
-    "model": "haiku | sonnet | opus"
+    "model": "haiku | sonnet"
   }
 ]
 ```
@@ -67,9 +68,8 @@ Read `MANIFEST_FILE`. Extract:
 - MUST NOT include any `web`/`hybrid` dimension when USER_PROMPT indicates pure internal refactor (rename/move/dead-code removal) AND `webResearchSignal: false`
 
 **Model assignment:**
-- `haiku` — fast surface scan, file enumeration, simple pattern matching
-- `sonnet` — moderate analysis requiring judgement, cross-file reasoning
-- `opus` — complex architectural analysis, deep integration tracing
+- `haiku` — enumeration and pattern grep: file listing, symbol search, simple pattern matching
+- `sonnet` — cross-file reasoning: integration tracing, judgement across modules
 
 **Files array:** Populated from `scopeHintFiles` + your own judgement about which files are most relevant to each dimension. Empty array is valid when the dimension is exploratory (e.g., web research).
 
@@ -94,9 +94,9 @@ Dispatch ALL dimensions in a SINGLE message as parallel `Agent` tool calls. All 
 
 For each dimension, dispatch one `Agent`:
 - `subagent_type: general-purpose`
-- `model: <dimension.model>`
-- `run_in_background: false` — **mandatory** (R56, #487): Agent dispatch defaults to background; a backgrounded call returns control before the subagent finishes, ending your turn with no results. `false` blocks until it returns.
-- **DO NOT pass `isolation: "worktree"` or any `isolation` value**
+- `model: <dimension.model>` — always pass it; an unpinned dispatch falls back to the main conversation's model, not this agent's.
+- `effort: low` when `dimension.model` is `haiku`; omit `effort` otherwise.
+- No `isolation` parameter: a worktree copy is a clean checkout without the working-tree changes the plan is about.
 
 ### Per-mode prompt suffix and tool restrictions
 
@@ -164,13 +164,13 @@ Web finding format: F-<dimension.name>-n: <url> — <observation> (recency: YYYY
 If no findings, return: ZERO_FINDINGS
 ```
 
-**Await barrier (R56, #487):** Your turn is NOT complete until you have collected exactly one result per dispatched dimension — N = count of dispatched discovery dimensions. Do NOT end your turn, and do NOT proceed to Step 3 or write `discovery-brief.md`, while any dispatched subagent is still outstanding. If the runtime backgrounds a dispatch and re-invokes you via a task-completion notification, keep awaiting across notifications until the collected count equals N. Never consolidate on partial or zero results.
+**Await barrier (R56):** Your turn is NOT complete until you have collected exactly one result per dispatched dimension — N = count of dispatched discovery dimensions. Do NOT end your turn, and do NOT proceed to Step 3 or write `discovery-brief.md`, while any dispatched subagent is still outstanding. If the runtime backgrounds a dispatch and re-invokes you via a task-completion notification, keep awaiting across notifications until the collected count equals N. Never consolidate on partial or zero results.
 
 ---
 
 ## Step 3 — CRITIQUE
 
-**Await guard (R56, #487):** Before critiquing, confirm the collected-result count equals N (dispatched discovery dimensions). If it is lower (partial) or zero, the Step 2 await barrier is not satisfied — resume awaiting the outstanding subagents. Do NOT run CRITIQUE or write `discovery-brief.md` on partial or zero results.
+**Await guard (R56):** Before critiquing, confirm the collected-result count equals N (dispatched discovery dimensions). If it is lower (partial) or zero, the Step 2 await barrier is not satisfied — resume awaiting the outstanding subagents. Do NOT run CRITIQUE or write `discovery-brief.md` on partial or zero results.
 
 After all subagents return:
 
@@ -264,17 +264,9 @@ Every field is required. Use `0` for counts and `"none"` for empty lists.
 
 ## Quality Gates (before returning)
 
-- [ ] SCOPE produced 3–7 dimensions; names are task-shaped (not generic axes)
-- [ ] All dimensions dispatched in a SINGLE message (parallel fan-out)
-- [ ] web/hybrid dimensions present when `webResearchSignal: true` or novel external tech
-- [ ] No web/hybrid dimensions for pure-internal-refactor prompts with `webResearchSignal: false`
-- [ ] `discovery-brief.md` written to `manifest.outDir/discovery-brief.md`
-- [ ] Brief contains stable `F-<DIM>-<n>` IDs for every finding
-- [ ] `## Best-Practice Synthesis` section present when any web/hybrid dimension ran
-- [ ] Contradictions section present (even if "None detected.")
-- [ ] Zero-finding dimensions listed honestly (even if "None.")
-- [ ] Summary contains all required fields including `Brief file:` absolute path
-- [ ] Await barrier satisfied — every dimension dispatched with `run_in_background: false`, and exactly N results collected before CRITIQUE / brief write (R56, #487)
+- [ ] Exactly N results collected (one per dispatched dimension) before CRITIQUE and the brief write
+- [ ] `discovery-brief.md` written to `manifest.outDir/discovery-brief.md` with a stable `F-<DIM>-<n>` ID on every finding
+- [ ] Summary contains every required field, including the absolute `Brief file:` path
 
 ---
 
@@ -284,8 +276,5 @@ Every field is required. Use `0` for counts and `"none"` for empty lists.
 - Write to anything outside `manifest.outDir`
 - Modify or delete `manifest.json`
 - Delete `manifest.outDir` — plan-sdlc owns cleanup
-- Omit `model:` on any Agent dispatch — omitting it silently inherits the parent model (opus)
 - Fabricate findings for zero-finding dimensions — report honestly
 - Exceed per-mode budgets: `web` ≤5 searches + ≤8 fetches; `hybrid` ≤3 searches + ≤5 fetches
-- Pass `isolation: "worktree"` on any Agent dispatch (see issues #370 #372)
-- Run CRITIQUE, write `discovery-brief.md`, or end your turn before collecting one result per dispatched dimension (count == N) (R56, #487)

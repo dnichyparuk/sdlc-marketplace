@@ -12,7 +12,8 @@ Use this template in plan-sdlc Step 3 when dispatching the G17 Dimension Coverag
 - prompt body: fill the template variables below from prepare output and plan context
 
 ```
-Task tool (general-purpose):
+Agent tool:
+  subagent_type: <g17Dispatch.subagentType from prepare output>
   description: "G17 Dimension Coverage analysis for <plan title>"
   model: <g17Dispatch.model from prepare output>
   prompt: |
@@ -199,7 +200,7 @@ Task tool (general-purpose):
 
 After the subagent returns, in main context:
 
-1. Parse the `WAVE_SUMMARY`-style JSON from the subagent's response (or the `findings` JSON block directly).
+1. Parse the fenced `json` block from the subagent's response.
 2. Store the parsed result as `g17Findings` in memory.
 3. **On dispatch failure, timeout, or malformed JSON:** treat `g17Findings` as `{ findings: [], rendering: "", suppressed_count: 0 }`. Log the failure to `.sdlc/learnings/log.md`:
    ```

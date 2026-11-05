@@ -1430,3 +1430,19 @@
         assumptions` row is added with `asked=no`, per the asked-column semantics for
         autonomous/`--auto`-suppressed decisions. The response does not describe any
         AskUserQuestion call being made.
+
+- description: "plan-explore-orchestrator: SCOPE derives 3–5 task-shaped dimensions and assigns only haiku or sonnet"
+  vars:
+    skill_path: "plugins/sdlc-utilities/agents/plan-explore-orchestrator.md"
+    project_context: "file://fixtures/plan-orchestrator-dispatch.md"
+    user_request: "You are plan-explore-orchestrator. USER_PROMPT is the JWT request in the context; scopeHintFiles are the 8 listed files. Perform Step 1 SCOPE and show the Step 2 Agent dispatch parameters for each dimension."
+  assert:
+    - type: not-icontains
+      value: "opus"
+    - type: llm-rubric
+      value: >
+        The response derives between 3 and 5 task-shaped dimensions (not the bare generic
+        axes architecture, tests or security alone) and assigns each dimension the model
+        haiku or sonnet only. The Step 2 dispatch parameters pass model on every dispatch,
+        pass effort: low on each haiku dispatch and no effort on sonnet dispatches, and pass
+        no isolation and no run_in_background parameter.

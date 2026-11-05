@@ -45,7 +45,7 @@ One row per agent in `plugins/sdlc-utilities/agents/`.
 | commit-orchestrator | haiku | low | Manifest → message; deterministic shape |
 | error-report-orchestrator | haiku | low | Template → JSON |
 | harden-orchestrator | haiku | low | Manifest → JSON |
-| plan-explore-orchestrator | sonnet | - | Fans out discovery subagents and critiques findings |
+| plan-explore-orchestrator | sonnet | medium | Fans out discovery subagents and critiques findings |
 | review-orchestrator | sonnet | - | Cross-dimension critique + dedup reasoning; dimension subagents use per-dimension `model:` |
 | ship-step-execute | opus | high | Runs execute-plan-sdlc for ship; plan execution and recovery need the strongest tier |
 | ship-step-commit | haiku | low | Runs commit-sdlc for ship (also commit-fixes); mechanical, message drafting goes to commit-orchestrator |
