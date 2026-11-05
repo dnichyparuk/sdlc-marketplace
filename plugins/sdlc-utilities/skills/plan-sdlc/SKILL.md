@@ -95,7 +95,7 @@ Extract `critiqueDir` (P22) from the output and keep it for Steps 3, 5 and 7. If
 **Build the plan skeleton from the template.** For each entry in the parsed `## Required Sections` list, in the order defined by `./plan-format-reference.md`'s `## Section Order`:
 
 - **Unconditional sections** — write the `## <name>` heading with a placeholder body. For `Deviations & assumptions`, use the table format (Item | asked | does | why) with a placeholder row. For other sections, use `[TBD]`.
-- **Conditional sections** — evaluate the condition against the prepare output's signals, not against plan header placeholders which are still `[TBD]` at skeleton-build time. For OpenSpec conditions specifically, evaluate `fromOpenspecDirect || openspecInlineGenerate` — `fromOpenspecDirect` is set in the `--from-openspec` handling below; `openspecInlineGenerate` is set in the gate check Option 2 handling. These are the same flags that gate OpenSpec Appendix generation in Step 4, so the skeleton decision and the fill decision never diverge. Recognize both the legacy condition string (`source matches openspec/changes/`) and the current condition string (`source matches openspec/changes/ or openspecInlineGenerate`), mapping both to the union check `fromOpenspecDirect || openspecInlineGenerate`. A plan with `openspecContext` populated via the interactive `--spec` flow but without `--from-openspec` or `openspecInlineGenerate` does NOT satisfy OpenSpec-conditional sections (no Step 4 branch renders content for that path). When the condition holds, write the heading with `[TBD]`. When it does not, write the heading with `Not applicable — <reason>` (e.g., `Not applicable — no OpenSpec change`). **Unknown condition strings** — a project-override template MAY declare a `<!-- conditional: ... -->` string this SKILL.md doesn't recognize (only the OpenSpec condition is currently defined). Default to treating the condition as NOT satisfied — write the heading with `Not applicable — condition "<condition string>" not recognized`. This fails toward a visible, grep-able placeholder rather than either silently dropping the heading (which PF10 would then flag as a genuine failure) or guessing the condition true and leaving a `[TBD]` nobody fills in. Since PF10 checks heading presence unconditionally, the heading itself is written either way — only the body differs. <!-- implements R63 --> <!-- R59 -->
+- **Conditional sections** — evaluate the condition against the prepare output's signals, not against plan header placeholders which are still `[TBD]` at skeleton-build time. For OpenSpec conditions specifically, evaluate `fromOpenspecDirect || openspecInlineGenerate` — `fromOpenspecDirect` and `openspecInlineGenerate` are set in `./openspec-flow.md` Step 0 (the `--from-openspec` handling and the gate check Option 2 handling), and both stay unset when that file was not read. These are the same flags that gate OpenSpec Appendix generation in Step 4, so the skeleton decision and the fill decision never diverge. Recognize both the legacy condition string (`source matches openspec/changes/`) and the current condition string (`source matches openspec/changes/ or openspecInlineGenerate`), mapping both to the union check `fromOpenspecDirect || openspecInlineGenerate`. A plan with `openspecContext` populated via the interactive `--spec` flow but without `--from-openspec` or `openspecInlineGenerate` does NOT satisfy OpenSpec-conditional sections (no Step 4 branch renders content for that path). When the condition holds, write the heading with `[TBD]`. When it does not, write the heading with `Not applicable — <reason>` (e.g., `Not applicable — no OpenSpec change`). **Unknown condition strings** — a project-override template MAY declare a `<!-- conditional: ... -->` string this SKILL.md doesn't recognize (only the OpenSpec condition is currently defined). Default to treating the condition as NOT satisfied — write the heading with `Not applicable — condition "<condition string>" not recognized`. This fails toward a visible, grep-able placeholder rather than either silently dropping the heading (which PF10 would then flag as a genuine failure) or guessing the condition true and leaving a `[TBD]` nobody fills in. Since PF10 checks heading presence unconditionally, the heading itself is written either way — only the body differs. <!-- implements R63 --> <!-- R59 -->
 
 **Lightweight plan adjustment:** When Step 0 routing selects the lightweight branch (Step 5 skipped), sections whose content is produced exclusively by a skipped step (e.g., `Verification Scorecard` is produced by Step 5) get body `Not applicable — lightweight plan` instead of `[TBD]`. This prevents dead placeholders in the final plan. This is a best-effort readability improvement, not a correctness requirement: it names known step-owned sections by their default-template name, so a project override that renames or adds a step-5-owned section simply falls back to the generic `[TBD]` body for that section rather than breaking — the section still appears (per the "do not hardcode which sections appear" rule below), only the friendlier substitute body is skipped.
 
@@ -131,7 +131,7 @@ Replace `<resolved-plan-path>` with the actual absolute path: in plan mode it is
 
 **Orchestrator dispatch (full pipeline only, implements R24–R28):**
 
-After the `fromOpenspecDirect` enrichment block, determine which exploration path to take.
+After applying any Step 1 OpenSpec rules from `./openspec-flow.md` (when it was read), determine which exploration path to take.
 
 The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()`) is swept by `ship.js --gc` and by the session-start hook (`gcTempdirs`, prefix `sdlc-explore-`).
 
@@ -335,7 +335,7 @@ Inputs not in this table come from the entry's `presetInputs` (P15), which `plan
 
 **No `isolation` parameter on lane dispatches:** lanes read the plan file by absolute path, and a worktree copy would read a stale or absent file.
 
-**Collect and merge:** Write each lane's final fenced `json` block verbatim to `<ITER_DIR>/<lane name>.json` with the Write tool (write nothing for a lane that returned nothing). Then run, listing every `lanes[]` name except `guardrail-compliance` when it was skipped (a lane skipped for a null `agentPath` stays in the list, so `merge-lanes` reports its missing result; `dimension-coverage` stays in the list when its file was written by hand):
+**Collect and merge:** Write each lane's final fenced `json` block verbatim to `<ITER_DIR>/<lane name>.json` with the Write tool (write nothing for a lane that returned nothing). Then run, listing every `lanes[]` name except `guardrail-compliance` when it was skipped and `dimension-coverage` when g17-prepare exited non-zero (R31) (a lane skipped for a null `agentPath` stays in the list, so `merge-lanes` reports its missing result; `dimension-coverage` stays in the list when its file was written by hand):
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "<lane names, comma-separated>" [--no-guardrails] > "<ITER_DIR>/merged.json"
@@ -357,7 +357,7 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark guardrailsEvaluated 2>/dev/nul
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark critiqueRan 2>/dev/null || true
 ```
 
-**Once-per-run checkpoints:** `guardrailsEvaluated` and `critiqueRan` are written exactly once — during the initial Step 3 pass. When Step 3 lanes are re-dispatched via the merged dispatch in Step 5 (see "Material change detection and merged re-dispatch" below), these markers are NOT re-written; the Stop hook already holds the proof from the first pass.
+**Once-per-run checkpoints:** `guardrailsEvaluated` and `critiqueRan` are written exactly once — during the initial Step 3 pass. When Step 3 lanes are re-dispatched via the merged dispatch in Step 5 (see "Material change detection and merged re-dispatch" in `./review-loop.md`), these markers are NOT re-written; the Stop hook already holds the proof from the first pass.
 
 ## Step 4 (IMPROVE): Revise Plan and Present for Approval
 
@@ -381,6 +381,8 @@ When `g17Findings.findings` is non-empty, append the `g17Findings.rendering` mar
 - Otherwise, splice immediately after the last `### Task N:` block.
 
 When `g17Findings.findings` is empty (or `g17Findings` is the empty-fallback from a dispatch failure), do nothing. Absent proposals are not a failure — G17 is advisory. <!-- R31 -->
+
+**OpenSpec Appendix generation:** branches (a) and (b) are in `./openspec-flow.md` Step 4 and apply only when that file was read. Otherwise:
 
 **(c)** When `fromOpenspecDirect` is false AND `openspecInlineGenerate` is false, the skeleton placeholder from Step 0 already reads `Not applicable — no OpenSpec change` — leave it as-is.
 

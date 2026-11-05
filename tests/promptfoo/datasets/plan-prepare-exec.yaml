@@ -824,7 +824,7 @@
     - type: javascript
       value: |
         const r = JSON.parse(output);
-        return JSON.stringify(r.carried) === JSON.stringify(['static-structural.json', 'lens-requirements.json']) && r.coverage.missing.length === 0
+        return JSON.stringify(r.carried) === JSON.stringify(['static-structural.json', 'lens-requirements.json']) && r.coverage.missing.length === 0 && JSON.stringify(r.issues).includes('72-character limit') && JSON.stringify(r.issues).includes('depends on nonexistent Task 9') && !output.includes('infrastructure-review')
 
 - description: "plan-merge: --carry without --lanes still merges the carried lane results"
   vars:
