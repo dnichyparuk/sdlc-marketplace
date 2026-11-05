@@ -26,6 +26,7 @@
  *   PF7  — Contract presence (artifact-touching tasks have **Contract:** block)
  *   PF9  — Scorecard presence (under --final only)
  *   PF10 — Template-driven required section presence (under --final, when --template given)
+ *   PF11 — **Commit:** header field (R66; optional, checked when present)
  *
  * Uses only Node.js built-in modules. No npm install required.
  */
@@ -35,7 +36,7 @@
 const fs   = require('node:fs');
 const path = require('node:path');
 
-const { resolveSdlcRoot } = require(path.join(__dirname, '..', 'lib', 'config'));
+const { resolveSdlcRoot, readSection } = require(path.join(__dirname, '..', 'lib', 'config'));
 const { extractField, stripFences, extractTasks } = require(path.join(__dirname, '..', 'lib', 'plan-parse'));
 
 // ---------------------------------------------------------------------------
@@ -419,6 +420,35 @@ function checkPF10(content, requiredSections) {
   return { id: 'PF10', status: 'pass', message: 'All template-required sections present' };
 }
 
+/**
+ * PF11 — the optional `**Commit:**` header field (R66). The header is every line
+ * before the first `---`, `## ` or `### ` line; `**Commit:**` lines below it are
+ * per-task prose and are not read. Same rules as ship's readPlanCommitSubject.
+ */
+function checkPF11(content, subjectPattern) {
+  const lines = content.split(/\r?\n/);
+  const end = lines.findIndex(l => l === '---' || l.startsWith('## ') || l.startsWith('### '));
+  const fields = (end === -1 ? lines : lines.slice(0, end)).filter(l => l.startsWith('**Commit:**'));
+  if (fields.length === 0) {
+    return { id: 'PF11', status: 'pass', message: 'No **Commit:** header field (optional)' };
+  }
+  const fail = (why) => ({ id: 'PF11', status: 'fail', message: `The **Commit:** header field ${why}` });
+  if (fields.length > 1) return fail('appears more than once');
+  const m = /^\*\*Commit:\*\* `([^`]+)`\s*$/.exec(fields[0]);
+  if (!m) return fail('is not one backticked subject');
+  const subject = m[1];
+  if (subject.length > 72) return fail(`is ${subject.length} characters long (at most 72)`);
+  if (/["$\\]/.test(subject)) return fail('contains ", $ or \\');
+  if (subjectPattern) {
+    let ok;
+    try { ok = new RegExp(subjectPattern).test(subject); } catch (err) {
+      return fail(`cannot be checked: commit.subjectPattern is not a valid regex (${err.message})`);
+    }
+    if (!ok) return fail('does not match commit.subjectPattern');
+  }
+  return { id: 'PF11', status: 'pass', message: `**Commit:** header field valid (${subject.length} characters)` };
+}
+
 // ---------------------------------------------------------------------------
 // Output formatters
 // ---------------------------------------------------------------------------
@@ -481,6 +511,9 @@ try {
     checkPF6(content),
     checkPF7(tasks),
   ];
+  let subjectPattern = null;
+  try { subjectPattern = (readSection(projectRoot, 'commit') || {}).subjectPattern || null; } catch (_) { /* no commit config */ }
+  checks.push(checkPF11(content, subjectPattern));
   if (requireScorecard) checks.push(checkPF9(content));
   if (requireScorecard && templatePath) {
     const template = parseTemplate(templatePath);

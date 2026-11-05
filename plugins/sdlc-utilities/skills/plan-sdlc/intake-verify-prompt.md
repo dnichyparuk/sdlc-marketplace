@@ -1,6 +1,6 @@
 # Gate A: Intake Audit — Source Change Verification
 
-**Gate:** A (intake audit, R39 — Fixes #445)
+**Gate:** A (intake audit, R39)
 **Default model:** sonnet
 
 You are the Gate A intake audit agent for plan-sdlc. Your role is to audit the SOURCE

@@ -4,7 +4,7 @@ Use this template in plan-sdlc Step 5 (CRITIQUE) when dispatching the plan revie
 
 **Purpose:** Verify the plan is complete, accurate, and ready for execution by execute-plan-sdlc.
 
-**Model selection:** Use a different model than the one that wrote the plan for plans with 5+ tasks (cross-model review catches blind spots). For plans under 5 tasks, same model is acceptable.
+**Model selection:** use `lensReviewers[i].model` from the prepare output (sonnet) — a cost choice that also keeps R8's cross-model property because plan-sdlc runs on opus.
 
 ## How to Fill This Template
 
@@ -17,16 +17,17 @@ Use this template in plan-sdlc Step 5 (CRITIQUE) when dispatching the plan revie
 - `{LENS}` — reviewer lens: one of `architecture`, `requirements`, `risk`, or `all`. When `{LENS}=all`, the reviewer evaluates all categories (status quo for plans <5 tasks). When `{LENS}` is one of the three specific values, the reviewer filters evaluation to the categories listed in `{LENS_FOCUS}`.
 - `{LENS_FOCUS}` — category subset for the lens, rendered as a bullet list (e.g., `- Buildability\n- Task descriptions\n- Decision documentation\n- Dependency accuracy`). When `{LENS}=all`, set to `"all categories below"`.
 
-**Lens → category mapping (KD3, Fixes #418):**
+**Lens → category mapping (KD3):**
 - `architecture`: Buildability, Task descriptions, Decision documentation, Dependency accuracy
 - `requirements`: Requirements coverage, Metadata completeness, Plan completeness, OpenSpec G16, Exploration provenance, Best-practice traceability
 - `risk`: File paths, Verification strategy, Scope discipline, Guardrail compliance
 - `all`: all categories (single-reviewer mode for plans <5 tasks — preserves today's behavior)
 
 ```
-Task tool (general-purpose):
+Agent tool:
+  subagent_type: general-purpose
   description: "Plan review for <feature name>"
-  model: <reviewer model — different from plan author model when 5+ tasks>
+  model: <reviewer model from lensReviewers[i].model>
   prompt: |
     You are reviewing a plan document for completeness, accuracy, and executability.
     The plan will be executed by an automated plan orchestrator (execute-plan-sdlc).
@@ -90,10 +91,10 @@ Task tool (general-purpose):
 ## Handling Reviewer Output
 
 **Single reviewer (`{LENS}=all`, plans <5 tasks):**
-- Approved → Proceed to Step 7 (Handoff)
+- Approved → Proceed to Step 6.5 (link verification), then 6.6, then Step 7
 - Issues Found → Fix each blocking issue in the plan document; re-dispatch the reviewer; maximum 3 reviewer iterations — if still unresolved, surface to user
 
 **Multi-lens reviewer (plans ≥5 tasks — merge in Step 5):**
 - Main agent merges lens results: Status = `Approved` iff ALL lenses approved; Issues = union of blocking issues (dedup by taskRef + message-prefix); Recommendations = prefix-dedup
-- Merged Approved → Proceed to Step 7
+- Merged Approved → Proceed to Step 6.5
 - Merged Issues Found → Fix blocking issues; re-dispatch all lenses in next iteration; maximum 3 iterations total

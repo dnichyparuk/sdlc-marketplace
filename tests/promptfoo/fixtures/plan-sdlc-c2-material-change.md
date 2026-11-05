@@ -57,7 +57,7 @@ To resolve the lens findings, the plan author:
 ## What must happen on the NEXT Step 5 iteration (iteration 2)
 
 Per R64, because `materialChangeDetected` is true, iteration 2 must dispatch, in a single message,
-as parallel Agent tool calls with `run_in_background: false` on each:
+as parallel Agent tool calls:
 - all 5 entries of `lanes[]` (static-structural, content-coverage, file-existence,
   guardrail-compliance, dimension-coverage) — the SAME lanes Step 3 uses, re-run against the
   updated 5-task plan
