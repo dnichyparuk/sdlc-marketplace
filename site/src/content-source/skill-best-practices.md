@@ -239,7 +239,7 @@ When a skill needs a format spec, prompt template, or reference checklist, place
 skills/plan-sdlc/
   SKILL.md
   plan-format-reference.md      ← format spec for plan documents
-  plan-reviewer-prompt.md       ← subagent prompt template for plan review
+  plan-template-default.md      ← shipped default plan template
 ```
 
 Reference in `SKILL.md`: `See ./plan-format-reference.md for the exact format specification.`

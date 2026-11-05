@@ -46,6 +46,15 @@ One row per agent in `plugins/sdlc-utilities/agents/`.
 | error-report-orchestrator | haiku | low | Template → JSON |
 | harden-orchestrator | haiku | low | Manifest → JSON |
 | plan-explore-orchestrator | sonnet | medium | Fans out discovery subagents and critiques findings |
+| plan-lane-static | haiku | low | Step 3 judgment gates G1, G2, G7 |
+| plan-lane-content | sonnet | medium | Step 3 judgment gates (content coverage, G18–G21) |
+| plan-lane-guardrail | sonnet | low | Step 3 judgment gate G14 |
+| plan-lane-g17 | sonnet | low | B1–B4 classification over script-prepared candidates |
+| plan-lens-architecture | sonnet | medium | Step 5 review; sonnet as a cost choice |
+| plan-lens-requirements | sonnet | medium | Step 5 review; sonnet as a cost choice |
+| plan-lens-risk | sonnet | medium | Step 5 review; sonnet as a cost choice |
+| plan-reviewer | sonnet | medium | Step 5 review; sonnet as a cost choice |
+| plan-intake-verify | sonnet | medium | Gate A audit |
 | review-orchestrator | sonnet | - | Cross-dimension critique + dedup reasoning; dimension subagents use per-dimension `model:` |
 | ship-step-execute | opus | high | Runs execute-plan-sdlc for ship; plan execution and recovery need the strongest tier |
 | ship-step-commit | haiku | low | Runs commit-sdlc for ship (also commit-fixes); mechanical, message drafting goes to commit-orchestrator |
@@ -64,9 +73,19 @@ Files where per-call `model:` is computed at runtime and **wins over frontmatter
 - `plugins/sdlc-utilities/scripts/skill/ship.js` — reads `model`/`effort` from `agents/ship-step-*.md`.
 - `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` — the worker routing table maps quality tier × complexity to a worker agent (whose frontmatter pins the model) and an Agent-dispatch `effort`; execute passes no per-task `model:`. `plugins/sdlc-utilities/scripts/skill/execute.js` emits the classification floor and the wave structure, applies the table to each wave, and emits the routing as `waves[].dispatch` (`WORKER_ROUTING`, `AGENT_MODELS`), which SKILL.md dispatches verbatim.
 - `plugins/sdlc-utilities/scripts/skill/review.js` — passes per-dimension `model:` resolved from each dimension file's own frontmatter.
-- `plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md` — cross-model plan-reviewer rule (sonnet reviews opus-authored plans, and vice versa) at 5+ tasks.
+- `plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md` — passes `model: opus` to lens agents only when the plan author ran on sonnet (R8).
 
 When ship-sdlc dispatches a sub-skill, the sub-skill runs inside its `ship-step-*` agent: the agent file's `model:` and `effort:` apply, not the sub-skill's frontmatter. Consumers should not assume the sub-skill's frontmatter applies inside a pipeline.
+
+### Plan quality presets
+
+`plan-sdlc --quality` (A4) sets the model and effort of the Step 5 lens reviewers and the single reviewer. `scripts/skill/plan.js` (`QUALITY_DISPATCH`) emits them as `dispatchModel`/`dispatchEffort`; `-` means the agent file's value. The values are tuning (§6). Lanes and Gate A always use their agent files.
+
+| Preset | Lanes | Lens / reviewer model | Lens / reviewer effort |
+|---|---|---|---|
+| `full` (Speed) | agent-file defaults | `sonnet` | `low` |
+| `balanced` (default) | agent-file defaults | opposite of the plan author's model (R8: `opus` when the author ran on sonnet, else the agent file's `sonnet`) | agent-file default |
+| `minimal` (Quality) | agent-file defaults | `opus` | `high` |
 
 ### Ship per-step dispatch
 
