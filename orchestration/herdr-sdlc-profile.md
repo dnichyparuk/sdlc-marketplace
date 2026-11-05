@@ -126,8 +126,13 @@ wave 1" rule):
     arbiter verifies the orchestrator's gate exports and judge table, then spot-checks them.
   - A REAL miss brings back the full arbiter gate and acceptance for the next wave ("merge check only", owner
     answer 1).
-- **Tag**: the arbiter tags the squash commit through the API (a `git/tags` object with tagger dnichyparuk, then
-  `git/refs`). Docs-only PRs get no tag.
+  - From M8 the arbiter role is split (RUL m8/owner-supervised-topology.md): the standing supervisor
+    `sdlc-sup-<stage>` (Sonnet) merges only through `sup-merge.sh --live`, on a GO from its own Opus A3 subagent for
+    the exact SHA. The merge, ready and tag rights are granted up front in `merge.permissionFile` of the
+    supervisor's checkout only; the orchestrator never merges.
+- **Tag**: the arbiter tags the squash commit (tagger dnichyparuk). From M7 this is `git tag -a vX.Y.Z <sha>` and
+  `git push origin vX.Y.Z` in the main checkout (m7/arbiter-handover-r3.md §4); from M8 inside `sup-merge.sh`.
+  Docs-only PRs get no tag.
 - **Milestone close**:
   - the standing milestone-close e2e (B1, B4, B6; M7 adds a plan-sdlc case), owner-approved spend, $3 cap per
     run;
@@ -162,10 +167,12 @@ auto-update is off for the length of each milestone (owner action; done 2026-11-
 
 Modes (each source is in `modes.sources`):
 
-- `topology: standing-arbiter` (ARB §2).
+- `topology: standing-arbiter` (ARB §2; from M8 the standing agent is the supervisor, RUL
+  m8/owner-supervised-topology.md).
 - `reset: in-place-clear`, per wave: the per-wave orchestrator reset (owner 2026-10-22, kept 2026-10-26 and at
   the M5.1 close).
-- `merge: squash`, `merger: arbiter` (ARB §3 D-merge).
+- `merge: squash`, `merger: arbiter` (ARB §3 D-merge; from M8 the supervisor through `sup-merge.sh`, same RUL
+  file).
 - `stacking: serial` (ARB §3 D-serial).
 - `executorReset: per-stop`, with `executor.contextLimitK: 300` (owner cut 3, answer 5).
 - `gateCheckout: named-branch` (M5 conventions).
