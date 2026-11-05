@@ -6,7 +6,7 @@
   "ghRepo": "dnichyparuk/sdlc-marketplace",
   "defaultBranch": "main",
   "agentPrefix": "sdlc",
-  "ownerLanguage": "en",
+  "ownerLanguage": "ru",
   "forbiddenWriteRepos": [
    "rnagrodzki/sdlc-marketplace"
   ]
@@ -68,10 +68,10 @@
   "gateEvidence": "executor-export",
   "planDepth": "light",
   "sources": {
-   "topology": "ARB §2 Topology (arbiter sdlc-arb, owner 2026-10-18)",
+   "topology": "standing agent = supervisor sdlc-sup-<stage> (Sonnet), judgement in Opus subagents: owner 2026-11-05, m8/owner-supervised-topology.md; supersedes ARB §2 from M8",
    "reset": "owner 'accepted' 2026-10-22 (LOG 2026-10-22T15:51:57Z, RUL orchestrator-wave-reset.md), kept 2026-10-26 (LOG 2026-10-26T17:14:55Z); PLAN 'Per-wave orchestrator reset: kept'",
    "merge": "ARB §3 D-merge (squash, --match-head-commit); RUL standing-rules-sdlc.md 'Repo and merge specifics'",
-   "merger": "ARB §3 D-merge ('you merge'); owner standing authority LOG 2026-10-22T12:05:59Z and 2026-10-26T18:24:06Z",
+   "merger": "arbiter = the standing supervisor, merge via sup-merge.sh on an Opus A3 GO for the exact SHA: same decision (m8/owner-supervised-topology.md)",
    "stacking": "ARB §3 D-serial (each wave's PR merged before the next wave branches from origin/main)",
    "executorReset": "owner 2026-10-29 wave-overhead cut 3 (RUL m5.1/owner-wave-overhead.md; PLAN 'Wave-overhead cuts' 3; LOG 2026-10-29T07:58:44Z); contextLimitK 300: owner answer 5 (RUL m5.1/owner-skill-v15.md)",
    "gateCheckout": "RUL standing-rules-sdlc.md 'Gates and checks' (M5 conventions: promptfoo on a NAMED local branch); owner 2026-10-18 named-branch env (LOG line 20); m5.1 gate briefs (named local temp branch)",
@@ -119,7 +119,8 @@
  },
  "merge": {
   "command": "gh pr merge <N> -R dnichyparuk/sdlc-marketplace --squash --match-head-commit <sha>",
-  "allowRule": "Bash(gh pr merge * --squash *)"
+  "allowRule": "Bash(gh pr merge * --squash --match-head-commit *)",
+  "permissionFile": ".claude/settings.local.json"
  },
  "release": {
   "mode": "manual-bump",
