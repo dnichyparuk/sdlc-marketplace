@@ -195,6 +195,17 @@
     - type: regex
       value: '"total_errors":\s*0'
 
+- description: "sdlc-dimensions-model: haiku, sonnet and opus aliases pass"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
+    script_args: "--project-root {{repo_root}} --json"
+  assert:
+    # The repo's own .sdlc/review-dimensions use the haiku, sonnet and opus aliases; no D13 finding
+    - type: not-icontains
+      value: "D13"
+    - type: regex
+      value: '"total_errors":\s*0'
+
 - description: "sdlc-dimensions: _common.md is excluded from validation results"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
