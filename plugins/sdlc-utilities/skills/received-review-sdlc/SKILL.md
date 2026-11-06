@@ -492,7 +492,7 @@ Step 11.6 — meta-analyze-findings: completed | dispatched=<N> deferred=<N> sup
 
 ## Step 11.7 — LINK VERIFICATION — HARD GATE <!-- R17 -->
 
-When `manifest.pr` is null (`manifest.source` is `comment-file`), there is no PR: skip this step and the posting in Step 12; show the Step 12 summary and stop there.
+When `manifest.pr` is null (`manifest.source` is `comment-file`), there is no PR: skip this step and the posting in Step 12; show the Step 12 summary and stop there. This rule needs a Step 1a manifest: after Step 1b (no manifest), a PR number or URL from Step 1b is a PR, and this step and Step 12 run as before.
 
 Before any `gh api` reply is posted, validate every URL embedded in every drafted reply body via the shared link validator. Concatenate all reply bodies (one per line) and feed them to the validator on stdin. The script auto-derives `expectedRepo` from `parseRemoteOwner(cwd)` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill MUST NOT construct ctx JSON.
 
@@ -510,6 +510,8 @@ On non-zero exit (`LINK_EXIT != 0`):
 On zero exit, proceed to Step 12. `SDLC_LINKS_OFFLINE=1` skips network reachability while keeping context-aware checks (GitHub identity match, Atlassian host match) — use in sandboxed CI.
 
 ## Step 12 — REPLY & RESOLVE: Post PR Thread Replies
+
+With no PR (`manifest.pr` null, the Step 11.7 rule): show the summary in item 1 and stop; no consent gate, no posting (R27).
 
 **Mandatory step — always presented after Step 11 completes.**
 
