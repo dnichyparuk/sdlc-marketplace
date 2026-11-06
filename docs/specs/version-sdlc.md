@@ -17,12 +17,15 @@
 - A6: `--init` — run one-time init workflow to scaffold versioning infrastructure (default: false)
 - A7: `--no-push` — skip pushing to remote after release (default: false)
 - A8: `--retag` — delete the existing tag for the current resolved version (local and remote), recreate it as an annotated tag pointing at HEAD, and push. Incompatible with bump types (`major`/`minor`/`patch`), `--init`, `--changelog`, and `--hotfix`. User-initiated retag; orthogonal to the CI-automated `retag-release.yml` workflow (I5).
+- A9: `--no-tag` — make the release commit but no tag: skip `git tag` and `git push --tags` (R21); with `--no-push` nothing is pushed. Incompatible with `--retag` (G8) (default: false)
+- A10: `--subject <text>` — use `<text>` verbatim as the release commit subject (R22). It reaches `skill/version.js` through the Step 0 command line, so it must not contain `"`, a backtick, `$` or `\`; it is non-empty, one line, at most 72 characters (default: unset)
+- A11: `--message-file <path>` — commit the file's content as the whole release message (R22). The path must not contain `"`, a backtick, `$`, `\`, a newline or a carriage return; when `--subject` is also set it must equal the file's first line (default: unset)
 - R-bump-flag: `--bump` is sometimes forwarded from ship-sdlc without being honored — the flag value must be the authoritative source. version-sdlc MUST parse `--bump <major|minor|patch|<label>>`; when present, the flag value is authoritative over the positional argument and over `conventionalSummary.suggestedBump`. The resolved bump is recorded in `flags.bump` in the prepare output.
   - Acceptance: passing `--bump minor` to `skill/version.js` when `suggestedBump` is `patch` yields `requestedBump: "minor"` in the output and the skill selects `minor` without warning the user; positional arg is ignored when `--bump` is also present.
 - R12: When `--auto` is set, skip AskUserQuestion prompts but display the release plan and run all critique gates
 - R-RETAG: When `--retag` is passed, version-sdlc retags the current resolved version by: (1) deleting the local tag (`git tag -d <tag>`), (2) deleting the remote tag (`git push origin :refs/tags/<tag>`), (3) recreating an annotated tag at HEAD (`git tag -a <tag> -m "Retag <tag>"`), and (4) pushing the new tag (`git push origin <tag>`). Exclusivity: `--retag` is incompatible with bump types (`major`/`minor`/`patch`), `--init`, `--changelog`, and `--hotfix`; all conflicts must be reported together (not short-circuited). Tag-existence pre-check: the candidate tag (derived from `v<currentVersion>`) must already exist (`git rev-parse refs/tags/<candidate>`); if not, the prepare script emits an error. This flag is orthogonal to the CI-automated `retag-release.yml` workflow — do not conflate. The prepare script emits `mode: "retag"`, `currentTag`, `oldSha`, and `head` SHA in its JSON output so SKILL.md can render the retag plan without re-parsing argv.
 - R-expected-branch: When `--expected-branch <name>` flag is present, `skill/version.js` MUST compare `git branch --show-current` to `<name>` via `lib/branch-guard.js::validateExpectedBranch`. The result MUST be attached as `branchGuard` field in version-context output alongside the existing `currentBranch` field, with shape `{ ok: boolean, currentBranch: string, expectedBranch: string | null, active: boolean, message: string | null }`. On mismatch (`branchGuard.ok === false`), the prepare script MUST exit non-zero and emit `branchGuard.message` on stderr; the JSON output channel MUST NOT be corrupted. SKILL.md MUST abort before Step 3 (commit/tag) when `branchGuard.active === true` AND `branchGuard.ok === false`, surfacing `branchGuard.message` verbatim. When `--expected-branch` is absent, `branchGuard.active === false` and behaviour is byte-identical to current (excluding the new field).
-  - Acceptance: `skill/version.js` parses `--expected-branch`; prepare output includes `branchGuard.ok`, `branchGuard.currentBranch`, `branchGuard.expectedBranch`, `branchGuard.active`, `branchGuard.message`; mismatch exits 3 with stderr; match exits 0 with `ok: true`; absent flag exits 0 with `active: false`; SKILL.md cites `branchGuard.ok === false` at Step 2.5 without re-deriving current branch.
+  - Acceptance: `skill/version.js` parses `--expected-branch`; prepare output includes `branchGuard.ok`, `branchGuard.currentBranch`, `branchGuard.expectedBranch`, `branchGuard.active`, `branchGuard.message`; mismatch exits 3 with stderr; match exits 0 with `ok: true`; absent flag exits 0 with `active: false`; SKILL.md stops at Step 0 on exit code 3 and shows `errors[0]` without re-deriving the current branch.
 
 ### Configuration
 
@@ -37,6 +40,7 @@
   At these three sites the skill **must not** consult raw `$ARGUMENTS`, the original CLI string, or `config.changelog` — re-deriving the value defeats the script-resolution contract.
 
   **Carve-out:** Step 7.5 CI-scaffold installation (`check-changelog.cjs` and related persistent setup) legitimately reads `config.changelog === true`. Rationale: Step 7.5 concerns persistent project setup (whether the repo opts into changelog enforcement at all), not the current release. This site is the **only** acceptable post-CONSUME reference to `config.changelog` and must include an inline rationale comment so future contributors do not "fix" it.
+  - *Non-normative note:* Step 7.5 reads `config.changelog` because it scaffolds persistent CI scripts that ship with the project; the question there is whether the project opts into changelog enforcement long-term, not whether this run passed `--changelog`.
 - R-config-version: The prepare script `skill/version.js` MUST call `verifyAndMigrate(projectRoot, 'project')` and `verifyAndMigrate(projectRoot, 'local')` at start. The call is short-circuited when CLI `--skip-config-check` OR env `SDLC_SKIP_CONFIG_CHECK=1` is present; both gates resolve into a single `flags.skipConfigCheck` boolean in the prepare output (CLI > env > default false). On migration failure the prepare emits non-zero exit and an `errors[]` entry naming the failing step; SKILL.md halts with that text verbatim.
   - Acceptance: prepare output includes `flags.skipConfigCheck` and a `migration` block (or null when skipped); SKILL.md gates further work on `errors.length === 0`.
 
@@ -69,9 +73,9 @@ None.
 - R5: CHANGELOG entry uses Keep a Changelog format with today's date, mapping commit types to sections (feat→Added, fix→Fixed, refactor/perf→Changed)
 - R6: Skip non-user-facing commit types in CHANGELOG (chore, docs, test, ci, build, style) unless clearly user-facing
 - R8: Version file update uses targeted Edit (single-string replacement, NOT full rewrite) for ALL supported formats (package.json, plugin.json, Cargo.toml, pyproject.toml, TOML/YAML, etc.). Skill must verify post-edit that exactly one line of `<versionFile>` differs in `git diff`; if not, abort the release and restore the file with `git checkout -- <versionFile>`.
-- R9: Annotated tag includes hotfix type annotation when `flags.hotfix` is true
-- R10: Release commit message includes `[hotfix]` suffix when `flags.hotfix` is true
-- R11: Push requires both `git push` and `git push --tags` (two separate commands)
+- R9: Annotated tag includes hotfix type annotation when `flags.hotfix` is true. No tag is created when `flags.noTag` is true (R21).
+- R10: The default release subject (R22) includes the `[hotfix]` suffix when `flags.hotfix` is true; a given subject or message file is used verbatim
+- R11: Push requires both `git push` and `git push --tags` (two separate commands), except that `git push --tags` is skipped when `flags.noTag` is true (R21)
 - R13: Verify pre-conditions before execution: version file exists (file mode), tag does not conflict, no uncommitted changes, git identity configured
 - R15: When `remoteState.hasUpstream === false`, the push step uses `git push --set-upstream origin <currentBranch>` instead of bare `git push`; the subsequent `git push --tags` is unchanged. This avoids first-push failures on fresh feature branches.
 - R17: Link verification — every URL embedded in changelog or release-notes body MUST be validated by `plugins/sdlc-utilities/scripts/lib/links.js` (CLI: `node scripts/lib/links.js --json`) before any commit/tag operation that publishes the body. Three URL classes are checked: (1) `github.com/<owner>/<repo>/(issues|pull)/<n>` — owner/repo identity must match the current remote, and the issue/PR number must exist on that repo; (2) `*.atlassian.net/browse/<KEY-N>` — host must match the configured Jira site; (3) any other `http(s)://` URL — generic reachability via HEAD (fall back to GET on 405). Hosts in the built-in skip list (`linkedin.com`, `x.com`, `twitter.com`, `medium.com`) and any `ctx.skipHosts` entries are reported as `skipped`, not violations. `SDLC_LINKS_OFFLINE=1` skips network checks but keeps structural context-aware checks (GitHub identity match, Atlassian host match). Any violation aborts publication with non-zero exit and a structured violation list — no soft-warning mode.
@@ -84,6 +88,10 @@ None.
   Counter comparison MUST be numeric (not lexical tag sort). This requirement augments the bump
   computation and the G3 collision check only; the R19 idempotency guard and `getTagsAtHead`
   pre-release exclusion are unchanged.
+- R21: When `flags.noTag` is true (A9), the release flow makes the version-file and changelog edits and the release commit, and creates no tag. The push step pushes the branch only (`git push`, or `git push --set-upstream origin <currentBranch>` when `remoteState.hasUpstream === false`, R15) and never `git push --tags`; with `flags.noPush` true it pushes nothing (C4). Tag-conflict checking (G3), the idempotency guard (R19) and pre-release counter continuation (R20) are unchanged.
+  - Acceptance: exec case `version-prepare: --no-tag` — `patch --no-tag` gives `"noTag": true` and exit 0; `patch` alone gives `"noTag": false`; `--retag --no-tag` gives an `errors[]` entry naming `--no-tag`.
+- R22: The release commit message comes from `releaseCommit` (P15). With `--message-file` (A11) the file's content is the whole message: `skill/version.js` checks that it carries every `commit.requiredTrailers` entry (G9) and SKILL.md commits it with `git commit -F <releaseCommit.messageFile>`. Otherwise the subject is `releaseCommit.subject` when set (A10, verbatim) or the default `chore(release): <newTag>` (R10); when `releaseCommit.trailers` is non-empty the body ends, after a blank line, with one line per entry, `Key: Value` for a valued entry and `Key: ` for a key-only entry, never an invented value (the commit-sdlc R5 rule). `skill/version.js` resolves `commit.requiredTrailers` and checks given subjects with the shared `scripts/lib/commit-message.js` (the same rules as commit-sdlc R5 and R-subject-precheck). A malformed trailer entry, an invalid given subject or a missing message-file trailer is an `errors[]` entry and exit 1 (E1). The flags are read in the release flow only.
+  - Acceptance: exec case `version-prepare: --subject` gives `releaseCommit.subject` equal to the value and `releaseCommit.trailers` from the fixture's `commit.requiredTrailers`; `--message-file` with all trailers gives `releaseCommit.messageFile` as an absolute path and exit 0; a file missing a trailer gives `errors[]` `--message-file lacks required trailer <Key[: Value]>` and exit 1; a `--subject` containing `$` gives an `errors[]` entry and exit 1.
 
 ### Step-emitter contract
 
@@ -114,7 +122,8 @@ None.
 - G5: No fabricated entries — every CHANGELOG entry traces to a real commit (when changelog enabled)
 - G6: Commit count — there are commits to release (`commits.length > 0`), or this is a pre-release
 - G7: Version file writable — file type is in the known supported list
-- G8: Retag exclusivity — when `--retag` is passed, all incompatible flags (`major`/`minor`/`patch`/`--init`/`--changelog`/`--hotfix`) must be validated and reported together by the prepare script; SKILL.md must not proceed when `errors[]` is non-empty
+- G8: Retag exclusivity — when `--retag` is passed, all incompatible flags (`major`/`minor`/`patch`/`--init`/`--changelog`/`--hotfix`/`--no-tag`) must be validated and reported together by the prepare script; SKILL.md must not proceed when `errors[]` is non-empty
+- G9: Message-file trailers — with `--message-file`, every `releaseCommit.trailers` entry has a matching line in the file (`Key: Value` for a valued entry, a line starting `Key:` for a key-only entry); otherwise `skill/version.js` exits 1 before any git command
 
 ## Prepare script contract
 
@@ -129,13 +138,14 @@ None.
 - P8: `bumpOptions` (object: `{ major, minor, patch, preRelease }`) — pre-computed next versions
 - P9: `tags.latest` (string) — most recent tag
 - P10: `commits` (array) — commits since last tag, each with optional `ticketIds`
-- P11: `flags` (object: `{ preLabel, noPush, changelog, hotfix, auto }`) — parsed CLI flags
+- P11: `flags` (object: `{ preLabel, noPush, noTag, changelog, hotfix, auto }`) — parsed CLI flags
 - P12: `conflictsWithNext` (object: `{ major, minor, patch, preRelease }`) — whether each candidate
   tag already exists. `preRelease` is checked against the full semver tag list (incl. pre-release);
   the base axes remain checked against base-release tags only.
 - P-idempotency: `idempotency` (object: `{ alreadyBumped: boolean, headReleaseTags: string[], reason: string | null }`) — emitted on the release flow; `alreadyBumped` is `true` when the HEAD commit already carries one or more semver release tags (see R19); `headReleaseTags` lists those tag names; `reason` is a human-readable explanation string when `alreadyBumped` is `true`, otherwise `null`. When `alreadyBumped` is `true` the prepare script exits 0 without computing a new version, and SKILL.md MUST skip the bump and inform the user that the release was already performed at HEAD.
 - P13: `remoteState` (object: `{ hasUpstream, remoteBranch }`) — upstream tracking state for current branch; `hasUpstream` is false when no upstream is configured
 - P14: `currentBranch` (string) — name of the currently checked-out branch
+- P15: `releaseCommit` (object: `{ subject: string | null, messageFile: string | null, trailers: { key, value }[], draftFile: string }`) — release flow only. `subject` is the `--subject` value or the message file's first line, null for the default subject; `messageFile` is the absolute `--message-file` path or null; `trailers` is `commit.requiredTrailers` resolved (`value` null for a key-only entry; `[]` when unset); `draftFile` is the absolute path, under the state directory, where SKILL.md writes a composed message when `trailers` is non-empty
 
 ## Failure handling and resume
 
@@ -150,18 +160,19 @@ None.
 ## Invariants and constraints
 
 - R14: Prepare script output is the single authoritative source for all contracted fields (P-fields) — script-provided values take unconditional precedence over skill-generated content, and all factual context (git state, config, flags, metadata) must originate from script output to ensure deterministic behavior
-- R-projectroot: Scripts that run relative to `process.cwd()` can silently operate on the wrong project root when invoked from a sub-directory, a git worktree, or by a parent skill with a different CWD. `skill/version.js` MUST resolve `projectRoot` via `resolveSdlcRoot()` (from `lib/config.js`); `process.cwd()` is forbidden as a project-root source.
-  - Acceptance: `resolveSdlcRoot` is called at the top of `skill/version.js`; no bare `process.cwd()` usage appears in any path that contributes to `projectRoot`; calling the script from a subdirectory of the repo yields the same `projectRoot` as calling it from the repo root.
+- R-projectroot: Scripts that run relative to `process.cwd()` can silently operate on the wrong project root when invoked from a sub-directory, a git worktree, or by a parent skill with a different CWD. `skill/version.js` uses two roots and never uses `process.cwd()` directly as either. The config root is `resolveSdlcRoot()` (from `lib/config.js`): `.sdlc/` config reads and `ensureConfigVersion`. The working-tree root is `resolveActiveWorktreeSafe()` (from `lib/worktree.js`): the version file, the changelog file, the `--file` override, git state (`checkGitState`) and every HEAD-relative git operation. In a linked worktree the release reads and writes that worktree's files; in the main worktree both roots are the same directory.
+  - Acceptance: `resolveSdlcRoot` and `resolveActiveWorktreeSafe` are called at the top of `skill/version.js`; `grep -n "process.cwd" skill/version.js` is empty; calling the script from a subdirectory of the repo yields the same roots as calling it from the repo root; exec case `version-prepare: linked worktree` — run from `worktrees/wt1` of a fixture whose wt1 version file and changelog differ from the main worktree's, `versionSource.filePath` ends with `worktrees/wt1/package.json`, `versionSource.currentVersion` is wt1's version, `changelog.currentContent` is wt1's changelog, and wt1's uncommitted change produces the uncommitted-changes warning.
 - C1: Must not execute any git command before explicit approval or auto-mode implicit approval
 - C2: Must not fabricate commit descriptions or changelog entries not backed by real commits
 - C3: Must not skip the critique step
-- C4: Must not push to remote when `--no-push` is set
+- C4: Must not push to remote when `flags.noPush` is true (neither the branch nor tags)
 - C5: Must not modify the version file when `config.mode === "tag"` (version lives in git only)
 - C6: Must not omit pre-condition verification before execution
 - C7: Must not skip, bypass, or defer prepare script execution — the script must run and exit successfully before any skill phase begins
 - C8: Must not override, reinterpret, or discard prepare script output — for every P-field, the script return value is authoritative and final; the skill must not substitute LLM-generated alternatives
 - C9: Must not independently compute, infer, or fabricate values for any field the prepare script is contracted to provide — if the script fails or a field is absent, the skill must stop rather than fill in data
 - C10: Must not re-derive data the prepare script already computes via shell commands, tool calls, or LLM inference — script output is the sole source for all factual context, preserving deterministic behavior
+- C11: Must not create or push a tag when `flags.noTag` is true (R21)
 
 ## Integration
 
