@@ -21,7 +21,6 @@ optional CHANGELOG entry, release commit, and push to origin.
 - Generating a Keep a Changelog entry for a release
 - Running a full semantic release workflow end-to-end
 - Creating or incrementing pre-release versions (alpha, beta, rc)
-- When the `/version` command delegates here after running `skill/version.js`
 - Updating a CHANGELOG entry for an already-tagged release (e.g., after a squash merge added commits not captured in the original entry)
 
 ## Workflow
@@ -52,6 +51,7 @@ Read and parse `VERSION_CONTEXT_FILE` as `VERSION_CONTEXT_JSON`.
 
 - Exit code 1: The JSON still contains an `errors` array. Show each error to the user and stop.
 - Exit code 2: Show `Script error — see output above` and stop.
+- Exit code 3: expected-branch guard failed — show `errors[0]` and stop. <!-- R-expected-branch -->
 
 **On script crash (exit 2):** Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=version-sdlc, step=Step 0 — skill/version.js execution, error=stderr.
 
@@ -86,6 +86,8 @@ The workflow then branches based on `VERSION_CONTEXT_JSON.flow` and `VERSION_CON
 
 ### Branch B: Release Workflow (`flow === "release"`)
 
+If `idempotency.alreadyBumped` is true, print `idempotency.reason` and stop — make no file, commit, tag or push changes. If `idempotency` is absent or null, continue. <!-- R19 -->
+
 ### Step 1 (CONSUME): Read the Context
 
 Read `VERSION_CONTEXT_JSON`. Key fields to extract:
@@ -111,41 +113,9 @@ Read `VERSION_CONTEXT_JSON`. Key fields to extract:
 
 ### Step 2 (PLAN): Determine Bump Type and Draft CHANGELOG
 
-**Implements R-bump-flag, R-bump-promote (docs/specs/version-sdlc.md).**
+**Determine new version.** `skill/version.js` has already resolved the bump source and validated any label — do not re-derive it from `$ARGUMENTS` and do not consult `config.bump`. `requestedBump` is already resolved by the script; use `bumpOptions.preRelease` when `flags.preLabel` is set, else `bumpOptions[requestedBump]`. The script also computed the pre-release counter and label switch (the counter continues from the highest existing `v<base>-<label>.N` tag). If `bumpPromotionDetected`, print this line verbatim, then continue without pausing: `Commits suggest <suggestedBump> bump but <requestedBump> requested — staying with <requestedBump>. Override with `--bump <suggestedBump>` if intentional.` (substitute `conventionalSummary.suggestedBump` and `requestedBump`). <!-- R-bump-flag, R-bump-promote, R20 -->
 
-**Determine new version:**
-
-The script (`skill/version.js`) does all label validation and bump-source resolution before this step runs. Read the resolved values from `VERSION_CONTEXT_JSON` and select the version verbatim — do not re-derive bump type from the original CLI string and do not consult `config.bump` after Step 1.
-
-**Bump precedence (single source of truth — highest to lowest):**
-
-| # | Condition (from prepare output) | Bump source |
-| - | ------------------------------- | ----------- |
-| 1 | `flags.bumpFromFlag === true` | `requestedBump` (from `--bump` named flag — authoritative) |
-| 2 | `requestedBump` set AND `flags.bumpFromFlag === false` | `requestedBump` (positional bump — `major`/`minor`/`patch` or label-form) |
-| 3 | `config.preRelease` active AND no bump | `requestedBump` auto-injected as `"patch"` (script-set; signalled by `flags.preLabelFromConfig === true`) |
-| 4 | otherwise | `requestedBump = "patch"` default |
-
-`conventionalSummary.suggestedBump` is **informational only** — it never participates in this precedence. It exists solely to drive the `bumpPromotionDetected` diagnostic below; never treat it as a bump source.
-
-**Bump-promotion diagnostic (R-bump-promote):**
-When `bumpPromotionDetected === true` in the prepare output, print this line verbatim before proceeding:
-```
-Commits suggest <suggestedBump> bump but <requestedBump> requested — staying with <requestedBump>. Override with `--bump <suggestedBump>` if intentional.
-```
-Substitute `<suggestedBump>` with `conventionalSummary.suggestedBump` and `<requestedBump>` with the resolved bump from the precedence above. This is informational only — do not change the bump and do not pause for approval here.
-
-**Pre-release label resolution (orthogonal to bump):**
-
-Pre-release intent comes from three mutually-exclusive sources, signalled by the provenance flags `flags.bumpFromLabel`, `flags.preLabelExplicit`, and `flags.preLabelFromConfig` (at most one is `true`):
-
-1. Explicit `--pre <label>` (`flags.preLabelExplicit === true`) — combines with whichever bump was resolved above
-2. Positional label-form (e.g. `version-sdlc rc`, `flags.bumpFromLabel === true`) — script auto-set `requestedBump = "patch"`
-3. `config.preRelease` default (`flags.preLabelFromConfig === true`) — script auto-set `requestedBump = "patch"`
-
-When `flags.preLabel` is set, use `bumpOptions.preRelease`. Otherwise use `bumpOptions[requestedBump]`. The script has already computed both pre-release semantics (counter increment, label reset, label switch) and the next-version values. **Implements R20:** the pre-release counter continues from the highest existing `v<base>-<label>.N` git tag, not only from the version source file.
-
-**Implements R3 (breaking-change gate):** if `conventionalSummary.hasBreakingChanges` is `true` AND the resolved bump is not `major`, suggest `major` UNLESS the resolved bump is a pre-release from any source. Detect "is a pre-release" by checking that `flags.preLabel` is non-null. Pre-release trains skip this warning to avoid nagging on every RC iteration.
+If `conventionalSummary.hasBreakingChanges` is `true` AND the resolved bump is not `major`, suggest `major` UNLESS the resolved bump is a pre-release from any source. Detect "is a pre-release" by checking that `flags.preLabel` is non-null. Pre-release trains skip this warning to avoid nagging on every RC iteration. <!-- R3 -->
 
 **Draft CHANGELOG entry** (only if `flags.changelog === true`) — `flags.changelog` is the resolved value (`config.changelog` OR `--changelog`) emitted by `skill/version.js`:
 
@@ -166,59 +136,13 @@ When `flags.preLabel` is set, use `bumpOptions.preRelease`. Otherwise use `bumpO
 - Multiple commits contributing to one merged entry: include all unique ticket IDs from those commits
 - Only include ticket IDs when `config.ticketPrefix` is set — otherwise skip them to avoid false positives from random uppercase patterns
 
-### Step 2.5 (BRANCH-GUARD): HARD GATE — Expected Branch Check
+### Step 3 (CRITIQUE and IMPROVE)
 
-**Implements R-expected-branch (docs/specs/version-sdlc.md, issues #347, #348, #349).**
-
-Check `branchGuard.active` and `branchGuard.ok` from `VERSION_CONTEXT_JSON`.
-
-If `branchGuard.active === true` AND `branchGuard.ok === false`:
-- Surface `branchGuard.message` verbatim to the user.
-- Halt the skill immediately. Do NOT proceed to Step 3 (commit/tag/push).
-- Do NOT re-derive the current branch via shell commands — use the resolved `branchGuard` field only.
-
-If `branchGuard.active === false` (flag was not passed) or `branchGuard.ok === true` (branches match): proceed to Step 2.6.
-
-### Step 2.6 (IDEMPOTENCY): HARD GATE — Already-Bumped Check
-
-**Implements R19 (docs/specs/version-sdlc.md).**
-
-Check `idempotency.alreadyBumped` from `VERSION_CONTEXT_JSON`.
-
-**Guard — absent/null `idempotency` object (version skew):** If `VERSION_CONTEXT_JSON` does not contain an `idempotency` key, or its value is `null`, treat `alreadyBumped` as `false` and proceed to Step 3. Do NOT attempt to access sub-fields on an absent/null object.
-
-If `idempotency.alreadyBumped === true`:
-- Do NOT edit the version file, write CHANGELOG, `git add`, `git commit`, `git tag`, or `git push`.
-- Do NOT re-derive the HEAD tag via shell commands — use the resolved `idempotency` fields only.
-- Derive the effective `NEW_TAG` from the resolved fields:
-  ```
-  const tags = idempotency.headReleaseTags;
-  NEW_TAG = (tags && tags.length > 0)
-    ? (tags.find(t => t.replace(/^v/, '') === currentVersion) ?? tags[0])
-    : undefined;
-  ```
-  (`currentVersion` is `versionSource.currentVersion` from Step 1; `headReleaseTags` is pre-sorted `-v:refname` so `[0]` is the highest. If `headReleaseTags` is empty or absent, `NEW_TAG` is `undefined` — report without a tag name.)
-- Report the skip:
-  ```
-  status: skipped
-  reason: branch already carries release tag <NEW_TAG> — no bump performed
-  ```
-  If `NEW_TAG` is `undefined`, report: `reason: HEAD already tagged (tag name unavailable) — no bump performed`.
-- Halt the release workflow here. Do NOT proceed to Step 3.
-
-If `idempotency.alreadyBumped === false` (or the `idempotency` field is absent/null): proceed to Step 3.
-
-### Step 3 (CRITIQUE): Self-review Against Quality Gates
-
-Review the planned version and CHANGELOG draft against every quality gate in the table below. Note every failing gate before proceeding.
-
-### Step 4 (IMPROVE): Revise Based on Critique
-
-Fix each issue found in Step 3. Continue until all gates pass (max 2 iterations per gate).
+Before presenting, check the plan and changelog draft against the Quality Gates table and fix what fails.
 
 ### Step 5 (DO): Present Release Plan for Approval
 
-**Auto mode:** When `flags.auto` is true, skip the AskUserQuestion prompt entirely. Still display the full release plan for visibility, then proceed directly to Step 6 (pre-condition verification). Treat the response as an implicit `yes`. All critique gates (Steps 3–4) still run — only the interactive approval prompt is skipped. Breaking change warnings are still displayed.
+**Auto mode:** When `flags.auto` is true, skip the AskUserQuestion prompt entirely. Still display the full release plan for visibility, then proceed directly to Step 6 (pre-condition verification). Treat the response as an implicit `yes`. All critique gates (Step 3) still run — only the interactive approval prompt is skipped. Breaking change warnings are still displayed.
 
 Show the full release plan to the user. **Do not execute any git commands before receiving explicit user approval via AskUserQuestion.**
 
@@ -270,9 +194,9 @@ Resolve any issues found in Step 6 before proceeding. If a blocking issue cannot
 Before executing, check whether the project's installed CI scripts need updating.
 This ensures projects that ran `--init` in a prior session get notified about improvements.
 
-Run the check (include `--changelog` only when `config.changelog === true`).
+Include `--changelog` only when `config.changelog === true` (persistent CI opt-in, not this run's flag). <!-- R18 -->
 
-> **Why `config.changelog`, not `flags.changelog`, here?** Step 7.5 scaffolds *persistent* CI scripts that ship with the project; the relevant question is whether the project opts into changelog enforcement long-term, not whether `--changelog` was passed for this single release. This is the only legitimate post-CONSUME reference to `config.changelog` per spec R18 — every other site (Step 2 draft, Step 5 display, Step 8.2 write) gates on `flags.changelog`. Do not "fix" this divergence.
+Run the check.
 
 ```bash
 # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
@@ -359,7 +283,7 @@ If `flags.hotfix === true`, show instead:
 
 ---
 
-### Branch D: Retag Workflow (`mode === "retag"`) — R-RETAG, G8 (implements #424)
+### Branch D: Retag Workflow (`mode === "retag"`) — R-RETAG, G8
 
 **Entry condition:** `VERSION_CONTEXT_JSON.mode === "retag"`. This flow ONLY activates when `mode` from prepare output equals `"retag"` — never re-derive this from raw `$ARGUMENTS` (flag-coherence-cross-skill).
 
@@ -474,7 +398,6 @@ New SHA: <head[:7]>
 
 - Execute any git commands without explicit user approval (`yes`) or auto-mode implicit approval (`flags.auto === true`)
 - Fabricate commit descriptions or changelog entries not backed by real commits
-- Skip the CRITIQUE step even if the plan looks obviously correct
 - Push to remote without checking `flags.noPush`
 - Modify the version file if `config.mode === "tag"` — in tag mode, the version lives in git only
 - Omit the pre-condition verification in Step 6 before executing
@@ -504,7 +427,6 @@ When invoking `error-report-sdlc`, provide:
 
 ## Gotchas
 
-- **`/version-sdlc --retag` vs `retag-release.yml`:** `/version-sdlc --retag` is user-initiated — you deliberately move the existing tag to HEAD after a deliberate decision. The CI workflow `retag-release.yml` is CI-automated squash-drift fix — it fires automatically on push when the tag points to a commit that was squash-merged away. They are orthogonal features; the CI workflow is unaffected by `--retag`, and vice versa. (Implements #424.)
 - **Squash merge orphans tags**: When using GitHub's "squash and merge" strategy, the annotated tag created on the feature branch points to the pre-merge commit, which becomes unreachable from main after merge. The `retag-release.yml` workflow (scaffolded during init) automatically moves the tag to the squash commit on main whenever a push lands on main. Without this workflow, tags are orphaned and `git describe` / `git log --decorate` on main will not show them.
 - `bumpOptions.preRelease` is pre-computed in the JSON only when a pre-release source is active (`--pre`, label-form `<bump>`, or `config.preRelease`). If the user requests a different pre-label during `edit`, re-run the script — the `preRelease` field reflects the label resolved at script invocation, not a label added mid-session.
 - **Version-file edit hard gate:** for ALL version-file formats (JSON, TOML, YAML — package.json, plugin.json, Cargo.toml, pyproject.toml, etc.) use the Edit tool with a single targeted string replacement and verify with `git diff <versionFile>` that exactly one line changed. If more than one line differs, abort and `git checkout -- <versionFile>`. Never use the Write tool or rewrite the file from memory — LLMs reliably truncate or paraphrase fields like `description` (see #211).
@@ -513,26 +435,9 @@ When invoking `error-report-sdlc`, provide:
 - If the working tree has uncommitted changes at execution time, the release commit will include only the staged version file and changelog changes. Warn the user so they are not surprised by files missing from the commit.
 - `conventionalSummary.suggestedBump` is derived from commit types. If there are no conventional commits since the last tag, the suggested bump may default to `patch` — confirm with the user if this seems wrong.
 
-## Changelog Accuracy and Limitations
+## Changelog Accuracy
 
-The automated changelog is a **draft, not a source of truth**. Correctness is the developer's responsibility. The tooling makes changelog maintenance fast, but cannot guarantee accuracy in all workflows.
-
-### Known Limitations
-
-| Limitation | Why it happens | Impact |
-|---|---|---|
-| **Squash merge loses commit granularity** | Squash-merge collapses N commits into 1. After retag, `previousTag..currentTag` on main sees only the squash commit. | Changelog drafted on the feature branch reflects individual commits; after squash, that detail no longer exists in main's git history. |
-| **Post-tag commits not in changelog** | Commits added after tagging but before merge (e.g. code review fixes). | These changes are released but not documented in the original changelog entry. |
-| **Parallel branches / merge order** | Multiple feature branches tag releases concurrently. Merge order determines which squash commit each tag lands on after retag. | Tag may end up on a different commit than intended; changelog was written against a different commit range. |
-| **Conventional commit compliance** | Changelog quality depends on developers writing `feat:`, `fix:`, etc. Non-conforming commits show as "other" and may be skipped. | Incomplete or inaccurate changelog entries. |
-| **LLM-drafted content** | The changelog entry is generated by an LLM from commit data and may misinterpret scope or miss nuances. | Entries require human review before they are authoritative. |
-
-### Mitigation: 4-Layer Defense
-
-1. **CI validates presence** — `check-changelog.cjs` (scaffolded during init when changelog is enabled) fails on push to main if no `## [version]` heading exists. Ensures at least a placeholder entry.
-2. **`/version-sdlc --changelog` on main** — After merge, switch to main and run this command. It re-derives the changelog from the actual `previousTag..currentTag` range (not the feature branch), shows a diff against the existing entry, and lets you approve or edit the update without creating a new tag.
-3. **Retag script advisory** — After retagging, `retag-release.cjs` prints a warning if `changelog: true` and no entry exists for the tag. Reminds developers to verify.
-4. **Manual review** — Before release communications, treat the CHANGELOG as a draft to review, not a finished document.
+The generated changelog is a draft; see `docs/skills/version-sdlc.md` for known limitations.
 
 ## Learning Capture
 

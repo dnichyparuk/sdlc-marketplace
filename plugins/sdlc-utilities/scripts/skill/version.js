@@ -24,6 +24,7 @@
  *   0  Success — JSON written to stdout
  *   1  User-facing error — JSON with errors[] written to stdout
  *   2  Unexpected script error
+ *   3  Expected-branch guard failed — JSON with errors[0] = branchGuard.message
  *
  * @module version-prepare
  */
