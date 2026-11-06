@@ -4,7 +4,7 @@ Ready-to-use dimension files. Copy any of these to your project's
 `.sdlc/review-dimensions/` directory and adjust triggers and instructions
 for your tech stack.
 
-> **Note on `model:`** — every example below carries a `model:` recommendation matched to the dimension's precision/cost trade-off. The values are recommendations only; adopters should override per project budget and quality needs. Omit the field entirely to inherit the manifest default (`manifest.subagent_model`).
+> **Note on `model:`** — every example below carries a `model:` recommendation matched to the dimension's precision/cost trade-off. The values are recommendations only; adopters should override per project budget and quality needs. Omit the field entirely to inherit the manifest default (`manifest.subagent_model`). Pair `model:` with `effort:` when you need to deviate from the default (`medium`): sonnet at medium effort is the measured sweet spot for code review; use `high` for security-class dimensions and `low` for pure pattern checks.
 
 ---
 
@@ -41,7 +41,7 @@ Review changes against the OWASP Top 10 (2025).
 
 ## Tagging Instruction (REQUIRED)
 
-For every finding, set `**OWASP:**` to the matching category code (`A01`–`A10`). When a finding spans multiple categories, pick the most specific. Omit the field only when no OWASP category applies (rare).
+For every finding, set the `owasp` key of the finding JSON to the matching category code (`A01`–`A10`). When a finding spans multiple categories, pick the most specific. Omit the field only when no OWASP category applies (rare).
 
 ## Checklist
 
@@ -73,6 +73,7 @@ For every finding, set `**OWASP:**` to the matching category code (`A01`–`A10`
 ```
 
 > `model:` — optional. Forces this dimension's subagent onto the named model. Omit to inherit the manifest default.
+> `effort:` — optional. Sets this dimension's subagent effort (`low` to `max`). Omit to inherit the manifest default (`medium`).
 
 ---
 

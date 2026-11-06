@@ -13,8 +13,8 @@
 - A4: `--amend` — amend the most recent commit instead of creating a new one (default: false)
 - A5: `--auto` — skip interactive approval prompt; critique gates still run (default: false)
 - A6: `--force-default-branch` — Allow `--auto` commits on the default branch; ignored when on a non-default branch. Internal-grade override; no config-driven equivalent.
-- A7: `--subject <text>` — use `<text>` verbatim as the commit subject; the orchestrator writes only the body (R-subject-verbatim, R-subject-precheck). The value reaches `skill/commit.js` through the Step 0 command line, so it must not contain `"`, a backtick, `$` or `\` (the plan-sdlc R66 set); a subject that needs one of them goes through `--message-file` (default: unset)
-- A8: `--message-file <path>` — commit the file's content as the whole message; the commit-orchestrator is not dispatched (R-message-file). The path reaches `skill/commit.js` through the Step 0 command line, so it must not contain `"`, a backtick, `$`, `\`, a newline or a carriage return (default: unset)
+- A7: `--subject <text>` — use `<text>` verbatim as the commit subject; the orchestrator writes only the body (R-subject-verbatim, R-subject-precheck). The value reaches `skill/commit.js` through the Step 0 command line, so it must not contain `"`, a backtick, `$` or `\` (the plan-sdlc R66 set); a subject that needs one of them goes through `--message-file`; the R5 trailers still apply (default: unset)
+- A8: `--message-file <path>` — commit the file's content as the whole message; the commit-orchestrator is not dispatched (R-message-file). The path reaches `skill/commit.js` through the Step 0 command line, so it must not contain `"`, a backtick, `$`, `\`, a newline or a carriage return; the R5 trailers are checked (G10), not added (default: unset)
 - A9: `--expected-subject <text>` — the subject the caller expects; a different subject stops the commit (R-expected-subject, E10). Like A7, it must not contain `"`, a backtick, `$` or `\` (R-subject-precheck) (default: unset)
 - R-expected-branch: When `--expected-branch <name>` flag is present, `skill/commit.js` MUST compare `git branch --show-current` to `<name>` via `lib/branch-guard.js::validateExpectedBranch`. The result MUST be attached as `branchGuard` field in commit-context output alongside the existing `currentBranch` field, with shape `{ ok: boolean, currentBranch: string, expectedBranch: string | null, active: boolean, message: string | null }`. On mismatch (`branchGuard.ok === false`), the prepare script MUST exit non-zero and emit `branchGuard.message` on stderr; the JSON output channel MUST NOT be corrupted. SKILL.md MUST abort before any `git commit` invocation when `branchGuard.active === true` AND `branchGuard.ok === false`, surfacing `branchGuard.message` verbatim. When `--expected-branch` is absent, `branchGuard.active === false` and behaviour is byte-identical to current (excluding the new field).
   - Acceptance: `skill/commit.js` parses `--expected-branch`; prepare output includes `branchGuard.ok`, `branchGuard.currentBranch`, `branchGuard.expectedBranch`, `branchGuard.active`, `branchGuard.message`; mismatch exits 3 with stderr; match exits 0 with `ok: true`; absent flag exits 0 with `active: false`; SKILL.md handles exit 3 immediately after the prepare call — shows `errors[0]` (the guard message) and stops before any `git commit` — without re-deriving the current branch.
@@ -45,7 +45,8 @@
 - R2: Generate a commit message that matches the detected project style
 - R3: When `commitConfig` is present, constrain type selection to `allowedTypes` and scope selection to `allowedScopes`
 - R4: When `commitConfig.requireBodyFor` includes the selected type, the commit body must be non-empty
-- R5: When `commitConfig.requiredTrailers` is set, include all listed trailer keys in the commit body
+- R5: When `commitConfig.requiredTrailers` is set, each entry is a trailer line the commit body must end with. An entry is `Key` (key only) or `Key: Value`, where `Key` matches `^[A-Za-z][A-Za-z0-9-]*$` and `Value` is non-empty, one line, after exactly one space. `skill/commit.js` resolves the list once into `commitConfig.trailers` (P13), `[{ key, value }]` with `value` null for a key-only entry. The commit-orchestrator writes a valued entry as `Key: Value` verbatim and a key-only entry with an empty value, and never invents a value. The trailers also apply with `--subject` (A7); with `--message-file` (A8) they are checked by G10, not added. A malformed entry is a prepare error: `errors[]` entry `commit.requiredTrailers entry <JSON value> is not "Key" or "Key: Value"`, exit 1 (E1).
+  - Acceptance: exec cases `commit-trailers: (a)`, `(b)` and `(c)` in `tests/promptfoo/datasets/commit-prepare-exec.yaml`.
 - R7: When `--amend` is set and `lastCommitMessage` is available, use it as the starting point and revise based on the current staged diff
 - R8: When `--auto` is set, skip AskUserQuestion approval but still display the commit plan and run all critique gates
 - R9: OpenSpec scope hint: when `flags.scope` is not set, check for an active OpenSpec change and use its directory name as a candidate scope (style precedence applies)
@@ -96,7 +97,7 @@ None.
 - G7: Body relevance — body adds "why" context or is absent; does not restate the subject
 - G8: Pattern match — subject matches `commitConfig.subjectPattern` regex (skip when config absent)
 - G9: Required body — body present when type is in `commitConfig.requireBodyFor` (skip when config absent)
-- G10: Required trailers — all `commitConfig.requiredTrailers` keys present in body (skip when config absent)
+- G10: Required trailers — for every `commitConfig.trailers` entry the body holds a trailer line: exactly `Key: Value` for a valued entry, a line starting `Key:` for a key-only entry (skip when config absent)
 
 ## Prepare script contract
 
@@ -112,7 +113,7 @@ None.
 - P10: `unstaged.hasChanges` (boolean) — whether unstaged changes exist
 - P11: `recentCommits` (string[]) — last 15 commits in oneline format
 - P12: `lastCommitMessage` (string | null) — previous commit message (only when amend is true)
-- P13: `commitConfig` (object | null) — commit validation config from `.sdlc/config.json`
+- P13: `commitConfig` (object | null) — commit validation config from `.sdlc/config.json`; when `requiredTrailers` is set it also carries `trailers` (`[{ key, value }]`, R5)
 
 ## Failure handling and resume
 

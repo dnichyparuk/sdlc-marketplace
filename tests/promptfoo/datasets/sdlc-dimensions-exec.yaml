@@ -260,3 +260,29 @@
       value: "PASS: Test 4"
     - type: icontains
       value: "PASS: Test 5"
+
+- description: "dimension-effort: valid effort field passes (D14 clean)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/project-dimension-effort"
+  assert:
+    - type: icontains
+      value: '"overall": "PASS"'
+    - type: regex
+      value: '"total_errors":\s*0'
+    - type: not-icontains
+      value: "D11"
+
+- description: "dimension-effort: invalid effort triggers D14 warning"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/project-invalid-dimension-effort"
+  assert:
+    - type: icontains
+      value: "D14"
+    - type: icontains
+      value: "HAS_WARNINGS"
+    - type: regex
+      value: '"total_errors":\s*0'

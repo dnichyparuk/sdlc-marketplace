@@ -7,12 +7,16 @@
  *
  * Usage:
  *   node received-review-prepare.js --pr <number> [options]
+ *   node received-review-prepare.js --comment-file <path> [options]
  *
  * Options:
- *   --pr <number>          PR number (required)
+ *   --pr <number>          PR number (required unless --comment-file is given)
+ *   --comment-file <path>  Parse findings from a review-sdlc comment file (no gh call; --pr wins if both)
  *   --owner <owner>        Repository owner (auto-detect from git remote if omitted)
  *   --repo <repo>          Repository name (auto-detect if omitted)
  *   --project-root <path>  Project root (default: cwd)
+ *   --auto                 Auto-proceed mode (surfaced as flags.auto in the manifest)
+ *   --output-file          Accepted for convention; the manifest file is always written
  *
  * Exit codes:
  *   0 = success, JSON on stdout (including when PR has no review threads)
@@ -241,6 +245,7 @@ function parseArgs(argv) {
   let repo = null;
   let projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/ (overridable via --project-root)
   let auto = false;
+  let commentFile = null;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -249,9 +254,54 @@ function parseArgs(argv) {
     else if (a === '--repo' && args[i + 1])     repo = args[++i];
     else if (a === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
     else if (a === '--auto')                    auto = true;
+    else if (a === '--comment-file' && args[i + 1]) commentFile = path.resolve(args[++i]);
+    else if (a === '--output-file')          { /* accepted for convention; writeOutput always writes the manifest file and prints its path */ }
   }
 
-  return { prNumber, owner, repo, projectRoot, auto };
+  return { prNumber, owner, repo, projectRoot, auto, commentFile };
+}
+
+// ---------------------------------------------------------------------------
+// Review-comment findings parsing (--comment-file, P17)
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a review-sdlc consolidated comment (the `renderComment` block format) into findings.
+ *
+ * @param {string} text  Comment markdown
+ * @param {string} projectRoot
+ * @param {object} knownData  Result of loadKnownHardenData
+ * @returns {Array<{id:string,title:string,severity:string|null,path:string|null,line:number|null,body:string,hardenSurfaceHint:string|null,hardenTargetFileHint:string|null}>}
+ */
+function parseReviewComment(text, projectRoot, knownData) {
+  const lines = String(text).split(/\r?\n/);
+  const headingRe = /^#### \[(CRITICAL|HIGH|MEDIUM|LOW|INFO)\] (.+)$/;
+  const endRe = /^(#### \[|### |<\/details>|---)/;
+  const fileRe = /^\*\*File:\*\* `([^`]+?):(\d+)`/;
+  const findings = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = headingRe.exec(lines[i]);
+    if (!m) continue;
+    let end = i + 1;
+    while (end < lines.length && !endRe.test(lines[end])) end++;
+    const blockLines = lines.slice(i + 1, end);
+    const fileLine = blockLines.find(l => l.trim() !== '');
+    const fm = fileLine ? fileRe.exec(fileLine) : null;
+    const body = blockLines.join('\n').trim();
+    const tag = m[1].toLowerCase();
+    findings.push({
+      id: 'F' + (findings.length + 1),
+      title: m[2].trim(),
+      severity: tag === 'info' ? null : tag,
+      path: fm ? fm[1] : null,
+      line: fm ? Number(fm[2]) : null,
+      body,
+      hardenSurfaceHint: inferHardenSurfaceHint(body, knownData),
+      hardenTargetFileHint: inferHardenTargetFileHint(body, projectRoot),
+    });
+    i = end - 1;
+  }
+  return findings;
 }
 
 // ---------------------------------------------------------------------------
@@ -288,7 +338,7 @@ function classifyThread(thread, currentUser, changedFileSet) {
 // ---------------------------------------------------------------------------
 
 function main() {
-  const { prNumber, owner: cliOwner, repo: cliRepo, projectRoot, auto } = parseArgs(process.argv);
+  const { prNumber, owner: cliOwner, repo: cliRepo, projectRoot, auto, commentFile } = parseArgs(process.argv);
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
   const skipConfigCheck = resolveSkipConfigCheck(process.argv);
@@ -300,6 +350,43 @@ function main() {
       flags: { skipConfigCheck },
       migration: cv.migration,
     }, 'received-review-manifest', 1);
+    return;
+  }
+
+  if (prNumber != null && !isNaN(prNumber) && commentFile) {
+    process.stderr.write('Note: --pr given; --comment-file ignored.\n');
+  } else if (commentFile) {
+    // Comment-file path (A3/P16-P18): no gh call, findings parsed from a review comment.
+    const knownData = loadKnownHardenData(projectRoot);
+    const version = getPluginVersion();
+    const flags = {
+      auto,
+      alwaysFixSeverities: resolveAlwaysFixSeverities(projectRoot),
+      alwaysHardenFromReview: resolveAlwaysHardenFromReview(projectRoot),
+      hardenClusterCap: resolveHardenClusterCap(projectRoot),
+    };
+    let text;
+    try {
+      text = fs.readFileSync(commentFile, 'utf8');
+    } catch (_) {
+      process.stderr.write(`Error: --comment-file ${commentFile} is not a readable file.\n`);
+      process.exit(2);
+    }
+    const findings = parseReviewComment(text, projectRoot, knownData);
+    writeOutput({
+      version: 1,
+      timestamp: new Date().toISOString(),
+      source: 'comment-file',
+      comment_file: commentFile,
+      pr: null,
+      currentUser: null,
+      flags,
+      threads: [],
+      findings,
+      summary: { total: findings.length, outstanding: findings.length, resolved: 0, selfReplied: 0, stale: 0 },
+      plugin_version: version,
+      reply_footer: '\n\n_via `received-review-sdlc` v' + version + '_',
+    }, 'received-review-manifest');
     return;
   }
 
@@ -408,6 +495,9 @@ function main() {
   const manifest = {
     version: 1,
     timestamp: new Date().toISOString(),
+    source: 'pr',
+    comment_file: null,
+    findings: [],
     pr: { number: prNumber, owner, repo },
     currentUser,
     flags: { auto, alwaysFixSeverities, alwaysHardenFromReview, hardenClusterCap },
@@ -429,4 +519,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseArgs, classifyThread, resolveAlwaysHardenFromReview, resolveHardenClusterCap, inferHardenSurfaceHint, inferHardenTargetFileHint };
+module.exports = { parseArgs, parseReviewComment, classifyThread, resolveAlwaysHardenFromReview, resolveHardenClusterCap, inferHardenSurfaceHint, inferHardenTargetFileHint };

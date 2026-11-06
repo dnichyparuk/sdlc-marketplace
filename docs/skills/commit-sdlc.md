@@ -171,7 +171,7 @@ Commit message validation is configured in `.sdlc/config.json` under the `commit
     "allowedTypes": ["feat", "fix", "refactor", "docs", "test", "chore"],
     "allowedScopes": ["auth", "api", "ui", "db", "cli"],
     "requireBodyFor": ["breaking"],
-    "requiredTrailers": ["Co-Authored-By"]
+    "requiredTrailers": ["Co-Authored-By: Claude <noreply@anthropic.com>", "Reviewed-By"]
   }
 }
 ```
@@ -185,7 +185,7 @@ Commit message validation is configured in `.sdlc/config.json` under the `commit
 | `allowedTypes` | array of strings | Allowed commit types when using conventional commits (e.g., `feat`, `fix`, `refactor`). Applies only to `--type` flag and auto-detection. Absence allows any type. |
 | `allowedScopes` | array of strings | Allowed commit scopes (the parenthetical in `feat(scope)`). Applies only to `--scope` flag and auto-detection. Absence allows any scope. |
 | `requireBodyFor` | array of strings | Commit types that require a body message (lines after a blank line). Checked as a quality gate. |
-| `requiredTrailers` | array of strings | Required trailer keys in the commit message (e.g., `Co-Authored-By`, `Reviewed-By`). Checked as a quality gate. |
+| `requiredTrailers` | array of strings | Required commit trailers. An entry is a key (`Reviewed-By`, written with an empty value) or a key with its value (`Co-Authored-By: Name <email>`, written verbatim). Checked as a quality gate. |
 
 ### Flag Conflicts with Configuration
 

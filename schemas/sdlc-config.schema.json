@@ -105,7 +105,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Required trailer keys in commit message."
+          "description": "Required commit trailers: each entry is a key (\"Reviewed-by\") or a key with its value (\"Co-Authored-By: Name <email>\"). A key-only entry is written with an empty value; a valued entry is written verbatim."
         }
       },
       "additionalProperties": false

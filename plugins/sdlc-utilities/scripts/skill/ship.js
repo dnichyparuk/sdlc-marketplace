@@ -40,7 +40,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const LIB = path.join(__dirname, '..', 'lib');
 
-const { exec, checkGitState, detectBaseBranch, deriveWorkspace, parseRemoteOwner, probeGhAuth, formatAccountMismatch, probeRepoAccess, formatAccessDenied, getTagList } = require(path.join(LIB, 'git'));
+const { exec, checkGitState, detectBaseBranch, deriveWorkspace, parseRemoteOwner, probeGhAuth, formatAccountMismatch, probeRepoAccess, formatAccessDenied, getTagList, fetchPrMetadata } = require(path.join(LIB, 'git'));
 const { resolveMainWorktree, detectResumeState: detectResumeStateLib, resolveStateDir, findStateFile, readState, slugifyBranch, parseStateFilename, claimSession, writeState, deleteState, migrateBranchSlug, listBranches, readTtlDaysFromConfig } = require(path.join(LIB, 'state'));
 const { parseArgs: parseStepArgs, createEnvelope } = require(path.join(LIB, 'stepper'));
 const shipState = require(path.join(__dirname, '..', 'state', 'ship'));
@@ -56,7 +56,7 @@ const { detectActiveChanges, isArchived, getTaskCounts, validateChangeStrict } =
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { PRE_RELEASE_LABEL_RE } = require(path.join(LIB, 'version'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
-const { parsePlanCommit } = require(path.join(LIB, 'plan-parse'));
+const { parsePlanCommit, extractTasks, taskSection, parseFilesEntries } = require(path.join(LIB, 'plan-parse'));
 
 const VALID_QUALITY = ['full', 'balanced', 'minimal'];
 
@@ -417,7 +417,7 @@ function stepAgent(file) {
   return stepAgentCache[file];
 }
 
-function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject = null } = {}) {
+function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject = null, planFixSubject = null } = {}) {
   // Steps[] is the canonical source of truth for which top-level steps run.
   // A step IS skipped when it is NOT in flags.steps. The provenance for an
   // exclusion is whatever determined the resolved steps[] (cli --steps /
@@ -525,6 +525,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       skipSource: 'none',
       args: [
         '--auto',
+        planFixSubject ? `--subject "${planFixSubject}"` : '',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
       reason: 'triggered if review fixes applied',
@@ -1338,6 +1339,25 @@ const OPENSPEC_STEP_SCRIPT   = path.join(__dirname, 'openspec-step.js');
 // W44-R6: the change name is quoted inside an emitted shell command, so only these characters pass.
 const OPENSPEC_CHANGE_RE     = /^[A-Za-z0-9._-]+$/;
 const STAGE_COMMAND = "git add -A -- ':!.sdlc/'";
+
+/** R8: STAGE_COMMAND, then `git add -- <paths>` for the plan's existing, not-ignored `.sdlc/` Files paths. */
+function stageCommands(planFile, cwd) {
+  let text = '';
+  try { text = fs.readFileSync(planFile, 'utf8'); } catch { return [STAGE_COMMAND]; }
+  const paths = new Set();
+  for (const t of extractTasks(text)) {
+    for (const e of parseFilesEntries(taskSection(t.body))) {
+      if (e.kind === 'Test') continue;
+      const p = e.path;
+      if (!p.startsWith('.sdlc/') || !/^[A-Za-z0-9._/-]+$/.test(p)) continue;
+      if (!fs.existsSync(path.join(cwd, p))) continue;
+      if (spawnSync('git', ['check-ignore', '-q', '--', p], { cwd, timeout: 8000 }).status === 0) continue;
+      paths.add(p);
+    }
+  }
+  return paths.size ? [STAGE_COMMAND, `git add -- ${[...paths].sort().join(' ')}`] : [STAGE_COMMAND];
+}
+
 const LEARNINGS_COMMIT_COMMAND = 'git diff --quiet -- .sdlc/learnings/log.md || { git add .sdlc/learnings/log.md && git commit -m "chore(ship-sdlc): capture pipeline learnings" && { git push || echo "push failed (non-fatal)" >&2; }; }';
 
 /**
@@ -1471,32 +1491,39 @@ function deriveBranchFromPlan(planPath, config) {
  * R-plan-commit-subject / plan-sdlc R66: the plan header's `**Commit:** `<subject>`` field.
  * The header is every line before the first `---`, `## ` or `### ` line; per-task
  * `**Commit:**` notes below it are prose and are not read.
- * @returns {{ subject: string|null, error: string|null }}  both null when there is no field
+ * The `**Fix commit:**` field is read the same way and goes to commit-fixes.
+ * @returns {{ subject: string|null, fixSubject: string|null, error: string|null }}  null when there is no field
  */
 function readPlanCommitSubject(planFile, subjectPattern = null) {
-  if (!planFile) return { subject: null, error: null };
+  if (!planFile) return { subject: null, fixSubject: null, error: null };
   let text;
   try { text = fs.readFileSync(planFile, 'utf8'); } catch (err) {
     // A missing plan means no field (resolvePlanFile reports it); any other failure must not skip the check silently.
-    if (err.code === 'ENOENT') return { subject: null, error: null };
-    return { subject: null, error: `The plan ${planFile} cannot be read (${err.code || err.message}), so its **Commit:** field cannot be checked. Fix: make the plan a readable markdown file. Why: ship forwards the planned subject verbatim to commit-sdlc.` };
+    if (err.code === 'ENOENT') return { subject: null, fixSubject: null, error: null };
+    return { subject: null, fixSubject: null, error: `The plan ${planFile} cannot be read (${err.code || err.message}), so its **Commit:** and **Fix commit:** fields cannot be checked. Fix: make the plan a readable markdown file. Why: ship forwards the planned subjects verbatim to commit-sdlc.` };
   }
-  const { subject, failure } = parsePlanCommit(text, subjectPattern);
-  if (!failure) return { subject, error: null };
-  const fail = (why) => ({
+  const errorFor = (label, failure, why) => ({
     subject: null,
-    error: `The **Commit:** field in the header of ${planFile} ${why}. ` +
-      'Fix: write it once, as **Commit:** `<subject>` — one line of at most 72 characters, without ", `, $ or \\, matching commit.subjectPattern. ' +
-      'Why: ship forwards it verbatim to commit-sdlc as --subject.',
+    fixSubject: null,
+    error: `The **${label}:** field in the header of ${planFile} ${why}. ` +
+      `Fix: write it once, as **${label}:** \`<subject>\` — one line of at most 72 characters, without ", \`, $ or \\, matching commit.subjectPattern. ` +
+      `Why: ship forwards it verbatim to ${label === 'Commit' ? 'commit-sdlc' : 'commit-fixes'} as --subject.`,
   });
-  switch (failure.code) {
-    case 'duplicate': return fail('appears more than once');
-    case 'format': return fail('is not one backticked subject');
-    case 'length': return fail(`is ${failure.length} characters long`);
-    case 'chars': return fail('contains ", $ or \\');
-    case 'pattern-invalid': return fail(`cannot be checked: commit.subjectPattern is not a valid regex (${failure.error})`);
-    default: return fail(`does not match commit.subjectPattern ${subjectPattern}`);
-  }
+  const describe = (label, failure) => {
+    switch (failure.code) {
+      case 'duplicate': return errorFor(label, failure, 'appears more than once');
+      case 'format': return errorFor(label, failure, 'is not one backticked subject');
+      case 'length': return errorFor(label, failure, `is ${failure.length} characters long`);
+      case 'chars': return errorFor(label, failure, 'contains ", $ or \\');
+      case 'pattern-invalid': return errorFor(label, failure, `cannot be checked: commit.subjectPattern is not a valid regex (${failure.error})`);
+      default: return errorFor(label, failure, `does not match commit.subjectPattern ${subjectPattern}`);
+    }
+  };
+  const main = parsePlanCommit(text, subjectPattern);
+  if (main.failure) return describe('Commit', main.failure);
+  const fix = parsePlanCommit(text, subjectPattern, 'Fix commit');
+  if (fix.failure) return describe('Fix commit', fix.failure);
+  return { subject: main.subject, fixSubject: fix.subject, error: null };
 }
 
 function lastHistory(ledger, id) {
@@ -1595,7 +1622,7 @@ function reviewSummaryPath(branch) {
  * missing summary).
  */
 function reviewGateFromSummary(summaryPath, threshold, opts = {}) {
-  const missing = { dispatchReceivedReview: true, reason: REVIEW_SUMMARY_MISSING, counts: null, verdict: null, summaryFound: false };
+  const missing = { dispatchReceivedReview: true, reason: REVIEW_SUMMARY_MISSING, counts: null, verdict: null, summaryFound: false, commentPath: null };
   let doc;
   try {
     const st = fs.statSync(summaryPath);
@@ -1612,6 +1639,7 @@ function reviewGateFromSummary(summaryPath, threshold, opts = {}) {
     dispatchReceivedReview: met,
     reason: met ? `findings at or above reviewThreshold (${threshold})` : `no findings at or above reviewThreshold (${threshold})`,
     counts, verdict: doc.verdict, summaryFound: true,
+    commentPath: typeof doc.commentPath === 'string' ? doc.commentPath : null,
   };
 }
 
@@ -1651,7 +1679,16 @@ function reviewGateDecision(ledger) {
   const notBefore = review && review.startedAt ? Date.parse(review.startedAt) : 0;
   const summaryPath = reviewSummaryPath(ledger.branch);
   const r = reviewGateFromSummary(summaryPath, threshold, { notBefore });
-  return { parseable: r.summaryFound, threshold, verdict: r.verdict, counts: r.counts, met: r.dispatchReceivedReview, summaryFound: r.summaryFound, summaryPath, reason: r.reason };
+  return { parseable: r.summaryFound, threshold, verdict: r.verdict, counts: r.counts, met: r.dispatchReceivedReview, summaryFound: r.summaryFound, summaryPath, reason: r.reason, commentPath: r.commentPath };
+}
+
+/** R77: the findings input of dispatch_received_review: '--pr <N>', '--comment-file "<path>"' or ''. Never throws. */
+function receivedReviewInput(ledger) {
+  const pr = fetchPrMetadata();
+  if (pr.exists && pr.state === 'OPEN' && Number.isInteger(pr.number) && pr.number > 0) return `--pr ${pr.number}`;
+  const p = reviewGateDecision(ledger).commentPath;
+  if (typeof p === 'string' && path.isAbsolute(p) && !/["`$\\\n\r]/.test(p) && fs.existsSync(p)) return `--comment-file "${p}"`;
+  return '';
 }
 
 /** Reason a conditional step's condition is not met, or null when it is met. */
@@ -1673,7 +1710,14 @@ function unmetCondition(name, ledger) {
   return null; // archive-openspec: met whenever computeSteps returns it conditional
 }
 
-/** Step 6 report data: step statuses, usage totals, PR url. */
+/** R78: subject of `sha` in the active worktree; null on any git error. */
+function commitSubject(sha, cwd) {
+  if (typeof sha !== 'string' || !/^[0-9a-fA-F]{4,40}$/.test(sha)) return null;
+  const r = spawnSync('git', ['log', '-1', '--format=%s', sha], { cwd, encoding: 'utf8', timeout: 8000 });
+  return r.status === 0 && r.stdout.trim() ? r.stdout.trim() : null;
+}
+
+/** Step 6 report data: step statuses, usage totals, PR url, step commits, review summary path (R78). */
 function buildSummary(ledger) {
   const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
   for (const s of ledger.steps || []) {
@@ -1684,10 +1728,23 @@ function buildSummary(ledger) {
   const pr = lastHistory(ledger, 'dispatch_pr');
   const handoff = lastHistory(ledger, 'execute_handoff');
   const attested = !!(handoff && handoff.data && handoff.data.source === 'user-attested');
+  const shas = new Map();
+  for (const h of ledger.history || []) {
+    const sha = h.result === 'success' && h.data && h.data.artifacts && h.data.artifacts.commit;
+    const stepName = STEP_ID_TO_LEDGER_NAME[h.step];
+    if (stepName && typeof sha === 'string') shas.set(stepName, sha);
+  }
+  const worktree = resolveActiveWorktreeSafe();
+  const commits = [...shas].map(([step, sha]) => ({ step, sha, subject: commitSubject(sha, worktree) }));
+  const review = (ledger.steps || []).find(s => s.name === 'review');
+  const summaryFileCandidate = reviewSummaryPath(ledger.branch);
+  const summaryFile = review && review.status === 'completed' && fs.existsSync(summaryFileCandidate) ? summaryFileCandidate : null;
   return {
     steps: (ledger.steps || []).map(s => ({ name: s.name, status: s.status, ...(attested && s.name === 'execute' ? { source: 'user-attested' } : {}) })),
     usage,
     prUrl: (pr && pr.data && pr.data.artifacts && pr.data.artifacts.prUrl) || null,
+    commits,
+    reviewSummaryPath: summaryFile,
   };
 }
 
@@ -1775,7 +1832,7 @@ function pickNextStep(after, ctx) {
       }
       case 'stage_changes':
         if (!recorded.has('execute')) continue;
-        data = { commands: [STAGE_COMMAND] };
+        data = { commands: stageCommands(flags.planFile, resolveActiveWorktreeSafe()) };
         break;
       case 'review_gate': {
         if (!recorded.has('review')) continue;
@@ -1884,6 +1941,13 @@ function pickNextStep(after, ctx) {
         break;
       default: // dispatch_*
         data = { skill: cs.skill, args: cs.args, invocation: cs.invocation, agent: cs.agent, model: cs.model, ...(cs.effort ? { effort: cs.effort } : {}), ...(cs.isolation ? { isolation: cs.isolation } : {}) };
+        if (id === 'dispatch_received_review') {
+          const input = receivedReviewInput(ledger);
+          if (input) {
+            data.args = `${cs.args} ${input}`;
+            data.invocation = `skill: "${cs.skill}", args: "${data.args}"`;
+          }
+        }
         if (id === 'dispatch_execute') {
           // L22: a resumed run (execute in_progress with an execute state file) forwards --resume only.
           const exec0 = entryOf('execute');
@@ -2038,6 +2102,7 @@ function runAfter(stepArgs) {
     expectedBranch: ledger.branch,
     planFile: flags.planFile,
     planSubject: planCommit.subject,
+    planFixSubject: planCommit.fixSubject,
   });
   const total = countTotal(steps);
   const skipped = [];
@@ -2760,7 +2825,7 @@ function main() {
     tasksDone: openspecMatchedChange ? openspecMatchedChange.tasksDone : null,
     tasksTotal: openspecMatchedChange ? openspecMatchedChange.tasksTotal : null,
   };
-  const steps = computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject: planCommit.subject });
+  const steps = computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject: planCommit.subject, planFixSubject: planCommit.fixSubject });
 
   // Run validation
   // Ruling pr40 gap (ii): with neither --resume nor --plan, nothing is restored; missingPlanFile
@@ -2936,4 +3001,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseArgs, computeSteps, mergeFlags, loadConfig, detectWorktree };
+module.exports = { parseArgs, computeSteps, mergeFlags, loadConfig, detectWorktree, commitSubject, stageCommands };

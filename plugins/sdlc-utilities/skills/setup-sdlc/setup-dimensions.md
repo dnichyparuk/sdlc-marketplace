@@ -217,7 +217,7 @@ Present the markdown output table. If any file has errors, show the error detail
    | `_common.md` | Common Review Instructions section | Injected after severity, before Checklist (if present) |
    | Body checklist | Checklist section | Strip `- [ ]` → `- ` |
    | `skip-when` | Note section | Advisory text |
-   | `max-files`, `requires-full-diff`, `model` | — | Omit |
+   | `max-files`, `requires-full-diff`, `model`, `effort` | — | Omit |
 
 ---
 

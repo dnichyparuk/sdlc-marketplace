@@ -144,10 +144,10 @@ If a tuning change later degrades output below the contract's bar (e.g., commit 
 | Where effort is set | Status |
 |---|---|
 | Agent frontmatter `effort:` | The three Haiku orchestrators set `effort: low` |
-| Review-dimension frontmatter `effort:` | Not read today; W6b.5 adds the schema field and the `review.js` pass-through |
+| Review-dimension frontmatter `effort:` | Read by `review.js`; D14 warns on a value outside the list, which is then carried as null; review-orchestrator forwards `dimension.effort \|\| manifest.subagent_effort` (`medium`) as the Agent `effort` parameter. Sonnet at medium is the starting point for checklist reviews; this repo raises its security dimension to `high` |
 | Execute worker routing (Agent dispatch `effort` param) | Set per task by the routing table (§5); the first retry raises it one level before the agent tier changes |
 
-Effort is set in agent frontmatter; the validator does not check it.
+Agent frontmatter `effort:` is not checked by a validator. A review dimension's `effort:` is checked by D14 (`validate-dimensions.js`); `validate-cost-tiers.js` does not inspect dimension files.
 
 | Surface | Config A | Config B | Artifacts (n) | Tokens in/out (A, B) | Cost per completed task (A, B) | Completed (A, B) | Decision | Date |
 |---|---|---|---|---|---|---|---|---|

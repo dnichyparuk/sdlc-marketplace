@@ -297,7 +297,7 @@ The next run of `skill/commit.js` prunes the manifest and the message file (R-sc
 | Body relevance | Body adds value or is absent | Does not restate the subject; no filler |
 | Pattern match | Subject matches `commitConfig.subjectPattern` regex | Regex test passes; skip when `commitConfig` is null or `subjectPattern` is absent |
 | Required body | Body present when type in `commitConfig.requireBodyFor` | Body non-empty for the selected type; skip when `commitConfig` is null or `requireBodyFor` is absent |
-| Required trailers | All `commitConfig.requiredTrailers` keys present in body | Every listed trailer key appears; skip when `commitConfig` is null or `requiredTrailers` is absent |
+| Required trailers | Every `commitConfig.trailers` entry present in body | The exact `Key: Value` line for a valued entry, a `Key:` line for a key-only entry; with `--message-file` checked, not added; skip when `commitConfig` is null or `requiredTrailers` is absent |
 
 ## Best Practices
 
