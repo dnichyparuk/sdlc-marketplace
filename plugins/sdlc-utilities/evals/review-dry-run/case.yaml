@@ -10,9 +10,9 @@ graders:
     type: file_exists
     path: .sdlc/execution/review-summary-*.json
     exists: false
-  - name: nothing-at-top-level
+  - name: no-saved-review
     type: file_exists
-    path: "*"
+    path: ".sdlc/reviews/*"
     exists: false
   - name: nothing-under-docs
     type: file_exists

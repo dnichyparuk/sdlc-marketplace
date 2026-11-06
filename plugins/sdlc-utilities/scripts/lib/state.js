@@ -825,6 +825,54 @@ function gcTempdirs({ prefix, ttlDays = 7, knownBranches = [], now, tmpdir } = {
   return result;
 }
 
+/**
+ * Delete aged tempdirs whose name starts with `prefix` (mtime older than TTL).
+ * Best effort: never throws; an fs error on one entry skips that entry.
+ *
+ * @param {object} opts
+ * @param {string}  opts.prefix          directory name prefix, e.g. "sdlc-review-"
+ * @param {number}  [opts.ttlHours=24]   retention window in hours
+ * @param {number}  [opts.now]           current time (ms); defaults to Date.now()
+ * @param {string}  [opts.tmpdir]        override os.tmpdir() for testing
+ * @returns {{ deleted: string[], kept: string[] }}
+ */
+function gcAgedTempdirs({ prefix, ttlHours = 24, now, tmpdir } = {}) {
+  const os = require('os');
+  const scanDir = tmpdir || os.tmpdir();
+  const result = { deleted: [], kept: [] };
+
+  if (!prefix) return result;
+
+  let entries;
+  try {
+    entries = fs.readdirSync(scanDir);
+  } catch (_) {
+    return result;
+  }
+
+  const nowMs = typeof now === 'number' ? now : Date.now();
+  const ttlMs = ttlHours * 3600000;
+
+  for (const name of entries) {
+    if (!name.startsWith(prefix)) continue;
+    const fullPath = path.join(scanDir, name);
+    try {
+      const stat = fs.statSync(fullPath);
+      if (!stat.isDirectory()) continue;
+      if (nowMs - stat.mtimeMs > ttlMs) {
+        fs.rmSync(fullPath, { recursive: true, force: true });
+        result.deleted.push(name);
+      } else {
+        result.kept.push(name);
+      }
+    } catch (_) {
+      // skip this entry
+    }
+  }
+
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // priorWaveContext summarizer (R-BYTE-BUDGET / R-CONTEXT_OVERFLOW hardening, #432)
 // ---------------------------------------------------------------------------
@@ -1057,6 +1105,7 @@ module.exports = {
   parseStateFilename,
   gcStateFiles,
   gcTempdirs,
+  gcAgedTempdirs,
   gcOutputDir,
   pruneStateFiles,
   migrateBranchSlug,

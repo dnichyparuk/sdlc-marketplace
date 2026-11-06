@@ -28,6 +28,8 @@ Branch-contribution diffs (the `committed` and `all` scopes) use git's three-dot
 | `--set-default` | Save the resolved scope to `.claude/review.json` as the project default | — |
 | `--dimensions <name,...>` | Run only the named dimensions (comma-separated) | all matching |
 | `--dry-run` | Show the review plan without dispatching subagents | — |
+| `--auto` | No prompts: the post decision comes from `--post` (default `yes` with a PR, `save` without); no self-fix offer | off |
+| `--post yes\|save\|none` | Post, save to `.sdlc/reviews/`, or keep in the terminal, without asking | ask |
 
 > **Scope flags:** `--committed`, `--staged`, `--working`, and `--worktree` are mutually exclusive. `--staged` and `--working` cannot be combined with `--base`.
 
@@ -314,6 +316,8 @@ After the orchestrator returns, the full consolidated review (all per-dimension 
 
 What you see next depends on whether a PR exists for the current branch and the review scope.
 
+With `--post yes|save|none` (or `--auto`, which defaults to `yes` with a PR and `save` without), the skill asks nothing: `yes` runs the link check below and then posts, `save` writes the review to `.sdlc/reviews/<branch>-<YYYY-MM-DD>.md`, and `none` keeps it in the terminal and prints `Review kept in the terminal (--post none).` `--post yes` on a branch without a PR saves instead, with a warning. Without either flag, the prompts below appear.
+
 ### When a PR exists
 
 After printing the full comment body above, the skill prompts:
@@ -325,7 +329,7 @@ Post this review comment to PR #{number}? (yes / save / cancel)
 | Reply | Effect |
 |-------|--------|
 | `yes` | Posts the comment to the PR via `gh api repos/{owner}/{repo}/issues/{number}/comments -F body=@{comment_file}`. The `-F body=@<path>` form reads the body from the file, so markdown with backticks, quotes, or long content posts reliably — no shell escaping. |
-| `save` | Copies the comment to `.sdlc/reviews/<branch>-<YYYY-MM-DD>.md` (slashes in branch names are replaced with `-`). Does not post. |
+| `save` | Writes the comment to `.sdlc/reviews/<branch>-<YYYY-MM-DD>.md` with the Write tool (characters outside `[A-Za-z0-9_-]` in branch names, such as `/`, are replaced with `-`). No shell command runs, so the save also works in headless runs that allow no Bash. Does not post. |
 | `cancel` | No action. The review remains visible in the terminal only. |
 
 No additional orchestrator or dimension subagent is dispatched after your reply — the comment body was computed during the single orchestrator run and persisted to disk.
@@ -351,7 +355,7 @@ Reviewing local changes — no PR to post to. Options:
 
 ### Comment persistence
 
-During the run, the consolidated comment body is written to `${diff_dir}/review-comment.md` (a temporary location under `$TMPDIR`). The skill reads this path from the orchestrator summary and (a) emits the file's contents verbatim in the terminal before the posting prompt, and (b) uses the same file as the body source for `gh api -F body=@…` or `save` copies. The file is discarded along with the diff dir after the terminal branch — including when you reply `cancel` or the command fails — but its contents remain visible in scrollback.
+During the run, the consolidated comment body is written to `${diff_dir}/review-comment.md` (a temporary location under `$TMPDIR`). The skill reads this path from the orchestrator summary and (a) emits the file's contents verbatim in the terminal before the posting prompt, and (b) uses the same file as the body source for `gh api -F body=@…` or the `save` write. The file is discarded along with the diff dir after the terminal branch — including when you reply `cancel` or the command fails — but its contents remain visible in scrollback.
 
 ---
 
@@ -365,7 +369,7 @@ Would you like to address these findings? (fix / no)
   no  — done
 ```
 
-Choosing `fix` invokes `/received-review-sdlc`, which picks up the findings from conversation context, analyzes each finding against the full codebase context, presents a proposed action plan, and implements only after user approval. The prompt is skipped when the verdict is `APPROVED` (no findings to address).
+Choosing `fix` invokes `/received-review-sdlc`, which picks up the findings from conversation context, analyzes each finding against the full codebase context, presents a proposed action plan, and implements only after user approval. The prompt is skipped when the verdict is `APPROVED` (no findings to address), and under `--auto`, where the skill prints `Self-fix offer skipped (--auto).`
 
 ---
 
@@ -388,7 +392,7 @@ Choosing `fix` invokes `/received-review-sdlc`, which picks up the findings from
 | File / Artifact | Description |
 |-----------------|-------------|
 | GitHub PR comment | Consolidated review findings posted to the current PR |
-| `.sdlc/execution/review-summary-<branch-slug>.json` (main worktree) | Machine-readable review summary (`verdict`, `counts`, `dimensions`; schema `schemas/review-summary.schema.json`), written there by the review orchestrator with its Write tool (no Bash copy). review-sdlc checks it right after the orchestrator returns, before the review is displayed or posted, and stops with `Review summary missing` when it is absent or left by an earlier run; ship-sdlc's `review_gate` reads it (review-sdlc P11). Overwritten by the next review on the branch. |
+| `.sdlc/execution/review-summary-<branch-slug>.json` (main worktree) | Machine-readable review summary (`verdict`, `counts`, `dimensions`; schema `schemas/review-summary.schema.json`), written there by `scripts/skill/review-consolidate.js`, which the review orchestrator runs (no Bash copy). review-sdlc checks it right after the orchestrator returns, before the review is displayed or posted, and stops with `Review summary missing` when it is absent or left by an earlier run; ship-sdlc's `review_gate` reads it (review-sdlc P11). Overwritten by the next review on the branch. |
 
 ## Link Verification (issue #198)
 

@@ -1,0 +1,19 @@
+{
+  "scope": "all",
+  "base_branch": "main",
+  "current_branch": "feat/consolidate-fixture",
+  "plugin_version": "0.20.7",
+  "subagent_model": "sonnet",
+  "git": { "changed_files_count": 4 },
+  "summary": { "active_dimensions": 2, "skipped_dimensions": 1 },
+  "pr": { "exists": false },
+  "diff_dir": "/tmp/sdlc-review-fixture",
+  "post_decision": "save",
+  "save_path": "/tmp/sdlc-review-fixture/review-summary.json",
+  "flags": { "auto": true, "post": null },
+  "dimensions": [
+    { "name": "code-quality", "status": "ACTIVE", "severity": "high", "matched_count": 3, "batch": 1 },
+    { "name": "security-review", "status": "ACTIVE", "severity": "critical", "matched_count": 2, "batch": 1, "model": "opus" },
+    { "name": "docs-review", "status": "SKIPPED", "severity": "low", "matched_count": 0, "batch": 0 }
+  ]
+}

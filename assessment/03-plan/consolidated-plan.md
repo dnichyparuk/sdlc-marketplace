@@ -5545,7 +5545,7 @@ Adopted during M5.1 and at its close; they bind M7 and later briefs. Sources (lo
     - B4 ship-auto-commit-review;
     - B6 standalone `/sdlc:review-sdlc --committed`, on a scaffold with review dimensions and a commit, with the W8.30 file check.
   - **Cap and spend:** about $1.60 in all, with a $3 cap per run and at most one environment-only re-run per ruling. Each close's spend is approved by the owner.
-  - **Mode:** `auto` until #9193 lands. The M7 close e2e is #9193 (c)'s one `dontAsk` re-check; there is no separate credentialed run. After that, B1 and B4 try `dontAsk` first and fall back to `auto` once, disclosed. B6 runs in `dontAsk`, with `Bash(rm -rf:*)` added until #9203 lands.
+  - **Mode:** `dontAsk`. B1 and B4 run with `Write` (B1) and `Write, Edit` (B4) in their `allowed_tools` (owner decision for #9283, 2026-11-05); the M7 close re-check without them was negative. B6 runs in `dontAsk`, with `Bash(rm -rf:*)` added until #9203 lands.
   - **Additions where a milestone touches the surface:**
     - M7: a plan-sdlc case;
     - M8: B3 review-dry-run, B5 ship-review-zero-findings, and a second B6 for #9199;

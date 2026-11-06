@@ -191,7 +191,7 @@ The pipeline table is generated from the `steps` array in the `skill/ship.js` ou
 |------|-------|--------|------|-------|
 | 1 | execute-plan-sdlc | will_run | `--plan "<path>"` (from `context.planFile`, R-PLANFILE), plus `--quality <X>` from `--quality` or, in interactive runs, the `execute_tier` answer, plus `--tasks <ids>` / `--from-wave <n>` when given (implements A13, A14, R76) | no |
 | 2 | commit-sdlc | will_run | `--auto` | no |
-| 3 | review-sdlc | will_run | `--committed` | no |
+| 3 | review-sdlc | will_run | `--committed`, plus `--auto` when ship runs with `--auto` | no |
 | 4 | received-review-sdlc | conditional | (if crit/high) | YES |
 | 5 | commit-sdlc (fixes) | conditional | `--auto` | no |
 | 6 | version-sdlc | skipped | — | — |
@@ -208,7 +208,7 @@ Not all sub-skills support `--auto`. This table is the source of truth:
 |-----------|---------------|--------------------------------------|
 | execute-plan-sdlc | Yes | `--auto` forwarded only when ship runs with `--auto` (no tier is forwarded unless the user passed `--quality`; execute-plan-sdlc resolves it, `balanced` unless resumed — execute A6). In interactive runs ship asks the tier (`execute_tier`) and about an existing execute state file (`execute_state`) before dispatch; a high-risk question comes back as a pending question (`execute_gate`). (Renamed from `--preset` in #190 to disambiguate from ship's step-selection semantics.) |
 | commit-sdlc | Yes | `--auto` always forwarded. Skips commit approval prompt; interactive runs ask `confirm_commit` / `confirm_commit_fixes` first. |
-| review-sdlc | No | No interactive prompts to skip — runs fully automatically already. |
+| review-sdlc | Yes | `--auto` forwarded only when ship runs with `--auto`; review-sdlc then posts when the branch has a PR and saves the review otherwise (review-sdlc P12). |
 | received-review-sdlc | Yes | `--auto` always forwarded. Skips Step 10 consent prompt and Step 12 reply/resolve prompt; interactive consent is `review_gate` (or `confirm_received_review` when `review_gate` did not ask). Critique gates and verification still run. Only "will fix" items auto-implemented; threads for "will fix" items auto-resolved. |
 | version-sdlc | Yes | `--auto` always forwarded. Skips release plan approval prompt; interactive runs ask `confirm_version` first. Pre-condition checks and critique gates still run. |
 | pr-sdlc | Yes | `--auto` always forwarded. Skips PR approval prompt; interactive runs ask `confirm_pr` first. |

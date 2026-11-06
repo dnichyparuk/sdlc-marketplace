@@ -306,6 +306,167 @@
         both the manifest file and the diff dir (`/tmp/review-diff-ghi789`) are cleaned up.
         It does not re-dispatch the orchestrator.
 
+# ---------------------------------------------------------------------------
+# Post decision (A9, A10, P12, #9282, #9201): Step 4 and Step 5 follow the
+# relayed `Post decision:` / `Auto:` / `Save path:` summary lines.
+# ---------------------------------------------------------------------------
+
+- description: "review-sdlc-post: save decision writes save_path with Write and asks nothing"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/review-sdlc/SKILL.md"
+    user_request: |
+      Continue the /review-sdlc flow at Step 4. The review-orchestrator returned this summary,
+      and Step 3 has already read /p/tmp/review-diff-s1/review-comment.md and shown it in full:
+
+      ```text
+      Review complete
+        Dimensions run:  2 (0 skipped — no matching files)
+        Total findings:  1
+          critical: 0 | high: 0 | medium: 1 | low: 0 | info: 0
+        Verdict:         APPROVED WITH NOTES
+        Scope:           Committed branch changes only
+        Branch:          feat/x
+        Comment file:    /p/tmp/review-diff-s1/review-comment.md
+        PR exists:       true
+        PR owner:        acme-corp
+        PR repo:         widgets
+        PR number:       12
+        Diff dir:        /p/tmp/review-diff-s1
+        Post decision:   save
+        Auto:            true
+        Save path:       /p/.sdlc/reviews/feat-x-2026-11-05.md
+      ```
+
+      Describe exactly what Step 4 does next, naming each tool call and its target path.
+  assert:
+    - type: icontains
+      value: "Write"
+    - type: icontains
+      value: "/p/.sdlc/reviews/feat-x-2026-11-05.md"
+    - type: not-contains
+      value: "Post this review comment"
+    - type: not-regex
+      value: 'mkdir -p|cp "'
+    - type: llm-rubric
+      value: >
+        The response saves the review by writing the contents of
+        /p/tmp/review-diff-s1/review-comment.md to /p/.sdlc/reviews/feat-x-2026-11-05.md with
+        the Write tool, makes no Bash call for the save, shows no posting prompt, and does not
+        call gh api.
+
+- description: "review-sdlc-post: yes decision runs link gate then gh api without a prompt"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/review-sdlc/SKILL.md"
+    user_request: |
+      Continue the /review-sdlc flow at Step 4. The review-orchestrator returned this summary,
+      and Step 3 has already read /p/tmp/review-diff-y1/review-comment.md and shown it in full:
+
+      ```text
+      Review complete
+        Dimensions run:  2 (0 skipped — no matching files)
+        Total findings:  1
+          critical: 0 | high: 0 | medium: 1 | low: 0 | info: 0
+        Verdict:         APPROVED WITH NOTES
+        Scope:           Committed branch changes only
+        Branch:          feat/x
+        Comment file:    /p/tmp/review-diff-y1/review-comment.md
+        PR exists:       true
+        PR owner:        acme-corp
+        PR repo:         widgets
+        PR number:       12
+        Diff dir:        /p/tmp/review-diff-y1
+        Post decision:   yes
+        Auto:            false
+        Save path:       /p/.sdlc/reviews/feat-x-2026-11-05.md
+      ```
+
+      Describe exactly what Step 4 does next, in order, including each shell command.
+  assert:
+    - type: regex
+      value: '(?s)links\.js.*?gh api'
+    - type: not-contains
+      value: "Post this review comment"
+    - type: llm-rubric
+      value: >
+        The response runs the link validator (scripts/lib/links.js --file on the comment file)
+        first and, only on a zero exit, posts with
+        `gh api repos/acme-corp/widgets/issues/12/comments -F body=@/p/tmp/review-diff-y1/review-comment.md`.
+        It shows no posting prompt and does not wait for a user reply before posting.
+
+- description: "review-sdlc-post: ask keeps the PR prompt"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/review-sdlc/SKILL.md"
+    user_request: |
+      Continue the /review-sdlc flow at Step 4. The review-orchestrator returned this summary,
+      and Step 3 has already read /p/tmp/review-diff-a1/review-comment.md and shown it in full:
+
+      ```text
+      Review complete
+        Dimensions run:  2 (0 skipped — no matching files)
+        Total findings:  1
+          critical: 0 | high: 0 | medium: 1 | low: 0 | info: 0
+        Verdict:         APPROVED WITH NOTES
+        Scope:           Committed branch changes only
+        Branch:          feat/x
+        Comment file:    /p/tmp/review-diff-a1/review-comment.md
+        PR exists:       true
+        PR owner:        acme-corp
+        PR repo:         widgets
+        PR number:       12
+        Diff dir:        /p/tmp/review-diff-a1
+        Post decision:   ask
+        Auto:            false
+        Save path:       /p/.sdlc/reviews/feat-x-2026-11-05.md
+      ```
+
+      Show exactly what Step 4 displays to the user next, then stop and wait for the reply.
+  assert:
+    - type: contains
+      value: "Post this review comment to PR #12? (yes / save / cancel)"
+    - type: llm-rubric
+      value: >
+        The response shows the PR posting prompt for PR #12 with the yes / save / cancel
+        options and waits for the user's reply. It does not post, save or run gh api before
+        the user answers.
+
+- description: "review-sdlc-post: auto skips the self-fix offer"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/review-sdlc/SKILL.md"
+    user_request: |
+      Continue the /review-sdlc flow. The review-orchestrator returned this summary, Step 3
+      has shown /p/tmp/review-diff-f1/review-comment.md in full, and Step 4 has finished:
+
+      ```text
+      Review complete
+        Dimensions run:  2 (0 skipped — no matching files)
+        Total findings:  2
+          critical: 1 | high: 1 | medium: 0 | low: 0 | info: 0
+        Verdict:         CHANGES REQUESTED
+        Scope:           Committed branch changes only
+        Branch:          feat/x
+        Comment file:    /p/tmp/review-diff-f1/review-comment.md
+        PR exists:       true
+        PR owner:        acme-corp
+        PR repo:         widgets
+        PR number:       12
+        Diff dir:        /p/tmp/review-diff-f1
+        Post decision:   none
+        Auto:            true
+        Save path:       /p/.sdlc/reviews/feat-x-2026-11-05.md
+      ```
+
+      Describe exactly what Step 5 does, including any line it prints.
+  assert:
+    - type: contains
+      value: "Self-fix offer skipped (--auto)."
+    - type: not-contains
+      value: "Address them now?"
+    - type: llm-rubric
+      value: >
+        The response skips the Step 5 self-fix offer because Auto is true, prints
+        `Self-fix offer skipped (--auto).`, and offers neither fix nor harden nor any
+        other prompt.
+
 - description: "review-sdlc: step-3-full-body-display — emits review-comment.md verbatim before posting prompt (issue #176)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/SKILL.md"
@@ -476,14 +637,14 @@
 # ---------------------------------------------------------------------------
 # OWASP Top 10 — issue #272
 # Each case asserts the security-review subagent tags findings with the
-# matching A0x category code per the optional **OWASP:** finding slot
-# defined in REFERENCE.md §2 / §3 and the EXAMPLES.md security-review body.
+# matching A0x category code per the optional `owasp` field of the findings
+# JSON object defined in REFERENCE.md §2 / §3 and the EXAMPLES.md security-review body.
 # ---------------------------------------------------------------------------
 
 - description: "review-sdlc: OWASP A01 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -503,20 +664,20 @@
       OWASP slot is optional but REQUIRED here because the dimension body asks for it.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A01'
+      value: '"owasp"\s*:\s*"A01"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*critical'
+      value: '(?i)"severity"\s*:\s*"critical"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removed admin authorization check.
-        The finding includes a **OWASP:** field set to A01 (broken access control) and a
-        **Severity:** of critical, matching the OWASP defaults from EXAMPLES.md security-review.
-        The finding follows the format from REFERENCE.md §2.
+        The finding includes an `owasp` field set to A01 (broken access control) and a
+        `severity` of critical, matching the OWASP defaults from EXAMPLES.md security-review.
+        The finding follows the JSON format from REFERENCE.md §2.
 
 - description: "review-sdlc: OWASP A02 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -534,19 +695,19 @@
       The dimension body instructs OWASP tagging. Produce the finding per REFERENCE.md §2.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A02'
+      value: '"owasp"\s*:\s*"A02"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*critical'
+      value: '(?i)"severity"\s*:\s*"critical"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the introduction of MD5 password hashing.
-        The finding is tagged **OWASP:** A02 (cryptographic failures) and **Severity:** critical,
+        The finding is tagged with `owasp` A02 (cryptographic failures) and `severity` critical,
         matching the OWASP defaults from EXAMPLES.md security-review.
 
 - description: "review-sdlc: OWASP A03 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -561,19 +722,19 @@
       The dimension body instructs OWASP tagging. Produce the finding per REFERENCE.md §2.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A03'
+      value: '"owasp"\s*:\s*"A03"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*critical'
+      value: '(?i)"severity"\s*:\s*"critical"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the SQL string concatenation introducing
-        injection. The finding is tagged **OWASP:** A03 (injection) and **Severity:** critical,
+        injection. The finding is tagged with `owasp` A03 (injection) and `severity` critical,
         matching the OWASP defaults.
 
 - description: "review-sdlc: OWASP A04 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -593,19 +754,19 @@
       login endpoint to credential stuffing — an insecure-design omission. Produce the finding.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A04'
+      value: '"owasp"\s*:\s*"A04"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*high'
+      value: '(?i)"severity"\s*:\s*"high"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removal of rate limiting on login.
-        The finding is tagged **OWASP:** A04 (insecure design) and **Severity:** high, matching
+        The finding is tagged with `owasp` A04 (insecure design) and `severity` high, matching
         the OWASP defaults from EXAMPLES.md security-review.
 
 - description: "review-sdlc: OWASP A05 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -622,19 +783,19 @@
       The dimension body instructs OWASP tagging. Produce the finding per REFERENCE.md §2.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A05'
+      value: '"owasp"\s*:\s*"A05"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*high'
+      value: '(?i)"severity"\s*:\s*"high"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the overly permissive CORS configuration
-        (origin '*' with credentials true). The finding is tagged **OWASP:** A05 (security
-        misconfiguration) and **Severity:** high.
+        (origin '*' with credentials true). The finding is tagged with `owasp` A05 (security
+        misconfiguration) and `severity` high.
 
 - description: "review-sdlc: OWASP A06 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -652,19 +813,19 @@
       instructs OWASP tagging. Produce the finding.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A06'
+      value: '"owasp"\s*:\s*"A06"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*high'
+      value: '(?i)"severity"\s*:\s*"high"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for adding a dependency at a version with
-        a known CVE. The finding is tagged **OWASP:** A06 (vulnerable & outdated components) and
-        **Severity:** high.
+        a known CVE. The finding is tagged with `owasp` A06 (vulnerable & outdated components) and
+        `severity` high.
 
 - description: "review-sdlc: OWASP A07 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -682,19 +843,19 @@
       route — an authentication failure. Produce the finding.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A07'
+      value: '"owasp"\s*:\s*"A07"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*critical'
+      value: '(?i)"severity"\s*:\s*"critical"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removal of authentication from a
-        billing endpoint. The finding is tagged **OWASP:** A07 (identification & authentication
-        failures) and **Severity:** critical, matching the OWASP defaults.
+        billing endpoint. The finding is tagged with `owasp` A07 (identification & authentication
+        failures) and `severity` critical, matching the OWASP defaults.
 
 - description: "review-sdlc: OWASP A08 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -714,19 +875,19 @@
       a software/data integrity failure. Produce the finding.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A08'
+      value: '"owasp"\s*:\s*"A08"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*high'
+      value: '(?i)"severity"\s*:\s*"high"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for replacing JSON.parse with the unsafe
-        `unserialize` API on user-supplied data. The finding is tagged **OWASP:** A08 (software &
-        data integrity failures) and **Severity:** high.
+        `unserialize` API on user-supplied data. The finding is tagged with `owasp` A08 (software &
+        data integrity failures) and `severity` high.
 
 - description: "review-sdlc: OWASP A09 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -747,19 +908,19 @@
       Produce the finding.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A09'
+      value: '"owasp"\s*:\s*"A09"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*medium'
+      value: '(?i)"severity"\s*:\s*"medium"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removal of failed-login audit
-        logging. The finding is tagged **OWASP:** A09 (security logging & monitoring failures) and
-        **Severity:** medium, matching the OWASP defaults.
+        logging. The finding is tagged with `owasp` A09 (security logging & monitoring failures) and
+        `severity` medium, matching the OWASP defaults.
 
 - description: "review-sdlc: OWASP A10 — finding tagged with category (issue #272)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
-    user_request: "Produce the security finding for the diff above."
+    user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
     skill_content: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
@@ -778,33 +939,31 @@
       fetch driven by user-controlled input — an SSRF vector. Produce the finding.
   assert:
     - type: regex
-      value: '\*\*OWASP\*\*:?\s*A10'
+      value: '"owasp"\s*:\s*"A10"'
     - type: regex
-      value: '(?i)\*\*Severity\*\*:?\s*high'
+      value: '(?i)"severity"\s*:\s*"high"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removal of the URL allowlist check
-        on a server-side fetch driven by user input. The finding is tagged **OWASP:** A10 (SSRF)
-        and **Severity:** high.
+        on a server-side fetch driven by user input. The finding is tagged with `owasp` A10 (SSRF)
+        and `severity` high.
 
-- description: "review-sdlc (#363): orchestrator includes plugin_version in attribution line"
+- description: "review-orchestrator-consolidate: runs review-consolidate.js and returns its block"
   vars:
     skill_path: "plugins/sdlc-utilities/agents/review-orchestrator.md"
     project_context: "file://fixtures/project-with-dimensions.md"
     user_request: >
-      You are the review-orchestrator. The manifest in the project context includes
-      plugin_version: "0.20.7". Complete Step 5 — build and persist the consolidated
-      comment. Show the comment body you would write to review-comment.md.
+      You are the review-orchestrator. Your prompt has MANIFEST_FILE: /tmp/sdlc-review-x/manifest.json,
+      REFERENCE_MD_PATH: /opt/sdlc/skills/review-sdlc/REFERENCE.md and PLUGIN_ROOT: /opt/sdlc.
+      Every dispatched dimension has returned its findings file. Show the exact command you run
+      to present the plan in Step 1 and the exact command you run to consolidate in Step 4, then
+      describe what your final message contains and which files you write yourself.
   assert:
-    # Attribution line must include the version in the correct format.
     - type: regex
-      value: '^> Automated review by `review-sdlc` v[^ ]+ · '
-    # Specifically, must include the version from the manifest.
-    - type: icontains
-      value: "v0.20.7"
+      value: 'review-consolidate\.js"?\s+--manifest'
+    - type: contains
+      value: "--render-plan"
     - type: llm-rubric
       value: >
-        The response includes the consolidated comment body. The attribution line reads
-        "> Automated review by `review-sdlc` v0.20.7 · <date>" where <date> is a
-        YYYY-MM-DD formatted date. The version value comes from manifest.plugin_version
-        (0.20.7), not hardcoded. The `v` prefix is rendered from the template, not duplicated.
+        The orchestrator ends with the script's stdout block verbatim, does not compute the
+        verdict or counts itself, and writes no review-summary.json itself.

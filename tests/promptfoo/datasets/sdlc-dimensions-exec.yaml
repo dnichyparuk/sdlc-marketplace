@@ -80,6 +80,19 @@
     - type: regex
       value: '"total_errors":\s*[1-9]'
 
+- description: "sdlc-dimensions-brace: unbalanced brace trigger is a D5 warning"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/project-brace-dimension"
+  assert:
+    - type: icontains
+      value: "D5"
+    - type: icontains
+      value: "Unsupported brace pattern"
+    - type: regex
+      value: '"total_errors":\s*0'
+
 - description: "sdlc-dimensions: duplicate dimension names trigger D10 error"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
@@ -156,6 +169,42 @@
       value: '"total_errors":\s*0'
     - type: icontains
       value: "HAS_WARNINGS"
+
+- description: "sdlc-dimensions-model: gpt-4 model is a D13 error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/project-unknown-dimension-model"
+  assert:
+    - type: icontains
+      value: "D13"
+    - type: icontains
+      value: "gpt-4"
+    - type: regex
+      value: '"total_errors":\s*[1-9]'
+
+- description: "sdlc-dimensions-model: a claude-* model id passes"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/project-with-dimensions"
+  assert:
+    # The fixture dimension uses a claude-* id; no D13 finding
+    - type: not-icontains
+      value: "D13"
+    - type: regex
+      value: '"total_errors":\s*0'
+
+- description: "sdlc-dimensions-model: haiku, sonnet and opus aliases pass"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
+    script_args: "--project-root {{repo_root}} --json"
+  assert:
+    # The repo's own .sdlc/review-dimensions use the haiku, sonnet and opus aliases; no D13 finding
+    - type: not-icontains
+      value: "D13"
+    - type: regex
+      value: '"total_errors":\s*0'
 
 - description: "sdlc-dimensions: _common.md is excluded from validation results"
   vars:

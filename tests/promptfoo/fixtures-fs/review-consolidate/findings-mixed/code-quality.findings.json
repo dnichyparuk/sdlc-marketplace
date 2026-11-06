@@ -1,0 +1,23 @@
+{
+  "dimension": "code-quality",
+  "status": "ok",
+  "findings": [
+    {
+      "file": "src/db.js",
+      "line": 42,
+      "severity": "medium",
+      "title": "Unescaped query",
+      "description": "Desc Unescaped query",
+      "suggestion": "Fix Unescaped query"
+    },
+    {
+      "file": "src/util.js",
+      "line": 7,
+      "severity": "low",
+      "title": "Naming",
+      "description": "Desc Naming",
+      "suggestion": "Fix Naming"
+    }
+  ],
+  "omittedCount": 2
+}

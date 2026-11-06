@@ -1,0 +1,156 @@
+# Script execution tests for review-consolidate.js (review-sdlc R-consolidate, P11) — verdict
+# rules, failed dimensions, input errors, comment content, summary JSON, plan rendering and
+# determinism. Each case copies its own fixture and writes summary.json inside the copy, so
+# cases never share a path under exec concurrency. No LLM.
+
+- description: "review-consolidate: 1 critical gives CHANGES REQUESTED"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-1critical --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: contains
+      value: "Verdict:         CHANGES REQUESTED"
+
+- description: "review-consolidate: 3 high give CHANGES REQUESTED"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-3high --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: contains
+      value: "Verdict:         CHANGES REQUESTED"
+
+- description: "review-consolidate: 1 high gives APPROVED WITH NOTES"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-1high --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: contains
+      value: "Verdict:         APPROVED WITH NOTES"
+
+- description: "review-consolidate: 5 medium give APPROVED WITH NOTES"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-5medium --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: contains
+      value: "Verdict:         APPROVED WITH NOTES"
+
+- description: "review-consolidate: 4 medium give APPROVED"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-4medium --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: regex
+      value: "Verdict:         APPROVED\\n"
+
+- description: "review-consolidate: no findings gives APPROVED and 0 total"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-empty --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: contains
+      value: "Total findings:  0"
+    - type: regex
+      value: "Verdict:         APPROVED\\n"
+
+- description: "review-consolidate: malformed findings file exits 1 and names it"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-malformed --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: icontains
+      value: "review-consolidate: "
+    - type: icontains
+      value: "code-quality.findings.json"
+    - type: not-contains
+      value: "Review complete"
+
+- description: "review-consolidate: missing findings file counts a failed dimension"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-missing --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: contains
+      value: "Dimensions failed: 1"
+
+- description: "review-consolidate: comment carries attribution, dedupe and OWASP"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-mixed --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: javascript
+      value: |
+        const m = output.match(/Comment file:\s+(\S+)/);
+        if (!m) return false;
+        const c = process.getBuiltinModule('fs').readFileSync(m[1], 'utf8');
+        return /^> Automated review by `review-sdlc` v0\.20\.7 · \d{4}-\d{2}-\d{2}$/m.test(c)
+          && (c.match(/^### Verdict:/gm) || []).length === 1
+          && c.includes('Also flagged by:')
+          && c.includes('· OWASP A01')
+          && c.includes('_2 additional finding(s) omitted by the reviewer._');
+
+- description: "review-consolidate: summary JSON matches block and schema fields"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-mixed --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: javascript
+      value: |
+        const m = output.match(/Comment file:\s+(\S+)/);
+        if (!m) return false;
+        const s = JSON.parse(process.getBuiltinModule('fs').readFileSync(context.vars.project_root + '/summary.json', 'utf8'));
+        const keys = Object.keys(s.counts).sort().join(',');
+        const dispatched = s.dimensions.filter(d => d.status !== 'SKIPPED');
+        return s.commentPath === m[1]
+          && keys === 'critical,high,info,low,medium'
+          && dispatched.length === 2
+          && dispatched.every(d => typeof d.model === 'string' && d.model);
+
+- description: "review-consolidate: block relays post decision lines"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-1high --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
+  assert:
+    - type: contains
+      value: "Post decision:   save"
+    - type: contains
+      value: "Auto:            true"
+    - type: contains
+      value: "Save path:"
+
+- description: "review-consolidate: --render-plan prints the review plan"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--render-plan --manifest {{project_root}}/manifest.json"
+  assert:
+    - type: contains
+      value: "Review Plan"
+    - type: contains
+      value: "All changes (committed + staged)"
+    - type: contains
+      value: "Changed files:"
+    - type: contains
+      value: "2 active, 1 skipped"
+    - type: regex
+      value: "\\| docs-review\\s+\\| 0\\s+\\| low\\s+\\| SKIPPED"
+
+- description: "review-consolidate: same input gives byte-identical output"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-review-consolidate-twice.js"
+    project_root: "file://fixtures-fs/review-consolidate"
+    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-mixed"
+  assert:
+    - type: equals
+      value: "true"

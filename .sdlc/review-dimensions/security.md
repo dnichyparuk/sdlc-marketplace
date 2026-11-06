@@ -34,7 +34,7 @@ For every finding, set `**OWASP:**` to the matching category code (`A01`–`A10`
 - [ ] A04 — Insecure design: trust boundaries between user input → script → LLM → tool calls are explicit; no implicit elevation
 - [ ] A05 — Security misconfiguration: hooks, settings, and CI workflows do not disable security checks or grant overly broad permissions
 - [ ] A06 — Vulnerable & outdated components: no deprecated/unmaintained npm packages, no known-CVE versions added in lockfile updates
-- [ ] A07 — Identification & authentication failures: tokens (gh/jira) sourced from approved env/keychain only — never echoed, persisted, or logged
+- [ ] A07 — Identification & authentication failures: tokens (gh/jira) sourced from approved env/keychain only — never echoed, persisted, or logged; credential-bearing CLI calls (gh, jira, curl with a token) are time-bounded (a timeout option on the spawn), and tests never reach a live authenticated service (stub the CLI or the network)
 - [ ] A08 — Software & data integrity failures: no unsigned plugin downloads, no untrusted deserialisation, hooks load only from approved paths
 - [ ] A09 — Security logging & monitoring failures: failure paths surface actionable error text without leaking secrets; audit-relevant events are logged
 - [ ] A10 — SSRF: outbound HTTP (links.js, gh/jira) validates URLs against an allowlist; no fetches to user-controlled internal hosts or metadata endpoints

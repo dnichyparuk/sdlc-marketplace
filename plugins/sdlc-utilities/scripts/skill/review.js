@@ -30,7 +30,7 @@ const path = require('node:path');
 const os   = require('node:os');
 const LIB = path.join(__dirname, '..', 'lib');
 
-const { validateAll, extractFrontmatter, extractBody, parseSimpleYaml, resolveDimensionsDir, readCommonPrompt } = require(path.join(LIB, 'dimensions'));
+const { validateAll, extractFrontmatter, extractBody, parseSimpleYaml, resolveDimensionsDir, readCommonPrompt, hasUnsupportedBraces } = require(path.join(LIB, 'dimensions'));
 const {
   exec,
   checkGitState,
@@ -45,7 +45,7 @@ const {
 } = require(path.join(LIB, 'git'));
 const { readSection, writeLocalConfig, resolveSdlcRoot } = require(path.join(LIB, 'config'));
 const { writeOutput } = require(path.join(LIB, 'output'));
-const { resolveStateDir, slugifyBranch } = require(path.join(LIB, 'state'));
+const { resolveStateDir, slugifyBranch, gcAgedTempdirs } = require(path.join(LIB, 'state'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { getPluginVersion } = require(path.join(LIB, 'config-version'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
@@ -95,6 +95,8 @@ function parseArgs(argv) {
   let dimensionFilter = null;
   let scope = null;
   let setDefault = false;
+  let auto = false;
+  let post = null;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -106,9 +108,11 @@ function parseArgs(argv) {
     else if (a === '--working')     scope = 'working';
     else if (a === '--worktree')    scope = 'worktree';
     else if (a === '--set-default') setDefault = true;
+    else if (a === '--auto')        auto = true;
+    else if (a === '--post')        post = (i + 1 < args.length) ? args[++i] : '';
   }
 
-  return { projectRoot, baseBranch, dimensionFilter, scope, setDefault };
+  return { projectRoot, baseBranch, dimensionFilter, scope, setDefault, auto, post };
 }
 
 // ---------------------------------------------------------------------------
@@ -123,9 +127,16 @@ function parseArgs(argv) {
  *   *      — any chars within a single path segment (no slash)
  *   ?      — single char (no slash)
  *   [...]  — character class
+ *   {a,b}  — alternation (flat only; nested or unbalanced braces match literally)
  *   .      — literal dot (escaped)
  */
 function globToRegex(pattern) {
+  // The validator (hasUnsupportedBraces) and the matcher share one rule: a pattern with
+  // nested or unbalanced braces has no alternation at all, so every brace is literal.
+  return new RegExp('^' + globBody(pattern, hasUnsupportedBraces(pattern)) + '$');
+}
+
+function globBody(pattern, literalBraces) {
   let re = '';
   let i = 0;
   const len = pattern.length;
@@ -158,6 +169,16 @@ function globToRegex(pattern) {
         re += pattern.slice(i, close + 1);
         i = close + 1;
       }
+    } else if (ch === '{') {
+      const close = pattern.indexOf('}', i + 1);
+      const inner = close === -1 ? '' : pattern.slice(i + 1, close);
+      if (literalBraces || close === -1 || inner.includes('{')) {
+        re += '\\{';
+        i++;
+      } else {
+        re += '(?:' + inner.split(',').map(s => globBody(s, false)).join('|') + ')';
+        i = close + 1;
+      }
     } else if ('.+^${}()|\\'.includes(ch)) {
       re += '\\' + ch;
       i++;
@@ -167,7 +188,7 @@ function globToRegex(pattern) {
     }
   }
 
-  return new RegExp('^' + re + '$');
+  return re;
 }
 
 /**
@@ -457,7 +478,10 @@ function loadAndMatchDimensions(projectRoot, changedFiles, dimensionFilter) {
   const dims   = [];
 
   for (const result of report.dimensions) {
-    if (result.status === 'FAIL') continue;
+    if (result.status === 'FAIL') {
+      process.stderr.write(`Warning: dimension ${result.file} skipped (validation failed: ${(result.errors || []).map(e => `${e.check} ${e.message}`).join('; ')})\n`);
+      continue;
+    }
 
     const filePath = path.join(resolveDimensionsDir(projectRoot), result.file);
     let content;
@@ -510,11 +534,19 @@ function loadAndMatchDimensions(projectRoot, changedFiles, dimensionFilter) {
 // ---------------------------------------------------------------------------
 
 function main() {
-  const { projectRoot, baseBranch, dimensionFilter, scope: cliScope, setDefault } = parseArgs(process.argv);
+  const { projectRoot, baseBranch, dimensionFilter, scope: cliScope, setDefault, auto, post } = parseArgs(process.argv);
   const activeRoot = resolveActiveWorktreeSafe(); // issue #490: HEAD-relative git ops target the active worktree
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
   const skipConfigCheck = resolveSkipConfigCheck(process.argv);
+
+  // P12: validate --post before any git work so a bad value fails fast.
+  if (post !== null && !['yes', 'save', 'none'].includes(post)) {
+    const msg = `--post must be yes, save or none (got: ${post})`;
+    process.stderr.write(`${msg}\n`);
+    writeOutput({ errors: [msg], warnings: [], flags: { auto, post, skipConfigCheck } }, 'review-manifest', 1);
+    return;
+  }
   const cv = ensureConfigVersion(projectRoot, { skip: skipConfigCheck, roles: ['project', 'local'] });
   if (cv.errors.length > 0) {
     writeOutput({
@@ -606,6 +638,7 @@ function main() {
   // Diffs
   const fileDiffs  = fetchAndSplitDiff(base, activeRoot, scope);
   const activeDims = dims.filter(d => d.status === 'ACTIVE' || d.status === 'TRUNCATED');
+  try { gcAgedTempdirs({ prefix: 'sdlc-review-', ttlHours: 24 }); } catch (_) { /* best effort (G3) */ }
   const tmpDir     = writeDimensionDiffs(activeDims, fileDiffs, projectRoot);
   // Per-dimension slice files (R-manifest-index-slices, #447): written after diffs so
   // file_context is populated and diff-content warnings are appended into dim.warnings.
@@ -625,6 +658,24 @@ function main() {
   // PR metadata only relevant for branch-based scopes
   const pr = !isLocalScope ? fetchPrMetadata() : { exists: false };
 
+  // P12: single resolution site for the post decision.
+  let postDecision = null;
+  if (post === 'yes') {
+    if (pr.exists) postDecision = 'yes';
+    else {
+      postDecision = 'save';
+      process.stderr.write('Warning: --post yes needs an open PR; saving the review instead.\n');
+    }
+  } else if (post === 'save' || post === 'none') {
+    postDecision = post;
+  } else if (auto) {
+    postDecision = pr.exists ? 'yes' : 'save';
+  }
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const savePath = path.join(activeRoot, '.sdlc', 'reviews', `${(gitState.currentBranch || 'nobranch').replace(/[^a-zA-Z0-9_-]/g, '-')}-${today}.md`);
+
   const manifest = {
     version:        1,
     timestamp:      new Date().toISOString(),
@@ -639,6 +690,9 @@ function main() {
       changed_files_count: changedFiles.length,
     },
     pr,
+    flags: { auto, post, skipConfigCheck },
+    post_decision: postDecision,
+    save_path: savePath,
     dimensions: dims.map(toIndexEntry),
     plan_critique: {
       uncovered_files:        critique.uncoveredFiles,

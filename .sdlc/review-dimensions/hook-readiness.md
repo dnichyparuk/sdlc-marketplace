@@ -5,7 +5,7 @@ triggers:
   - "**/skills/**/SKILL.md"
   - "**/hooks/hooks.json"
   - "**/hooks/*.js"
-  - "**/scripts/*.js"
+  - "**/scripts/**/*.js"
 skip-when:
   - "**/node_modules/**"
   - "docs/**"

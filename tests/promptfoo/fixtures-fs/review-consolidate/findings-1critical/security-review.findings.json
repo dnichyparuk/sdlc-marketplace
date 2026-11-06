@@ -1,0 +1,14 @@
+{
+  "dimension": "security-review",
+  "status": "ok",
+  "findings": [
+    {
+      "file": "src/auth.js",
+      "line": 5,
+      "severity": "critical",
+      "title": "Hardcoded secret",
+      "description": "Desc Hardcoded secret",
+      "suggestion": "Fix Hardcoded secret"
+    }
+  ]
+}

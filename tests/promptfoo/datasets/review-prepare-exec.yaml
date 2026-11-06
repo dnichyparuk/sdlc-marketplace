@@ -97,6 +97,60 @@
     - type: regex
       value: '"summary_copy_path": "/[^"]*/\.sdlc/execution/review-summary-feature-cwd-test\.json"'
 
+- description: "review-prepare-post: default run has flags.auto false and post_decision null"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--committed --base main"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    - type: regex
+      value: '"auto": false'
+    - type: regex
+      value: '"post_decision": null'
+
+- description: "review-prepare-post: --auto without a PR resolves post_decision to save"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--committed --base main --auto"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    - type: regex
+      value: '"post_decision": "save"'
+    - type: regex
+      value: '"save_path": "/[^"]*/\.sdlc/reviews/feature-cwd-test-\d{4}-\d{2}-\d{2}\.md"'
+
+- description: "review-prepare-post: --auto --post none resolves post_decision to none"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--committed --base main --auto --post none"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    - type: regex
+      value: '"post_decision": "none"'
+
+- description: "review-prepare-post: --post bogus is an error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--committed --base main --post bogus"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    - type: icontains
+      value: "--post must be yes, save or none (got: bogus)"
+
+- description: "review-prepare-post: --post with no value is an error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--committed --base main --post"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    - type: icontains
+      value: "--post must be yes, save or none (got: )"
+
 - description: "review-cap: (a) 10 matching dimensions give 10 dispatched entries with a slice_file and batch 1 or 2, none QUEUED"
   vars:
     script_path: "-e"
@@ -140,3 +194,65 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.status === 'ACTIVE' && r.matched === 1"
+
+- description: "review-dimension-globs: runtime-contract and hook-readiness match scripts/skill/ and scripts/ci/ files"
+  vars:
+    script_path: "-e"
+    script_args: '(({loadAndMatchDimensions:l})=>{const[d]=[l("{{repo_root}}",["plugins/sdlc-utilities/scripts/skill/review.js","plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"],null)];const[f]=[n=>d.find(x=>x.name===n)];console.log(JSON.stringify({rc:f("runtime-contract"),hr:f("hook-readiness")}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"))'
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.rc.status === 'ACTIVE' && r.rc.matched_count === 2 && r.hr.status === 'ACTIVE' && r.hr.matched_count === 2"
+
+- description: "review-tempdir-gc: aged sdlc-review-* dirs (25 h) are deleted, other-dir is kept"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-review-tempdir-gc.js"
+    script_args: "25"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-config-current-v3"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).remaining.join(',') === 'other-dir'"
+
+- description: "review-tempdir-gc: fresh sdlc-review-* dirs (1 h) are kept"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-review-tempdir-gc.js"
+    script_args: "1"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-config-current-v3"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).remaining.join(',') === 'other-dir,sdlc-review-new1,sdlc-review-old1'"
+
+- description: "review-dry-run-gitignore: --dry-run prepare still creates the managed .gitignore files (R3 does not forbid it)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-review-dry-run-gitignore.js"
+    script_args: ""
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.exit === 0 && r.rootGitignore === true && r.sdlcGitignore === true"
+
+- description: "review-glob-brace: a/*.{js,ts} matches js and ts only"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js").matchFiles({triggers:["a/*.{js,ts}"]},["a/x.js","a/y.ts","a/z.md"]).matched))'
+  assert:
+    - type: javascript
+      value: "JSON.stringify(JSON.parse(output)) === JSON.stringify(['a/x.js','a/y.ts'])"
+
+- description: "review-glob-brace: {src,lib}/**/*.js matches nested files"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js").matchFiles({triggers:["{src,lib}/**/*.js"]},["src/a.js","lib/b/c.js","pkg/d.js"]).matched))'
+  assert:
+    - type: javascript
+      value: "JSON.stringify(JSON.parse(output)) === JSON.stringify(['src/a.js','lib/b/c.js'])"
+
+- description: "review-glob-brace: unbalanced brace matches literally"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js").matchFiles({triggers:["a/{b,c"]},["a/b","a/{b,c"]).matched))'
+  assert:
+    - type: javascript
+      value: "JSON.stringify(JSON.parse(output)) === JSON.stringify(['a/{b,c'])"

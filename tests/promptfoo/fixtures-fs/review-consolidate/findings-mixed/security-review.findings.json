@@ -1,0 +1,15 @@
+{
+  "dimension": "security-review",
+  "status": "ok",
+  "findings": [
+    {
+      "file": "src/db.js",
+      "line": 42,
+      "severity": "high",
+      "title": "SQL injection",
+      "description": "Desc SQL injection",
+      "suggestion": "Fix SQL injection",
+      "owasp": "A01"
+    }
+  ]
+}

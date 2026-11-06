@@ -3,7 +3,7 @@ description: commit-sdlc --auto on a CRLF fixture commits the staged change with
 tags: [smoke]
 max_turns: 30
 timeout_seconds: 600
-allowed_tools: [Read, Glob, Grep, Skill, Agent]
+allowed_tools: [Read, Glob, Grep, Skill, Agent, Write]
 ---
 
 /sdlc:commit-sdlc --auto

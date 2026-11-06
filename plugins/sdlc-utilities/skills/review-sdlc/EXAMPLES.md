@@ -402,11 +402,9 @@ Place in `.sdlc/review-dimensions/` with no frontmatter to share common instruct
 
 Before claiming an issue does not exist, verify its absence:
 
-- Search the entire changeset, not just modified lines
 - Check both implementation and test files
 - Review the project's dependency list if the issue relates to external packages
-- Scan recent git history if the pattern seems too obvious to be missing
-- When in doubt, flag it rather than skip it — false positives are cheaper than false negatives
+- Report what you can confirm; where you are unsure, say what you checked and what remains unverified rather than dropping it or asserting it.
 
 ## Severity Baseline
 

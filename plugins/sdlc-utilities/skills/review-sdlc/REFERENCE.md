@@ -167,53 +167,29 @@ Recommended elements:
 When the orchestrator dispatches a review subagent for a dimension, it fills this template. The orchestrator forwards the dimension's `slice_file` and `diff_file` **paths** (from the thin manifest index) — it does NOT read their contents into its own context. The subagent reads them itself.
 
 ```
-# Code Review: {dimension.name}
+# Code Review
 
 ## Your Role
-You are a code reviewer focused exclusively on: {dimension.description}
+You are a code reviewer. Your dimension, default severity and input files are listed under "This run" at the end of this prompt.
 
-## Your Input Files
-You MUST read both of these files before reviewing:
+## Input
+Read both files first. `body` in the slice file is your review brief, `matched_files` your scope, `file_context` the author's intent (empty `commits` arrays mean there is no commit context, e.g. staged or working changes), and `warnings` prepare-time caveats to surface. The diff file holds the pre-filtered hunks for your matched files.
 
-- **Slice file** (JSON): `{dimension.slice_file}`
-  Read it and parse the JSON. It contains:
-  - `body` — your full review instructions (Markdown)
-  - `matched_files` — the list of changed files in your scope (review ONLY these)
-  - `file_context` — array of `{ file, commits: [{ hash, subject }] }` for author-intent context
-  - `warnings` — any prepare-time warnings (e.g., matched files with no diff content)
-- **Diff file**: `{dimension.diff_file}`
-  Read it for the pre-filtered diff hunks covering your matched files.
+## Scope and Verification
+Report findings only in `matched_files`. Read other files in the repository when you need them to confirm a finding (callers, tests, config) — a finding you could not confirm is reported as such, not omitted. Stay within the concerns of the review brief.
 
-## How to Use Them
-1. `Read({dimension.slice_file})` and parse the JSON.
-2. Treat the parsed `body` as your Review Instructions — follow it verbatim.
-3. Review ONLY the files in `matched_files`.
-4. For each `file_context` entry whose `commits` array is non-empty, use the commit hashes/subjects to understand the author's intent. When all `commits` arrays are empty, there is no commit context (e.g., reviewing staged/working changes).
-5. `Read({dimension.diff_file})` for the diff to review.
-6. Surface any `warnings` entries that affect your review (e.g., a matched file with no diff content).
-
-## Default Severity
-Unless the review instructions specify otherwise, classify findings as: {dimension.severity}
+## What to Report
+Report a finding only when you can name the concrete input or state under which the code misbehaves, or the specific rule in the review brief it violates, and point at the line. Do not pad with style preferences the brief does not ask for; an empty list is a valid result. If more than ~20 qualify, report the most severe and say how many were omitted.
 
 ## Output Format
-Return your findings as a structured list. Each finding MUST follow this exact format:
+Write your result as a single JSON object to the findings file named under "This run", using the Write tool: {"dimension": "<name>", "status": "ok" | "no-findings" | "error", "findings": [{"file", "line", "severity", "title" (max 80 chars), "description", "suggestion", "owasp" (optional; only when the review brief instructs OWASP tagging)}], "omittedCount": <number>}. Use "no-findings" with an empty list when nothing qualifies. Each finding must reference a specific file and line. Reply with one line: the file path you wrote.
 
-### Finding N
-- **File**: {relative file path}
-- **Line**: {line number or range, e.g., 42 or 42-48}
-- **Severity**: {critical|high|medium|low|info}
-- **OWASP**: {A01–A10, OPTIONAL — populate ONLY when the dimension body instructs OWASP tagging; omit this line entirely for any other dimension}
-- **Title**: {one-line summary, max 80 chars}
-- **Description**: {what is wrong and why it matters, 1-3 sentences}
-- **Suggestion**: {how to fix it, 1-3 sentences — "N/A" if no clear fix}
-
-## Constraints
-- Review ONLY the files listed above — do not read other files
-- Review ONLY for the concerns described in the review instructions — stay in scope
-- If you find ZERO issues, explicitly state: "No findings for this dimension."
-- Do NOT fabricate issues
-- Each finding must reference a specific file and line number
-- Maximum 20 findings (prioritize by severity if more exist)
+## This run
+- Dimension: {dimension.name} — {dimension.description}
+- Default severity (unless the review brief says otherwise): {dimension.severity}
+- Slice file (JSON): `{dimension.slice_file}`
+- Diff file: `{dimension.diff_file}`
+- Findings file: `{findings_file}`
 ```
 
 **Diff scoping:**
@@ -259,15 +235,17 @@ After all subagents complete and findings are deduplicated, post this as a singl
 ---
 ```
 
-**Template variable `{plugin_version}`:** Resolved by the prepare script (`review.js`) and emitted as `manifest.plugin_version`. The orchestrator reads it from the manifest and substitutes it verbatim — the `v` prefix is part of the template, not the value.
+Rendered by `scripts/skill/review-consolidate.js`; the script encodes the verdict and dedupe rules below.
 
-**OWASP rendering rule:** When the finding contains an `**OWASP:**` value, append ` · OWASP {code}` to the File line (e.g., ``**File:** `src/auth/login.ts:42` · OWASP A07``). Omit the suffix entirely when the field is absent. The OWASP slot is opt-in per dimension — only dimensions whose body explicitly instructs OWASP tagging will populate it.
+**Template variable `{plugin_version}`:** Resolved by the prepare script (`review.js`) and emitted as `manifest.plugin_version`. `review-consolidate.js` reads it from the manifest and substitutes it verbatim — the `v` prefix is part of the template, not the value.
+
+**OWASP rendering rule:** When the finding JSON has an `owasp` value, append ` · OWASP {code}` to the File line (e.g., ``**File:** `src/auth/login.ts:42` · OWASP A07``). Omit the suffix entirely when the field is absent. The OWASP slot is opt-in per dimension — only dimensions whose body explicitly instructs OWASP tagging will populate it.
 
 **Verdict computation:**
 - `CHANGES REQUESTED` — any `critical` finding, or ≥ 3 `high` findings
 - `APPROVED WITH NOTES` — any `high` finding, or ≥ 5 `medium` findings
 - `APPROVED` — all other cases (low/info only, or nothing)
 
-**Deduplication rule:** When two dimensions flag the same `file:line`, keep the finding from the higher-severity dimension. Add a note: "Also flagged by: {other dimension}."
+**Deduplication rule:** The orchestrator's judgment pass first drops duplicates that mean the same thing at different locations and records them in the findings JSON (`alsoFlaggedBy`, `note`); the script then merges findings with the same `file:line`. When two dimensions flag the same `file:line`, keep the finding from the higher-severity dimension. Add a note: "Also flagged by: {other dimension}."
 
 **Contradiction rule:** When two dimensions give conflicting recommendations for the same `file:line`, keep both findings and add: "Note: conflicting recommendations — manual review required."

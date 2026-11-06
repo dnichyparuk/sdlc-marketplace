@@ -1,0 +1,30 @@
+{
+  "dimension": "code-quality",
+  "status": "ok",
+  "findings": [
+    {
+      "file": "src/a.js",
+      "line": 10,
+      "severity": "high",
+      "title": "high 0",
+      "description": "Desc high 0",
+      "suggestion": "Fix high 0"
+    },
+    {
+      "file": "src/a.js",
+      "line": 11,
+      "severity": "high",
+      "title": "high 1",
+      "description": "Desc high 1",
+      "suggestion": "Fix high 1"
+    },
+    {
+      "file": "src/a.js",
+      "line": 12,
+      "severity": "high",
+      "title": "high 2",
+      "description": "Desc high 2",
+      "suggestion": "Fix high 2"
+    }
+  ]
+}

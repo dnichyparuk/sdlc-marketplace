@@ -20,6 +20,9 @@ Review complete
   PR repo:         widgets
   PR number:       42
   Diff dir:        /tmp/review-diff-def456
+  Post decision:   ask
+  Auto:            false
+  Save path:       /home/dev/project/.sdlc/reviews/feat-search-api-2026-11-05.md
 ```
 
 ## File state

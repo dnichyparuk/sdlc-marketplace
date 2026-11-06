@@ -1,0 +1,46 @@
+{
+  "dimension": "code-quality",
+  "status": "ok",
+  "findings": [
+    {
+      "file": "src/a.js",
+      "line": 10,
+      "severity": "medium",
+      "title": "medium 0",
+      "description": "Desc medium 0",
+      "suggestion": "Fix medium 0"
+    },
+    {
+      "file": "src/a.js",
+      "line": 11,
+      "severity": "medium",
+      "title": "medium 1",
+      "description": "Desc medium 1",
+      "suggestion": "Fix medium 1"
+    },
+    {
+      "file": "src/a.js",
+      "line": 12,
+      "severity": "medium",
+      "title": "medium 2",
+      "description": "Desc medium 2",
+      "suggestion": "Fix medium 2"
+    },
+    {
+      "file": "src/a.js",
+      "line": 13,
+      "severity": "medium",
+      "title": "medium 3",
+      "description": "Desc medium 3",
+      "suggestion": "Fix medium 3"
+    },
+    {
+      "file": "src/a.js",
+      "line": 14,
+      "severity": "medium",
+      "title": "medium 4",
+      "description": "Desc medium 4",
+      "suggestion": "Fix medium 4"
+    }
+  ]
+}
