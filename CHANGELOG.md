@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - received-review-sdlc states its consent rules once and drops the opener list and the INTERNAL banners; its spec uses the contract layout (#9299).
 - a `commit.requiredTrailers` entry that is neither "Key" nor "Key: Value" is now a prepare error (#9299).
+- commit-sdlc `--message-file` runs now stop when a configured required trailer is missing (#9299).
 
 ### Fixed
 - ship-sdlc stages the tracked `.sdlc/` files a plan names; review docs name the `owasp` JSON key instead of a `**OWASP:**` field; review-orchestrator's description names `review-consolidate.js` as the writer (#9299).

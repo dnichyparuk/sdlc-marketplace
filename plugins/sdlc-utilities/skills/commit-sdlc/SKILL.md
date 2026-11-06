@@ -127,7 +127,7 @@ Read `wipSquash` from `COMMIT_CONTEXT_JSON`. The field has the shape:
 
 **Given subject:** the subject the caller gave is, in this order, `flags.subject`, else the first line of the `flags.messageFile` file, else `flags.expectedSubject`. `skill/commit.js` has already checked that all given subjects are equal (R-subject-precheck), so the order only decides which flag is named. Every later mention of "the given subject" means this value.
 
-**Message file given (R-message-file):** If `flags.messageFile` is set, do not dispatch the orchestrator and skip the OpenSpec scope hint below. Read the file and set `MESSAGE` to its exact content, then go to Step 5. Steps 3 and 4 do not run on this path: only the Step 5 gates (WIP marker, subject pattern, exit 3, link check) apply.
+**Message file given (R-message-file):** If `flags.messageFile` is set, do not dispatch the orchestrator and skip the OpenSpec scope hint below. Read the file and set `MESSAGE` to its exact content, then go to Step 5. Steps 3 and 4 do not run on this path: only the Step 5 gates (WIP marker, subject pattern, exit 3, the G10 trailer check, link check) apply.
 
 Dispatch the `commit-orchestrator` agent so its input is bounded to the prepared manifest and does not inherit the conversation transcript. `model: haiku` on the Agent call keeps this bounded task on a lightweight model.
 
@@ -216,6 +216,8 @@ Set `Source:` to the flag that supplied the given subject, in the same order (`-
        let want;
        try { want = fs.readFileSync(f.messageFile, "utf8"); } catch (e) { console.error("--message-file cannot be read: " + e.message); process.exit(3); }
        if (fs.readFileSync(process.argv[2], "utf8").trimEnd() !== want.trimEnd()) process.exit(3);
+       const lines = fs.readFileSync(process.argv[2], "utf8").split("\n");
+       for (const t of cfg.trailers || []) { const ok = t.value === null ? lines.some(l => l.startsWith(t.key + ":")) : lines.includes(t.key + ": " + t.value); if (!ok) { console.error("missing trailer: " + t.key + (t.value === null ? "" : ": " + t.value)); process.exit(4); } }
      }
    ' "<COMMIT_CONTEXT_FILE>" "<MSG_FILE>"
    ```
@@ -224,6 +226,7 @@ Set `Source:` to the flag that supplied the given subject, in the same order (`-
    - **Exit 1 or 2 with `flags.auto` true:** do not call AskUserQuestion. Print `Subject gate rejected the subject (exit <code>): <reason>` — for 2 the reason is "internal WIP marker"; for 1 it is `commitConfig.subjectPatternError` if set, otherwise the pattern — and stop without committing. The next run prunes the manifest and message file (R-script-prune). (C14, E8)
    - **Exit 3 with `flags.auto` true:** do not call AskUserQuestion. Print `Subject gate rejected the message (exit 3): given "<the given subject>", written "<first line of <MSG_FILE>>"` and stop without committing. (E9; E10 when only `flags.expectedSubject` is set)
    - **Exit 3:** the written message differs from what the caller gave. Show the given subject and the written one, and use AskUserQuestion with **use the given subject** or **cancel**. On **use the given subject**: when `flags.messageFile` is set, set `MESSAGE` to the file's content; otherwise replace the first line of `MESSAGE` with the given subject. Then rewrite `<MSG_FILE>` with the Write tool and re-run the gate. (E9, E10)
+   - **Exit 4:** a `--message-file` message lacks a trailer from `commitConfig.trailers` (G10). In both modes, do not call AskUserQuestion. Print `Trailer gate rejected the message (exit 4): missing <Key[: Value]>` (the script's `missing trailer:` line) and stop without committing. (E11)
    - **Exit 2:** the subject starts with an internal WIP marker. Do not commit. Use AskUserQuestion with **edit subject** or **cancel** (no **harden** option).
    - **Exit 1:** keep the existing handling — show the error message from `commitConfig.subjectPatternError` if set, otherwise show the pattern itself as a fallback. Do **not** proceed with the commit. Use AskUserQuestion to offer:
      - **edit subject** — let the user revise the subject line to match the pattern; re-run the gate
@@ -297,7 +300,7 @@ The next run of `skill/commit.js` prunes the manifest and the message file (R-sc
 | Body relevance | Body adds value or is absent | Does not restate the subject; no filler |
 | Pattern match | Subject matches `commitConfig.subjectPattern` regex | Regex test passes; skip when `commitConfig` is null or `subjectPattern` is absent |
 | Required body | Body present when type in `commitConfig.requireBodyFor` | Body non-empty for the selected type; skip when `commitConfig` is null or `requireBodyFor` is absent |
-| Required trailers | Every `commitConfig.trailers` entry present in body | The exact `Key: Value` line for a valued entry, a `Key:` line for a key-only entry; with `--message-file` checked, not added; skip when `commitConfig` is null or `requiredTrailers` is absent |
+| Required trailers | Every `commitConfig.trailers` entry present in body | The exact `Key: Value` line for a valued entry, a `Key:` line for a key-only entry; with `--message-file` checked, not added; skip when `commitConfig` is null or `commitConfig.trailers` is absent |
 
 ## Best Practices
 
