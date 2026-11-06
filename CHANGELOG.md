@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-06
+
+### Added
+- review-sdlc: `--auto` and `--post yes|save|none` decide posting without a prompt; ship-sdlc forwards `--auto` to review-sdlc (#9286).
+- `scripts/skill/review-consolidate.js` renders the review plan, verdict, counts, consolidated comment, `review-summary.json` (now with `dimensions[].model`) and the summary block from per-dimension findings JSON (#9286).
+
+### Changed
+- review-sdlc subagent template is static-first and asks for a findings JSON file; the orchestrator states its await barrier once and does only the judgment pass (#9286).
+
+### Fixed
+- review-sdlc: brace alternatives in dimension triggers (`*.{js,ts}`); D13 rejects unknown dimension models and the dropped dimension is named; the save option uses the Write tool; stale `sdlc-review-*` dirs are swept by the next review; a `REFERENCE.md not found` return goes straight to the error report (#9286).
+- Correction to 0.39.0: its Fixed bullet should not have said plan-sdlc "no longer names `mode: bypassPermissions`" (that text was already gone before 0.39.0); 0.39.0 also fixed plan-sdlc Steps 6.5 and 6.6 to read the tool's exit code, which the entry left out (#9256).
+
 ## [0.42.0] - 2026-11-05
 
 ### Added
