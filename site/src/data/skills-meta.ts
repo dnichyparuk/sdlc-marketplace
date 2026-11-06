@@ -136,14 +136,14 @@ export const skillsMeta: SkillMeta[] = [
     userInvocable: true,
     tagline: 'Responds to code review feedback with a dual self-critique gate and configurable per-severity auto-apply, preventing blind implementation of incorrect suggestions.',
     pipeline: [
-      { id: 'load-feedback', label: 'Read review feedback', type: 'script', description: 'Gathers findings from context, paste, or gh API' },
+      { id: 'load-feedback', label: 'Read review feedback', type: 'script', description: 'Gathers findings from context, paste, gh API, or a review-comment file' },
       { id: 'categorize', label: 'Categorize and flag', type: 'llm', description: 'Classifies each item; flags unclear items to resolve' },
       { id: 'verify-claims', label: 'Verify against codebase', type: 'verify', description: 'Reads referenced code to confirm or refute each claim' },
       { id: 'evaluate', label: 'Evaluate suggestions', type: 'llm', description: 'Determines agree/disagree/needs-discussion per item' },
       { id: 'critique-eval', label: 'Critique evaluation', type: 'critique', description: 'Gate 1: checks blind agreement, YAGNI, completeness' },
       { id: 'revise-eval', label: 'Revise evaluation', type: 'llm', description: 'Strengthens reasoning, reclassifies unsupported items' },
       { id: 'draft-responses', label: 'Draft responses', type: 'llm', description: 'Writes per-item responses with technical substance' },
-      { id: 'critique-responses', label: 'Critique responses', type: 'critique', description: 'Gate 2: checks performative language, weak pushback' },
+      { id: 'critique-responses', label: 'Critique responses', type: 'critique', description: 'Gate 2: checks substance-first openers, technical grounding, technical pushback' },
       { id: 'implement', label: 'Implement and reply', type: 'user', description: 'Posts thread replies (with approval); implements fixes' },
     ],
     connections: [

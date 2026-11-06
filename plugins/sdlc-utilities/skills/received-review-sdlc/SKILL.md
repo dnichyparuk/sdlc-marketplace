@@ -146,7 +146,7 @@ Processing only the N outstanding comments.
 
 Use only threads with `status: "outstanding"` for Steps 2–11. Store the full manifest (including resolved/self-replied/stale threads) for use in Step 12 (PR Reply & Resolve).
 
-When `manifest.source` is `comment-file`, the items are `manifest.findings` (each with `id`, `title`, `severity`, `path`, `line`, `body`): use them in Steps 2–11 as outstanding threads, with `severity` as the R18 severity. Display `Found N findings in <manifest.comment_file>.` instead of the thread summary.
+When `manifest.source` is `comment-file`, the items are `manifest.findings` (each with `id`, `title`, `severity`, `path`, `line`, `body`, `hardenSurfaceHint`, `hardenTargetFileHint`): use them in Steps 2–11 as outstanding threads, with `severity` as the R18 severity. Display `Found N findings in <manifest.comment_file>.` instead of the thread summary.
 
 **On exit code 1:** No PR found or missing arguments. Fall back to Step 1b.
 
@@ -368,7 +368,7 @@ Do not proceed to Step 11 without explicit `implement` via AskUserQuestion, exce
 
 **Only execute after explicit `implement` from Step 10, when `flags.auto` is true, or for findings that satisfy the R18 bypass rule from Configuration.**
 
-Post responses to PR threads, then implement accepted code changes.
+Post responses to PR threads, then implement accepted code changes. With `manifest.pr` null (`comment-file` source, R27), post nothing: implement only.
 
 **Implementation order:**
 1. Blocking issues (breaks functionality, security)
