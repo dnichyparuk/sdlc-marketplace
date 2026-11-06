@@ -283,10 +283,12 @@ if (summaryRel) {
   fs.copyFileSync(path.join(repoRoot, 'tests', 'promptfoo', 'fixtures-fs', 'review-summaries', summaryRel), dest);
   const t = new Date(Date.now() + (process.argv.includes('--summary-stale') ? -3600000 : 60000));
   if (process.argv.includes('--summary-comment')) {
-    const commentFile = path.join(projectRoot, 'review-comment.md');
-    fs.writeFileSync(commentFile, '## Code Review\n');
+    // Models review-sdlc Step 6: the comment copy sits beside the summary; the diff_dir path is gone.
+    const commentCopy = dest.replace(/\.json$/, '') + '.comment.md';
+    fs.writeFileSync(commentCopy, '## Code Review\n');
     const doc = JSON.parse(fs.readFileSync(dest, 'utf8'));
-    doc.commentPath = commentFile;
+    doc.commentCopyPath = commentCopy;
+    doc.commentPath = path.join(require('os').tmpdir(), 'sdlc-review-gone', 'review-comment.md');
     fs.writeFileSync(dest, JSON.stringify(doc));
   }
   fs.utimesSync(dest, t, t);

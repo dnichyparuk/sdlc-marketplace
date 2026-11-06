@@ -1622,7 +1622,7 @@ function reviewSummaryPath(branch) {
  * missing summary).
  */
 function reviewGateFromSummary(summaryPath, threshold, opts = {}) {
-  const missing = { dispatchReceivedReview: true, reason: REVIEW_SUMMARY_MISSING, counts: null, verdict: null, summaryFound: false, commentPath: null };
+  const missing = { dispatchReceivedReview: true, reason: REVIEW_SUMMARY_MISSING, counts: null, verdict: null, summaryFound: false, commentPath: null, commentCopyPath: null };
   let doc;
   try {
     const st = fs.statSync(summaryPath);
@@ -1640,6 +1640,7 @@ function reviewGateFromSummary(summaryPath, threshold, opts = {}) {
     reason: met ? `findings at or above reviewThreshold (${threshold})` : `no findings at or above reviewThreshold (${threshold})`,
     counts, verdict: doc.verdict, summaryFound: true,
     commentPath: typeof doc.commentPath === 'string' ? doc.commentPath : null,
+    commentCopyPath: typeof doc.commentCopyPath === 'string' ? doc.commentCopyPath : null,
   };
 }
 
@@ -1679,14 +1680,15 @@ function reviewGateDecision(ledger) {
   const notBefore = review && review.startedAt ? Date.parse(review.startedAt) : 0;
   const summaryPath = reviewSummaryPath(ledger.branch);
   const r = reviewGateFromSummary(summaryPath, threshold, { notBefore });
-  return { parseable: r.summaryFound, threshold, verdict: r.verdict, counts: r.counts, met: r.dispatchReceivedReview, summaryFound: r.summaryFound, summaryPath, reason: r.reason, commentPath: r.commentPath };
+  return { parseable: r.summaryFound, threshold, verdict: r.verdict, counts: r.counts, met: r.dispatchReceivedReview, summaryFound: r.summaryFound, summaryPath, reason: r.reason, commentPath: r.commentPath, commentCopyPath: r.commentCopyPath };
 }
 
 /** R77: the findings input of dispatch_received_review: '--pr <N>', '--comment-file "<path>"' or ''. Never throws. */
 function receivedReviewInput(ledger) {
   const pr = fetchPrMetadata();
   if (pr.exists && pr.state === 'OPEN' && Number.isInteger(pr.number) && pr.number > 0) return `--pr ${pr.number}`;
-  const p = reviewGateDecision(ledger).commentPath;
+  const d = reviewGateDecision(ledger);
+  const p = d.commentCopyPath || d.commentPath;
   if (typeof p === 'string' && path.isAbsolute(p) && !/["`$\\\n\r]/.test(p) && fs.existsSync(p)) return `--comment-file "${p}"`;
   return '';
 }

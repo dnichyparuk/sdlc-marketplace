@@ -4616,7 +4616,7 @@
         const o = JSON.parse(output);
         const next = o.calls[o.calls.length - 1].envelope;
         if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
-        if (!/^--auto --comment-file "\/.+\/review-comment\.md"$/.test(next.step.data.args)) return `FAIL: args ${next.step.data.args}`;
+        if (!/^--auto --comment-file "\/.+\/review-summary-feat-ship\.comment\.md"$/.test(next.step.data.args)) return `FAIL: args ${next.step.data.args}`;
         return true;
 
 - description: "ship-rr-input: (c) neither keeps --auto only"

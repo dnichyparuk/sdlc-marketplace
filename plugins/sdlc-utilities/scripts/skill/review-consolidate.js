@@ -417,7 +417,7 @@ function renderComment(manifest, dispatched, results, counts, verdictText, date)
   return out.join('\n') + '\n';
 }
 
-function buildSummary(manifest, results, counts, verdictText, commentPath) {
+function buildSummary(manifest, results, counts, verdictText, commentPath, commentCopyPath) {
   const byName = new Map(results.map(r => [r.name, r]));
   const dimensions = manifest.dimensions
     .filter(d => d.status === 'ACTIVE' || d.status === 'TRUNCATED' || d.status === 'SKIPPED')
@@ -435,6 +435,7 @@ function buildSummary(manifest, results, counts, verdictText, commentPath) {
     counts: counts.total,
     dimensions,
     commentPath,
+    commentCopyPath,
     branch: manifest.current_branch || '',
   };
 }
@@ -500,11 +501,16 @@ function main() {
   const commentPath = path.join(outputDir, 'review-comment.md');
   const summaryPath = path.resolve(summaryPathArg);
 
-  fs.mkdirSync(outputDir, { recursive: true });
-  fs.writeFileSync(commentPath, renderComment(manifest, dispatched, results, counts, verdictText, today()));
+  const commentCopyPath = summaryPath.replace(/\.json$/, '') + '.comment.md';
+  const commentText = renderComment(manifest, dispatched, results, counts, verdictText, today());
 
-  const summary = buildSummary(manifest, results, counts, verdictText, commentPath);
+  fs.mkdirSync(outputDir, { recursive: true });
+  fs.writeFileSync(commentPath, commentText);
+
+  // The copy sits beside the summary, so it outlives the removal of diff_dir (review spec P11, G3).
+  const summary = buildSummary(manifest, results, counts, verdictText, commentPath, commentCopyPath);
   fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
+  fs.writeFileSync(commentCopyPath, commentText);
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + '\n');
 
   emitText(renderBlock(manifest, {
