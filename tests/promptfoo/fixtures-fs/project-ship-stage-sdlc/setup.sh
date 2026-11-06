@@ -20,6 +20,7 @@ cat > plan.md <<'EOF'
 - Modify: `.sdlc/review-dimensions/x.md`
 - Modify: `.sdlc/execution/state.json`
 - Create: `.sdlc/missing.md`
+- Modify: `.sdlc/../.gitignore`
 - Modify: `src/a.js`
 EOF
 cat > plan-none.md <<'EOF'

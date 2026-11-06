@@ -1349,7 +1349,7 @@ function stageCommands(planFile, cwd) {
     for (const e of parseFilesEntries(taskSection(t.body))) {
       if (e.kind === 'Test') continue;
       const p = e.path;
-      if (!p.startsWith('.sdlc/') || !/^[A-Za-z0-9._/-]+$/.test(p)) continue;
+      if (!p.startsWith('.sdlc/') || !/^[A-Za-z0-9._/-]+$/.test(p) || p.split('/').includes('..')) continue;
       if (!fs.existsSync(path.join(cwd, p))) continue;
       if (spawnSync('git', ['check-ignore', '-q', '--', p], { cwd, timeout: 8000 }).status === 0) continue;
       paths.add(p);
