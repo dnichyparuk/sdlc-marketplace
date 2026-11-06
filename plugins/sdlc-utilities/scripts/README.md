@@ -39,7 +39,7 @@ Besides the `validate-*` validators, `ci/` holds three read-only reporting scrip
 | plan-sdlc | `skill/plan.js` |
 | pr-sdlc | `skill/pr.js` |
 | received-review-sdlc | `skill/received-review.js` |
-| review-sdlc | `skill/review.js` |
+| review-sdlc | `skill/review.js`, `skill/review-consolidate.js` |
 | setup-sdlc | `skill/setup.js`, `skill/guardrails.js` |
 | version-sdlc | `skill/version.js` |
 | execute-plan-sdlc | `skill/execute.js`, `state/execute.js` |

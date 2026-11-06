@@ -499,7 +499,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       ...stepAgent('review'),
       status: isIn('review') ? 'will_run' : 'skipped',
       skipSource: skipSource('review'),
-      args: '--committed',
+      args: ['--committed', flags.auto ? '--auto' : ''].filter(Boolean).join(' '),
       reason: isIn('review') ? 'in steps[]' : 'not in steps[]',
       pause: false,
       isolation: null,

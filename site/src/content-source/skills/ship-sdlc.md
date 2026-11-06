@@ -38,7 +38,7 @@ This skill is for **expert users working on projects with established quality gu
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--auto` | Non-interactive mode. No question is asked: `--auto` is forwarded to execute-plan-sdlc, and commit-sdlc, received-review-sdlc, version-sdlc and pr-sdlc always run with `--auto`. `--quality` is optional: under `--auto` execute-plan-sdlc resolves the tier as `--quality`, then the resumed state, then `balanced`. | Off |
+| `--auto` | Non-interactive mode. No question is asked: `--auto` is forwarded to execute-plan-sdlc and to review-sdlc (only under `--auto`), and commit-sdlc, received-review-sdlc, version-sdlc and pr-sdlc always run with `--auto`. `--quality` is optional: under `--auto` execute-plan-sdlc resolves the tier as `--quality`, then the resumed state, then `balanced`. | Off |
 | `--steps <csv>` | Comma-separated list of steps to run, fully replacing the resolved step list. Valid values: `execute`, `commit`, `review`, `version`, `verify-openspec` (opt-in, OpenSpec-gated), `archive-openspec`, `pr`, `verify-pipeline` (opt-in), `await-remote-review` (opt-in), `learnings-commit`. The single source of truth for pipeline composition is `ship.steps[]` in `.sdlc/local.json`; CLI `--steps` is a one-shot override. | From config or built-in defaults |
 | `--quick` | Run the project's quick step profile (`ship.quick` in `.sdlc/local.json`) instead of `ship.steps[]`. Useful for fast local iterations (e.g. execute+commit+pr without review or versioning). Mutually exclusive with `--steps` (R-quick-5). Requires `ship.quick` to be configured (R-quick-6). | Off |
 | `--quality <full\|balanced\|minimal>` | Forwarded to execute-plan-sdlc as `--quality` (model tier). In interactive runs without `--quality`, ship asks for the tier (`execute_tier`) before execute and forwards the answer; it never picks a tier itself. | Not set (asked in interactive runs) |
@@ -220,7 +220,7 @@ plan-sdlc      (--auto if     (--committed)
 **Key points:**
 
 - **Double-commit pattern**: The feature commit (step 5b) and the review fix commit (step 5e) are separate. This keeps feature work and review fixes distinct in git history.
-- **No mandatory pause points in `--auto` mode**: `--auto` is forwarded to execute-plan-sdlc, to received-review-sdlc (which auto-dispatches fixes without sign-off, enforced by the `block-askuserquestion-auto.js` PreToolUse hook — R71) and to version-sdlc (which skips the release approval prompt). In interactive mode (no `--auto`), received-review-sdlc pauses for human sign-off and version-sdlc pauses for release approval.
+- **No mandatory pause points in `--auto` mode**: `--auto` is forwarded to execute-plan-sdlc, to review-sdlc (which then posts when the branch has a PR and saves the review otherwise, without asking), to received-review-sdlc (which auto-dispatches fixes without sign-off, enforced by the `block-askuserquestion-auto.js` PreToolUse hook — R71) and to version-sdlc (which skips the release approval prompt). In interactive mode (no `--auto`), received-review-sdlc pauses for human sign-off and version-sdlc pauses for release approval.
 - **Workspace auto-detection (R60, fixes #378, #379)**: ship-sdlc derives the workspace from cwd + current branch via `lib/git.js::deriveWorkspace` — there is no flag and no prompt. Two outcomes:
   - **`branch`** (cwd is the main worktree AND HEAD is the default branch): ship auto-creates a feature branch before dispatching execute. Lifecycle: (1) derive branch name from the plan title via `lib/branch-name.js` driven by `workspace.branch` config; (2) run ship state migration (`state/ship.js migrate --from <oldSlug> --to <newName>`) **before** creating the branch — critical because `state/ship.js read` must still resolve the OLD slug filename at migration time (load-bearing ordering); (3) `git checkout -b <name>`. After step (3), cwd is the main worktree on the new feature branch, so execute-plan-sdlc's own derive yields `continue` — ship does **not** forward a `--branch` value.
   - **`continue`** (a linked git worktree, OR the main worktree already on a feature branch): ship runs the pipeline in place on the current branch — no branch creation, no state migration. This covers the manual "create worktree → write plan → ship" workflow with zero flags. The version step runs normally (tags are repo-global).
@@ -325,7 +325,7 @@ Step  Skill                 Status       Args           Pause?
 --------------------------------------------------------------------
 1     execute-plan-sdlc     will run     --auto --quality balanced no
 2     commit-sdlc           will run     --auto         no
-3     review-sdlc           will run     --committed    no
+3     review-sdlc           will run     --committed --auto no
 4     received-review-sdlc  conditional  (if crit/high) no
 5     commit-sdlc (fixes)   conditional  --auto         no
 6     version-sdlc          skipped      ---            ---

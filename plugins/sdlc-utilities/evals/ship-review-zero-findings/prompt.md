@@ -3,7 +3,7 @@ description: "#9129 - a ship run whose review finds nothing at or above high lea
 tags: [smoke, ship]
 max_turns: 100
 timeout_seconds: 1800
-allowed_tools: [Read, Glob, Grep, Skill, Agent, TodoWrite]
+allowed_tools: [Read, Glob, Grep, Skill, Agent, TodoWrite, Write, Edit]
 ---
 
 /sdlc:ship-sdlc --auto --plan docs/plans/eval-plan.md --steps execute,commit,review --rebase skip --quality minimal

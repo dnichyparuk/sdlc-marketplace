@@ -35,6 +35,7 @@ tests:
   - file://datasets/error-report-prepare-exec.yaml
   - file://datasets/received-review-prepare-exec.yaml
   - file://datasets/review-prepare-exec.yaml
+  - file://datasets/review-consolidate-exec.yaml
   - file://datasets/guardrails-prepare-exec.yaml
   - file://datasets/setup-init-exec.yaml
   - file://datasets/setup-prepare-exec.yaml

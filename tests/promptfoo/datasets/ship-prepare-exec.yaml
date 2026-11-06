@@ -1093,6 +1093,32 @@
         const execute = (o.steps || []).find(s => s.name === 'execute');
         return o.flags.quality === undefined && !execute.args.includes('--quality') && execute.args.includes('--auto');
 
+- description: "ship-prepare-review-auto: --auto forwards --auto to review"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --auto"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.steps.find(s => s.name === 'review').args === '--committed --auto';
+
+- description: "ship-prepare-review-auto: no --auto keeps review args --committed"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.steps.find(s => s.name === 'review').args === '--committed';
+
 - description: "ship-prepare (issue #353): all steps include dispatchMode field (isolation invariant extended)"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"

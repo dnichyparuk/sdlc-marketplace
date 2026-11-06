@@ -1,5 +1,5 @@
 ---
-applyTo: "**/commands/*.md,**/skills/**/SKILL.md,**/scripts/*.js"
+applyTo: "**/commands/*.md,**/skills/**/SKILL.md,**/scripts/**/*.js"
 ---
 # runtime-contract — Review Instructions
 
@@ -23,6 +23,7 @@ Default severity: high
 - Scripts write valid JSON to `stdout` and all error/diagnostic messages to `stderr` — commands capture `stdout` only (e.g., `node "$SCRIPT" ... > "$TEMP_FILE"`) and use `$?` for error detection
 - When a command specifies `allowed-tools` in its frontmatter, `Skill` is listed (needed for delegation) and `Bash` is listed (needed for script execution)
 - When a script resolves a flag from CLI + config inputs (e.g., `flags.X = config.X === true || args.X === true`), every SKILL.md decision site that gates on that concept references the resolved field (`flags.X`) — no SKILL.md site re-derives via `config.X`, raw `$ARGUMENTS`, or the original CLI string after Step 1 (CONSUME). Carve-outs that legitimately depend on persistent project state (e.g., CI scaffold install sites) must include an inline rationale comment explaining the divergence.
+- A flag forwarded through `$ARGUMENTS` or a step's `args` is parsed by the receiving script (an unparsed flag is silently ignored), and a changed flag default is updated in the script's parser, the SKILL.md decision sites and the spec flag line together
 
 ## Severity Guide
 
@@ -42,6 +43,7 @@ Default severity: high
 | Command performs non-trivial JSON processing before delegation | low |
 | SKILL.md decision site re-derives a script-resolved flag (e.g., reads `config.X` instead of `flags.X` after Step 1) | high |
 | Carve-out site (legitimately reads `config.X`) lacks inline rationale comment | medium |
+| Forwarded flag not parsed by the receiving script, or a default changed in one place only | high |
 
 ## Note
 

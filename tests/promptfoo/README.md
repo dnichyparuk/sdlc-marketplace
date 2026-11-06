@@ -81,9 +81,9 @@ claude plugin eval plugins/sdlc-utilities --case commit-auto --runs 1 --ablation
 
 | Case | Skill run | `--allow-tools` | Graded files |
 |---|---|---|---|
-| `commit-auto` | `commit-sdlc --auto` | `Bash` | `.git/logs/HEAD`, `.git/COMMIT_EDITMSG` |
-| `crlf-checkout` | `commit-sdlc --auto` on CRLF files | `Bash` | same |
-| `review-dry-run` | `review-sdlc --dry-run --staged` | `Bash` | `.sdlc/execution/out/`, no files elsewhere |
+| `commit-auto` | `commit-sdlc --auto` | `Bash Write` | `.git/logs/HEAD`, `.git/COMMIT_EDITMSG` |
+| `crlf-checkout` | `commit-sdlc --auto` on CRLF files | `Bash Write` | same |
+| `review-dry-run` | `review-sdlc --dry-run --staged` | `Bash` | `.sdlc/execution/out/`; no saved review, nothing under `docs/` |
 | `ship-dry-run` | `ship-sdlc --dry-run` | `Bash` | prepare manifest; no commit, tag or ledger |
 | `execute-two-task` | `execute-plan-sdlc` on a 2-task plan | `Bash Write Edit` | created files; state cleaned |
 | `ship-auto-commit-review` | `ship-sdlc --auto` (execute, commit, review) | `Bash Write Edit` | reflog; review summary; ledger and cap sidecar absent |

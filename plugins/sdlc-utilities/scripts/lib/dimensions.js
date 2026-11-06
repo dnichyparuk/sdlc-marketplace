@@ -33,6 +33,17 @@ function isValidGlob(pattern) {
   return true;
 }
 
+// Nested or unbalanced braces are not alternation; they match literally.
+function hasUnsupportedBraces(pattern) {
+  if (typeof pattern !== 'string') return false;
+  let depth = 0;
+  for (const ch of pattern) {
+    if (ch === '{') { if (depth > 0) return true; depth++; }
+    else if (ch === '}') { if (depth === 0) return true; depth--; }
+  }
+  return depth !== 0;
+}
+
 // ---------------------------------------------------------------------------
 // Levenshtein distance (for typo suggestions)
 // ---------------------------------------------------------------------------
@@ -93,6 +104,9 @@ function severityForSurface(surface) {
   if (surface === 'plan-guardrails' || surface === 'execute-guardrails') return GUARDRAIL_SEVERITIES;
   return null;
 }
+
+const MODEL_ALIASES = ['haiku', 'sonnet', 'opus', 'fable'];
+const MODEL_ID_RE = /^claude-[a-z0-9][a-z0-9.-]*(\[1m\])?$/;
 
 // ---------------------------------------------------------------------------
 // Validate a single dimension file
@@ -163,6 +177,8 @@ function validateDimensionFile(filePath) {
     for (const pattern of fm.triggers) {
       if (!isValidGlob(pattern)) {
         errors.push({ check: 'D5', message: `Invalid glob pattern in triggers: "${pattern}"`, line: null });
+      } else if (hasUnsupportedBraces(pattern)) {
+        warnings.push({ check: 'D5', message: `Unsupported brace pattern in triggers: "${pattern}" (nested or unbalanced braces match literally)`, line: null });
       }
     }
   }
@@ -189,6 +205,8 @@ function validateDimensionFile(filePath) {
       for (const pattern of fm['skip-when']) {
         if (!isValidGlob(pattern)) {
           warnings.push({ check: 'D8', message: `Invalid glob pattern in skip-when: "${pattern}"`, line: null });
+        } else if (hasUnsupportedBraces(pattern)) {
+          warnings.push({ check: 'D8', message: `Unsupported brace pattern in skip-when: "${pattern}" (nested or unbalanced braces match literally)`, line: null });
         }
       }
     }
@@ -211,6 +229,8 @@ function validateDimensionFile(filePath) {
   if (fm.model !== undefined) {
     if (typeof fm.model !== 'string' || fm.model.trim().length === 0) {
       warnings.push({ check: 'D13', message: `Field "model" must be a non-empty string (got: ${JSON.stringify(fm.model)})`, line: null });
+    } else if (!MODEL_ALIASES.includes(fm.model) && !MODEL_ID_RE.test(fm.model)) {
+      errors.push({ check: 'D13', message: `Field "model" must be a Claude alias (${MODEL_ALIASES.join(', ')}) or a claude-* model id (got: "${fm.model}")`, line: null });
     }
   }
 
