@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-06
+
+### Added
+- received-review-sdlc: `--comment-file <path>` reads findings from a review-sdlc comment file when there is no PR; ship-sdlc passes `--pr <N>` or `--comment-file` to received-review (#9299).
+- review dimensions accept an optional `effort:` (`low|medium|high|xhigh|max`); the review orchestrator forwards it, with `manifest.subagent_effort` (`medium`) as the fallback (#9299).
+- plan header `**Fix commit:**` (PF14): ship-sdlc passes it to commit-fixes as `--subject` (#9299).
+- `commit.requiredTrailers` entries may carry values (`"Key: Value"`), resolved by the prepare script and written verbatim (#9299).
+- the ship-sdlc Step 6 summary carries `commits` (step, sha, subject) and `reviewSummaryPath` (#9299).
+
+### Changed
+- received-review-sdlc states its consent rules once and drops the opener list and the INTERNAL banners; its spec uses the contract layout (#9299).
+- a `commit.requiredTrailers` entry that is neither "Key" nor "Key: Value" is now a prepare error (#9299).
+- commit-sdlc `--message-file` runs now stop when a configured required trailer is missing (#9299).
+
+### Fixed
+- ship-sdlc stages the tracked `.sdlc/` files a plan names; review docs name the `owasp` JSON key instead of a `**OWASP:**` field; review-orchestrator's description names `review-consolidate.js` as the writer (#9299).
+
 ## [0.43.0] - 2026-11-06
 
 ### Added

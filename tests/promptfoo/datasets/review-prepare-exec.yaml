@@ -57,6 +57,28 @@
           r.slice_has_matched_files === true &&
           r.index_bytes < 8000;
 
+- description: "dimension-effort: dimension effort forwarded in thin index"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-review-manifest-split.js"
+    script_args: "--project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-manifest-split"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.index_effort_dim0 === 'low' && r.index_effort_dim1 === null;
+
+- description: "dimension-effort: the orchestrator dispatch forwards effort"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(JSON.stringify((t=>(e=>(L=>({dispatch:L.some(l=>l.startsWith("3.\x20Dispatch\x20via\x20Agent\x20tool\x20(")&&l.includes(e)),donot:L.some(l=>l.startsWith("-\x20Dispatch\x20dimension\x20subagents")&&l.includes(e)),front:!t.includes("persists\x20the\x20consolidated\x20comment\x20body")}))(t.split("\n")))("effort:\x20dimension.effort\x20||\x20manifest.subagent_effort"))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/agents/review-orchestrator.md","utf8"))))'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.dispatch === true && r.donot === true && r.front === true;
+
 - description: "review-prepare (#363): manifest includes plugin_version matching semver or 'unknown'"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-review-plugin-version.js"

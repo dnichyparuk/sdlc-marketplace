@@ -279,14 +279,15 @@ function sectionBody(content, headingRegex) {
  * or { code } with code duplicate | format | length | chars | pattern-invalid |
  * pattern-mismatch (plus length / error where noted).
  */
-function parsePlanCommit(content, subjectPattern) {
+function parsePlanCommit(content, subjectPattern, label = 'Commit') {
+  const prefix = `**${label}:**`;
   const lines = String(content).split(/\r?\n/);
   const end = lines.findIndex(l => l === '---' || l.startsWith('## ') || l.startsWith('### '));
-  const fields = (end === -1 ? lines : lines.slice(0, end)).filter(l => l.startsWith('**Commit:**'));
+  const fields = (end === -1 ? lines : lines.slice(0, end)).filter(l => l.startsWith(prefix));
   const bad = failure => ({ subject: null, failure });
   if (fields.length === 0) return { subject: null, failure: null };
   if (fields.length > 1) return bad({ code: 'duplicate' });
-  const m = /^\*\*Commit:\*\* `([^`]+)`\s*$/.exec(fields[0]);
+  const m = new RegExp('^' + prefix.replace(/[*]/g, '\\*') + ' `([^`]+)`\\s*$').exec(fields[0]);
   if (!m) return bad({ code: 'format' });
   const subject = m[1];
   if (subject.length > 72) return bad({ code: 'length', length: subject.length });

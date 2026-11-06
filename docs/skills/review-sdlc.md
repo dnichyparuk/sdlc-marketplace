@@ -131,6 +131,7 @@ Each `.sdlc/review-dimensions/<name>.md` declares a dimension via YAML frontmatt
 | `max-files` | no | integer | Cap on files dispatched to this dimension's subagent |
 | `requires-full-diff` | no | boolean | Pass full diff (not file list) to the subagent |
 | `model` | no | string | Per-dimension model override; passed verbatim to the dispatched subagent (overrides `manifest.subagent_model`). Claude Code only — the Copilot transform in `setup-sdlc` omits it. |
+| `effort` | no | string | Per-dimension effort (`low`, `medium`, `high`, `xhigh`, `max`); passed to the dispatched subagent (overrides `manifest.subagent_effort`, default `medium`). Claude Code only — the Copilot transform in `setup-sdlc` omits it. |
 
 Example with `model:` override:
 
@@ -266,7 +267,7 @@ The attribution line includes the sdlc-utilities plugin version (e.g., `v0.20.7`
 
 ## OWASP Top 10 metadata
 
-Findings produced by an OWASP-aware dimension carry an optional `**OWASP:**` field (`A01`–`A10`) that names the matching category. The field is opt-in per dimension — only dimensions whose body explicitly instructs OWASP tagging populate it (the bundled `security-review` example does, see [`EXAMPLES.md`](../../plugins/sdlc-utilities/skills/review-sdlc/EXAMPLES.md#security-reviewmd)). Other dimensions omit the field and their findings render unchanged.
+Findings produced by an OWASP-aware dimension carry an optional `owasp` key (`A01`–`A10`) in their findings JSON that names the matching category. The field is opt-in per dimension — only dimensions whose body explicitly instructs OWASP tagging populate it (the bundled `security-review` example does, see [`EXAMPLES.md`](../../plugins/sdlc-utilities/skills/review-sdlc/EXAMPLES.md#security-reviewmd)). Other dimensions omit the field and their findings render unchanged.
 
 When the field is present, it renders in the consolidated comment as a suffix on the file line:
 

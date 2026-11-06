@@ -16,6 +16,7 @@ skip-when:
 severity: high
 max-files: 50
 model: sonnet
+effort: high
 ---
 
 # Security Review (OWASP Top 10)
@@ -24,7 +25,7 @@ Review changes against the OWASP Top 10 (2025) for this marketplace plugin.
 
 ## Tagging Instruction (REQUIRED)
 
-For every finding, set `**OWASP:**` to the matching category code (`A01`–`A10`). When a finding spans multiple categories, pick the most specific. Omit the field only when no OWASP category applies (rare).
+For every finding, set the `owasp` key of the finding JSON to the matching category code (`A01`–`A10`). When a finding spans multiple categories, pick the most specific. Omit the field only when no OWASP category applies (rare).
 
 ## Checklist
 

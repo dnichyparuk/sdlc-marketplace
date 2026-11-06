@@ -45,6 +45,8 @@
  *                        worktree's .sdlc/execution/review-summary-feat-ship.json before the scenario runs
  *   --summary-stale      review-gate: the summary predates the review step's startedAt (treated as missing)
  *   --in-worktree        review-gate: run ship.js from a linked worktree of the fixture repo
+ *   --summary-comment    with --summary: write <projectRoot>/review-comment.md and point the copied summary's commentPath at it
+ *   --gh-pr-number <n>   with --gh-pr-url: the number the stub `gh pr view` reports (default 1)
  *   --gh-pr-url <url>    stub `gh pr view` reports an OPEN PR with this url (default: `gh pr view` fails)
  *   --os-change <n>      (openspec) change name written to flags.openspecChange (default: add-auth)
  *   --os-tasks <d>/<t>   (openspec) tasks.md gets <d> done and <t>-<d> open task lines (default: 1/3)
@@ -137,9 +139,10 @@ const SEED_TS = '20261019T120000Z';
 
 // Stub `gh` so the initial call's auth preflight passes offline.
 const stubDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'ship-stepper-gh-'));
-fs.writeFileSync(path.join(stubDir, 'gh'), '#!/bin/sh\nif [ "$1" = "pr" ] && [ "$2" = "view" ]; then\n  if [ -n "$STUB_PR_URL" ]; then echo "{\\"url\\":\\"$STUB_PR_URL\\",\\"state\\":\\"OPEN\\"}"; exit 0; fi\n  exit 1\nfi\necho "Logged in to github.com account fixture"\nexit 0\n', { mode: 0o755 });
+fs.writeFileSync(path.join(stubDir, 'gh'), '#!/bin/sh\nif [ "$1" = "pr" ] && [ "$2" = "view" ]; then\n  if [ -n "$STUB_PR_URL" ]; then echo "{\\"number\\":${STUB_PR_NUMBER:-1},\\"title\\":\\"fixture\\",\\"url\\":\\"$STUB_PR_URL\\",\\"state\\":\\"OPEN\\",\\"labels\\":[]}"; exit 0; fi\n  exit 1\nfi\nif [ "$1" = "repo" ] && [ "$2" = "view" ] && [ -n "$STUB_PR_URL" ]; then echo "{\\"owner\\":{\\"login\\":\\"fixture\\"},\\"name\\":\\"fixture\\"}"; exit 0; fi\necho "Logged in to github.com account fixture"\nexit 0\n', { mode: 0o755 });
 const ghPrIdx = args.indexOf('--gh-pr-url');
-const env = { ...process.env, PATH: stubDir + path.delimiter + (process.env.PATH || ''), ...(ghPrIdx >= 0 ? { STUB_PR_URL: args[ghPrIdx + 1] } : {}) };
+const ghPrNumIdx = args.indexOf('--gh-pr-number');
+const env = { ...process.env, PATH: stubDir + path.delimiter + (process.env.PATH || ''), ...(ghPrIdx >= 0 ? { STUB_PR_URL: args[ghPrIdx + 1] } : {}), ...(ghPrNumIdx >= 0 ? { STUB_PR_NUMBER: args[ghPrNumIdx + 1] } : {}) };
 delete env.SDLC_STATE_DIR_OVERRIDE;
 
 const calls = [];
@@ -279,6 +282,15 @@ if (summaryRel) {
   const dest = path.join(execDir, 'review-summary-feat-ship.json');
   fs.copyFileSync(path.join(repoRoot, 'tests', 'promptfoo', 'fixtures-fs', 'review-summaries', summaryRel), dest);
   const t = new Date(Date.now() + (process.argv.includes('--summary-stale') ? -3600000 : 60000));
+  if (process.argv.includes('--summary-comment')) {
+    // Models review-sdlc Step 6: the comment copy sits beside the summary; the diff_dir path is gone.
+    const commentCopy = dest.replace(/\.json$/, '') + '.comment.md';
+    fs.writeFileSync(commentCopy, '## Code Review\n');
+    const doc = JSON.parse(fs.readFileSync(dest, 'utf8'));
+    doc.commentCopyPath = commentCopy;
+    doc.commentPath = path.join(require('os').tmpdir(), 'sdlc-review-gone', 'review-comment.md');
+    fs.writeFileSync(dest, JSON.stringify(doc));
+  }
   fs.utimesSync(dest, t, t);
 }
 if (process.argv.includes('--in-worktree')) {

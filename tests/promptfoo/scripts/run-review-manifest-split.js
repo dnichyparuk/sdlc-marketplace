@@ -50,6 +50,7 @@ function makeDim(i) {
     description:         `Synthetic dimension ${i} for manifest-split test`,
     severity:           'high',
     model:              'sonnet',
+    effort:             i === 0 ? 'low' : undefined,
     status:             'ACTIVE',
     requires_full_diff: false,
     truncated:          false,
@@ -73,6 +74,10 @@ writeDimensionSlices(dims, tmpDir);
 const indexJson  = JSON.stringify(dims.map(toIndexEntry));
 const indexBytes = Buffer.byteLength(indexJson, 'utf8');
 
+const index = dims.map(toIndexEntry);
+const index_effort_dim0 = index[0].effort;
+const index_effort_dim1 = index[1].effort;
+
 const index_has_body          = /"body"/.test(indexJson);
 const index_has_matched_files = /"matched_files"/.test(indexJson);
 const index_has_commit_log    = /"commit_log"/.test(indexJson);
@@ -88,6 +93,8 @@ process.stdout.write(JSON.stringify({
   index_has_body,
   index_has_matched_files,
   index_has_commit_log,
+  index_effort_dim0,
+  index_effort_dim1,
   slice_count:             dims.length,
   slice_has_body,
   slice_has_matched_files,

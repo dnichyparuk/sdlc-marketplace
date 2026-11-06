@@ -4,7 +4,7 @@
  * Zero external dependencies — Node.js built-ins only.
  *
  * Exports: extractFrontmatter, extractBody, parseSimpleYaml,
- *          isValidGlob, KNOWN_FIELDS, VALID_SEVERITIES,
+ *          isValidGlob, KNOWN_FIELDS, VALID_SEVERITIES, VALID_EFFORTS,
  *          validateDimensionFile, validateAll
  */
 
@@ -69,8 +69,10 @@ function levenshtein(a, b) {
 
 const KNOWN_FIELDS = new Set([
   'name', 'description', 'triggers', 'skip-when',
-  'severity', 'max-files', 'requires-full-diff', 'model',
+  'severity', 'max-files', 'requires-full-diff', 'model', 'effort',
 ]);
+
+const VALID_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
 const VALID_SEVERITIES = new Set(['critical', 'high', 'medium', 'low', 'info']);
 
@@ -234,6 +236,11 @@ function validateDimensionFile(filePath) {
     }
   }
 
+  // D14 — effort (optional)
+  if (fm.effort !== undefined && !VALID_EFFORTS.has(fm.effort)) {
+    warnings.push({ check: 'D14', message: `Field "effort" must be one of low|medium|high|xhigh|max (got: ${JSON.stringify(fm.effort)})`, line: null });
+  }
+
   return { errors, warnings, parsed: fm };
 }
 
@@ -351,6 +358,7 @@ module.exports = {
   hasUnsupportedBraces,
   KNOWN_FIELDS,
   VALID_SEVERITIES,
+  VALID_EFFORTS,
   GUARDRAIL_SEVERITIES,
   severityForSurface,
   validateDimensionFile,

@@ -30,7 +30,7 @@ const path = require('node:path');
 const os   = require('node:os');
 const LIB = path.join(__dirname, '..', 'lib');
 
-const { validateAll, extractFrontmatter, extractBody, parseSimpleYaml, resolveDimensionsDir, readCommonPrompt, hasUnsupportedBraces } = require(path.join(LIB, 'dimensions'));
+const { validateAll, extractFrontmatter, extractBody, parseSimpleYaml, resolveDimensionsDir, readCommonPrompt, hasUnsupportedBraces, VALID_EFFORTS } = require(path.join(LIB, 'dimensions'));
 const {
   exec,
   checkGitState,
@@ -338,6 +338,7 @@ function toIndexEntry(dim) {
     description:        dim.description,
     severity:           dim.severity,
     model:              dim.model,
+    effort:             dim.effort || null,
     status:             dim.status,
     requires_full_diff: dim.requires_full_diff,
     truncated:          dim.truncated,
@@ -514,6 +515,7 @@ function loadAndMatchDimensions(projectRoot, changedFiles, dimensionFilter) {
       severity:          fm.severity || 'medium',
       requires_full_diff: fm['requires-full-diff'] || false,
       model:             fm.model || null,
+      effort:            VALID_EFFORTS.has(fm.effort) ? fm.effort : null,
       status:            effectiveMatched.length === 0 ? 'SKIPPED' : (effectiveTruncated ? 'TRUNCATED' : 'ACTIVE'),
       matched_files:     effectiveMatched,
       matched_count:     effectiveMatched.length,
@@ -680,6 +682,7 @@ function main() {
     version:        1,
     timestamp:      new Date().toISOString(),
     subagent_model: 'sonnet',
+    subagent_effort: 'medium',
     plugin_version: getPluginVersion(),
     scope,
     base_branch:    base || null,

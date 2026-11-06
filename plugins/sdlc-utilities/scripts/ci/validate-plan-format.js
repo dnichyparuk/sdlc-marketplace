@@ -30,6 +30,7 @@
  *   PF11 — **Commit:** header field (R66; optional, checked when present)
  *   PF12 — Shared Modify paths in dependency order
  *   PF13 — Modify path existence (under --root only)
+ *   PF14 — **Fix commit:** header field (R68; optional, checked when present)
  *
  * Uses only Node.js built-in modules. No npm install required.
  */
@@ -438,8 +439,8 @@ function checkPF10(content, requiredSections) {
  * before the first `---`, `## ` or `### ` line; `**Commit:**` lines below it are
  * per-task prose and are not read. The rules live in plan-parse's parsePlanCommit.
  */
-function checkPF11(content, subjectPattern) {
-  const { subject, failure } = parsePlanCommit(content, subjectPattern);
+function checkCommitField(content, subjectPattern, id, label) {
+  const { subject, failure } = parsePlanCommit(content, subjectPattern, label);
   if (failure) {
     const why = {
       'duplicate':        () => 'appears more than once',
@@ -449,13 +450,16 @@ function checkPF11(content, subjectPattern) {
       'pattern-invalid':  () => `cannot be checked: commit.subjectPattern is not a valid regex (${failure.error})`,
       'pattern-mismatch': () => 'does not match commit.subjectPattern',
     }[failure.code]();
-    return { id: 'PF11', status: 'fail', message: `The **Commit:** header field ${why}` };
+    return { id, status: 'fail', message: `The **${label}:** header field ${why}` };
   }
   if (subject === null) {
-    return { id: 'PF11', status: 'pass', message: 'No **Commit:** header field (optional)' };
+    return { id, status: 'pass', message: `No **${label}:** header field (optional)` };
   }
-  return { id: 'PF11', status: 'pass', message: `**Commit:** header field valid (${subject.length} characters)` };
+  return { id, status: 'pass', message: `**${label}:** header field valid (${subject.length} characters)` };
 }
+
+/** PF11 — the `**Commit:**` header field (R66). */
+const checkPF11 = (content, subjectPattern) => checkCommitField(content, subjectPattern, 'PF11', 'Commit');
 
 /** Task numbers reachable from `start` through `Depends on` edges (cycle-safe). */
 function dependencyClosure(depsOf, start) {
@@ -610,6 +614,7 @@ if (require.main === module) {
     let subjectPattern = null;
     try { subjectPattern = (readSection(projectRoot, 'commit') || {}).subjectPattern || null; } catch (_) { /* no commit config */ }
     checks.push(checkPF11(content, subjectPattern));
+    checks.push(checkCommitField(content, subjectPattern, 'PF14', 'Fix commit'));
     checks.push(checkPF12(tasks));
     if (rootDir) checks.push(checkPF13(tasks, rootDir));
     if (requireScorecard) checks.push(checkPF9(content));
@@ -642,4 +647,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { checkPF4, checkPF11, checkPF12, checkPF13 };
+module.exports = { checkPF4, checkPF11, checkCommitField, checkPF12, checkPF13 };

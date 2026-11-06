@@ -129,3 +129,76 @@
       value: '"receivedReviewDeclaredInProjectSchema":false'
     - type: icontains
       value: '"rejectsReceivedReviewAtProjectLevel":true'
+
+- description: "rr-output-file: --output-file is a no-op that does not consume the next argument"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs(["node","x","--output-file","--pr","7"])))'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).prNumber === 7"
+
+- description: "rr-skill-text: one own-checks line, no banners, opener list or trust block"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>((c)=>console.log(JSON.stringify({own:c("Steps\x205-9\x20are\x20your\x20own\x20checks"),internal:c("INTERNAL"),openers:c("Forbidden\x20openers"),trust:c("Source\x20trust"),gratitude:c("Express\x20gratitude"),r18:c("Apply\x20the\x20R18\x20bypass\x20rule\x20and\x20the\x20`--auto`\x20interaction\x20from\x20Configuration")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.own === 1 && o.internal === 0 && o.openers === 0 && o.trust === 0 && o.gratitude === 0 && o.r18 === 1 ? true : `FAIL: ${output}`;
+
+- description: "rr-comment-file: (a) findings parsed with severity, path and line"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,manifest:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-comment-file"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const m = o.manifest;
+        const f = m.findings;
+        if (o.status !== 0) return `FAIL: status ${o.status}`;
+        if (f.map(x => x.id).join(',') !== 'F1,F2,F3') return `FAIL: ids ${output}`;
+        if (f.map(x => String(x.severity)).join(',') !== 'high,null,critical') return `FAIL: severities ${output}`;
+        if (f[0].path !== 'src/a.js' || f[0].line !== 12) return `FAIL: F1 location ${output}`;
+        if (f[1].path !== null || f[1].line !== null) return `FAIL: F2 location ${output}`;
+        if (f[2].path !== 'src/b.js' || f[2].line !== 3) return `FAIL: F3 location ${output}`;
+        if (m.source !== 'comment-file' || m.pr !== null || m.threads.length !== 0) return `FAIL: shape ${output}`;
+        if (m.summary.outstanding !== 3) return `FAIL: summary ${output}`;
+        return true;
+
+- description: "rr-comment-file: (b) an unreadable path exits 2"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","missing.md"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-comment-file"
+    script_capture_stderr: true
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.split('\n')[0]);
+        return o.status === 2 && o.stderr.includes('is not a readable file.') && o.stderr.includes('--comment-file') ? true : `FAIL: ${output}`;
+
+- description: "rr-comment-file: (c) parseArgs carries commentFile"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs(["node","x","--comment-file","x.md","--auto"])))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.commentFile.endsWith('/x.md') && o.prNumber === null && o.auto === true ? true : `FAIL: ${output}`;
+
+- description: "rr-skill-text: comment-file source and the no-PR skip rule"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>((c)=>console.log(JSON.stringify({hint:c("argument-hint:\x20\x22[--pr\x20\x3cnumber\x3e]\x20[--auto]\x20[--comment-file\x20\x3cpath\x3e]\x22"),src:c("When\x20\x60manifest.source\x60\x20is\x20\x60comment-file\x60"),nopr:c("When\x20\x60manifest.pr\x60\x20is\x20null"),fence:c("node\x20\x22\x3cPLUGIN_ROOT\x3e/scripts/skill/received-review.js\x22\x20--output-file\x20\x24ARGUMENTS\x20--pr\x20\x3cPR_NUMBER\x3e"),post:c("With\x20\x60manifest.pr\x60\x20null\x20(\x60comment-file\x60\x20source,\x20R27),\x20post\x20nothing"),s12:c("show\x20the\x20summary\x20in\x20item\x201\x20and\x20stop;\x20no\x20consent\x20gate,\x20no\x20posting\x20(R27)")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.hint === 1 && o.src === 1 && o.nopr === 1 && o.fence === 1 && o.post === 1 && o.s12 === 1 ? true : `FAIL: ${output}`;

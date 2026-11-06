@@ -33,6 +33,7 @@
       }
     },
     "commentPath": { "type": "string" },
+    "commentCopyPath": { "type": "string" },
     "branch": { "type": "string" }
   },
   "required": ["schemaVersion", "verdict", "counts", "dimensions", "commentPath", "branch"]

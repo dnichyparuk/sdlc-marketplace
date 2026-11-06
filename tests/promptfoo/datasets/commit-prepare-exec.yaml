@@ -585,3 +585,60 @@
         if (!o.manifest) return 'FAIL: new manifest missing (cross-shell survival, R15)';
         const want = ['commit-context-main-notes.msg', 'commit-context-otherbranch-20240101T000000Z-ab12.msg', 'review-main-20240101T000000Z-ab12.msg'];
         return JSON.stringify(o.left) === JSON.stringify(want) ? true : `FAIL: left ${JSON.stringify(o.left)}`;
+
+# W8.43 / R5 — commit.js resolves commit.requiredTrailers into commitConfig.trailers
+# ([{key,value}], value null for a key-only entry). requiredTrailers itself stays unchanged.
+- description: "commit-trailers: (a) a valued entry reaches the manifest unchanged"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-trailers"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}: ${JSON.stringify(o.out.errors)}`;
+        const c = o.out.commitConfig;
+        if (JSON.stringify(c.requiredTrailers) !== JSON.stringify(['Co-Authored-By: Claude <noreply@anthropic.com>', 'Reviewed-by'])) return `FAIL: requiredTrailers ${JSON.stringify(c.requiredTrailers)}`;
+        const t = c.trailers[0];
+        return t.key === 'Co-Authored-By' && t.value === 'Claude <noreply@anthropic.com>' ? true : `FAIL: trailers[0] ${JSON.stringify(t)}`;
+
+- description: "commit-trailers: (b) a key-only entry stays key-only"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-trailers"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}`;
+        const t = o.out.commitConfig.trailers;
+        return t.length === 2 && t[1].key === 'Reviewed-by' && t[1].value === null ? true : `FAIL: trailers ${JSON.stringify(t)}`;
+
+- description: "commit-trailers: (c) a malformed entry is an error"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>(fs.writeFileSync(process.cwd()+"/.claude/sdlc.json",JSON.stringify({commit:{requiredTrailers:["Bad\x20Key:\x20x"]}})),((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-trailers"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}`;
+        return o.out.errors.includes('commit.requiredTrailers entry "Bad Key: x" is not "Key" or "Key: Value"') ? true : `FAIL: errors ${JSON.stringify(o.out.errors)}`;
+
+- description: "commit-trailers: the orchestrator copies resolved values"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>console.log(JSON.stringify({a:t.includes("**\x60commitConfig.trailers\x60**"),b:t.includes("copied\x20verbatim"),c:t.includes("Never\x20invent\x20a\x20value"),d:t.includes("Use\x20an\x20empty\x20string\x20as\x20the\x20value\x20placeholder\x20when\x20no\x20value\x20is\x20known")})))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/agents/commit-orchestrator.md","utf8"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-trailers"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.a && o.b && o.c && !o.d ? true : `FAIL: ${JSON.stringify(o)}`;

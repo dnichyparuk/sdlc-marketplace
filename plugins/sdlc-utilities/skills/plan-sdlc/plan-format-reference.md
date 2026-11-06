@@ -24,6 +24,8 @@ All four fields are required. `execute-plan-sdlc` uses `Verification` as the def
 
 The optional `**Commit:**` line (R66) sits directly below the title. It holds one backticked subject for the single commit a ship run makes: at most 72 characters, no `"`, backtick, `$` or `\`, matching `commit.subjectPattern` when set. `validate-plan-format.js` checks it (PF11); `**Commit:**` lines inside tasks are prose and are not read.
 
+The optional `**Fix commit:**` line (R68) sits in the header too. It holds one backticked subject for the commit-fixes commit a ship run makes after received-review, with the same rules as `**Commit:**`. `validate-plan-format.js` checks it (PF14). plan-sdlc does not write it.
+
 ## Section Order
 
 A plan document assembles its sections top to bottom in this order. Sections marked "required" must

@@ -21,7 +21,7 @@
  *   body "## Checklist"   → "## Checklist" with "- [ ] " → "- "
  *   body "## Severity Guide" → copied verbatim (only if present)
  *   skip-when (array)     → "## Note" advisory (only if present)
- *   max-files / requires-full-diff / model → omitted
+ *   max-files / requires-full-diff / model / effort → omitted
  *
  * No 4,000-char condensing logic (`yagni`): the generator performs the
  * mechanical transform and a length CHECK only. On overflow it warns to

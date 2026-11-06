@@ -125,7 +125,7 @@ counts and is insufficient. <!-- implements R13, G5 -->
 
    - `comment_file` — absolute path to `${diff_dir}/review-comment.md`
    - `summary_file` — absolute path of the review summary (the `Summary file:` line; the same value as `summary_copy_path`)
-   - `summary_copy_path` — absolute path where the orchestrator wrote the summary for ship-sdlc (the `Summary copy path:` line; checked in Step 2)
+   - `summary_copy_path` — absolute path where `review-consolidate.js` wrote the summary for ship-sdlc (the `Summary copy path:` line; checked in Step 2)
    - `pr.exists` (boolean), `pr.owner`, `pr.repo`, `pr.number`
    - `verdict` — one of `CHANGES REQUESTED`, `APPROVED WITH NOTES`, `APPROVED`
    - `scope` — scope label from the summary

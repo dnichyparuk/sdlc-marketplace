@@ -25,6 +25,7 @@ Provide review feedback in one of three ways:
 |------|-------------|---------|
 | `--pr <number>` | PR number to fetch review threads from. Enables thread-aware mode: pre-computes thread resolution state, filters to outstanding comments only on re-run. | Auto-detected from current branch |
 | `--auto` | Skip consent gates at Step 10 and Step 12. Auto-implement all "will fix" items (subject to `alwaysFixSeverities`, see Configuration below) and auto-post in-thread replies (resolving only "agree, will fix" threads matching the severity allowlist). Critique gates still run. "Disagree" and "won't fix" items are displayed but not auto-implemented; their threads are replied to but left open. | Off |
+| `--comment-file <path>` | Read findings from a review comment file (`review-comment.md` written by review-sdlc) instead of PR threads. Used by ship-sdlc when the branch has no PR. No replies are posted. Ignored when `--pr` is given. | Unset |
 | `--always-harden-from-review` | Mirror of `.sdlc/local.json` `receivedReview.alwaysHardenFromReview`. When `true`, skip the Step 11.6 consent gate and auto-dispatch `harden-sdlc` per cluster (subject to `flags.auto` matrix R25). | Off (`false`) |
 
 ---

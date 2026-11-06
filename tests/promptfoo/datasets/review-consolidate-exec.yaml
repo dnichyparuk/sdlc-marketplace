@@ -129,6 +129,17 @@
     - type: contains
       value: "Save path:"
 
+- description: "review-consolidate: comment copy beside the summary"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,os,path,cp,d,r,s,c)=>{d=fs.mkdtempSync(path.join(os.tmpdir(),"rc-copy-"));try{r=cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review-consolidate.js","--manifest","{{project_root}}/manifest.json","--findings","{{project_root}}/findings-1high","--output-dir",d+"/out","--summary-path",d+"/summary.json"],{encoding:"utf8"});s=JSON.parse(fs.readFileSync(d+"/summary.json","utf8"));c=fs.readFileSync(d+"/summary.comment.md","utf8");console.log(JSON.stringify({exit:r.status,copy:s.commentCopyPath===d+"/summary.comment.md",same:c===fs.readFileSync(d+"/out/review-comment.md","utf8")}))}finally{fs.rmSync(d,{recursive:true,force:true})}})(require("fs"),require("os"),require("path"),require("child_process"))'
+    project_root: "file://fixtures-fs/review-consolidate"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 0 && o.copy === true && o.same === true;
+
 - description: "review-consolidate: --render-plan prints the review plan"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"

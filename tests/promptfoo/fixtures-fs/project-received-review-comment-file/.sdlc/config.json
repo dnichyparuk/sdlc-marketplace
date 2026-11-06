@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 4,
+  "version": {
+    "mode": "tag",
+    "tagPrefix": "v"
+  }
+}

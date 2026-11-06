@@ -27,7 +27,7 @@ Inspects staged changes and recent commit history to generate a commit message t
 | `--no-squash-wip` | Preserve `wip(execute):` commits in branch history instead of soft-resetting them into the final commit. Useful when you want the per-wave WIP history visible for review. (Fixes #392 / R35.) | Disabled (squash by default) |
 | `--expected-branch <name>` | **Internal — set by ship-sdlc.** Validates that the current branch matches `<name>` before any `git commit` invocation. Exits non-zero if the branches differ. Cross-link: see [ship-sdlc branch-verification guard](ship-sdlc.md#branch-verification-guard). | inactive |
 | `--subject <text>` | Use `<text>` verbatim as the commit subject; the message agent writes only the body. One line, at most 72 characters, checked before drafting. With `--auto`, a different subject in the written message stops the commit; without `--auto`, you are shown both and asked. The value must not contain `"`, a backtick (`` ` ``), `$` or `\`; for such a subject, write the whole message to a file and use `--message-file`. | Unset (subject drafted) |
-| `--message-file <path>` | Commit the file's content as the whole message; the message agent is skipped. The subject gate, the link check and `git commit -F` still run. The subject is the file's first line. The path must not contain `"`, a backtick (`` ` ``), `$`, `\`, a newline or a carriage return. | Unset |
+| `--message-file <path>` | Commit the file's content as the whole message; the message agent is skipped. The subject gate, the required-trailer check (`requiredTrailers`, exit 4), the link check and `git commit -F` still run. The subject is the file's first line. The path must not contain `"`, a backtick (`` ` ``), `$`, `\`, a newline or a carriage return. | Unset |
 | `--expected-subject <text>` | The subject you expect. With `--auto`, a different subject stops the run without a commit; without `--auto`, you are shown both and asked. Like `--subject`, the value must not contain `"`, a backtick (`` ` ``), `$` or `\`. | Unset |
 | `--skip-config-check` | Skip the config-version check and migration at start (same as `SDLC_SKIP_CONFIG_CHECK=1`). | Disabled |
 
@@ -171,7 +171,7 @@ Commit message validation is configured in `.sdlc/config.json` under the `commit
     "allowedTypes": ["feat", "fix", "refactor", "docs", "test", "chore"],
     "allowedScopes": ["auth", "api", "ui", "db", "cli"],
     "requireBodyFor": ["breaking"],
-    "requiredTrailers": ["Co-Authored-By"]
+    "requiredTrailers": ["Co-Authored-By: Claude <noreply@anthropic.com>", "Reviewed-By"]
   }
 }
 ```
@@ -185,7 +185,7 @@ Commit message validation is configured in `.sdlc/config.json` under the `commit
 | `allowedTypes` | array of strings | Allowed commit types when using conventional commits (e.g., `feat`, `fix`, `refactor`). Applies only to `--type` flag and auto-detection. Absence allows any type. |
 | `allowedScopes` | array of strings | Allowed commit scopes (the parenthetical in `feat(scope)`). Applies only to `--scope` flag and auto-detection. Absence allows any scope. |
 | `requireBodyFor` | array of strings | Commit types that require a body message (lines after a blank line). Checked as a quality gate. |
-| `requiredTrailers` | array of strings | Required trailer keys in the commit message (e.g., `Co-Authored-By`, `Reviewed-By`). Checked as a quality gate. |
+| `requiredTrailers` | array of strings | Required commit trailers. An entry is a key (`Reviewed-By`, written with an empty value) or a key with its value (`Co-Authored-By: Name <email>`, written verbatim). Checked as a quality gate. |
 
 ### Flag Conflicts with Configuration
 

@@ -313,6 +313,21 @@ function main() {
     warnings.push(`Could not read commit config: ${err.message}`);
   }
 
+  const TRAILER_RE = /^([A-Za-z][A-Za-z0-9-]*)(?:: (\S.*))?$/;
+  /** R5: requiredTrailers → [{ key, value }]; value null for a key-only entry. */
+  function resolveTrailers(list, errs) {
+    const out = [];
+    for (const e of list) {
+      const m = typeof e === 'string' && !/[\r\n]/.test(e) ? TRAILER_RE.exec(e) : null;
+      if (!m) { errs.push(`commit.requiredTrailers entry ${JSON.stringify(e)} is not "Key" or "Key: Value"`); continue; }
+      out.push({ key: m[1], value: m[2] === undefined ? null : m[2] });
+    }
+    return out;
+  }
+  if (Array.isArray(commitConfig?.requiredTrailers)) {
+    commitConfig = { ...commitConfig, trailers: resolveTrailers(commitConfig.requiredTrailers, errors) };
+  }
+
   // Step 3c: Validate flags against config
   if (type && commitConfig?.allowedTypes && Array.isArray(commitConfig.allowedTypes) && commitConfig.allowedTypes.length > 0) {
     if (!commitConfig.allowedTypes.includes(type)) {

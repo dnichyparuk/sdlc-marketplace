@@ -1,6 +1,6 @@
 ---
 name: review-orchestrator
-description: Orchestrates multi-dimension code review. Reads manifest from a temp file, reads REFERENCE.md, dispatches dimension review subagents in parallel, critiques and deduplicates findings, and persists the consolidated comment body to disk for the skill to post.
+description: Orchestrates multi-dimension code review. Reads manifest from a temp file, reads REFERENCE.md, dispatches dimension review subagents in parallel, critiques and deduplicates findings, and runs review-consolidate.js, which writes the consolidated comment and the review summary for the skill to post.
 tools: Read, Write, Glob, Grep, Bash, Agent
 model: sonnet
 ---
@@ -18,7 +18,7 @@ You are the review orchestrator. You receive a manifest file path, the project r
 
 ## Step 0 — Load Manifest and Resolve References
 
-Read the manifest JSON from `MANIFEST_FILE`. It is a **thin index** (R-manifest-index-slices): each `dimensions[]` entry carries only lightweight fields (`name`, `description`, `severity`, `model`, `status`, `requires_full_diff`, `truncated`, `matched_count`, `diff_file`, `slice_file`). The heavy per-dimension fields (`body`, `matched_files`, `file_context`, `warnings`) live in the dimension's `slice_file`, and the diff lives in `diff_file`. You MUST NOT read `slice_file` or `diff_file` contents into your own context — you forward their paths to each subagent (Step 2), and the subagent reads them. Your context scales with dimension count, not content.
+Read the manifest JSON from `MANIFEST_FILE`. It is a **thin index** (R-manifest-index-slices): each `dimensions[]` entry carries only lightweight fields (`name`, `description`, `severity`, `model`, `effort`, `status`, `requires_full_diff`, `truncated`, `matched_count`, `diff_file`, `slice_file`). The heavy per-dimension fields (`body`, `matched_files`, `file_context`, `warnings`) live in the dimension's `slice_file`, and the diff lives in `diff_file`. You MUST NOT read `slice_file` or `diff_file` contents into your own context — you forward their paths to each subagent (Step 2), and the subagent reads them. Your context scales with dimension count, not content.
 
 Take REFERENCE.md from `REFERENCE_MD_PATH`, the absolute path in your prompt (review-sdlc C13). If your prompt has no `REFERENCE_MD_PATH:` line, or no file exists at that path, stop and return only `Review failed: REFERENCE.md not found at <the REFERENCE_MD_PATH value, or "no REFERENCE_MD_PATH line">`. Never search for REFERENCE.md with Glob, in the home dir or anywhere else: a search can return a stale cached install.
 Read REFERENCE.md — you need section 2 (subagent prompt template); the script renders section 3.
@@ -38,8 +38,9 @@ For each dimension with `status: "ACTIVE"` or `status: "TRUNCATED"`:
    - `{dimension.name}`, `{dimension.description}`, `{dimension.severity}`
    - `{dimension.slice_file}` and `{dimension.diff_file}` → the path strings (the subagent reads them). Fill the `## This run` block at the end of the template with them; everything above it is the static prefix.
    - `{findings_file}` → `{manifest.diff_dir}/{dimension.name}.findings.json`
-3. Dispatch via Agent tool (subagent_type: general-purpose, model: dimension.model || manifest.subagent_model)
+3. Dispatch via Agent tool (subagent_type: general-purpose, model: dimension.model || manifest.subagent_model, effort: dimension.effort || manifest.subagent_effort)
    - Per-dimension precedence: a dimension's `model:` field (from its frontmatter, see R15) wins; otherwise fall back to `manifest.subagent_model`. Forward the string verbatim; D13 has already rejected values that are not Claude models (R15).
+   - `effort` follows the same precedence; `review.js` has already nulled a value outside low|medium|high|xhigh|max (D14).
    - Use each dimension's precomputed dispatch fields verbatim; do not construct them from the examples above.
 
 **Dispatch each batch in a SINGLE message** (multiple Agent tool calls in one response), in `batch` order: every dimension whose `batch` is 1, then 2, and so on (R-dimension-cap). Collect every result of a batch before you dispatch the next batch. Do not dispatch one at a time.
@@ -74,4 +75,4 @@ Return the script's stdout verbatim as your final message and nothing else. Do n
 - Implement `yes` / `save` / `cancel` branches or no-PR menu options
 - Invoke the `pr-sdlc` skill
 - Delete `manifest.diff_dir` or the manifest file — the skill cleans both up
-- Dispatch dimension subagents without `model:` — omitting it inherits this orchestrator's model instead of the dimension's chosen tier. Use `dimension.model || manifest.subagent_model` (per-dimension override wins; manifest is the fallback)
+- Dispatch dimension subagents without `model:` or `effort:` — omitting them inherits this orchestrator's settings instead of the dimension's chosen ones. Use `model: dimension.model || manifest.subagent_model` and `effort: dimension.effort || manifest.subagent_effort` (per-dimension value wins; manifest is the fallback)

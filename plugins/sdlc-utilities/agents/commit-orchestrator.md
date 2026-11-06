@@ -56,7 +56,7 @@ If `commitConfig` is non-null, every constraint below is **mandatory**:
 - **`commitConfig.allowedScopes`** + `flags.scope` not set → choose the scope exclusively from `allowedScopes` (or omit if none fits).
 - **`commitConfig.subjectPattern`** → the subject line you produce MUST match this regex.
 - **`commitConfig.requireBodyFor`** → if the selected type appears in this list, a body is mandatory.
-- **`commitConfig.requiredTrailers`** → include all listed trailer keys in the commit body, after a blank line, in `Key: Value` format. Use an empty string as the value placeholder when no value is known; do not invent values.
+- **`commitConfig.trailers`** (resolved from `requiredTrailers` by the prepare script) → end the body, after a blank line, with one trailer line per entry: `Key: Value` copied verbatim when `value` is set; `Key: ` with an empty value when `value` is null. Never invent a value. This also applies when `flags.subject` is set.
 
 Config constraints take precedence over `recentCommits` inference.
 
@@ -80,7 +80,7 @@ Before returning, verify:
 - Subject matches `commitConfig.subjectPattern` (when set)
 - Selected type is in `commitConfig.allowedTypes` (when set)
 - Selected scope is in `commitConfig.allowedScopes` (when set)
-- Required trailers all present (when `requiredTrailers` is set)
+- Required trailers all present (when `commitConfig.trailers` is set): the exact `Key: Value` line for each valued entry, a `Key:` line for each key-only entry
 - Body present when type is in `requireBodyFor` (when set)
 - Every claim in the message is traceable to `staged.diff` or `staged.diffStat`
 - Imperative mood ("add" not "adds" / "added")

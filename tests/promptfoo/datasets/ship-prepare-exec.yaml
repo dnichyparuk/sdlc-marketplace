@@ -4399,6 +4399,43 @@
         if (!err.message.includes('Fix:')) return `FAIL: message lacks Fix: ${err.message}`;
         return o.stderr.includes('**Commit:**') ? true : 'FAIL: error not mirrored to stderr';
 
+- description: "ship-fix-subject: (a) a Fix commit field reaches commit-fixes only"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n**Fix\x20commit:**\x20\x60fix(#1):\x20x\x20-\x20review\x20fixes\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),JSON.parse(fs.readFileSync(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"}).stdout.trim(),"utf8")))))(fs.mkdtempSync(os.tmpdir()+"/ship-commit-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if ((o.errors || []).some(e => e && e.id === 'planCommitSubjectInvalid')) return `FAIL: valid field rejected: ${JSON.stringify(o.errors)}`;
+        const c = (o.steps || []).find(s => s.name === 'commit');
+        const f = (o.steps || []).find(s => s.name === 'commit-fixes');
+        if (!c || !c.args.includes('--subject "docs(#1): x - y"')) return `FAIL: commit args ${c && c.args}`;
+        if (c.args.includes('review fixes')) return `FAIL: fix subject leaked into commit args ${c.args}`;
+        if (!f || !f.args.includes('--subject "fix(#1): x - review fixes"')) return `FAIL: commit-fixes args ${f && f.args}`;
+        if (!f.args.startsWith('--auto --subject')) return `FAIL: commit-fixes arg order ${f.args}`;
+        return true;
+
+- description: "ship-fix-subject: (b) a malformed Fix commit field hard-errors"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60docs(#1):\x20x\x20-\x20y\x60\n**Fix\x20commit:**\x20bare\n\n---\n\n###\x20Task\x201:\x20A\n"),((r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),stderr:r.stderr}))(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"})))))(fs.mkdtempSync(os.tmpdir()+"/ship-commit-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 1) return `FAIL: exit ${o.status}`;
+        const err = (o.out.errors || []).find(e => e && e.id === 'planCommitSubjectInvalid');
+        if (!err) return `FAIL: no planCommitSubjectInvalid: ${JSON.stringify(o.out.errors)}`;
+        if (!err.message.includes('**Fix commit:**')) return `FAIL: message does not name the field ${err.message}`;
+        return true;
+
 - description: "ship-prepare (R-plan-commit-subject): unreadable plan hard-errors with planCommitSubjectInvalid"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
@@ -4548,3 +4585,100 @@
   assert:
     - type: icontains
       value: "--from-wave must be an integer, got"
+
+- description: "ship-rr-input: (a) a PR gives --pr <N>"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json --answer yes --gh-pr-url https://example/pr/7 --gh-pr-number 7"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const next = o.calls[o.calls.length - 1].envelope;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        if (next.step.data.args !== '--auto --pr 7') return `FAIL: args ${next.step.data.args}`;
+        if (next.step.data.invocation !== 'skill: "received-review-sdlc", args: "--auto --pr 7"') return `FAIL: invocation ${next.step.data.invocation}`;
+        return true;
+
+- description: "ship-rr-input: (b) no PR and an existing comment file gives --comment-file"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json --summary-comment --answer yes"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const next = o.calls[o.calls.length - 1].envelope;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        if (!/^--auto --comment-file "\/.+\/review-summary-feat-ship\.comment\.md"$/.test(next.step.data.args)) return `FAIL: args ${next.step.data.args}`;
+        return true;
+
+- description: "ship-rr-input: (c) neither keeps --auto only"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json --answer yes"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const next = o.calls[o.calls.length - 1].envelope;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        if (next.step.data.args !== '--auto') return `FAIL: args ${next.step.data.args}`;
+        return true;
+
+# R78 / W8.41: the Step 6 summary carries commits[] and reviewSummaryPath.
+- description: "ship-summary-commits: (a) a walked run lists the commit step with its subject"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario auto-walk"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const last = o.calls[o.calls.length - 1].envelope;
+        if (last.status !== 'done') return `FAIL: last ${JSON.stringify(last).slice(0, 300)}`;
+        const s = last.ext && last.ext.summary;
+        if (!s || !Array.isArray(s.commits)) return `FAIL: no commits in summary: ${JSON.stringify(s)}`;
+        const c = s.commits.filter(x => x.step === 'commit');
+        if (c.length !== 1) return `FAIL: commits ${JSON.stringify(s.commits)}`;
+        if (typeof c[0].sha !== 'string' || typeof c[0].subject !== 'string' || !c[0].subject) return `FAIL: entry ${JSON.stringify(c[0])}`;
+        return 'reviewSummaryPath' in s ? true : 'FAIL: reviewSummaryPath missing from summary';
+
+- description: "ship-summary-commits: (b) commitSubject is null on a git error"
+  vars:
+    script_path: "-e"
+    script_args: '((ship,cp)=>console.log(JSON.stringify({bad:ship.commitSubject("0000000",process.cwd()),nonsha:ship.commitSubject("not-a-sha",process.cwd()),head:ship.commitSubject(cp.execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),process.cwd()),want:cp.execFileSync("git",["log","-1","--format=%s"],{encoding:"utf8"}).trim()})))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js"),require("child_process"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.bad !== null || o.nonsha !== null) return `FAIL: expected null, got ${JSON.stringify(o)}`;
+        return o.head && o.head === o.want ? true : `FAIL: head subject ${JSON.stringify(o)}`;
+
+- description: "ship-stage-sdlc: tracked .sdlc paths of the plan are staged, ignored and missing ones are not"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(JSON.stringify([require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js").stageCommands("plan.md",process.cwd()),require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js").stageCommands("plan-none.md",process.cwd())]))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stage-sdlc"
+  assert:
+    - type: javascript
+      value: |
+        const [a, b] = JSON.parse(output);
+        const want = ["git add -A -- ':!.sdlc/'", "git add -- .sdlc/review-dimensions/x.md"];
+        if (JSON.stringify(a) !== JSON.stringify(want)) return `FAIL: plan.md ${JSON.stringify(a)}`;
+        return JSON.stringify(b) === JSON.stringify(["git add -A -- ':!.sdlc/'"]) ? true : `FAIL: plan-none.md ${JSON.stringify(b)}`;

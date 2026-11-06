@@ -43,6 +43,10 @@
     "model": {
       "type": "string",
       "enum": ["haiku", "sonnet", "opus"]
+    },
+    "effort": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "xhigh", "max"]
     }
   },
   "required": ["name", "description", "triggers"],

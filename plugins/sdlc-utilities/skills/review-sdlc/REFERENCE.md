@@ -16,6 +16,7 @@ See `EXAMPLES.md` (in this directory) for 5 copy-paste-ready example dimension f
   "version": 1,
   "timestamp": "ISO-8601",
   "subagent_model": "sonnet",
+  "subagent_effort": "medium",
   "scope": "all",
   "base_branch": "main",
   "current_branch": "feat/xyz",
@@ -37,6 +38,7 @@ See `EXAMPLES.md` (in this directory) for 5 copy-paste-ready example dimension f
       "description": "...",
       "severity": "high",
       "model": "sonnet",
+      "effort": null,
       "status": "ACTIVE",
       "requires_full_diff": false,
       "truncated": false,
@@ -131,6 +133,7 @@ skip-when:                  # OPTIONAL. Negative globs — matched files are exc
 severity: medium            # OPTIONAL. Default: medium. One of: critical | high | medium | low | info
 max-files: 100              # OPTIONAL. Default: 100. Positive integer. Files over this limit are truncated with a warning.
 requires-full-diff: false   # OPTIONAL. Default: false. If true, subagent receives the full diff for matched files.
+effort: medium              # OPTIONAL. One of: low | medium | high | xhigh | max. Default: manifest.subagent_effort.
 ---
 
 [Review instructions body — free-form Markdown, minimum 10 characters]
@@ -148,6 +151,7 @@ requires-full-diff: false   # OPTIONAL. Default: false. If true, subagent receiv
 | `max-files` | No | integer | `100` | Positive integer |
 | `requires-full-diff` | No | boolean | `false` | — |
 | `model` | No | string | `null` | One of: `haiku`, `sonnet`, `opus`. Per-dimension model override; falls back to `manifest.subagent_model` when null. Claude-Code-only — Copilot transform omits it. |
+| `effort` | No | string | `null` | One of: `low`, `medium`, `high`, `xhigh`, `max`. Per-dimension effort for the subagent; falls back to `manifest.subagent_effort` (`medium`) when null. Claude-Code-only — Copilot transform omits it. |
 
 ### Body content
 
