@@ -25,15 +25,22 @@ const reviewScript = path.join(REPO_ROOT, 'plugins', 'sdlc-utilities', 'scripts'
 
 const res = spawnSync(
   process.execPath,
-  [reviewScript, '--committed', '--base', 'main', '--dry-run', '--json'],
+  [reviewScript, '--output-file', '--committed', '--base', 'main', '--dry-run', '--json'],
   { cwd: process.cwd(), encoding: 'utf8' }
 );
 
+// With --output-file the last stdout line is the manifest path. Remove the run's diff_dir and
+// the manifest file; a manifest that cannot be read is a visible failure, not a silent leak.
+let exitCode = res.status;
 const manifestPath = (res.stdout || '').trim().split('\n').pop();
 try {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   if (manifest.diff_dir) fs.rmSync(manifest.diff_dir, { recursive: true, force: true });
-} catch (_) { /* no manifest: the exit code reports the failure */ }
+  fs.rmSync(manifestPath, { force: true });
+} catch (err) {
+  process.stderr.write(`run-review-dry-run-gitignore: cannot read manifest "${manifestPath}": ${err.message}\n`);
+  if (exitCode === 0) exitCode = 1;
+}
 
 // The managed files live in the main worktree, which is the parent of the common git dir.
 const commonDir = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
@@ -42,4 +49,4 @@ const commonDir = spawnSync('git', ['rev-parse', '--path-format=absolute', '--gi
 const mainRoot = path.dirname(commonDir);
 const rootGitignore = fs.existsSync(path.join(mainRoot, '.gitignore'));
 const sdlcGitignore = fs.existsSync(path.join(mainRoot, '.sdlc', '.gitignore'));
-process.stdout.write(JSON.stringify({ exit: res.status, rootGitignore, sdlcGitignore }) + '\n');
+process.stdout.write(JSON.stringify({ exit: exitCode, rootGitignore, sdlcGitignore }) + '\n');

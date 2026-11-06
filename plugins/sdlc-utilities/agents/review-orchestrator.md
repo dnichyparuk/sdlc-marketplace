@@ -25,7 +25,7 @@ Read REFERENCE.md — you need section 2 (subagent prompt template); the script 
 
 ## Step 1 — Present Plan
 
-Run `node "{PLUGIN_ROOT}/scripts/skill/review-consolidate.js" --render-plan --manifest "{MANIFEST_FILE}"` and display its stdout verbatim.
+Run `node "{PLUGIN_ROOT}/scripts/skill/review-consolidate.js" --render-plan --manifest "{MANIFEST_FILE}"` and display its stdout verbatim. If it exits non-zero, stop and return only `Review failed: review-consolidate.js exit <code>: <stderr>`.
 
 ## Step 2 — Dispatch Dimension Subagents
 
@@ -54,7 +54,7 @@ Read each findings file (small, ≤ ~20 findings). Decide duplicates by meaning,
 
 ## Step 4 — Consolidate
 
-Run `node "{PLUGIN_ROOT}/scripts/skill/review-consolidate.js" --manifest "{MANIFEST_FILE}" --findings "{manifest.diff_dir}" --output-dir "{manifest.diff_dir}"`. If it exits 1, fix or regenerate the named file once (re-dispatch that dimension), then run it again.
+Run `node "{PLUGIN_ROOT}/scripts/skill/review-consolidate.js" --manifest "{MANIFEST_FILE}" --findings "{manifest.diff_dir}" --output-dir "{manifest.diff_dir}"`. If it exits 1, fix or regenerate the named file once (re-dispatch that dimension), then run it again. If it exits 2, or exits non-zero a second time, stop and return only `Review failed: review-consolidate.js exit <code>: <stderr>`.
 
 ## Step 5 — Return
 

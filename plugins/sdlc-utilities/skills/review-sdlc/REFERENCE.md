@@ -239,13 +239,13 @@ Rendered by `scripts/skill/review-consolidate.js`; the script encodes the verdic
 
 **Template variable `{plugin_version}`:** Resolved by the prepare script (`review.js`) and emitted as `manifest.plugin_version`. `review-consolidate.js` reads it from the manifest and substitutes it verbatim — the `v` prefix is part of the template, not the value.
 
-**OWASP rendering rule:** When the finding contains an `**OWASP:**` value, append ` · OWASP {code}` to the File line (e.g., ``**File:** `src/auth/login.ts:42` · OWASP A07``). Omit the suffix entirely when the field is absent. The OWASP slot is opt-in per dimension — only dimensions whose body explicitly instructs OWASP tagging will populate it.
+**OWASP rendering rule:** When the finding JSON has an `owasp` value, append ` · OWASP {code}` to the File line (e.g., ``**File:** `src/auth/login.ts:42` · OWASP A07``). Omit the suffix entirely when the field is absent. The OWASP slot is opt-in per dimension — only dimensions whose body explicitly instructs OWASP tagging will populate it.
 
 **Verdict computation:**
 - `CHANGES REQUESTED` — any `critical` finding, or ≥ 3 `high` findings
 - `APPROVED WITH NOTES` — any `high` finding, or ≥ 5 `medium` findings
 - `APPROVED` — all other cases (low/info only, or nothing)
 
-**Deduplication rule:** When two dimensions flag the same `file:line`, keep the finding from the higher-severity dimension. Add a note: "Also flagged by: {other dimension}."
+**Deduplication rule:** The orchestrator's judgment pass first drops duplicates that mean the same thing at different locations and records them in the findings JSON (`alsoFlaggedBy`, `note`); the script then merges findings with the same `file:line`. When two dimensions flag the same `file:line`, keep the finding from the higher-severity dimension. Add a note: "Also flagged by: {other dimension}."
 
 **Contradiction rule:** When two dimensions give conflicting recommendations for the same `file:line`, keep both findings and add: "Note: conflicting recommendations — manual review required."

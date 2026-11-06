@@ -959,13 +959,11 @@
       to present the plan in Step 1 and the exact command you run to consolidate in Step 4, then
       describe what your final message contains and which files you write yourself.
   assert:
-    - type: contains
-      value: 'review-consolidate.js" --manifest'
+    - type: regex
+      value: 'review-consolidate\.js"?\s+--manifest'
     - type: contains
       value: "--render-plan"
-    - type: not-regex
-      value: '(?i)compute (the )?verdict'
     - type: llm-rubric
       value: >
-        The orchestrator ends with the script's stdout block verbatim and writes no
-        review-summary.json itself.
+        The orchestrator ends with the script's stdout block verbatim, does not compute the
+        verdict or counts itself, and writes no review-summary.json itself.

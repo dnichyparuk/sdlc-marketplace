@@ -348,6 +348,7 @@ module.exports = {
   extractBody,
   parseSimpleYaml,
   isValidGlob,
+  hasUnsupportedBraces,
   KNOWN_FIELDS,
   VALID_SEVERITIES,
   GUARDRAIL_SEVERITIES,

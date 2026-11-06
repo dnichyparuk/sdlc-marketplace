@@ -30,7 +30,7 @@ const path = require('node:path');
 const os   = require('node:os');
 const LIB = path.join(__dirname, '..', 'lib');
 
-const { validateAll, extractFrontmatter, extractBody, parseSimpleYaml, resolveDimensionsDir, readCommonPrompt } = require(path.join(LIB, 'dimensions'));
+const { validateAll, extractFrontmatter, extractBody, parseSimpleYaml, resolveDimensionsDir, readCommonPrompt, hasUnsupportedBraces } = require(path.join(LIB, 'dimensions'));
 const {
   exec,
   checkGitState,
@@ -131,10 +131,12 @@ function parseArgs(argv) {
  *   .      — literal dot (escaped)
  */
 function globToRegex(pattern) {
-  return new RegExp('^' + globBody(pattern) + '$');
+  // The validator (hasUnsupportedBraces) and the matcher share one rule: a pattern with
+  // nested or unbalanced braces has no alternation at all, so every brace is literal.
+  return new RegExp('^' + globBody(pattern, hasUnsupportedBraces(pattern)) + '$');
 }
 
-function globBody(pattern) {
+function globBody(pattern, literalBraces) {
   let re = '';
   let i = 0;
   const len = pattern.length;
@@ -170,11 +172,11 @@ function globBody(pattern) {
     } else if (ch === '{') {
       const close = pattern.indexOf('}', i + 1);
       const inner = close === -1 ? '' : pattern.slice(i + 1, close);
-      if (close === -1 || inner.includes('{')) {
+      if (literalBraces || close === -1 || inner.includes('{')) {
         re += '\\{';
         i++;
       } else {
-        re += '(?:' + inner.split(',').map(globBody).join('|') + ')';
+        re += '(?:' + inner.split(',').map(s => globBody(s, false)).join('|') + ')';
         i = close + 1;
       }
     } else if ('.+^${}()|\\'.includes(ch)) {

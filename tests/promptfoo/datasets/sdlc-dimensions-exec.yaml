@@ -183,7 +183,7 @@
     - type: regex
       value: '"total_errors":\s*[1-9]'
 
-- description: "sdlc-dimensions-model: claude ids and aliases pass"
+- description: "sdlc-dimensions-model: a claude-* model id passes"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
     script_args: "--project-root {{project_root}} --json"
