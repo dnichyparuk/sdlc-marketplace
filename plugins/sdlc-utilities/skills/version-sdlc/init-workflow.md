@@ -52,7 +52,6 @@ Then scaffold CI scripts and workflows using `scaffold-ci.js`.
 Run the scaffold (include `--changelog` when `config.changelog === true`):
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 # Without changelog:
 node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --output-file
 # With changelog:
@@ -79,7 +78,6 @@ The check-changelog lines are only shown when `config.changelog === true`.
 **Version check** — after scaffolding, check if any installed files are outdated. Run the scaffold script again in check-only mode:
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --output-file
 # With changelog:
 node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --changelog --output-file
