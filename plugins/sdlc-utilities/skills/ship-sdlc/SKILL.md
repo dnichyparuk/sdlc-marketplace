@@ -129,6 +129,8 @@ Options:
 - **path** — ask the user for an explicit state file path, then re-invoke with `--state-file <path>`
 - **abort** — exit cleanly without dispatching any step
 
+**Under `--auto`:** when the prepare output's `flags.auto === true`, do not call AskUserQuestion. Stop and return failure with `pendingQuestion`: "Active pipeline reminder found but no state file for current branch. Start fresh, or specify a state path?" (options: fresh, path, abort) (ship R85).
+
 Read `./state-format.md` when resuming from a state file.
 
 ### 1f. Context detection

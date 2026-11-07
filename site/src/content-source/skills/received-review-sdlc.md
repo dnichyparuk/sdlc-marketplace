@@ -25,8 +25,14 @@ Provide review feedback in one of three ways:
 |------|-------------|---------|
 | `--pr <number>` | PR number to fetch review threads from. Enables thread-aware mode: pre-computes thread resolution state, filters to outstanding comments only on re-run. | Auto-detected from current branch |
 | `--auto` | Skip consent gates at Step 10 and Step 12. Auto-implement all "will fix" items (subject to `alwaysFixSeverities`, see Configuration below) and auto-post in-thread replies (resolving only "agree, will fix" threads matching the severity allowlist). Critique gates still run. "Disagree" and "won't fix" items are displayed but not auto-implemented; their threads are replied to but left open. | Off |
-| `--comment-file <path>` | Read findings from a review comment file (`review-comment.md` written by review-sdlc) instead of PR threads. Used by ship-sdlc when the branch has no PR. No replies are posted. Ignored when `--pr` is given. | Unset |
+| `--comment-file <path>` | Read findings from a review comment file (`review-comment.md` written by review-sdlc) instead of PR threads. Used by ship-sdlc when the branch has no PR. No replies are posted and none are drafted (R31); a deferred harden entry logs `PR: none (comment-file <basename>)` and dedups on `surface=`, `targetFile=` and the `PR:` line (R32). Ignored when `--pr` is given. | Unset |
+| `--plan <path>` | Read the plan file's file lists and restrict fixes to those paths (`manifest.allowedFiles`). A fix needing another path gets "needs discussion". See Fix scope below. | Unset |
+| `--min-severity <level>` | Fix only findings at or above this severity (`critical`, `high`, `medium`, `low`). Lower or null-severity findings get "below threshold" and are never fixed, even under `--auto`. | Unset |
 | `--always-harden-from-review` | Mirror of `.sdlc/local.json` `receivedReview.alwaysHardenFromReview`. When `true`, skip the Step 11.6 consent gate and auto-dispatch `harden-sdlc` per cluster (subject to `flags.auto` matrix R25). | Off (`false`) |
+
+### Fix scope
+
+When `--plan` or `--min-severity` is set, Step 4 applies the scope and threshold rules. After the last fix, Step 11 runs `received-review.js --check-scope` against the manifest and the fixed finding ids. If a changed file is outside the allowed files, or a fixed finding is below the threshold, the skill stops with a failure and asks "Revert or keep the listed changes?". It never reverts on its own, and it skips Steps 11.6 to 12. When run from `/ship-sdlc`, ship stops before commit-fixes.
 
 ---
 

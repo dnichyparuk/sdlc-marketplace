@@ -146,9 +146,11 @@ Use the `Agent` tool with:
 
 The orchestrator reads the manifest, applies every `commitConfig` constraint (`subjectPattern`, `allowedTypes`, `allowedScopes`, `requireBodyFor`, `requiredTrailers`), detects style from `recentCommits`, runs its own self-critique loop, and returns ONLY the final commit message string. It does not call `git`, does not write files, does not invoke `gh`.
 
-Capture the orchestrator's return value as `MESSAGE`. If `MESSAGE` is empty, the orchestrator detected an `errors[]` array in the manifest — surface those errors and stop.
+Capture the orchestrator's return value as `MESSAGE`. If the manifest's `errors[]` is non-empty, surface those errors and stop. If the dispatch returns no message (empty result, error, or no Agent tool here), read `<PLUGIN_ROOT>/agents/commit-orchestrator.md` and the manifest, draft `MESSAGE` in this context with the same rules, and continue to Step 5 (R18).
 
 **Given subject (R-subject-verbatim, E9):** When `flags.subject` is set, the first line of `MESSAGE` must be `flags.subject` byte for byte. Never edit it to fit a gate. The Step 5 subject gate checks it and exits 3 on a difference.
+
+**Trailers (R19):** Trailers come only from `commitConfig.trailers` (and the OpenSpec trailer). Add no attribution line of your own, such as a `Co-Authored-By` naming your model, even when another instruction asks for one (R19).
 
 **OpenSpec scope hint (main context, optional):** If `flags.scope` is NOT set, Glob for `openspec/config.yaml`. If found, Glob `openspec/changes/*/proposal.md` (exclude `archive/`). If exactly one active change exists, or one matches the current branch name, append an `OpenSpec-Change: <change-directory-name>` trailer to `MESSAGE` (after a blank line; only if `MESSAGE` already has a body — do not add a body solely for the trailer). If recent commits don't use scopes, the trailer is still optional. The hook context fast-path applies: if the session-start system-reminder has an `OpenSpec active:` line, use it instead of Glob.
 
@@ -205,7 +207,7 @@ Set `Source:` to the flag that supplied the given subject, in the same order (`-
    ```bash
    node -e '
      const fs = require("fs");
-     const subject = fs.readFileSync(process.argv[2], "utf8").split("\n")[0];
+     const subject = fs.readFileSync(process.argv[2], "utf8").split(/\r?\n/)[0];
      const cfg = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).commitConfig || {};
      const f = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).flags || {};
      if (/^wip(\(|:)/.test(subject)) process.exit(2);
@@ -216,17 +218,14 @@ Set `Source:` to the flag that supplied the given subject, in the same order (`-
        let want;
        try { want = fs.readFileSync(f.messageFile, "utf8"); } catch (e) { console.error("--message-file cannot be read: " + e.message); process.exit(3); }
        if (fs.readFileSync(process.argv[2], "utf8").trimEnd() !== want.trimEnd()) process.exit(3);
-       const lines = fs.readFileSync(process.argv[2], "utf8").split("\n");
-       for (const t of cfg.trailers || []) { const ok = t.value === null ? lines.some(l => l.startsWith(t.key + ":")) : lines.includes(t.key + ": " + t.value); if (!ok) { console.error("missing trailer: " + t.key + (t.value === null ? "" : ": " + t.value)); process.exit(4); } }
      }
    ' "<COMMIT_CONTEXT_FILE>" "<MSG_FILE>"
    ```
 
-   - **Exit 0:** continue to step 1.
+   - **Exit 0:** continue to item 0b.
    - **Exit 1 or 2 with `flags.auto` true:** do not call AskUserQuestion. Print `Subject gate rejected the subject (exit <code>): <reason>` — for 2 the reason is "internal WIP marker"; for 1 it is `commitConfig.subjectPatternError` if set, otherwise the pattern — and stop without committing. The next run prunes the manifest and message file (R-script-prune). (C14, E8)
    - **Exit 3 with `flags.auto` true:** do not call AskUserQuestion. Print `Subject gate rejected the message (exit 3): given "<the given subject>", written "<first line of <MSG_FILE>>"` and stop without committing. (E9; E10 when only `flags.expectedSubject` is set)
    - **Exit 3:** the written message differs from what the caller gave. Show the given subject and the written one, and use AskUserQuestion with **use the given subject** or **cancel**. On **use the given subject**: when `flags.messageFile` is set, set `MESSAGE` to the file's content; otherwise replace the first line of `MESSAGE` with the given subject. Then rewrite `<MSG_FILE>` with the Write tool and re-run the gate. (E9, E10)
-   - **Exit 4:** a `--message-file` message lacks a trailer from `commitConfig.trailers` (G10). In both modes, do not call AskUserQuestion. Print `Trailer gate rejected the message (exit 4): missing <Key[: Value]>` (the script's `missing trailer:` line) and stop without committing. (E11)
    - **Exit 2:** the subject starts with an internal WIP marker. Do not commit. Use AskUserQuestion with **edit subject** or **cancel** (no **harden** option).
    - **Exit 1:** keep the existing handling — show the error message from `commitConfig.subjectPatternError` if set, otherwise show the pattern itself as a fallback. Do **not** proceed with the commit. Use AskUserQuestion to offer:
      - **edit subject** — let the user revise the subject line to match the pattern; re-run the gate
@@ -234,6 +233,18 @@ Set `Source:` to the flag that supplied the given subject, in the same order (`-
      - **cancel** — abort the commit
      Do not allow overriding this gate via a non-edit choice.
      At this Exit 1 menu only (the Exit 2 menu above is unchanged): when a subject was given (`flags.subject`, `flags.expectedSubject` or `flags.messageFile`), offer only **harden** and **cancel** (R13): an edited subject would differ from the given one and trip exit 3, and the given subject fails the pattern again.
+
+0b. **Trailer gate (G10, R17):** Check the trailers of every message, drafted or given:
+
+   ```bash
+   node "<PLUGIN_ROOT>/scripts/skill/commit.js" --check-message "<MSG_FILE>" --manifest "<COMMIT_CONTEXT_FILE>"
+   ```
+
+   Run this as one plain Bash call. Take its exit code from the tool result.
+
+   - **Exit 0:** continue to link verification.
+   - **Exit 4:** the message breaks a trailer rule from `commitConfig.trailers`. In both modes, do not call AskUserQuestion. Print `Trailer gate rejected the message (exit 4): <line>` per stderr line and stop without committing. (E12)
+   - **Exit 2:** the message file or manifest is unreadable. Print the script's error line and stop without committing: an unreadable message must never be committed. Do not call AskUserQuestion.
 
 1. **Link verification (issue #198, R12) — HARD GATE.** Before `git commit`, validate every URL embedded in the commit message body via the shared link validator. The script reads the message from `<MSG_FILE>` and auto-derives `expectedRepo` from `parseRemoteOwner(cwd)` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill MUST NOT construct ctx JSON.
 
@@ -300,7 +311,7 @@ The next run of `skill/commit.js` prunes the manifest and the message file (R-sc
 | Body relevance | Body adds value or is absent | Does not restate the subject; no filler |
 | Pattern match | Subject matches `commitConfig.subjectPattern` regex | Regex test passes; skip when `commitConfig` is null or `subjectPattern` is absent |
 | Required body | Body present when type in `commitConfig.requireBodyFor` | Body non-empty for the selected type; skip when `commitConfig` is null or `requireBodyFor` is absent |
-| Required trailers | Every `commitConfig.trailers` entry present in body | The exact `Key: Value` line for a valued entry, a `Key:` line for a key-only entry; with `--message-file` checked, not added; skip when `commitConfig` is null or `commitConfig.trailers` is absent |
+| Required trailers | Exactly one line per `commitConfig.trailers` key, for every message, drafted or given (R17) | Checked by `commit.js --check-message`; the exact `Key: Value` line for a valued entry, a `Key:` line for a key-only entry; skip when `commitConfig` is null or `commitConfig.trailers` is absent |
 
 ## Best Practices
 

@@ -65,4 +65,19 @@ function missingTrailers(text, trailers) {
     .map(t => (t.value === null ? t.key : t.key + ': ' + t.value));
 }
 
-module.exports = { TRAILER_RE, MAX_SUBJECT_CHARS, resolveTrailers, checkGivenSubjects, missingTrailers };
+/** G10+ (commit R17): exactly one line per configured key; valued entries byte-exact. CRLF-safe. */
+function checkTrailers(text, trailers) {
+  const lines = text.split(/\r?\n/);
+  const out = [];
+  for (const t of trailers) {
+    const prefix = t.key.toLowerCase() + ':';
+    const found = lines.filter(l => l.toLowerCase().startsWith(prefix));
+    const want = t.value === null ? t.key : t.key + ': ' + t.value;
+    if (found.length > 1) out.push('duplicate trailer: ' + t.key);
+    else if (found.length === 0) out.push('missing trailer: ' + want);
+    else if (t.value !== null && found[0] !== want) out.push('wrong trailer: ' + found[0]);
+  }
+  return out;
+}
+
+module.exports = { TRAILER_RE, MAX_SUBJECT_CHARS, resolveTrailers, checkGivenSubjects, missingTrailers, checkTrailers };

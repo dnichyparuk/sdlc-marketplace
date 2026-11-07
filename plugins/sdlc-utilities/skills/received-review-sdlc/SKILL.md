@@ -187,6 +187,8 @@ For each item:
 
 If any item is unclear, ask about all unclear items in one message before implementing anything: items may be related, and partial understanding produces the wrong change.
 
+**Under `--auto`:** when `manifest.flags.auto === true`, ask nothing; give each unclear item the verdict "needs discussion" (C19).
+
 Only proceed to Step 3 after all items are understood.
 
 ---
@@ -208,6 +210,7 @@ Determine the verification status:
 - **cannot verify** — would need runtime data or external context
 
 For "cannot verify" items: state the limitation explicitly, ask the user for direction.
+**Under `--auto`:** when `manifest.flags.auto === true`, ask nothing; give the item the verdict "needs discussion" (C19).
 
 ---
 
@@ -266,6 +269,8 @@ Continue until all gates pass (max 2 iterations per gate).
 
 ## Step 7 — RESPOND (DO): Draft Responses
 
+**Comment-file mode (R31):** In the `comment-file` source (`manifest.source`), draft no reply. Keep one decision line per finding for the Step 10 table.
+
 Draft a response for each item. Response structure per item:
 
 1. Factual acknowledgment of what was said (substance first)
@@ -304,7 +309,7 @@ Review drafted responses against these gates:
 | Starts with substance | Responses open with the technical issue, not social filler | No praise, gratitude or filler before the substance |
 | Technically grounded | Every response references specific code, behavior, or constraint | No hand-waving ("this should be fine") |
 | Pushback is technical | Disagreements cite code, performance data, or design constraints | No "I prefer" or "I think" without backing evidence |
-| Thread-level replies | Each response targets its specific comment thread | No top-level dump of all responses |
+| Thread-level replies | Each response targets its specific comment thread (not applied in comment-file mode) | No top-level dump of all responses |
 | Implementation plan clear | For accepted items, response states what will change | Reviewer knows what to expect in next push |
 | No blind agreement | Factual errors corrected, not accommodated | Incorrect reviewer claims are challenged |
 | Proportional effort | Simple fixes get short responses; complex items get detailed ones | No walls of text for typo fixes |
@@ -347,7 +352,7 @@ Group items by action:
 
 **3. Drafted PR responses:**
 
-Show the full text of each drafted response, labeled by item number.
+Show the full text of each drafted response, labeled by item number. In the `comment-file` source (R31) omit this block: no reply was drafted.
 
 **4. Consent gate:**
 
@@ -431,7 +436,7 @@ Step 11.6 — meta-analyze-findings: started | clusterCount=<N> surfaces=[<list>
 
 ### 11.6.2 — Re-run guard (KD7)
 
-Scan the last 100 lines of `.sdlc/learnings/log.md` for prior `received-review-sdlc:` deferred-cluster entries whose `surface=` and `targetFile=` match the current PR's clusters. Suppress matching clusters with a `suppressed: re-run dedup` log line.
+Scan the last 100 lines of `.sdlc/learnings/log.md` for prior `received-review-sdlc:` deferred-cluster entries whose `surface=`, `targetFile=` and `PR:` line match the current run's clusters (R32). Suppress matching clusters with a `suppressed: re-run dedup` log line.
 
 ### 11.6.3 — Branch on R25 auto-mode matrix
 
@@ -464,7 +469,7 @@ NEVER call `AskUserQuestion` (C17). Skip consent gate. Skip dispatch entirely.
 Append deferred-action entry to `.sdlc/learnings/log.md` in R26 format:
 ```
 ## YYYY-MM-DD — received-review-sdlc: deferred meta-analysis clusters
-PR: <pr.number>
+PR: <pr.number>   (or, when `manifest.pr` is null: PR: none (comment-file <basename of manifest.comment_file>)) (R32)
 Clusters (<count>):
 - surface=<hardenSurfaceHint> targetFile=<hardenTargetFileHint> findings=<count> verdict-mix=<csv> failure-text-preview="<first 100 chars>"
 - ...

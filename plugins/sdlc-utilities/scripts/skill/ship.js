@@ -1535,6 +1535,20 @@ function ensureLedger({ flags, flagSources, openspecContext, planFile, gitState,
   for (const key of FROZEN_FLAG_KEYS) {
     if (!(key in ledger.flags)) ledger.flags[key] = frozen[key];
   }
+  // R11 (#9228): on an adopted ledger the non-frozen flags and their sources are rewritten
+  // from this run's merged CLI > config > default values; none is taken from the ledger.
+  if (resume && resume.found && flags.resume) {
+    const OWN_RULE = ['steps', 'tasks', 'fromWave'];
+    for (const [key, val] of Object.entries(flags)) {
+      if (FROZEN_FLAG_KEYS.includes(key) || OWN_RULE.includes(key)) continue;
+      ledger.flags[key] = val;
+    }
+    if (ttlDays != null) ledger.flags.ttlDays = ttlDays; else delete ledger.flags.ttlDays;
+    ledger.flags.sources = { ...ledger.flags.sources,
+      ...Object.fromEntries(Object.entries(flagSources).filter(([k]) => !OWN_RULE.includes(k))) };
+    // quality is merged only when --quality is given; a tier stored by an earlier run is not kept.
+    if (flags.quality === undefined) { delete ledger.flags.quality; delete ledger.flags.sources.quality; }
+  }
   // R76 (owner Q22b): dispatch_execute reads the ledger's flags, so the selection lives there,
   // but every run replaces it with its own CLI values; --resume never restores it.
   for (const key of ['tasks', 'fromWave']) {
@@ -1764,11 +1778,11 @@ function reviewGateDecision(ledger) {
 
 /** R77: the findings input of dispatch_received_review: '--pr <N>', '--comment-file "<path>"' or ''. Never throws. */
 function receivedReviewInput(ledger) {
-  const pr = fetchPrMetadata();
-  if (pr.exists && pr.state === 'OPEN' && Number.isInteger(pr.number) && pr.number > 0) return `--pr ${pr.number}`;
   const d = reviewGateDecision(ledger);
   const p = d.commentCopyPath || d.commentPath;
   if (typeof p === 'string' && path.isAbsolute(p) && !/["`$\\\n\r]/.test(p) && fs.existsSync(p)) return `--comment-file "${p}"`;
+  const pr = fetchPrMetadata();
+  if (pr.exists && pr.state === 'OPEN' && Number.isInteger(pr.number) && pr.number > 0) return `--pr ${pr.number}`;
   return '';
 }
 
@@ -1854,19 +1868,33 @@ function sweepStateFiles(flags) {
   } catch (_) { /* the sweep is best effort; the error envelope must still be emitted */ }
 }
 
+/** True when `git status --porcelain` lists a path outside `.sdlc/` (a rename counts by its target). */
+function changesOutsideSdlc(cwd) {
+  const res = spawnSync('git', ['status', '--porcelain'], { cwd, encoding: 'utf8', timeout: 8000 });
+  if (res.status !== 0) return false;
+  return res.stdout.split('\n').filter(Boolean).some(l => !l.slice(3).split(' -> ').pop().replace(/^"|"$/g, '').startsWith('.sdlc/'));
+}
+
 /**
- * R80 re-run guard: a version entry left `in_progress` or `failed` after
+ * R80/R86 re-run guard: a version entry left `in_progress` or `failed` after
  * `dispatch_version` was emitted, with HEAD moved off the recorded `dispatchHead`,
  * means the release commit may already exist. Records a fact (the two SHAs), never
  * a verdict: the caller turns it into a pending question.
  * @returns {null | { prompt, options, id, step, dispatchHead, head }}
  */
-function rerunGuard(entry, cwd) {
+function rerunGuard(entry, cwd, executeHasState) {
   if (!entry || (entry.status !== 'in_progress' && entry.status !== 'failed') || !entry.dispatchHead) return null;
+  // An execute state file means execute is mid-run: the caller resumes it with --resume.
+  if (entry.name === 'execute' && executeHasState) return null;
   const c = checkHeadCommit(entry.dispatchHead, cwd);
-  if (!c.head || c.landed) return null;
+  if (!c.head) return null;
+  // execute leaves its work uncommitted, so no state file plus changes outside .sdlc/ means it finished.
+  const dirty = c.landed && entry.name === 'execute' && changesOutsideSdlc(cwd);
+  if (c.landed && !dirty) return null;
   return {
-    prompt: `The ${entry.name} step ran before and HEAD has moved since: it was ${entry.dispatchHead} when the step was dispatched and is ${c.head} now. Record the work already done, or run the step again?`,
+    prompt: dirty
+      ? `The ${entry.name} step ran before, left no state file, and the working tree has changes outside .sdlc/ (HEAD is still ${c.head}). Record the work already done, or run the step again?`
+      : `The ${entry.name} step ran before and HEAD has moved since: it was ${entry.dispatchHead} when the step was dispatched and is ${c.head} now. Record the work already done, or run the step again?`,
     options: ['record', 'rerun'],
     id: 'rerunGuard',
     step: entry.name,
@@ -2059,6 +2087,21 @@ function pickNextStep(after, ctx) {
               commands: [
                 `node "${STATE_SHIP_SCRIPT}" complete --step version --result "release commit ${guard.head} recorded by hand"`,
                 `node "${STATE_SHIP_SCRIPT}" skip --step version --reason "re-run guard: release already made"`,
+              ],
+            };
+          }
+        }
+        if (id === 'dispatch_execute') {
+          // A "yes" at execute_gate is the user's own go-ahead to resume, so it never loops back into the guard.
+          const gate0 = historyAfter(ledger, 'execute_gate', 'dispatch_execute');
+          const gateYes0 = !!(gate0 && gate0.data && executeGateChoice(gate0.data.answer) === 'yes');
+          const guard = rerunGuard(entryOf('execute'), resolveActiveWorktreeSafe(), gateYes0 || !!readState('execute', slugifyBranch(ledger.branch)));
+          if (guard) {
+            return {
+              pending: guard,
+              commands: [
+                `node "${STATE_SHIP_SCRIPT}" complete --step execute --result "execute finished outside the pipeline, recorded by hand"`,
+                `node "${STATE_SHIP_SCRIPT}" skip --step execute --reason "re-run guard: execute already ran"`,
               ],
             };
           }
@@ -2511,7 +2554,7 @@ function runAfter(stepArgs) {
   if (nextName) {
     const res = shipState.startStepCore(ledger, nextName);
     if (!res.ok) return failStep(`${next.step.id}: ${res.error} in the ledger.`);
-    if (next.step.id === 'dispatch_version') {
+    if (next.step.id === 'dispatch_version' || next.step.id === 'dispatch_execute') {
       const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
       if (head) res.step.dispatchHead = head; // R80: the fact rerunGuard compares against
     }

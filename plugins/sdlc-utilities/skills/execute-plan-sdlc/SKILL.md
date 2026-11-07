@@ -192,6 +192,8 @@ If `flags.rebase` is `auto` and not up to date: attempt `git rebase origin/<defa
 
 If `flags.rebase` is `prompt`: Use AskUserQuestion — rebase onto default branch or skip.
 
+**Under `--auto`:** when `flags.auto === true` and `flags.rebase` is `prompt`, do not call AskUserQuestion. Stop and return failure with `pendingQuestion`: "Rebase onto the default branch or skip?" (options: rebase, skip) (execute C17).
+
 If `flags.rebase` is `skip`: skip entirely.
 
 Note: for a freshly created worktree from main, HEAD is already on main — `merge-base --is-ancestor` passes and rebase is skipped. This step only matters for resumed executions or worktrees created earlier.
@@ -412,11 +414,15 @@ Do NOT spawn a separate watchdog Agent.
    const dispatched = JSON.parse(process.env.DISPATCHED_IDS || '[]');
    process.stdout.write(JSON.stringify(parseWaveSummary(text, dispatched)) + '\n');
    " < "<SUMMARY_FILE>"
-   echo "PARSE_EXIT=$?"
+   ```
+
+   Run this as one plain Bash call. Take its exit code from the tool result. Then remove the file in its own call:
+
+   ```bash
    rm -f "<SUMMARY_FILE>"
    ```
 
-   Read `schemaOk`, `missingIds`, `extraIds`, `violations` and `parsed` from the JSON line it prints. If no JSON line was printed or `PARSE_EXIT` is not 0, mark no task done: treat the wave as failed (`wave-fail`) and follow Step 6 (RECOVER) with the printed error (E15).
+   Read `schemaOk`, `missingIds`, `extraIds`, `violations` and `parsed` from the JSON line it prints. If no JSON line was printed or the parse call's exit code (from the tool result) is not 0, mark no task done: treat the wave as failed (`wave-fail`) and follow Step 6 (RECOVER) with the printed error (E15).
 
    - If `missingIds.length > 0` → **CONTEXT_OVERFLOW** (R-CONTEXT_OVERFLOW): the wave-runner's context was exhausted before it could report all dispatched tasks. This is the sole discriminant — a schema-valid partial response (where `schemaOk` is true but `missingIds` is non-empty) also triggers this path, because absent IDs mean unconfirmed tasks regardless of schema validity. In direct mode every worker was awaited, so a missing ID is a task whose return lacked its `COMPLETE:` lines: report it `FAILED` and apply Step 6 instead of splitting. In runner mode invoke the auto-split-and-retry flow:
 
@@ -429,7 +435,7 @@ Do NOT spawn a separate watchdog Agent.
        --split-depth <currentSplitDepth> \
        --max-split-depth 3
      ```
-     Read `halves[0].tasks` and `halves[1].tasks` from the output. Re-dispatch each half as an independent wave-runner with a fresh byte budget (recompute via `lib/dispatch-budget.js`). Each half gets its own fact sheets (already written — reuse existing paths). Depth increments on each recursive split; `MaxSplitDepthExceededError` (exit 2) means the task set cannot be further split — escalate to user with `AskUserQuestion` listing the unresolved task IDs.
+     Read `halves[0].tasks` and `halves[1].tasks` from the output. Re-dispatch each half as an independent wave-runner with a fresh byte budget (recompute via `lib/dispatch-budget.js`). Each half gets its own fact sheets (already written — reuse existing paths). Depth increments on each recursive split; `MaxSplitDepthExceededError` (exit 2) means the task set cannot be further split — escalate to user with `AskUserQuestion` listing the unresolved task IDs. **Under `--auto`:** when `flags.auto === true`, do not call AskUserQuestion; stop and return failure with `pendingQuestion`: "Tasks <ids> cannot be split further. Re-plan them or stop?" (options: re-plan, stop) (execute C17).
 
      **Critical:** do NOT use `git diff` as a substitute for missing per-task returns. Even if git diff shows file changes, absent IDs mean the wave-runner did not confirm those tasks — treat them as unaccounted and split.
 

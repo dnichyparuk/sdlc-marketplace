@@ -642,3 +642,132 @@
       value: |
         const o = JSON.parse(output);
         return o.a && o.b && o.c && !o.d ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "commit-trailers: (G10+) LF message passes"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","ok-lf.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/commit-check-message"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 0 ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "commit-trailers: (G10+) CRLF message passes"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","ok-crlf.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/commit-check-message"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 0 ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "commit-trailers: (G10+) second model trailer fails as duplicate"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","dup-model.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/commit-check-message"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 4 && o.out.includes("duplicate trailer: Co-Authored-By") ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "commit-trailers: (G10+) lowercase duplicate fails"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","dup-lowercase.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/commit-check-message"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 4 && o.out.includes("duplicate trailer: Co-Authored-By") ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "commit-trailers: (G10+) missing trailer fails"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","missing.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/commit-check-message"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 4 && o.out.includes("missing trailer: Co-Authored-By: Claude Opus") ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "commit-trailers: (G10+) no config passes"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","missing.txt","--manifest","manifest-null.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/commit-check-message"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 0 ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "commit-trailers: (G10+) no trailers key passes"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","missing.txt","--manifest","manifest-no-trailers.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/commit-check-message"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 0 ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "commit-trailers: (G10+) unreadable file exits 2"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","absent.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/commit-check-message"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 2 ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "commit-trailers: (config) repo config resolves the Sonnet 5.5 trailer"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,lib,root)=>((cfg,errs)=>console.log(JSON.stringify({errs:errs,list:cfg.commit.requiredTrailers,trailers:lib.resolveTrailers(cfg.commit.requiredTrailers,errs)})))(JSON.parse(fs.readFileSync(root+"/.sdlc/config.json","utf8")),[]))(require("fs"),require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/commit-message.js"),"{{repo_root}}")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/commit-check-message"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const want = [{ key: 'Co-Authored-By', value: 'Claude Sonnet 5.5 <noreply@anthropic.com>' }];
+        return o.errs.length === 0 && JSON.stringify(o.trailers) === JSON.stringify(want) && o.list.length === 1 ? true : `FAIL: ${output}`;
+
+- description: "commit-skill-text: (G10+) trailer gate step and R19 rule appear once, the inline trailer loop is gone"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,r)=>((c)=>console.log(JSON.stringify({gate:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"0b.\x20**Trailer\x20gate\x20(G10,\x20R17):**"),cmd:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"--check-message\x20\x22<MSG_FILE>\x22"),r19s:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"Add\x20no\x20attribution\x20line\x20of\x20your\x20own"),r19o:c(r("plugins/sdlc-utilities/agents/commit-orchestrator.md"),"Add\x20no\x20attribution\x20line\x20of\x20your\x20own"),loop:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"lines.some(l"),crlf:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"split(/\\r?\\n/)[0]")})))((t,s)=>t.split(s).length-1))(require("fs"),(p)=>require("fs").readFileSync("{{repo_root}}/"+p,"utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.gate === 1 && o.cmd === 1 && o.r19s === 1 && o.r19o === 1 && o.loop === 0 && o.crlf === 1 ? true : `FAIL: ${output}`;
+
+- description: "commit-skill-text: (R18) the fallback sentence appears once"
+  vars:
+    script_path: "-e"
+    script_args: '((s)=>((c)=>console.log(JSON.stringify({fallback:c("draft\x20`MESSAGE`\x20in\x20this\x20context\x20with\x20the\x20same\x20rules,\x20and\x20continue\x20to\x20Step\x205\x20(R18)."),errors:c("If\x20the\x20manifest\x27s\x20`errors[]`\x20is\x20non-empty,\x20surface\x20those\x20errors\x20and\x20stop."),old:c("If\x20`MESSAGE`\x20is\x20empty,\x20the\x20orchestrator\x20detected")})))((t)=>s.split(t).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.fallback === 1 && o.errors === 1 && o.old === 0 ? true : `FAIL: ${output}`;

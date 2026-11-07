@@ -718,3 +718,13 @@
   assert:
     - type: javascript
       value: "const o = JSON.parse(output); o.flags.selection===null && o.flags.sources.selection===null && o.resume.selection===null && o.waves.map(w=>w.taskIds.join()).join(';')==='1,4;2,3'"
+
+- description: "execute-prepare: (#9241) SKILL.md has no PARSE_EXIT echo and a separate rm call"
+  vars:
+    script_path: "-e"
+    script_args: '((s)=>((c)=>console.log(JSON.stringify({parseExit:c("PARSE_EXIT="),rm:c("\x20\x20\x20```bash\x0a\x20\x20\x20rm\x20-f\x20\x22\x3cSUMMARY_FILE\x3e\x22\x0a\x20\x20\x20```")})))((t)=>s.split(t).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.parseExit === 0 && o.rm === 1 ? true : `FAIL: ${output}`;
