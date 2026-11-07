@@ -335,7 +335,7 @@
 | `await_remote_review` | `learnings_commit` | — |
 | `learnings_commit` | `cleanup` | `data.commands: ["node state/ship.js cleanup-pipeline[ --force]"]` — script picks `--force` when any step is `failed` |
 | `cleanup` | `done` | `ext.summary` = Step 6 report data |
-| any `dispatch_<s>` with `success:false` and an `output.pendingQuestion {prompt, options}` not handled by `execute_gate` | `done` | `ext.reason:"pending-question"`, `ext.pendingQuestion`, `ext.commands` (`/sdlc:execute-plan-sdlc --plan <p> --resume` for execute, then `/sdlc:ship-sdlc --resume`); the step stays `in_progress`; `paused` set |
+| any `dispatch_<s>` with `success:false` and an `output.pendingQuestion {prompt, options}` not handled by `execute_gate` | `done` | `ext.reason:"pending-question"`, `ext.pendingQuestion`, `ext.commands` (`/sdlc:execute-plan-sdlc --plan <p> --resume --strict-files` for execute, then `/sdlc:ship-sdlc --resume`, with `--auto` when the run used it); the step stays `in_progress`; `paused` set |
 | any `dispatch_<s>` with `success:false` and no `output.pendingQuestion {prompt, options}` | `status:"error"` | `error`: "<step> failed: <summary>. State preserved; re-run with --resume." |
 
 Skipped and conditional-not-met steps are not emitted as steps; the script records `skip --reason` itself and lists them in `progress`.
@@ -549,3 +549,4 @@ Reading P11: the initial call always emits `confirm_pipeline`, under `--dry-run`
 | R84 | #9308 |
 | R85 | N3 |
 | R86 | stop-2 |
+| R85, C20, R86, the execute side of R80, the amended R77 order, the R11 refresh sentence | contract added in M9 wave R-b1 part 1 (#9319); implemented by part 2 of that wave (docs/plans/m9-wRb1-ship-chain-part2.md, Tasks 1-6), not by part 1. Until then ship.js still prefers the PR over the comment file in R77. |

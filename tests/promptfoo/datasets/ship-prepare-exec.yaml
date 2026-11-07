@@ -3560,7 +3560,7 @@
         if (d.status !== 'done' || o.calls[1].exitCode !== 0) return `FAIL: ${d.status} exit ${o.calls[1].exitCode}`;
         if (d.ext.reason !== 'pending-question') return `FAIL: reason ${d.ext.reason}`;
         const cmds = d.ext.commands || [];
-        if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+\/plan\.md" --resume$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
+        if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+\/plan\.md" --resume --strict-files$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
         if (!d.ext.pendingQuestion || !d.ext.pendingQuestion.prompt.includes('Wave 1 contains high-risk task(s)')) return `FAIL: pendingQuestion ${JSON.stringify(d.ext.pendingQuestion)}`;
         if (!o.ledger.paused) return 'FAIL: ledger.paused not set';
         if (o.ledger.stepStatuses.execute !== 'in_progress') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
@@ -3582,7 +3582,7 @@
         if (d.status !== 'done' || d.ext.reason !== 'pending-question') return `FAIL: ${d.status} ${d.ext && d.ext.reason} ${d.error || ''}`;
         if (JSON.stringify(d.ext.pendingQuestion.options) !== '[]') return `FAIL: pendingQuestion ${JSON.stringify(d.ext.pendingQuestion)}`;
         const cmds = d.ext.commands || [];
-        if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+" --resume$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
+        if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+" --resume --strict-files$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
         if (!o.ledger.paused) return 'FAIL: ledger.paused not set';
         if (o.ledger.stepStatuses.execute !== 'in_progress') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
         return true;
@@ -3626,7 +3626,7 @@
         if (d.status !== 'done' || d.ext.reason !== 'pending-question') return `FAIL: ${d.status} ${d.ext && d.ext.reason}`;
         if (JSON.stringify(d.ext.pendingQuestion.options) !== JSON.stringify(['override', 'harden', 'cancel'])) return `FAIL: pendingQuestion ${JSON.stringify(d.ext.pendingQuestion)}`;
         const cmds = d.ext.commands || [];
-        if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+" --resume$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
+        if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+" --resume --strict-files$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
         if (!o.ledger.paused) return 'FAIL: ledger.paused not set';
         if (o.ledger.stepStatuses.execute !== 'in_progress') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
         return true;
@@ -3759,7 +3759,7 @@
         const d = o.calls[1].envelope;
         if (d.status !== 'done' || d.ext.reason !== 'pending-question') return `FAIL: ${d.status} ${d.ext && d.ext.reason}`;
         const cmds = d.ext.commands || [];
-        if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+" --resume$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
+        if (cmds.length !== 2 || !/^\/sdlc:execute-plan-sdlc --plan "[^"]+" --resume --strict-files$/.test(cmds[0]) || cmds[1] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(cmds)}`;
         if (!o.ledger.paused) return 'FAIL: ledger.paused not set';
         if (o.ledger.stepStatuses.execute !== 'in_progress') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
         return true;

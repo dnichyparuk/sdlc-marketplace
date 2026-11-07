@@ -319,7 +319,8 @@ function mergeFlags(cli, config) {
   if (cli.reviewThreshold) {
     merged.reviewThreshold  = cli.reviewThreshold;
     sources.reviewThreshold = 'cli';
-  } else if (cfg.reviewThreshold !== undefined) {
+  } else if (SEVERITIES.includes(cfg.reviewThreshold)) {
+    // A config value outside SEVERITIES never reaches the sub-skill args (free text from a repo file).
     merged.reviewThreshold  = cfg.reviewThreshold;
     sources.reviewThreshold = 'config';
   } else {
@@ -2369,7 +2370,8 @@ function runAfter(stepArgs) {
   const pendingStop = (question, viaExecute, extraCommands = []) => {
     ledger.paused = { at: new Date().toISOString(), reason: 'pending question' };
     const commands = [
-      ...(viaExecute ? [`/sdlc:execute-plan-sdlc --plan "${flags.planFile}" --resume`] : []),
+      // R83: strictFiles is CLI-only in execute, so a resumed execute must repeat it.
+      ...(viaExecute ? [`/sdlc:execute-plan-sdlc --plan "${flags.planFile}" --resume --strict-files`] : []),
       ...extraCommands,
       // R80: the caller repeats --auto on resume, so the printed line carries it when the run used it.
       `/sdlc:ship-sdlc --resume${flags.auto ? ' --auto' : ''}`,

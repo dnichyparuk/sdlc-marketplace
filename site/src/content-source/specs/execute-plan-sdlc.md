@@ -417,3 +417,4 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 | E16 | (issue #9319 — strict wave files; ship flag, deviation N1b) |
 | I14 | (issue #9319 — ship always forwards the strict-files flag) |
 | C17 | (issue #9319 — auto mode stops with a pending question, never an interactive prompt) |
+| C17, the amended E15 | contract added in M9 wave R-b1 part 1 (#9319); implemented by part 2 of that wave (docs/plans/m9-wRb1-ship-chain-part2.md, Tasks 1 and 12), not by part 1. |

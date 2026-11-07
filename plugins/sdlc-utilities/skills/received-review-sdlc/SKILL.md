@@ -148,7 +148,7 @@ Use only threads with `status: "outstanding"` for Steps 2–11. Store the full m
 
 When `manifest.source` is `comment-file`, the items are `manifest.findings` (each with `id`, `title`, `severity`, `path`, `line`, `body`, `hardenSurfaceHint`, `hardenTargetFileHint`): use them in Steps 2–11 as outstanding threads, with `severity` as the R18 severity. Display `Found N findings in <manifest.comment_file>.` instead of the thread summary.
 
-**On exit code 1:** No PR found or missing arguments. Fall back to Step 1b.
+**On exit code 1:** If stderr names `--min-severity` or `--plan`, stop with failure and show stderr: an invalid scope argument must not be dropped, because the Fix-scope rules need the manifest. Otherwise no PR was found or an argument is missing: fall back to Step 1b. When `$ARGUMENTS` holds `--plan` or `--min-severity` but neither `--pr` nor `--comment-file`, Step 1a does not run and there is no manifest: stop with failure and say that the scope flags need `--pr` or `--comment-file`.
 
 **On exit code 2:** Script error. Invoke `error-report-sdlc` with:
 - **Skill:** received-review-sdlc
@@ -219,6 +219,7 @@ Using verification results, determine for each item:
 - **agree, won't fix** — correct but out of scope or lower priority (state reason)
 - **disagree** — technically incorrect for this codebase (provide reasoning)
 - **needs discussion** — architectural impact, requires owner input
+- **below threshold** — severity ranks below `flags.minSeverity` (or is null); never fixed (R29)
 
 **Fix scope (R28, R29):** When `manifest.allowedFiles` is non-null, a finding whose fix needs a
 path outside it gets the verdict "needs discussion". When `flags.minSeverity` is set, a finding
@@ -335,7 +336,7 @@ and proposed actions to the user. **No changes have been made yet.**
 ```
 
 Show every item with its type (bug, style, architecture, etc.) and verdict (agree will fix /
-agree won't fix / disagree / needs discussion) with a one-line reasoning summary.
+agree won't fix / disagree / needs discussion / below threshold) with a one-line reasoning summary.
 
 **2. Proposed action plan:**
 
@@ -352,7 +353,7 @@ Show the full text of each drafted response, labeled by item number.
 
 Apply the R18 bypass rule and the `--auto` interaction from Configuration. Bypassing findings are applied with a `fixed: <description>` log entry; everything else follows the modes below.
 
-**Auto mode:** When `flags.auto` is true, display the full analysis table and action plan for visibility, then proceed directly to Step 11. "disagree", "needs discussion" and "won't fix" verdicts are displayed but never auto-actioned.
+**Auto mode:** When `flags.auto` is true, display the full analysis table and action plan for visibility, then proceed directly to Step 11. "disagree", "needs discussion", "won't fix" and "below threshold" verdicts are displayed but never auto-actioned.
 
 **Manual mode (default):** When `flags.auto` is false or absent, use AskUserQuestion to ask:
 > No changes have been made yet. How to proceed?
@@ -383,8 +384,8 @@ Post responses to PR threads, then implement accepted code changes. With `manife
 For each change: make the edit, verify it compiles/passes tests, then move to the next.
 Do NOT batch changes across items.
 
-**Items marked "disagree" or "needs discussion":** Do NOT implement — await reviewer or
-owner input.
+**Items marked "disagree", "needs discussion" or "below threshold":** Do NOT implement — await reviewer or
+owner input (a "below threshold" item is never fixed).
 
 **Gracefully correcting wrong pushback:**
 If you pushed back and were wrong:
@@ -402,7 +403,7 @@ node "<PLUGIN_ROOT>/scripts/skill/received-review.js" --check-scope --manifest "
 ```
 
 Exit 0: continue. Exit 1 or 2: stop. Return failure with `pendingQuestion` = the printed JSON and
-"Revert or keep the listed changes?" (options: keep, revert). Do not revert. Skip Steps 11.6–12 (E9).
+"Revert or keep the listed changes?" (options: keep, revert). Do not revert. Skip Step 12 (E9). Exit 2 prints no JSON: report the stderr text as the failure, and use the printed JSON only on exit 1.
 
 ---
 
@@ -663,7 +664,7 @@ When invoking `error-report-sdlc`, provide:
   (from `comment.databaseId`), while the resolve mutation uses the GraphQL thread `id`
   (from `thread.id`). The prepare script provides both in its manifest output.
 - **Auto mode scope:** `--auto` only auto-implements "will fix" items. "Disagree", "needs
-  discussion", and "won't fix" items are always displayed and never auto-actioned. This
+  discussion", "won't fix" and "below threshold" items are always displayed and never auto-actioned. This
   prevents automated tools from silently suppressing pushback.
 
 ---

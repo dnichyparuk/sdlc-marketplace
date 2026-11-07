@@ -445,8 +445,8 @@ function main() {
   if (planFile) {
     try {
       allowedFiles = allowedFilesFromPlan(planFile);
-    } catch (_) {
-      process.stderr.write(`Error: --plan ${planFile} is not a readable file.\n`);
+    } catch (err) {
+      process.stderr.write(`Error: --plan ${planFile} is not a readable file. Cause: ${err && err.message ? err.message : err}\n`);
       process.exit(1);
     }
   }

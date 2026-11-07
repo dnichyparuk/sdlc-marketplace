@@ -29,7 +29,7 @@ This skill is for **expert users working on projects with established quality gu
 ## Usage
 
 ```text
-/ship-sdlc [--auto] [--steps <csv>] [--quality full|balanced|minimal] [--plan <path>] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--init-config] [--gc] [--ttl-days <N>]
+/ship-sdlc [--auto] [--steps <csv>] [--quality full|balanced|minimal] [--plan <path>] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--review-threshold critical|high|medium|low] [--review-rounds <n>] [--no-tag] [--no-push] [--release-subject <text>] [--init-config] [--gc] [--ttl-days <N>]
 ```
 
 ---
@@ -101,7 +101,7 @@ The pipeline runs up to 10 canonical steps sequentially (depending on which opt-
 
 A script sequences the pipeline. It emits one step at a time, the model runs that step, and the result goes back through `ship.js --after`, which records the step and picks the next one. Progress is saved in the pipeline's state file as each step starts and finishes, so an interrupted run can be picked up with `--resume`.
 
-Each sub-skill runs in its own agent (`agents/ship-step-<step>.md`), which sets its model and effort. A sub-agent cannot ask you anything, so in interactive runs ship asks first, in the main conversation: `confirm_commit`, `confirm_commit_fixes`, `confirm_version` and `confirm_pr` (yes, skip or cancel), and the review gate for received-review. It also asks for the execution tier (`execute_tier`) and about an existing execute state file (`execute_state`). The sub-skill then runs with `--auto`, so its own previews (commit message, changelog draft, PR body, fix plan) are not shown. If execute stops at a question ship cannot answer for it, ship stops, keeps its state, and prints the two commands to continue: `/sdlc:execute-plan-sdlc --plan <plan> --resume`, then `/sdlc:ship-sdlc --resume`. On that resume ship asks whether execute finished outside the pipeline (`execute_handoff`).
+Each sub-skill runs in its own agent (`agents/ship-step-<step>.md`), which sets its model and effort. A sub-agent cannot ask you anything, so in interactive runs ship asks first, in the main conversation: `confirm_commit`, `confirm_commit_fixes`, `confirm_version` and `confirm_pr` (yes, skip or cancel), and the review gate for received-review. It also asks for the execution tier (`execute_tier`) and about an existing execute state file (`execute_state`). The sub-skill then runs with `--auto`, so its own previews (commit message, changelog draft, PR body, fix plan) are not shown. If execute stops at a question ship cannot answer for it, ship stops, keeps its state, and prints the two commands to continue: `/sdlc:execute-plan-sdlc --plan <plan> --resume --strict-files`, then `/sdlc:ship-sdlc --resume` (with `--auto` when the run used it). On that resume ship asks whether execute finished outside the pipeline (`execute_handoff`).
 
 ```
                           /ship-sdlc
@@ -267,7 +267,7 @@ a false self-report. `commit`, `commit-fixes` and `pr` are cross-checked the
 same way (git HEAD; `gh pr view`). Other steps record the agent's reported
 outcome without an independent side-effect check (R-b2):
 
-- **commit** — stash unstaged, generate message, commit, restore stash
+- **commit** — stage the changes, generate message, commit; ship passes `--no-stash`, so nothing is stashed or restored during a pipeline run
 - **review** — dispatch review dimensions, collect verdicts
 - **execute** — one todo per plan task (mirrors the plan you accepted)
 - **pr** — push branch, draft body, `gh pr create`, apply labels

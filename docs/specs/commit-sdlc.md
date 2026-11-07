@@ -178,3 +178,4 @@ None.
 | R18 | (issue #9272) |
 | R19 | (issue #9304) |
 | A8 | relative-path note kept as is (issue #9316) |
+| R17, R18, R19, P14, E12, the amended G10 | contract added in M9 wave R-b1 part 1 (#9319); implemented by part 2 of that wave (docs/plans/m9-wRb1-ship-chain-part2.md, Tasks 8, 9 and 11), not by part 1. |

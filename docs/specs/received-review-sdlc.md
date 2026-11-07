@@ -232,3 +232,4 @@ Critique 2 (responses):
 | C16 | (issue #233) |
 | C17 | (issue #429) |
 | C18 | (issue #429) |
+| R31, R32, C19 | contract added in M9 wave R-b1 part 1 (#9319); implemented by part 2 of that wave (docs/plans/m9-wRb1-ship-chain-part2.md, Tasks 2 and 7), not by part 1. |

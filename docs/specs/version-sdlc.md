@@ -196,3 +196,4 @@ None.
 | R-RETAG | (Implements #424.) |
 | R-config-version | (issue #232) |
 | R-expected-branch | (issues #347, #348, #349) |
+| C12 | contract added in M9 wave R-b1 part 1 (#9319); implemented by part 2 of that wave (docs/plans/m9-wRb1-ship-chain-part2.md, Task 2), not by part 1. |

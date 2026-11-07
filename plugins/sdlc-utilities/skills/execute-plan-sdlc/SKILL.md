@@ -729,6 +729,7 @@ On failure or interruption (not all tasks completed), preserve the state file. P
 | Final spec completeness | All delta spec requirements covered across all waves (when openspecSpecs available) |
 | Post-wave guardrail check | Error-severity guardrails pass, fixed, or user overrides; warnings reported (Step 5c-ter) |
 | Completion checklists valid | Each agent's COMPLETE/VERIFY/STATUS block is present and cross-checked |
+| Strict files (G13) | Under `flags.strictFiles`, no wave diff path outside `expectedFiles` (R44, Step 5c 1a) |
 
 ## When to Ask the User
 
