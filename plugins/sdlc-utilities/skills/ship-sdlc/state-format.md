@@ -160,7 +160,7 @@ The pipeline runs these canonical steps in order (conditional and optional steps
 | `cleanup`             | Always runs last (not user-configurable): deletes the state file on success, prunes stale orphans. |
 
 `received-review` only executes when `review` reports findings at or above the configured `reviewThreshold`.
-`commit-fixes` only executes when `received-review` applied code changes.
+`commit-fixes` only executes when `received-review` applied code changes. The `stage_fixes` step (recorded in `history[]` only, not a ledger step) stages those changes with the same commands as `stage_changes` before the `commit-fixes` confirmation or dispatch, because commit-sdlc commits only staged files.
 `verify-openspec` only runs when it is included in `steps[]` AND a matched OpenSpec change exists (`flags.openspecChange` or `openspecContext.branchMatch`).
 `archive-openspec` only runs when an OpenSpec change is detected for the current branch.
 

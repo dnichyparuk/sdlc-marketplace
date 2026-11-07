@@ -12,6 +12,9 @@
 - A1: `--pr <number>` — PR number to process review comments from (default: none, falls back to manual gathering)
 - A2: `--auto` — auto-implement "will fix" items without Step 10 consent; also auto-runs Step 12 (post in-thread replies and resolve "agree, will fix" threads) without consent. "disagree"/"needs discussion"/"won't fix" items are displayed but never auto-implemented; their threads are replied to but not resolved (default: false)
 - A3: `--comment-file <path>` — read findings from a review comment file written by review-sdlc (`review-comment.md`) instead of PR threads; used when the branch has no PR (R27). Ignored, with one stderr note, when `--pr` is also given (default: unset)
+- A4: `--plan <path>` — the plan whose Files bound the fixes (R28) (default: unset)
+- A5: `--min-severity critical|high|medium|low` — the lowest severity that may be fixed (R29) (default: unset)
+- A6: `--check-scope --manifest <path> --fixed <ids>` — the post-Step-11 check mode (R30) (default: off)
 
 ### Configuration
 
@@ -40,8 +43,8 @@
 
 1. READ — gather review feedback via prepare script (PR threads) or manual input
    - **Script:** `skill/received-review.js`
-   - **Params:** A1-A3 forwarded (`--pr <number>`, `--auto`, `--comment-file <path>`); internal params: `--owner <owner>`, `--repo <repo>`, `--project-root <path>`
-   - **Output:** JSON → P1-P18 (threads with status classification, or comment-file findings; comment chains, flags, PR number/owner/repo)
+   - **Params:** A1-A5 forwarded (`--pr <number>`, `--auto`, `--comment-file <path>`, `--plan <path>`, `--min-severity <level>`); A6 selects the check mode (R30); internal params: `--owner <owner>`, `--repo <repo>`, `--project-root <path>`
+   - **Output:** JSON → P1-P20 (threads with status classification, or comment-file findings; comment chains, flags, PR number/owner/repo)
 2. UNDERSTAND — categorize items; flag and block on unclear items
 3. VERIFY — check each item against full codebase context (callers, dependents, architecture)
 4. EVALUATE — determine verdict per item (agree fix / agree won't fix / disagree / needs discussion)
@@ -84,6 +87,11 @@
   Three hard rules: (a) NEVER call `AskUserQuestion` in Step 11.6 when `flags.auto === true`; (b) MUST propagate `--auto` to harden dispatch when `flags.auto === true`; (c) harden dispatch failure (exit ≠ 0) is logged-and-ignored, never aborts Step 11.7 or Step 12.
 
 - R27: Comment-file source. With `--comment-file` and without `--pr`, the prepare script reads the file and parses each finding block (a `#### [<SEVERITY>] <title>` line, then a `**File:** \`<path>:<line>\`` line, as review-sdlc renders them) into `findings` (P17); it makes no `gh` call. Steps 2–11 process these findings as they process outstanding threads (verification, verdicts, the R9, R10 and R18 consent rules, Step 11.6). With no PR (`pr` is null) no reply is posted and no thread is resolved: Steps 11.7 and 12 are skipped and the Step 12 summary is still shown.
+- R28: With `--plan`, the manifest's `allowedFiles` is the sorted, unique list of the plan's Files paths (`parseFilesEntries` over every task, every kind). A finding whose fix needs a path outside `allowedFiles` gets the verdict "needs discussion" and is never auto-actioned. Without `--plan`, `allowedFiles` is null and nothing changes.
+- R29: With `--min-severity`, a finding whose severity ranks below it, or is null, is listed as "below threshold" and is never fixed, even under `--auto` or `alwaysFixSeverities` (R18).
+- R30: After Step 11, SKILL.md runs `received-review.js --check-scope --manifest <m> --fixed <ids>`. Exit 0 prints `{"ok":true,…}`. Exit 1 prints `{"ok":false,"outOfScope":[…],"belowThreshold":[…]}` when a changed path (`git diff --name-only HEAD` plus untracked files, `.sdlc/` excluded) is not in `allowedFiles`, or a fixed id's severity ranks below `minSeverity`. Exit 2 is a script error. On exit 1 or 2 the skill stops with a failure and a `pendingQuestion` that names the paths and ids; it never reverts.
+- R31: When `manifest.source` is `comment-file`, Steps 7, 8 and 10 draft no thread reply. Step 7 keeps one decision line per finding, Step 8's thread-level row is not applied, and Step 10 shows no "Drafted PR responses" block.
+- R32: When `manifest.pr` is null, Step 11.6 writes `PR: none (comment-file <basename of manifest.comment_file>)`, and its dedup matches prior entries by `surface=`, `targetFile=` and that same `PR:` line.
 
 ### Step-emitter contract
 
@@ -120,6 +128,7 @@ Critique 2 (responses):
 - G10: Implementation plan clear — for accepted items, response states what will change
 - G11: No blind agreement — factual errors corrected, not accommodated
 - G12: Proportional effort — simple fixes get short responses; complex items get detailed ones
+- G13: Fix scope — `--check-scope` exit 0 before Step 12 (R30)
 
 - R9: Step 10 consent gate is mandatory unless `--auto` is explicitly passed — pipeline context does not override
 - R10: Auto mode only auto-implements "will fix" items; "disagree", "needs discussion", and "won't fix" are never auto-actioned. When `flags.alwaysFixSeverities` is non-empty, the auto-apply set is restricted by R18: only "will fix" findings whose severity ∈ `flags.alwaysFixSeverities` are implemented; remaining "will fix" findings (severity not in the list, or `severity: null`) are collected into a follow-up summary written to the response output. When `flags.alwaysFixSeverities` is empty (the default), `--auto` falls back to the original behavior: all "will fix" findings are auto-applied regardless of severity, preserving backward compatibility for users who have not configured the field.
@@ -145,6 +154,8 @@ Critique 2 (responses):
 - P16: `source` (string) — `pr` | `comment-file`, the input the manifest was built from
 - P17: `findings` (array) — with `source: comment-file`, one `{ id, title, severity, path, line, body, hardenSurfaceHint, hardenTargetFileHint }` per finding block, in file order; `id` is `F<n>` (1-based); `severity` is `low|medium|high|critical`, or null for `INFO` (R18: null never bypasses consent); `path` and `line` are null when the File line is absent; `body` is the block text up to the next `#### [` heading, `### ` heading, `</details>` line or `---` line. With `source: pr`, `[]`
 - P18: `comment_file` (string | null) — the absolute path read with `source: comment-file`; null otherwise. With `source: comment-file`, `pr` and `currentUser` are null and `threads` is `[]`
+- P19: `allowedFiles: string[] | null`
+- P20: `flags.minSeverity: string | null`
 
 ## Failure handling and resume
 
@@ -156,6 +167,7 @@ Critique 2 (responses):
 - E6: `gh api` 5xx posting reply → retry once; invoke error-report-sdlc on second failure
 - E7: GraphQL resolve mutation fails → retry once; invoke error-report-sdlc on second failure
 - E8: `--comment-file` names a path that is not a readable file → exit 2 with `Error: --comment-file <path> is not a readable file.` on stderr (the E2 path)
+- E9: `--check-scope` exit 1 or 2 → failure with `pendingQuestion`, Step 12 skipped
 
 ## Invariants and constraints
 
@@ -181,6 +193,7 @@ Critique 2 (responses):
 - C16: SKILL.md decision sites that gate on the configurable auto-apply MUST cite `flags.alwaysFixSeverities` (the prepare-script-resolved field). Direct reads of `$ARGUMENTS`, raw CLI strings, or configuration files at decision sites are forbidden (single resolution site).
 - C17: `AskUserQuestion` MUST NOT be called in Step 11.6 when `flags.auto === true`. The R25 matrix governs all Step 11.6 behavior; decision sites MUST cite `flags.auto` and `flags.alwaysHardenFromReview` (resolved fields) — never raw `$ARGUMENTS` or direct config reads.
 - C18: Step 11.6 clusters ONLY findings whose verdict is one of the four R6 outcomes (`agree-will-fix | agree-won't-fix | disagree | needs-discussion`). Threads at pre-Step-4 status (`cannot-verify`, ungraded) MUST NOT enter clusters.
+- C19: Under `--auto` no AskUserQuestion: the unclear-item (Step 2) and cannot-verify (Step 3) cases get the verdict "needs discussion" (ship R85)
 
 ## Integration
 
@@ -190,6 +203,7 @@ Critique 2 (responses):
 - I4: `commit-sdlc` — common follow-up to commit fixes
 - I5: `error-report-sdlc` — invoked on script crashes and persistent API failures
 - I6: `ship-sdlc` — may invoke this skill as part of the shipping pipeline
+- I7: ship-sdlc R82 forwards `--plan` and `--min-severity`
 
 ## Appendix — history
 
@@ -202,6 +216,9 @@ Critique 2 (responses):
 | R18 | (issue #233) |
 | R19 | (issue #233) |
 | R20 | (issue #363) |
+| R28 | (issue #9319); key decision: received-review owns the fix scope, ship only forwards `--plan` and `--min-severity` |
+| R31 | (issue #9302) |
+| R32 | (issue #9302) |
 | R22 | per issue #429 table |
 | P8 | (issue #233) |
 | P9 | (issue #233) |
@@ -215,3 +232,4 @@ Critique 2 (responses):
 | C16 | (issue #233) |
 | C17 | (issue #429) |
 | C18 | (issue #429) |
+| R31, R32, C19 | contract added in M9 wave R-b1 part 1 (#9319); implemented by part 2 of that wave (docs/plans/m9-wRb1-ship-chain-part2.md, Tasks 2 and 7), not by part 1. |

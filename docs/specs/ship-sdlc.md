@@ -23,6 +23,11 @@
 - A12: `--rebase auto|skip|prompt` — rebase strategy for ship's own `rebase` step (R9, R75) (default: `skip`)
 - A13: `--tasks <ids>` — forwarded unchanged to execute-plan-sdlc as `--tasks <ids>` (execute A8); ship checks that the value holds only digits and commas (R76) (default: unset)
 - A14: `--from-wave <n>` — forwarded unchanged to execute-plan-sdlc as `--from-wave <n>` (execute A9); ship checks that the value is an integer (R76) (default: unset)
+- A15: `--no-tag` — forwarded to the version step as `--no-tag` (version A9) (R79) (default: false)
+- A16: `--no-push` — forwarded to the version step as `--no-push` (R79) (default: false)
+- A17: `--release-subject <text>` — forwarded to the version step as `--subject "<text>"` (version A10) (R79) (default: unset)
+- A18: `--review-threshold critical|high|medium|low` — CLI > config `ship.reviewThreshold` > default `high` (R40) (default: from config or high)
+- A19: `--review-rounds <n>` — integer 1–3; the number of review → received-review → commit-fixes rounds (R84) (default: 1)
 
 - R15: `--dry-run` displays pipeline table and stops without executing. It writes no ship state: no init, no prune and no `claimSession`, so a ledger it resumes, explicitly or implicitly, keeps its bytes and its mtime (the prepare output file is still written).
   - Acceptance: exec cases in `tests/promptfoo/datasets/ship-prepare-exec.yaml` whose descriptions start with `ship-prepare (R15)`.
@@ -108,8 +113,8 @@
 - R-b2 (outcome-verified completion): `complete-step` MUST accept the dispatched step's actual outcome (`--outcome success|failure`) and MUST NOT write status `completed` on `failure` — it routes to `failed` instead. Absent `--outcome`, behavior is unchanged (back-compat). This closes the phantom-completion gap where a background run with a failed/never-run dispatch (0 tasks done, clean tree) was still reported "complete".
   - Acceptance: `state/ship.js complete-step <name> --outcome failure` sets `steps[name].status === 'failed'` (never `'completed'`); `state/ship.js complete-step <name> --outcome success` sets `status === 'completed'`; `state/ship.js complete-step <name>` invoked without `--outcome` preserves pre-existing behavior (marks `completed`).
 
-- R-b3 (side-effect verification): The `version` step MUST NOT be marked `completed` unless the expected release tag exists in the active worktree's tag list. The check is objective (git tag lookup), not derived from the agent's self-report. This closes the gap where the version step could produce no tag (e.g., tagging pre-merge on a feature branch) while the pipeline silently advanced to `pr` untagged. The `commit` and `commit-fixes` steps MUST NOT be marked `completed` unless the reported commit exists and is HEAD; the `pr` step MUST NOT be marked `completed` unless `gh pr view` confirms the reported URL in state OPEN or MERGED; a `gh` failure counts as not landed.
-  - Acceptance: completing the `version` step when `git tag --list <expectedTag>` returns empty does NOT mark the step `completed`; completing the `version` step when the expected tag is present in `git tag --list` succeeds normally. Completing the `commit` or `commit-fixes` step with a reported commit that does not exist or is not HEAD does NOT mark the step `completed`; completing the `pr` step with a URL that `gh pr view` does not confirm as OPEN or MERGED does NOT mark the step `completed`.
+- R-b3 (side-effect verification): The `version` step MUST NOT be marked `completed` unless the expected release tag exists in the active worktree's tag list. The check is objective (git tag lookup), not derived from the agent's self-report. This closes the gap where the version step could produce no tag (e.g., tagging pre-merge on a feature branch) while the pipeline silently advanced to `pr` untagged. The `commit` and `commit-fixes` steps MUST NOT be marked `completed` unless the reported commit exists and is HEAD; the `pr` step MUST NOT be marked `completed` unless `gh pr view` confirms the reported URL in state OPEN or MERGED; a `gh` failure counts as not landed. Exception: with `flags.noTag` true (A15), the version step is checked as `head-commit`, so the reported `artifacts.commit` must exist and be HEAD, and no tag is looked up; `verify_version_tag` emits no command.
+  - Acceptance: completing the `version` step when `git tag --list <expectedTag>` returns empty does NOT mark the step `completed`; completing the `version` step when the expected tag is present in `git tag --list` succeeds normally. Completing the `commit` or `commit-fixes` step with a reported commit that does not exist or is not HEAD does NOT mark the step `completed`; completing the `pr` step with a URL that `gh pr view` does not confirm as OPEN or MERGED does NOT mark the step `completed`. Exec cases whose descriptions start with `ship-fwd: (R-b3)` cover the `flags.noTag` exception.
 
 - R-advancing-predicate: A single shared pure predicate `pipelineAdvancing(data)` in `lib/state.js` is the sole source of truth for "the pipeline still has forward motion" — consumed VERBATIM by BOTH continuation hooks (R67, R68); neither hook may inline a duplicate predicate (`DRY`, `no-opposite-logical-vectors`). It returns `{ advancing, step, index }`, computed from the step list using the existing terminal-status convention (`status !== 'completed' && status !== 'skipped'`):
   - `paused`: when `data.paused` is set (R-pause), return `{ advancing: false, step: null, index: -1 }` before any step is examined
@@ -126,14 +131,19 @@
 
 ### Resume
 
-- R11: Resume via `--resume`: continue from first incomplete step in the current checkout (whatever cwd/branch the user is on — workspace is re-derived, never re-created). On an explicit `--resume` that finds a ledger, prepare restores the plan and the steps from the ledger's recorded `flags` (`planFile`, `steps`) and nothing else. Precedence, in the `mergeFlags` order: plan — CLI `--plan` > ledger `flags.planFile` (a different CLI plan is `resumePlanMismatch`, R-implicit-resume); steps — CLI `--steps` or `--quick` > ledger `flags.steps` > `config.steps` > `BUILT_IN_DEFAULTS.steps`, and a restored list reports `flags.sources.steps = "ledger"`; every other flag (`auto`, `quality`, `draft`, `bump` and the rest) — CLI > config > default, never taken from the ledger. A value given on the CLI always wins.
+- R11: Resume via `--resume`: continue from first incomplete step in the current checkout (whatever cwd/branch the user is on — workspace is re-derived, never re-created). On an explicit `--resume` that finds a ledger, prepare restores the plan and the steps from the ledger's recorded `flags` (`planFile`, `steps`) and nothing else. Precedence, in the `mergeFlags` order: plan — CLI `--plan` > ledger `flags.planFile` (a different CLI plan is `resumePlanMismatch`, R-implicit-resume); steps — CLI `--steps` or `--quick` > ledger `flags.steps` > `config.steps` > `BUILT_IN_DEFAULTS.steps`, and a restored list reports `flags.sources.steps = "ledger"`; every other flag (`auto`, `quality`, `draft`, `bump` and the rest) — CLI > config > default, never taken from the ledger. A value given on the CLI always wins. On an adopted ledger, these merged values and their `sources` entries are rewritten into `ledger.flags` on every run; `planFile`, `openspecContext`, `steps`, `tasks` and `fromWave` keep their own rules.
   - Acceptance: with a ledger whose `flags` hold plan P and `steps: ["execute","commit"]`, `--resume` without `--plan` gives no `missingPlanFile`, `context.planFile` P, `flags.steps` `["execute","commit"]` with source `ledger`, and `flags.auto` from config or default; adding `--steps execute` gives `flags.steps` `["execute"]` with source `cli`.
+  - Acceptance: exec cases whose descriptions start with `ship-resume-flags:`.
 - R-implicit-resume: After context compaction, the user must re-enter ship-sdlc without `--resume` and silently loses pipeline state because no banner prompts them to resume. When a valid ship state file exists for the current branch AND no explicit `--resume` flag was passed, the prepare script (`skill/ship.js`) MUST set `flags.implicitResume = true` in the prepare output; SKILL.md MUST print a "Resuming after compaction from step N" banner at the top of Step 1 (CONSUME) output — BEFORE the pipeline table is displayed. Explicit `--resume` MUST NOT trigger the banner (that path already has user intent). Before any state write, prepare compares a CLI `--plan` with the plan recorded in `flags.planFile` of any unfinished ledger of the branch — fresh or stale, created in this or another worktree. A ledger file of the branch that cannot be parsed is not compared; prepare stops on it on every path, before any state write (no init, no prune, no `claimSession`), with a `resumePlanMismatch` error, mirrored to stderr, that names the file with `(cannot be parsed)` and says it can only be removed by hand (owner Q22a: ship never discards a run on its own; plan mode does the same, R64). A ledger is unfinished unless every step is completed or skipped (a conditional step whose trigger never fired counts as skipped). Both sides are compared through `fs.realpathSync`, falling back to the resolved path when a file does not exist. When any unfinished ledger of the branch recorded a different plan, prepare MUST emit a structured error `{id: "resumePlanMismatch", message}`, mirrored to stderr, before any state write: no init, no prune (R-ship-init-prune), no `claimSession`. An explicit `--resume` with a different `--plan` stops the same way, even on a finished ledger (R11). The message names the earlier run's plan, its ledger path and the two ways out: continue that run with `--resume` and its plan, or discard it with ship's own verbs (`state/ship.js skip` on each leftover step, then `state/ship.js cleanup-pipeline`). A finished ledger of a different plan does not stop a run without `--resume` and is not resumed implicitly; init replaces it as before (R-ship-init-prune). A ledger whose `flags` has no `planFile` key (written before the plan was frozen) is not compared; implicit resume adopts it as before and freezes the CLI plan into it. Implicit resume itself applies only to a fresh ledger of this worktree (R-resume-worktree) when the CLI gives no `--plan` or the same plan. Ship never resumes a different plan and never prunes or discards an unfinished ledger of another plan.
   - Acceptance: with a valid `ship-<branch>-*.json` state file present and no `--resume` flag, `skill/ship.js` output contains `flags.implicitResume: true`; SKILL.md Step 1 output includes the resume banner citing the step name; with `--resume` the banner is absent; with no state file `flags.implicitResume` is `false`.
   - Acceptance (unparseable ledger): exec cases in `tests/promptfoo/datasets/ship-prepare-exec.yaml` whose descriptions start with `ship-prepare (R-implicit-resume)`.
   - Acceptance: with an unfinished ledger of the branch recorded with plan P — fresh, stale or from another worktree — a run with `--plan` Q ≠ P, with or without `--resume`, exits 1 with a `resumePlanMismatch` error naming P, Q and the ledger path, and the ledger file is byte-identical afterwards; a finished ledger of plan P is replaced by init and a run with `--plan` Q proceeds; with `--plan` P and no `--resume`, a fresh ledger of this worktree resumes with `flags.implicitResume: true`.
 - R-resume-worktree: `detectResumeState` (`lib/state.js`) MUST compare the stored `data.worktree` field against `resolveActiveWorktreeSafe()` using `fs.realpathSync` and return `worktreeMismatch: true` when they differ. When `data.worktree` is absent or null (state files written before the `worktree` field was recorded), `worktreeMismatch` MUST be `false` (back-compat — absence is not a mismatch). When either `realpathSync` call fails, `worktreeMismatch` MUST be `false` (fail-open — resolution error never blocks resume). `skill/ship.js` MUST consume `worktreeMismatch` in its implicit-resume gate: when `true`, `flags.implicitResume` is NOT set and a factual warning notes the mismatch; explicit `--resume` is NOT gated by worktree mismatch. `harden-prepare.js` receives `worktreeMismatch` but does not gate on it. This does not conflict with R73: R73 forbids worktree-path comparison for session-scoped hook enforcement; this governs resume eligibility, a distinct decision.
   - Acceptance: `detectResumeState` return shape includes `worktreeMismatch: boolean`. Returns `false` when `data.worktree` is absent/null. Returns `false` when resolution fails (fail-open). Returns `true` when stored worktree differs from current active worktree (both resolved via `realpathSync`). Returns `false` when they match. `skill/ship.js` implicit-resume gate skips resume when `worktreeMismatch` is `true`; explicit `--resume` unaffected.
+- R80: When ship emits `dispatch_version` or `dispatch_execute`, it records `dispatchHead` (the HEAD sha) in that step's ledger entry. When the step is emitted again while its entry is `in_progress` or `failed` and `dispatchHead` is set, and HEAD differs from `dispatchHead`, ship emits no dispatch. It ends with a pending question instead (`id: 'rerunGuard'`, naming the step and both shas), with the commands `node "<PLUGIN_ROOT>/scripts/state/ship.js" complete --step <step> --result "<text>"`, `node "<PLUGIN_ROOT>/scripts/state/ship.js" skip --step <step> --reason "<text>"` and `/sdlc:ship-sdlc --resume` (with `--auto` when the run used it). version-sdlc R19 cannot see an untagged release, so ship owns this guard.
+  - Acceptance: exec cases whose descriptions start with `ship-rerun:`.
+- R86: When `dispatch_execute` would be emitted while execute is `in_progress`, no execute state file exists and the tree has changes outside `.sdlc/` (or HEAD differs from `dispatchHead`), ship applies the R80 stop, not a fresh dispatch.
+  - Acceptance: exec cases whose descriptions start with `ship-rerun: (execute)`.
 
 ### Task-tray projection
 
@@ -180,8 +190,20 @@
 - R4: Step statuses computed by `skill/ship.js`: `will_run`, `skipped`, `conditional`
 - R-bump-forward: When `--bump` is forwarded to version-sdlc without being passed verbatim, the version step silently ignores the user's intent and picks its own bump type. Ship's version-step dispatch MUST forward `--bump <resolved-value>` verbatim from `flags.bump` when `flags.bump` is set; when `flags.bump` is absent, the flag is not forwarded (version-sdlc applies its own auto-detection). Cross-reference: R-bump-flag in version-sdlc.md.
   - Acceptance: `step.invocation` for the version step in `skill/ship.js` output contains `--bump <value>` when `flags.bump` is set; the flag is absent from `step.invocation` when `flags.bump` is `null`/`undefined`. SKILL.md Step 5 uses `step.invocation` verbatim (C9).
-- R8: Staging gap between execute and commit: the `stage_changes` step runs `git add -A -- ':!.sdlc/'`, then, when the plan's task `Files:` entries name paths under `.sdlc/` that exist in the active worktree and are not git-ignored, `git add -- <those paths>` (sorted, without duplicates; a path holding a character outside `[A-Za-z0-9._/-]` is left out). Untracked runtime state under `.sdlc/` is never staged by this step.
+- R8: Staging gap between execute and commit: the `stage_changes` step runs `git add -A -- ':!.sdlc/'`, then, when the plan's task `Files:` entries name paths under `.sdlc/` that exist in the active worktree and are not git-ignored, `git add -- <those paths>` (sorted, without duplicates; a path holding a character outside `[A-Za-z0-9._/-]` is left out). Untracked runtime state under `.sdlc/` is never staged by this step. The same staging runs as `stage_fixes` after received-review and before `confirm_commit_fixes`/`dispatch_commit_fixes`, when received-review is recorded `completed` and the tree has changes.
   - Acceptance: exec case `ship-stage-sdlc:` in `tests/promptfoo/datasets/ship-prepare-exec.yaml`.
+- R79: The version step's `args` are `--bump <b> --auto [--no-tag] [--no-push] [--subject "<text>"] [--expected-branch <br>]`, in this order. `--release-subject` is checked in prepare: it must not contain `"`, a backtick, `$`, `\` or a newline, it must be at most 72 characters, and it must match `commit.subjectPattern` when one is set. A bad value is a prepare error `{ id: 'releaseSubjectInvalid', message }`, mirrored to stderr, before any state write.
+  - Acceptance: exec cases whose descriptions start with `ship-fwd:`.
+- R81: The commit and commit-fixes steps' `args` carry `--no-stash` after `--auto`.
+  - Acceptance: exec cases whose descriptions start with `ship-nostash:`.
+- R82: The received-review step's `args` are `--auto --plan "<planFile>" --min-severity <reviewThreshold>`, then the R77 input. A received-review result with a `pendingQuestion` (its `--check-scope` failed, received-review R30) stops the run before commit-fixes, through the existing pending-question path.
+  - Acceptance: exec cases whose descriptions start with `ship-rr-scope:`.
+- R83: The execute step's `args` carry `--strict-files` (execute A10). `stage_changes` and `stage_fixes` refuse to stage a changed path (from `git status --porcelain`, untracked included, `.sdlc/` excluded) that is not a plan Files path (`parseFilesEntries`, every kind). A refusal is a pending question (`id: 'stageOutsideFiles'`, listing the paths); no `git add` runs. The plan file itself must be committed before ship runs; an uncommitted plan file is reported as outside like any other path.
+  - Acceptance: exec cases whose descriptions start with `ship-strict:`.
+- R84: With `flags.reviewRounds` n > 1, when commit-fixes is recorded `completed` in round k < n, ship.js appends `{ round: k, review, receivedReview, commitFixes }` (the step records) to `ledger.rounds[]`, sets `ledger.round = k + 1`, and resets review, received-review and commit-fixes to `pending`. The next emitted step is `dispatch_review`. A round whose commit-fixes is `skipped` ends the loop.
+  - Acceptance: exec cases whose descriptions start with `ship-rounds:`.
+- R85: Under `--auto` ship asks nothing. Every AskUserQuestion site in ship and its sub-skills has an `--auto` branch that stops with a failure and a `pendingQuestion`, which ship maps to `pending-question`.
+  - Acceptance: the C20 rule and exec cases whose descriptions start with `ask-auto-branch:`.
 - R78: Step 6 summary fields. The Step 6 report data (`ext.summary`, also written to the summary sidecar) carries, besides `steps`, `usage` and `prUrl`: `commits` — one `{ step, sha, subject }` per ledger step whose latest successful history entry reports `artifacts.commit`, in the order those steps first appear in the history; `subject` comes from `git log -1 --format=%s <sha>` in the active worktree and is null on any git error — and `reviewSummaryPath` — the R6 review-summary path when the `review` step completed and the file exists, else null. The fields are additive; the step agents' artifact contract is unchanged.
   - Acceptance: exec cases `ship-summary-commits: (a)` and `ship-summary-commits: (b)` in `tests/promptfoo/datasets/ship-prepare-exec.yaml`.
 - R9: When `--rebase auto` (or `prompt`), rebase onto default branch after all commits, before version step; abort and pause on conflict
@@ -197,7 +219,7 @@
 
 ### Review routing
 
-- R77: Received-review input. When `skill/ship.js` emits `dispatch_received_review`, it appends one findings input after `--auto` to the step's `args` and `invocation`: `--pr <N>` when `fetchPrMetadata()` (`lib/git.js`, run in ship's cwd, the active worktree) reports an OPEN PR for the current branch with a positive integer number (a closed or merged PR counts as none); otherwise `--comment-file "<path>"`, where `<path>` is the `commentCopyPath` of the review summary the `review_gate` decision read, else its `commentPath` (R6, same file and stale-file rule), when it is an absolute path to an existing file that holds no `"`, backtick, `$`, `\`, newline or carriage return; otherwise nothing (the args stay `--auto`). Ship never guesses a PR number. `confirm_received_review` shows the step's base args.
+- R77: Received-review input. When `skill/ship.js` emits `dispatch_received_review`, it appends one findings input after the R82 args to the step's `args` and `invocation`, in this order: `--comment-file "<path>"`, where `<path>` is the review copy of this run's review — the `commentCopyPath` of the review summary the `review_gate` decision read, else its `commentPath` (R6, same file and stale-file rule) — when it exists and is an absolute path to an existing file that holds no `"`, backtick, `$`, `\`, newline or carriage return; else `--pr <N>` when `fetchPrMetadata()` (`lib/git.js`, run in ship's cwd, the active worktree) reports an OPEN PR for the current branch with a positive integer number (a closed or merged PR counts as none); else nothing (no input is appended). Ship never guesses a PR number. `confirm_received_review` shows the step's base args.
   - Acceptance: exec cases `ship-rr-input: (a)` (PR), `ship-rr-input: (b)` (comment file) and `ship-rr-input: (c)` (neither) in `tests/promptfoo/datasets/ship-prepare-exec.yaml`.
 - R6: The review-gate dispatch decision is computed by `scripts/skill/ship.js` at the `review_gate` step from the counts in `review-summary.json` (review-sdlc P11, kept at the main worktree's `.sdlc/execution/review-summary-<slug>.json`, resolved with `resolveStateDir()`; a file older than the ledger's `review` step start counts as missing) and `flags.reviewThreshold`, which the same script resolves. Verdict outcomes (`CHANGES REQUESTED`, `APPROVED WITH NOTES`, `APPROVED`) are inputs; the dispatch decision (invoke `received-review-sdlc` vs collect-and-defer) reads `flags.reviewThreshold` exclusively — no hardcoded count thresholds. In `--auto` mode, dispatch is automatic; `received-review-sdlc --auto` is forwarded.
   - Acceptance: dispatch decision read from `ship.js review-gate` output, never from conversation text; a missing, stale or malformed summary dispatches received-review-sdlc with a warning.
@@ -207,7 +229,7 @@
   - `medium` → trigger on any critical, high, OR medium finding
   - `low` → trigger on any finding except `info`
 
-  Default: `high`. Resolution site: `scripts/skill/ship.js` (`flags.reviewThreshold`). All consumers (SKILL.md verdict-routing, downstream skills) MUST cite the resolved field — no re-derivation from config or `$ARGUMENTS`.
+  Default: `high`. Resolution: CLI `--review-threshold` > config > default; `flags.sources.reviewThreshold` is `cli`, `config` or `default`. Resolution site: `scripts/skill/ship.js` (`flags.reviewThreshold`). All consumers (SKILL.md verdict-routing, downstream skills) MUST cite the resolved field — no re-derivation from config or `$ARGUMENTS`.
 
 ### OpenSpec steps
 
@@ -301,7 +323,8 @@
 | `dispatch_review` | `review_gate` | always (W4.5: `ship.js` reads `review-summary.json`) |
 | `review_gate` | `dispatch_received_review` | `dispatchReceivedReview: true`; the interactive prompt names received-review and its args, and its `yes` is the consent; `confirm_received_review` is emitted first only when `review_gate` did not ask (interactive only, not emitted under `--auto`) |
 | `review_gate` | `rebase` | otherwise |
-| `dispatch_received_review` | `dispatch_commit_fixes` | `git status --porcelain` non-empty (script checks) (interactive: via `confirm_commit_fixes`) |
+| `dispatch_received_review` | `stage_fixes` | received-review recorded `completed` and `git status --porcelain` non-empty (script checks); `data.commands` as `stage_changes` (R8) |
+| `stage_fixes` | `confirm_commit_fixes` | interactive only, not emitted under `--auto`; commit-fixes `will_run` (under `--auto`: `dispatch_commit_fixes`) |
 | `dispatch_commit_fixes` | `rebase` | — |
 | `rebase` | `dispatch_version` | script ran `git fetch` + `git merge-base --is-ancestor`; if rebase needed, `data.commands: ["git rebase origin/<default>"]`; on conflict the LLM reports `success:false` → script emits `rebase_conflict` with `llm_decision {options:["pause","skip","merge"]}` (interactive) or `status:"error"` + resume hint (`--auto`) (interactive: via `confirm_version`) |
 | `dispatch_version` | `verify_version_tag` | `data.commands: [verify-tag-ancestry.js …]`; no-op when `NEW_TAG`/`EXECUTE_BRANCH` unset — stays inline (R-progressive-disclosure, R-post-version-ancestry) |
@@ -312,7 +335,7 @@
 | `await_remote_review` | `learnings_commit` | — |
 | `learnings_commit` | `cleanup` | `data.commands: ["node state/ship.js cleanup-pipeline[ --force]"]` — script picks `--force` when any step is `failed` |
 | `cleanup` | `done` | `ext.summary` = Step 6 report data |
-| any `dispatch_<s>` with `success:false` and an `output.pendingQuestion {prompt, options}` not handled by `execute_gate` | `done` | `ext.reason:"pending-question"`, `ext.pendingQuestion`, `ext.commands` (`/sdlc:execute-plan-sdlc --plan <p> --resume` for execute, then `/sdlc:ship-sdlc --resume`); the step stays `in_progress`; `paused` set |
+| any `dispatch_<s>` with `success:false` and an `output.pendingQuestion {prompt, options}` not handled by `execute_gate` | `done` | `ext.reason:"pending-question"`, `ext.pendingQuestion`, `ext.commands` (`/sdlc:execute-plan-sdlc --plan <p> --resume --strict-files` for execute, then `/sdlc:ship-sdlc --resume`, with `--auto` when the run used it); the step stays `in_progress`; `paused` set |
 | any `dispatch_<s>` with `success:false` and no `output.pendingQuestion {prompt, options}` | `status:"error"` | `error`: "<step> failed: <summary>. State preserved; re-run with --resume." |
 
 Skipped and conditional-not-met steps are not emitted as steps; the script records `skip --reason` itself and lists them in `progress`.
@@ -355,6 +378,7 @@ Skipped and conditional-not-met steps are not emitted as steps; the script recor
 - G6a: Pipeline completion gate — `state/ship.js cleanup` validates all steps are in terminal state (`completed`, `skipped`, or `failed`) before deleting the state file. Steps still `pending` or `in_progress` cause cleanup to refuse deletion and exit 1.
 - G7: Staging gap filled — the R8 `stage_changes` commands ran between execute and commit
 - G8: Rebase attempted when `--rebase auto` (or `prompt`) — rebase ran after commits, before version (when applicable)
+- G9: Scope gate — `stage_*` stages only plan Files paths (R83); received-review's `--check-scope` passed (R82)
 
 - R3: Pipeline plan is a binding contract: steps with `status: "will_run"` must execute; LLM cannot override
 - R5: Skip set provenance tracked via `skipSource`: `cli`, `config`, `auto`, `condition`, `none`; fabrication guard blocks (error, exit code 1) on `default` source
@@ -374,6 +398,7 @@ Skipped and conditional-not-met steps are not emitted as steps; the script recor
 - P6: `config` (object | null) — ship config from `.sdlc/local.json` or null if absent
 - P8: `migration` (object | null) — `{ project: { schemaVersion, migrated, backupPath, stepsApplied }, local: { ... } }` after `verifyAndMigrate` runs at pipeline entry. Null only when both calls were short-circuited by `SDLC_SKIP_CONFIG_CHECK=1` or `--skip-config-check`. On migration failure, `migration` is null AND `errors[]` carries the failing step identifier.
 - P11: `warnings` (string[]) — non-blocking notices shown before the pipeline runs, including the cap-exhausted stall notice (R-cap-recovery)
+- P12: `flags` gains `noTag`, `noPush`, `releaseSubject`, `reviewRounds`, with `sources` entries
 
 ## Failure handling and resume
 
@@ -386,6 +411,7 @@ Skipped and conditional-not-met steps are not emitted as steps; the script recor
 - E7: Review verdict unparseable → treat as APPROVED WITH NOTES, warn user
 - E8: Rebase conflict → abort rebase; auto mode stops, interactive offers pause/skip/merge options
 - E9: Sub-skill times out → stop pipeline, save state
+- E10: `releaseSubjectInvalid`, `rerunGuard`, `stageOutsideFiles` and a received-review scope failure end the run with an error or a pending question; nothing is staged or dispatched after them
 
 - R-config-failure-mode: A migration failure halts the pipeline before step 1 — no partial pipeline runs. The prepare output is the single point of refusal: SKILL.md gates Step 4 (DO) on `errors.length === 0` from the prepare output. If a previous run partially migrated and the lock file (`.sdlc/.migration.lock`) is stale, the prepare surfaces a `ConfigMigrationLocked` error with PID guidance; the user is responsible for removing the lock manually after confirming no other migration is in flight.
 
@@ -425,6 +451,7 @@ Skipped and conditional-not-met steps are not emitted as steps; the script recor
 - C16: The LLM must not override `steps[].dispatchMode`. If `'agent'`, invoke via Agent tool with `subagent_type: step.data.agent` and, when non-null, `isolation: step.data.isolation`; never pass `model` or `effort` — the agent file pins them. If `null`, the step is an inline-Bash operation. The value `'skill'` is no longer valid — every sub-skill step uses `'agent'`.
 - C18: The `block-askuserquestion-auto.js` PreToolUse hook must degrade silently (exit 0, no output) on any failure (no stdin, parse error, no git, no ship state file, lib load failure) and when `flags.auto !== true` — it must never block `AskUserQuestion` outside an active `--auto` ship pipeline.
 - C19: No plan-path autodiscovery in any ship code path. `ship.js` MUST NOT scan a plans directory, read a plan-path setting from any project or global settings file, or otherwise infer `context.planFile` by any means other than the explicit `--plan <path>` CLI flag (R-PLANFILE, R72).
+- C20: No skill on the ship path (ship-sdlc, execute-plan-sdlc, commit-sdlc, review-sdlc, received-review-sdlc, version-sdlc, pr-sdlc) calls AskUserQuestion without an `--auto` branch in the same section; `check-consistency.js` Rule 14 `ask-auto-branch` enforces it
 
 ## Integration
 
@@ -443,6 +470,7 @@ Skipped and conditional-not-met steps are not emitted as steps; the script recor
 - I13: `scripts/skill/openspec-step.js` (wraps `lib/openspec.js`) — `detect|flip|validate|archive|tasks`
 - I14: `lib/config-version.js::verifyAndMigrate` — invoked at pipeline entry once per role (project, local) before any step dispatch. Throws halt the pipeline before step 1.
 - I15: `lib/config-migrations.js` — registry consumed by `verifyAndMigrate`; ship-sdlc does not import it directly.
+- I16: version-sdlc A9/A10 and `--no-push`; received-review A4/A5; execute A10; commit A1
 
 ## Appendix — history
 
@@ -511,3 +539,14 @@ Reading P11: the initial call always emits `confirm_pipeline`, under `--dry-run`
 | R-b3 | #478 |
 | R-b4 | , issue #496 |
 | R-b4 | #496 |
+| R8 | `stage_fixes`, #9307 |
+| R11 | ledger flags rewritten on adoption, #9228 |
+| R77 | review copy before PR, #9302 |
+| R80 | #9318 |
+| R81 | #9310 |
+| R82 | N1 |
+| R83 | N1b |
+| R84 | #9308 |
+| R85 | N3 |
+| R86 | stop-2 |
+| R85, C20, R86, the execute side of R80, the amended R77 order, the R11 refresh sentence | contract added in M9 wave R-b1 part 1 (#9319); implemented by part 2 of that wave (docs/plans/m9-wRb1-ship-chain-part2.md, Tasks 1-6), not by part 1. Until then ship.js still prefers the PR over the comment file in R77. |

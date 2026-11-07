@@ -21,7 +21,9 @@
  *                        rebase-emit | inline-fail-<step-with-dashes> | forced-cleanup |
  *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff | after-pr |
  *                        openspec | resume-plan | resume-plan-auto | resume-plan-quick |
- *                        stale-plan | other-worktree-plan | finished-plan | rebase-conflict
+ *                        stale-plan | other-worktree-plan | finished-plan | rebase-conflict |
+ *                        rerun-version-moved | rerun-version-same | after-received-review-changes | stage-outside-files |
+ *                        rounds-2-fixes | rounds-2-no-fixes | rounds-1-default
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
  *   --steps <csv>        Appended to every initial call as `--steps <csv>`
  *   --no-plan            Initial calls pass --has-plan without --plan (ship-sdlc/SKILL.md always passes --has-plan)
@@ -39,6 +41,18 @@
  *   --commit             (pending) seed commit in_progress
  *   --late-exec          (handoff) copy the execute seed after the first call
  *   --auto-seed          Patch data.flags.auto = true into the seed (any scenario)
+ *   --version-failed     (rerun-version-*) mark the version entry failed after the first emission
+ *   --clean-tree         (after-received-review-changes) commit everything but .sdlc/ first, so the tree is clean; otherwise a fix.txt change is written
+ *   --plan-files <csv>   (stage-outside-files) commit a plan whose Task 1 Files are these paths
+ *   --write <csv>        (stage-outside-files) create these files, untracked
+ *   --edit-plan          (stage-outside-files) leave plan.md modified and uncommitted
+ *   --fixes              (stage-outside-files) reach stage_fixes (after received-review) instead of stage_changes
+ *   --rounds <n>         (rounds-*) patch data.flags.reviewRounds = n into the seed; absent: the seed has no reviewRounds
+ *                        rounds-*: auto seed; each round answers dispatch_review, review_gate, received-review (rounds-2-no-fixes:
+ *                        clean tree; otherwise it appends to fix.txt, stages and commits it) until the next step is not dispatch_review;
+ *                        --summary is rewritten before each later round
+ *   --no-tag             Patch data.flags.noTag = true into the seed (any scenario)
+ *   --version-head       A successful dispatch_version result without artifacts.commit gets the fixture repo's HEAD sha
  *   --other-exec         Also copy seed/execute-complete.json to a second branch's execute state file (es2)
  *   --walk               (handoff) walk the remaining steps to cleanup
  *   --summary <name>     review-gate: copy fixtures-fs/review-summaries/<name> to the main
@@ -198,8 +212,16 @@ function withHeadSha(file) {
 
 function after(id, rel) {
   let file = path.join(projectRoot, rel);
-  if (id === 'dispatch_commit' || id === 'dispatch_commit_fixes') file = withHeadSha(file);
+  if (id === 'dispatch_commit' || id === 'dispatch_commit_fixes' || (id === 'dispatch_version' && process.argv.includes('--version-head'))) file = withHeadSha(file);
   return ship(['--after', id, '--result-file', file, '--state', statePath || '']);
+}
+
+// R83: rewrite plan.md so Task 1 lists the given paths under Files, and commit it (a clean plan file is not "outside").
+function setPlanFiles(paths) {
+  if (!paths.length) return;
+  const files = paths.map(p => `- Modify: \`${p}\``).join('\n');
+  fs.writeFileSync(path.join(projectRoot, 'plan.md'), `# Add widget support\n\n## Tasks\n\n### Task 1: Add the widget module\n\n**Files:**\n${files}\n\n### Task 2: Wire the widget into the CLI\n`);
+  sh('git add plan.md && git commit -q -m "fixture: plan files"');
 }
 
 function seedLedger(name, patch) {
@@ -211,6 +233,22 @@ function seedLedger(name, patch) {
   fs.writeFileSync(statePath, JSON.stringify(data, null, 2));
   seedPath = statePath;
   seedBytes = JSON.stringify(data, null, 2);
+}
+
+// Ledger facts after one call (rerun-version-* scenarios).
+const snapshots = [];
+let headAfter = null;
+function snap() {
+  const d = readJson(statePath) || {};
+  return {
+    version: (d.steps || []).find(s => s.name === 'version') || null,
+    pausedAt: d.paused ? d.paused.at : null,
+    paused: d.paused !== undefined,
+    historyLength: (d.history || []).length,
+    round: d.round === undefined ? null : d.round,
+    rounds: d.rounds === undefined ? null : d.rounds,
+    stepStatuses: Object.fromEntries((d.steps || []).map(s => [s.name, s.status])),
+  };
 }
 
 function clearLedgers() {
@@ -229,12 +267,41 @@ function walk(env0, stopAt = null, max = 12) {
   }
 }
 
+// R84: one review round from `--after dispatch_review` to the step after it ends. With fixLine, received-review
+// appends it to fix.txt; stage_fixes' commands run and commit-fixes commits (a snapshot follows its --after call).
+function reviewRound(fixLine) {
+  const is = (c, id) => c.status === 'step' && c.step.id === id;
+  let c = after('dispatch_review', 'results/generic-ok.json');
+  if (is(c, 'review_gate')) c = after('review_gate', 'results/yes.json');
+  if (!is(c, 'dispatch_received_review')) return c;
+  if (fixLine) fs.appendFileSync(path.join(projectRoot, 'fix.txt'), fixLine);
+  c = after('dispatch_received_review', 'results/generic-ok.json');
+  if (is(c, 'stage_fixes')) {
+    for (const cmd of c.step.data.commands) sh(cmd); // the main context runs them
+    c = after('stage_fixes', 'results/generic-ok.json');
+  }
+  if (is(c, 'dispatch_commit_fixes')) {
+    sh('git commit -q -m "fixture: review fixes"');
+    c = after('dispatch_commit_fixes', 'results/generic-ok.json');
+    snapshots.push(snap());
+  }
+  return c;
+}
+
 if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-days'].includes(scenario)) {
   const result = resultRel ? readJson(path.join(projectRoot, resultRel)) : null;
   seedLedger(seed, (data) => {
     if (quality) data.flags.quality = quality;
     if (scenario === 'pending' && process.argv.includes('--commit')) { const e = data.steps.find(x => x.name === 'commit'); if (e) e.status = 'in_progress'; }
     if (process.argv.includes('--auto-seed')) data.flags.auto = true; // any scenario (v3, eh6)
+    const roundsIdx = process.argv.indexOf('--rounds');
+    if (roundsIdx >= 0) data.flags.reviewRounds = Number(process.argv[roundsIdx + 1]);
+    if (scenario.startsWith('rounds-')) data.flags.auto = true;
+    if (process.argv.includes('--no-tag')) {
+      data.flags.noTag = true; // A15: the ledger records an untagged release
+      // verify_version_tag emits its command only after branch_prepare succeeded; seed that so an empty list is the noTag rule's doing.
+      data.history = [...(data.history || []), { step: 'branch_prepare', result: 'success' }];
+    }
     if (scenario === 'handoff' && process.argv.includes('--walk')) { data.flags.steps = ['execute']; for (const s of data.steps) if (s.name !== 'execute' && s.status === 'pending') s.status = 'skipped'; }
     if (scenario === 'emit-in-progress') data.flags.auto = true;
     if (scenario === 'confirm-pr') {
@@ -254,6 +321,19 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
       }
       for (const nm of ['execute', 'commit', 'review', 'version']) { const e = data.steps.find(x => x.name === nm); if (e) e.status = 'completed'; }
       for (const nm of ['received-review', 'commit-fixes']) { const e = data.steps.find(x => x.name === nm); if (e) { e.status = 'skipped'; e.reason = 'fixture'; } }
+    }
+    if (scenario.startsWith('rerun-version-')) {
+      // R80: everything before version is done, so confirm_pipeline emits dispatch_version.
+      data.flags.auto = true;
+      for (const nm of ['execute', 'commit', 'review']) { const e = data.steps.find(x => x.name === nm); if (e) e.status = 'completed'; }
+      for (const nm of ['received-review', 'commit-fixes']) { const e = data.steps.find(x => x.name === nm); if (e) { e.status = 'skipped'; e.reason = 'fixture'; } }
+    }
+    if (scenario === 'after-received-review-changes' || (scenario === 'stage-outside-files' && process.argv.includes('--fixes'))) {
+      // review done, received-review running: its result decides whether stage_fixes is emitted.
+      data.flags.auto = true;
+      const rv = data.steps.find(x => x.name === 'review'); if (rv) rv.status = 'completed';
+      const rr = data.steps.find(x => x.name === 'received-review'); if (rr) rr.status = 'in_progress';
+      data.history = [...(data.history || []), { step: 'dispatch_review', result: 'success' }];
     }
     if (scenario === 'review-gate-rows' && result && result.threshold) data.flags.reviewThreshold = result.threshold;
     if (process.argv.includes('--summary-stale')) { const e = data.steps.find(x => x.name === 'review'); if (e) e.startedAt = new Date().toISOString(); }
@@ -276,8 +356,8 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     }
   });
 }
-if (summaryRel) {
-  // review-gate: the copy review-sdlc leaves in the main worktree's .sdlc/execution/ (P11).
+// review-gate: the copy review-sdlc leaves in the main worktree's .sdlc/execution/ (P11); rounds-* write it again per round.
+function writeSummary() {
   fs.mkdirSync(execDir, { recursive: true });
   const dest = path.join(execDir, 'review-summary-feat-ship.json');
   fs.copyFileSync(path.join(repoRoot, 'tests', 'promptfoo', 'fixtures-fs', 'review-summaries', summaryRel), dest);
@@ -293,6 +373,7 @@ if (summaryRel) {
   }
   fs.utimesSync(dest, t, t);
 }
+if (summaryRel) writeSummary();
 if (process.argv.includes('--in-worktree')) {
   runCwd = path.join(path.dirname(projectRoot), 'wt-' + path.basename(projectRoot));
   sh(`git worktree add -q -b wt-review "${runCwd}"`);
@@ -367,6 +448,24 @@ switch (scenario) {
   case 'after-pr':
     after('dispatch_pr', resultRel);
     break;
+  case 'rerun-version-moved':
+  case 'rerun-version-same': {
+    // R80: emit dispatch_version, optionally fail the entry and move HEAD, then emit again (and once more when HEAD moved).
+    const moved = scenario === 'rerun-version-moved';
+    after('confirm_pipeline', 'results/yes.json');
+    snapshots.push(snap());
+    if (process.argv.includes('--version-failed')) {
+      const d = readJson(statePath);
+      d.steps.find(x => x.name === 'version').status = 'failed';
+      fs.writeFileSync(statePath, JSON.stringify(d, null, 2));
+    }
+    if (moved) sh('git commit -q --allow-empty -m "release commit made by the first run"');
+    headAfter = sh('git rev-parse HEAD').stdout.trim();
+    after('confirm_pipeline', 'results/yes.json');
+    snapshots.push(snap());
+    if (moved) { after('confirm_pipeline', 'results/yes.json'); snapshots.push(snap()); }
+    break;
+  }
   case 'after-execute':
     after('dispatch_execute', resultRel || 'results/execute-ok.json');
     break;
@@ -423,6 +522,52 @@ switch (scenario) {
   case 'after-stage': {
     const c = after('stage_changes', 'results/generic-ok.json');
     if (c.status === 'step' && c.step.id.startsWith('confirm_')) after(c.step.id, `results/${answer}.json`);
+    break;
+  }
+  case 'after-received-review-changes': {
+    // Default: received-review left a change (fix.txt). --clean-tree: it changed nothing (.sdlc/ ignored, rest committed).
+    if (process.argv.includes('--clean-tree')) {
+      fs.writeFileSync(path.join(projectRoot, '.gitignore'), '.sdlc/\n');
+      sh('git add -A && git commit -q -m "fixture: clean tree"');
+    } else {
+      setPlanFiles(['fix.txt']); // the fix is inside the plan Files (R83)
+      fs.writeFileSync(path.join(projectRoot, 'fix.txt'), 'review fix\n');
+    }
+    const c = after('dispatch_received_review', 'results/generic-ok.json');
+    if (c.status === 'step' && c.step.id === 'stage_fixes') {
+      for (const cmd of c.step.data.commands) sh(cmd); // the main context runs them
+      after('stage_fixes', 'results/generic-ok.json');
+    }
+    break;
+  }
+  case 'stage-outside-files': {
+    // R83: --plan-files <csv> commits a plan whose Files are those paths; --write <csv> creates untracked files;
+    // --edit-plan leaves an uncommitted edit in plan.md; --fixes reaches stage_fixes instead of stage_changes.
+    const csv = (flag) => { const i = process.argv.indexOf(flag); return i >= 0 && process.argv[i + 1] ? process.argv[i + 1].split(',') : []; };
+    setPlanFiles(csv('--plan-files'));
+    for (const rel of csv('--write')) {
+      fs.mkdirSync(path.dirname(path.join(projectRoot, rel)), { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, rel), 'x\n');
+    }
+    if (process.argv.includes('--edit-plan')) fs.appendFileSync(path.join(projectRoot, 'plan.md'), '\nedited\n');
+    after(process.argv.includes('--fixes') ? 'dispatch_received_review' : 'dispatch_execute', 'results/generic-ok.json');
+    break;
+  }
+  case 'rounds-2-fixes':
+  case 'rounds-2-no-fixes':
+  case 'rounds-1-default': {
+    // R84: rounds-2-no-fixes leaves a clean tree after received-review (.sdlc/ ignored, rest committed).
+    const fixes = scenario !== 'rounds-2-no-fixes';
+    if (fixes) setPlanFiles(['fix.txt']); // the fixes are inside the plan Files (R83)
+    else {
+      fs.writeFileSync(path.join(projectRoot, '.gitignore'), '.sdlc/\n');
+      sh('git add -A && git commit -q -m "fixture: clean tree"');
+    }
+    for (let round = 1; round <= 3; round++) {
+      const c = reviewRound(fixes ? `review fix ${round}\n` : null);
+      if (!(c.status === 'step' && c.step.id === 'dispatch_review')) break;
+      if (summaryRel) writeSummary(); // review-sdlc writes a new summary each round
+    }
     break;
   }
   case 'tier': {
@@ -574,6 +719,8 @@ fs.rmSync(stubDir, { recursive: true, force: true });
 console.log(JSON.stringify({
   scenario,
   calls,
+  snapshots,
+  headAfter,
   ledger,
   ledgerExists: Boolean(data),
   ledgerFiles: ledgerFiles(),

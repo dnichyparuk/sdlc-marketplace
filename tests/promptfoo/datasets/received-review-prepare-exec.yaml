@@ -193,12 +193,146 @@
         const o = JSON.parse(output);
         return o.commentFile.endsWith('/x.md') && o.prNumber === null && o.auto === true ? true : `FAIL: ${output}`;
 
+# rr-scope: fix scope (R28-R30). Fixture state comes from each fixture's setup.sh
+# (run by the harness in a temporary copy): project-received-review-scope changes
+# only plan Files paths; project-received-review-scope-outside also adds x.js.
+# review-comment.md carries F1 HIGH, F2 MEDIUM, F3 LOW.
+
+- description: "rr-scope: (a) --plan writes allowedFiles"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,manifest:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const m = o.manifest;
+        if (o.status !== 0) return `FAIL: status ${o.status}`;
+        if (JSON.stringify(m.allowedFiles) !== JSON.stringify(['docs/a.md', 'src/a.js', 'src/b.js', 'tests/b.test.js'])) return `FAIL: allowedFiles ${JSON.stringify(m.allowedFiles)}`;
+        if (m.flags.minSeverity !== 'medium') return `FAIL: minSeverity ${JSON.stringify(m.flags)}`;
+        if (m.findings.map(f => f.severity).join(',') !== 'high,medium,low') return `FAIL: severities ${output}`;
+        return true;
+
+- description: "rr-scope: (b) no --plan gives null allowedFiles"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,manifest:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const m = o.manifest;
+        if (o.status !== 0) return `FAIL: status ${o.status}`;
+        if (!('allowedFiles' in m) || m.allowedFiles !== null) return `FAIL: allowedFiles ${JSON.stringify(m.allowedFiles)}`;
+        if (!('minSeverity' in m.flags) || m.flags.minSeverity !== null) return `FAIL: minSeverity ${JSON.stringify(m.flags)}`;
+        return true;
+
+- description: "rr-scope: (c) invalid --min-severity is an error (and an unreadable --plan)"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((run)=>((a,b)=>console.log(JSON.stringify({a:{status:a.status,stdout:a.stdout,stderr:a.stderr},b:{status:b.status,stdout:b.stdout,stderr:b.stderr}})))(run(["--min-severity","severe"]),run(["--plan","missing-plan.md"])))((x)=>cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md",...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.a.status !== 1 || o.a.stdout !== '' || !o.a.stderr.includes('--min-severity must be one of')) return `FAIL: min-severity ${JSON.stringify(o.a)}`;
+        if (o.b.status !== 1 || o.b.stdout !== '' || !o.b.stderr.includes('is not a readable file.') || !o.b.stderr.includes('--plan')) return `FAIL: plan ${JSON.stringify(o.b)}`;
+        return true;
+
+- description: "rr-scope: (c2) --min-severity without a value is an error"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stdout:r.stdout,stderr:r.stderr})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--min-severity"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 1 && o.stdout === '' && o.stderr.includes('--min-severity must be one of') ? true : `FAIL: ${JSON.stringify(o)}`;
+
+- description: "rr-scope: (d) check-scope passes on allowed paths"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((run)=>((m)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(run(["--check-scope","--manifest",m,"--fixed","F1,F2"])))(run(["--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"]).stdout.trim()))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 0 && o.out === '{"ok":true,"outOfScope":[],"belowThreshold":[]}' ? true : `FAIL: ${output}`;
+
+- description: "rr-scope: (e) check-scope fails on an outside path"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((run)=>((m)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(run(["--check-scope","--manifest",m,"--fixed","F1"])))(run(["--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"]).stdout.trim()))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope-outside"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 1 && o.out === '{"ok":false,"outOfScope":["x.js"],"belowThreshold":[]}' ? true : `FAIL: ${output}`;
+
+- description: "rr-scope: (e2) check-scope matches a directory Files entry by prefix"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((run)=>((m)=>((j)=>(j.allowedFiles=["src","x.js"],fs.writeFileSync(m,JSON.stringify(j)),((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(run(["--check-scope","--manifest",m,"--fixed","F1"]))))(JSON.parse(fs.readFileSync(m,"utf8"))))(run(["--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"]).stdout.trim()))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope-outside"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 0 && o.out === '{"ok":true,"outOfScope":[],"belowThreshold":[]}' ? true : `FAIL: ${output}`;
+
+- description: "rr-scope: (f) check-scope fails on a below-threshold fixed id"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((run)=>((m)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(run(["--check-scope","--manifest",m,"--fixed","F1,F3"])))(run(["--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"]).stdout.trim()))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 1 && o.out === '{"ok":false,"outOfScope":[],"belowThreshold":["F3"]}' ? true : `FAIL: ${output}`;
+
+- description: "rr-scope: (g) check-scope exit 2 on an unreadable manifest"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stdout:r.stdout,stderr:r.stderr})))(cp.spawnSync("node",[js,"--check-scope","--manifest","missing-manifest.json","--fixed","F1"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 2 && o.stdout === '' && o.stderr.includes('is not a readable manifest') ? true : `FAIL: ${output}`;
+
 - description: "rr-skill-text: comment-file source and the no-PR skip rule"
   vars:
     script_path: "-e"
-    script_args: '((t)=>((c)=>console.log(JSON.stringify({hint:c("argument-hint:\x20\x22[--pr\x20\x3cnumber\x3e]\x20[--auto]\x20[--comment-file\x20\x3cpath\x3e]\x22"),src:c("When\x20\x60manifest.source\x60\x20is\x20\x60comment-file\x60"),nopr:c("When\x20\x60manifest.pr\x60\x20is\x20null"),fence:c("node\x20\x22\x3cPLUGIN_ROOT\x3e/scripts/skill/received-review.js\x22\x20--output-file\x20\x24ARGUMENTS\x20--pr\x20\x3cPR_NUMBER\x3e"),post:c("With\x20\x60manifest.pr\x60\x20null\x20(\x60comment-file\x60\x20source,\x20R27),\x20post\x20nothing"),s12:c("show\x20the\x20summary\x20in\x20item\x201\x20and\x20stop;\x20no\x20consent\x20gate,\x20no\x20posting\x20(R27)")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_args: '((t)=>((c)=>console.log(JSON.stringify({hint:c("argument-hint:\x20\x22[--pr\x20\x3cnumber\x3e]\x20[--auto]\x20[--comment-file\x20\x3cpath\x3e]\x20[--plan\x20\x3cpath\x3e]\x20[--min-severity\x20\x3clevel\x3e]\x22"),src:c("When\x20\x60manifest.source\x60\x20is\x20\x60comment-file\x60"),nopr:c("When\x20\x60manifest.pr\x60\x20is\x20null"),fence:c("node\x20\x22\x3cPLUGIN_ROOT\x3e/scripts/skill/received-review.js\x22\x20--output-file\x20\x24ARGUMENTS\x20--pr\x20\x3cPR_NUMBER\x3e"),post:c("With\x20\x60manifest.pr\x60\x20null\x20(\x60comment-file\x60\x20source,\x20R27),\x20post\x20nothing"),s12:c("show\x20the\x20summary\x20in\x20item\x201\x20and\x20stop;\x20no\x20consent\x20gate,\x20no\x20posting\x20(R27)")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
   assert:
     - type: javascript
       value: |
         const o = JSON.parse(output);
         return o.hint === 1 && o.src === 1 && o.nopr === 1 && o.fence === 1 && o.post === 1 && o.s12 === 1 ? true : `FAIL: ${output}`;
+
+- description: "rr-skill-text: (scope) fix-scope and scope-check blocks appear once"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>((c)=>console.log(JSON.stringify({fix:c("**Fix\x20scope\x20(R28,\x20R29):**"),chk:c("**Scope\x20check\x20(R30,\x20G13):**"),cmd:c("--check-scope\x20--manifest")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.fix === 1 && o.chk === 1 && o.cmd === 1 ? true : `FAIL: ${output}`;

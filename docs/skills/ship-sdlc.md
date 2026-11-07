@@ -29,7 +29,7 @@ This skill is for **expert users working on projects with established quality gu
 ## Usage
 
 ```text
-/ship-sdlc [--auto] [--steps <csv>] [--quality full|balanced|minimal] [--plan <path>] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--init-config] [--gc] [--ttl-days <N>]
+/ship-sdlc [--auto] [--steps <csv>] [--quality full|balanced|minimal] [--plan <path>] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--review-threshold critical|high|medium|low] [--review-rounds <n>] [--no-tag] [--no-push] [--release-subject <text>] [--init-config] [--gc] [--ttl-days <N>]
 ```
 
 ---
@@ -51,9 +51,14 @@ This skill is for **expert users working on projects with established quality gu
 | `--gc` | Prune stale ship- and execute- state files from `.sdlc/execution/`, then stop without running the pipeline. A file is pruned only when it is older than the TTL AND its branch is no longer in `git branch --list`. Fixes orphan accumulation from interrupted runs (issue #223). | Off |
 | `--ttl-days <N>` | TTL in days used by `--gc` and the terminal cleanup step. Files newer than this are kept regardless of branch existence (in-flight pipelines on detached HEAD or freshly-deleted branches must not be wiped). Configurable via `state.gc.ttlDays` in `.sdlc/config.json`; CLI overrides config. | `7` (or `state.gc.ttlDays`) |
 | `--rebase <auto\|skip\|prompt>` | Rebase strategy for ship's own `rebase` step (A12, R9, R75). `auto` and `prompt` rebase onto the default branch after the commits and before version; `skip` does not rebase. Config key: `rebase` in `ship` (see the config table). | `skip` |
+| `--review-threshold <critical\|high\|medium\|low>` | Lowest severity that starts the review fix loop (A18, R40). Overrides the `reviewThreshold` config key. A value outside the four severities, or a missing value, is a prepare error. | `high` (or `reviewThreshold` in config) |
+| `--review-rounds <n>` | Number of review → received-review → commit-fixes rounds, an integer from 1 to 3 (A19, R84). See [Review rounds](#review-rounds). Any other value, or a missing value, is a prepare error. | `1` |
 | `--plan <path>` | Explicit path to the active plan markdown (the old autodiscovery flag was renamed in #505 — no back-compat alias for the previous name). Forwarded to execute-plan-sdlc as `--plan <path>`. Required whenever the `execute` step will run, unless `--resume` restores the plan from the branch's ledger; plan autodiscovery was removed (see note below). A `--plan` that differs from the plan of any unfinished ledger of the branch stops with `resumePlanMismatch` before any state is written: continue that run with `--resume`, or discard it with ship's own verbs (`state/ship.js skip`, then `cleanup-pipeline`). | Required when `execute` runs without `--resume`; unset otherwise |
 | `--tasks <ids>` | Forwarded unchanged to execute-plan-sdlc as `--tasks <ids>` (run only these plan tasks). Digits and commas only (for example `3,4`); any other value is a prepare error. Not restored by `--resume`; execute-plan-sdlc keeps its own recorded selection. | Unset |
 | `--from-wave <n>` | Forwarded unchanged to execute-plan-sdlc as `--from-wave <n>` (start at wave `n`). An integer; any other value is a prepare error. Not restored by `--resume`. | Unset |
+| `--no-tag` | Forwarded to version-sdlc as `--no-tag`: the release commit is made but no tag is created. The version step is then verified by its release commit being HEAD, not by a tag, and `verify_version_tag` emits no command. | Off |
+| `--no-push` | Forwarded to version-sdlc as `--no-push`. | Off |
+| `--release-subject <text>` | Forwarded to version-sdlc as `--subject "<text>"`. One line of at most 72 characters, without `"`, `` ` ``, `$` or `\`, matching `commit.subjectPattern`; anything else is a `releaseSubjectInvalid` prepare error. | Unset |
 
 To enable post-PR CI verification, add `verify-pipeline` to `ship.steps` in `.sdlc/local.json` (or pass it via `--steps`). To await an automated reviewer's verdict, add `await-remote-review`. See R41 / R50 in `docs/specs/ship-sdlc.md`. To validate implementation completeness against the spec before archiving, add `verify-openspec` between `version` and `archive-openspec` — requires a matched OpenSpec change (`flags.openspecChange`, or auto-detection by branch name or git diff); the step is skipped with a clear reason when neither is present.
 
@@ -96,7 +101,7 @@ The pipeline runs up to 10 canonical steps sequentially (depending on which opt-
 
 A script sequences the pipeline. It emits one step at a time, the model runs that step, and the result goes back through `ship.js --after`, which records the step and picks the next one. Progress is saved in the pipeline's state file as each step starts and finishes, so an interrupted run can be picked up with `--resume`.
 
-Each sub-skill runs in its own agent (`agents/ship-step-<step>.md`), which sets its model and effort. A sub-agent cannot ask you anything, so in interactive runs ship asks first, in the main conversation: `confirm_commit`, `confirm_commit_fixes`, `confirm_version` and `confirm_pr` (yes, skip or cancel), and the review gate for received-review. It also asks for the execution tier (`execute_tier`) and about an existing execute state file (`execute_state`). The sub-skill then runs with `--auto`, so its own previews (commit message, changelog draft, PR body, fix plan) are not shown. If execute stops at a question ship cannot answer for it, ship stops, keeps its state, and prints the two commands to continue: `/sdlc:execute-plan-sdlc --plan <plan> --resume`, then `/sdlc:ship-sdlc --resume`. On that resume ship asks whether execute finished outside the pipeline (`execute_handoff`).
+Each sub-skill runs in its own agent (`agents/ship-step-<step>.md`), which sets its model and effort. A sub-agent cannot ask you anything, so in interactive runs ship asks first, in the main conversation: `confirm_commit`, `confirm_commit_fixes`, `confirm_version` and `confirm_pr` (yes, skip or cancel), and the review gate for received-review. It also asks for the execution tier (`execute_tier`) and about an existing execute state file (`execute_state`). The sub-skill then runs with `--auto`, so its own previews (commit message, changelog draft, PR body, fix plan) are not shown. If execute stops at a question ship cannot answer for it, ship stops, keeps its state, and prints the two commands to continue: `/sdlc:execute-plan-sdlc --plan <plan> --resume --strict-files`, then `/sdlc:ship-sdlc --resume` (with `--auto` when the run used it). On that resume ship asks whether execute finished outside the pipeline (`execute_handoff`).
 
 ```
                           /ship-sdlc
@@ -220,7 +225,7 @@ plan-sdlc      (--auto if     (--committed)
 **Key points:**
 
 - **Double-commit pattern**: The feature commit (step 5b) and the review fix commit (step 5e) are separate. This keeps feature work and review fixes distinct in git history.
-- **No mandatory pause points in `--auto` mode**: `--auto` is forwarded to execute-plan-sdlc, to review-sdlc (which then posts when the branch has a PR and saves the review otherwise, without asking), to received-review-sdlc (which auto-dispatches fixes without sign-off, enforced by the `block-askuserquestion-auto.js` PreToolUse hook — R71) and to version-sdlc (which skips the release approval prompt). In interactive mode (no `--auto`), received-review-sdlc pauses for human sign-off and version-sdlc pauses for release approval.
+- **No mandatory pause points in `--auto` mode**: `--auto` is forwarded to execute-plan-sdlc, to review-sdlc (which then posts when the branch has a PR and saves the review otherwise, without asking), to received-review-sdlc (which is also given `--plan "<plan>"` when ship has a plan file, so its scope guard keeps fixes inside the plan's files, and `--min-severity <reviewThreshold>`, the same threshold that gated the review, so findings below it are not fixed; it auto-dispatches fixes without sign-off, enforced by the `block-askuserquestion-auto.js` PreToolUse hook — R71) and to version-sdlc (which skips the release approval prompt). In interactive mode (no `--auto`), received-review-sdlc pauses for human sign-off and version-sdlc pauses for release approval.
 - **Workspace auto-detection (R60, fixes #378, #379)**: ship-sdlc derives the workspace from cwd + current branch via `lib/git.js::deriveWorkspace` — there is no flag and no prompt. Two outcomes:
   - **`branch`** (cwd is the main worktree AND HEAD is the default branch): ship auto-creates a feature branch before dispatching execute. Lifecycle: (1) derive branch name from the plan title via `lib/branch-name.js` driven by `workspace.branch` config; (2) run ship state migration (`state/ship.js migrate --from <oldSlug> --to <newName>`) **before** creating the branch — critical because `state/ship.js read` must still resolve the OLD slug filename at migration time (load-bearing ordering); (3) `git checkout -b <name>`. After step (3), cwd is the main worktree on the new feature branch, so execute-plan-sdlc's own derive yields `continue` — ship does **not** forward a `--branch` value.
   - **`continue`** (a linked git worktree, OR the main worktree already on a feature branch): ship runs the pipeline in place on the current branch — no branch creation, no state migration. This covers the manual "create worktree → write plan → ship" workflow with zero flags. The version step runs normally (tags are repo-global).
@@ -240,6 +245,10 @@ plan-sdlc      (--auto if     (--committed)
 
   **Correlation with `receivedReview.alwaysFixSeverities`:** These two settings must be aligned. `reviewThreshold` gates whether `received-review-sdlc` is dispatched at all; `alwaysFixSeverities` controls what gets auto-implemented once it is running. Setting `alwaysFixSeverities: ["critical","high","medium","low"]` while keeping `reviewThreshold: "high"` has no effect on medium/low findings — the fix loop never starts. Set `reviewThreshold` to the lowest severity in your `alwaysFixSeverities` list (e.g. `"low"`) so the two values are consistent.
 
+### Review rounds
+
+With `--review-rounds <n>` (default 1), the review, received-review and commit-fixes steps can run up to `n` times. When commit-fixes completes in round k and k is below `n`, ship records that round in `rounds[]` of the state file, sets `round` to k + 1, resets the three steps to pending and runs review again on the new commit. The review gate, the staging of the fixes and, in interactive runs, the confirm questions are asked again in each round. The loop ends after round `n`, or earlier when a round's commit-fixes is skipped (the review found nothing at the threshold, the gate was deferred, or received-review changed nothing). With the default of one round the pipeline runs as before.
+
 ---
 
 ## What Gets Printed
@@ -258,7 +267,7 @@ a false self-report. `commit`, `commit-fixes` and `pr` are cross-checked the
 same way (git HEAD; `gh pr view`). Other steps record the agent's reported
 outcome without an independent side-effect check (R-b2):
 
-- **commit** — stash unstaged, generate message, commit, restore stash
+- **commit** — stage the changes, generate message, commit; ship passes `--no-stash`, so nothing is stashed or restored during a pipeline run
 - **review** — dispatch review dimensions, collect verdicts
 - **execute** — one todo per plan task (mirrors the plan you accepted)
 - **pr** — push branch, draft body, `gh pr create`, apply labels

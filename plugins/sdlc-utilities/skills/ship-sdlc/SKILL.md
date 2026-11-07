@@ -1,8 +1,8 @@
 ---
 name: ship-sdlc
-description: "Use this skill when shipping a feature end-to-end after plan acceptance: executing, committing, reviewing, fixing critical issues, versioning, and opening a PR in one flow. Dispatches every sub-skill (including execute-plan-sdlc) as an Agent for context isolation, with structured return values driving the pipeline state machine. Arguments: [--auto] [--steps <csv>] [--quick] [--quality full|balanced|minimal] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--rebase auto|skip|prompt] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--init-config]. The `<label>` form for --bump (e.g. `--bump rc`) is forwarded to version-sdlc, where it is interpreted as `--bump patch --pre <label>`; labels must match `^[a-z][a-z0-9]*$`. Triggers on: ship it, ship this, full pipeline, execute to PR, ship feature, run the whole thing."
+description: "Use this skill when shipping a feature end-to-end after plan acceptance: executing, committing, reviewing, fixing critical issues, versioning, and opening a PR in one flow. Dispatches every sub-skill (including execute-plan-sdlc) as an Agent for context isolation, with structured return values driving the pipeline state machine. Arguments: [--auto] [--steps <csv>] [--quick] [--quality full|balanced|minimal] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--rebase auto|skip|prompt] [--review-threshold critical|high|medium|low] [--review-rounds <n>] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--no-tag] [--no-push] [--release-subject <text>] [--init-config]. The `<label>` form for --bump (e.g. `--bump rc`) is forwarded to version-sdlc, where it is interpreted as `--bump patch --pre <label>`; labels must match `^[a-z][a-z0-9]*$`. Triggers on: ship it, ship this, full pipeline, execute to PR, ship feature, run the whole thing."
 user-invocable: true
-argument-hint: "[--auto] [--steps <csv>] [--quick] [--quality full|balanced|minimal] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--rebase auto|skip|prompt] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--openspec-change <name>] [--init-config] [--gc] [--ttl-days <N>]"
+argument-hint: "[--auto] [--steps <csv>] [--quick] [--quality full|balanced|minimal] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--rebase auto|skip|prompt] [--review-threshold critical|high|medium|low] [--review-rounds <n>] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--no-tag] [--no-push] [--release-subject <text>] [--openspec-change <name>] [--init-config] [--gc] [--ttl-days <N>]"
 model: sonnet
 ---
 
@@ -189,16 +189,18 @@ The pipeline table is generated from the `steps` array in the `skill/ship.js` ou
 
 | Step | Skill | Status | Args | Pause |
 |------|-------|--------|------|-------|
-| 1 | execute-plan-sdlc | will_run | `--plan "<path>"` (from `context.planFile`, R-PLANFILE), plus `--quality <X>` from `--quality` or, in interactive runs, the `execute_tier` answer, plus `--tasks <ids>` / `--from-wave <n>` when given (implements A13, A14, R76) | no |
-| 2 | commit-sdlc | will_run | `--auto` | no |
+| 1 | execute-plan-sdlc | will_run | `--plan "<path>"` (from `context.planFile`, R-PLANFILE), plus `--quality <X>` from `--quality` or, in interactive runs, the `execute_tier` answer, plus `--tasks <ids>` / `--from-wave <n>` when given (implements A13, A14, R76), plus `--strict-files` always (R83) | no |
+| 2 | commit-sdlc | will_run | `--auto --no-stash` | no |
 | 3 | review-sdlc | will_run | `--committed`, plus `--auto` when ship runs with `--auto` | no |
-| 4 | received-review-sdlc | conditional | (if crit/high) | YES |
-| 5 | commit-sdlc (fixes) | conditional | `--auto` | no |
+| 4 | received-review-sdlc | conditional | (if findings at or above `reviewThreshold`) `--auto --plan "<planFile>" --min-severity <reviewThreshold>` plus the R77 input (R82) | YES |
+| 5 | commit-sdlc (fixes) | conditional | `--auto --no-stash` | no |
 | 6 | version-sdlc | skipped | — | — |
 | 7 | pr-sdlc | will_run | `--auto --draft` | no |
 | 7a | verify-pipeline (inline, opt-in) | conditional on `'verify-pipeline' ∈ flags.steps` | `--timeout <N> --interval <N>` | YES on failure (interactive) |
 | 7b | await-remote-review (inline, opt-in) | conditional on `'await-remote-review' ∈ flags.steps` | `--timeout <N> --interval <N> --reviewers <csv>` | no |
 | 8 | learnings-commit | will_run | (none — inline shell, see the `learnings_commit` section of `./reference.md`) | no |
+
+Rows 3–5 repeat per round when `flags.reviewRounds` is above 1 (`--review-rounds <n>`, 1–3, default 1; implements A19, R84): after a completed commit-fixes in round k < n, `ship.js` records the round in `ledger.rounds[]`, resets the three steps to `pending` and emits `dispatch_review` again, with `review_gate`, `stage_fixes` and the confirm steps re-asked for the new round. A round whose commit-fixes is skipped ends the loop. Nothing changes in Step 5: run whatever step `ship.js` emits.
 
 ### --auto Mode Audit
 
@@ -207,9 +209,9 @@ Not all sub-skills support `--auto`. This table is the source of truth:
 | Sub-skill | --auto support | Behavior when ship runs with --auto |
 |-----------|---------------|--------------------------------------|
 | execute-plan-sdlc | Yes | `--auto` forwarded only when ship runs with `--auto` (no tier is forwarded unless the user passed `--quality`; execute-plan-sdlc resolves it, `balanced` unless resumed — execute A6). In interactive runs ship asks the tier (`execute_tier`) and about an existing execute state file (`execute_state`) before dispatch; a high-risk question comes back as a pending question (`execute_gate`). (Renamed from `--preset` in #190 to disambiguate from ship's step-selection semantics.) |
-| commit-sdlc | Yes | `--auto` always forwarded. Skips commit approval prompt; interactive runs ask `confirm_commit` / `confirm_commit_fixes` first. |
+| commit-sdlc | Yes | `--auto --no-stash` always forwarded (stash is forbidden in pipeline runs; R81). Skips commit approval prompt; interactive runs ask `confirm_commit` / `confirm_commit_fixes` first. |
 | review-sdlc | Yes | `--auto` forwarded only when ship runs with `--auto`; review-sdlc then posts when the branch has a PR and saves the review otherwise (review-sdlc P12). |
-| received-review-sdlc | Yes | `--auto` always forwarded. Skips Step 10 consent prompt and Step 12 reply/resolve prompt; interactive consent is `review_gate` (or `confirm_received_review` when `review_gate` did not ask). Critique gates and verification still run. Only "will fix" items auto-implemented; threads for "will fix" items auto-resolved. |
+| received-review-sdlc | Yes | `--auto --plan "<planFile>" --min-severity <reviewThreshold>` always forwarded (R82). Skips Step 10 consent prompt and Step 12 reply/resolve prompt; interactive consent is `review_gate` (or `confirm_received_review` when `review_gate` did not ask). Critique gates and verification still run. Only "will fix" items auto-implemented; threads for "will fix" items auto-resolved. |
 | version-sdlc | Yes | `--auto` always forwarded. Skips release plan approval prompt; interactive runs ask `confirm_version` first. Pre-condition checks and critique gates still run. |
 | pr-sdlc | Yes | `--auto` always forwarded. Skips PR approval prompt; interactive runs ask `confirm_pr` first. |
 
@@ -267,7 +269,7 @@ Running a step and the `--after` call that records it are one uninterrupted sequ
 4. If `llm_decision` is non-null: resolve it — ask the user with `AskUserQuestion` using `prompt`/`options` (never in `--auto`; the script sets it to null there) — and put the answer in `output.answer`.
 5. Execute by `step.id` family:
    - `dispatch_*`: `Agent(subagent_type: step.data.agent, prompt: "<step.data.invocation>\nBranch: <branch>\nPrior results: <one line>")`, adding `isolation: step.data.isolation` only when it is present (R-agent-isolation-script-driven). The agent file preloads the skill, pins its model, and carries the unattended brief and the return items (R-subagent-brief). Take `(1)–(4)` from the return into `output` (put (3) artifacts into `output.artifacts` with the keys `commit` (sha), `tag`, `prUrl`, `verdict`) and the token counts the Agent return reports into `output.usage` (`{"source":"unavailable"}` when the harness exposes none; never estimate). When (1) is failure and (4) names a question the sub-skill could not ask, set `output.pendingQuestion` to `{"prompt": "<the question>", "options": ["<option keyword>", …]}` using the option keywords the sub-skill listed.
-   - `stage_changes`, `rebase`, `verify_version_tag`, `verify_openspec`, `archive_openspec`, `verify_pipeline`, `await_remote_review`, `learnings_commit`, `cleanup`: run each command in `step.data.commands` with Bash, in order; `success` = every command exited 0; capture the command's JSON stdout into `output`. For `verify_openspec` and `archive_openspec` follow `./openspec-steps.md`. `verify_openspec` reports `success: true` whatever `validate` exits (non-blocking, R-verify-openspec-1..5). Report `success: false` when the procedure halts the pipeline (`archive_openspec` validation failure, `verify_pipeline` abort): `ship.js` then returns `status: "error"`; `learnings_commit`, `verify_openspec` and `await_remote_review` never halt.
+   - `stage_changes`, `stage_fixes`, `rebase`, `verify_version_tag`, `verify_openspec`, `archive_openspec`, `verify_pipeline`, `await_remote_review`, `learnings_commit`, `cleanup`: run each command in `step.data.commands` with Bash, in order; `success` = every command exited 0; capture the command's JSON stdout into `output`. For `verify_openspec` and `archive_openspec` follow `./openspec-steps.md`. `verify_openspec` reports `success: true` whatever `validate` exits (non-blocking, R-verify-openspec-1..5). Report `success: false` when the procedure halts the pipeline (`archive_openspec` validation failure, `verify_pipeline` abort): `ship.js` then returns `status: "error"`; `learnings_commit`, `verify_openspec` and `await_remote_review` never halt.
    - `branch_prepare`: run `step.data.commands`, then continue.
    - decision steps (`confirm_*`, `execute_tier`, `execute_state`, `execute_gate`, `execute_handoff`): nothing to run; the answer from item 4 is the result (`success: true`, `output.answer`).
 6. Run `mktemp` and note the printed path; write `{step_id, success, output, error}` to that path with the Write tool (no shell quoting of agent text), then run `node "<PLUGIN_ROOT>/scripts/skill/ship.js" --after <step.id> --result-file <tmp> --state <state_file>`; set `ENVELOPE_FILE` to the path it prints (the path is printed also when the exit code is non-zero; a non-zero exit is handled like `status: "error"` in item 2); `rm -f <tmp>`; go to 2.

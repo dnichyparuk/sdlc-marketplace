@@ -83,6 +83,8 @@ function parseArgs(argv) {
   let dryRun    = false;
   let resume    = false;
   let rebase          = null;
+  let reviewThreshold = null;
+  let reviewRounds    = null; // A19, R84: review → received-review → commit-fixes rounds
   let openspecChange  = null;
   let gc              = false;
   let ttlDays         = null;
@@ -97,6 +99,9 @@ function parseArgs(argv) {
   let planFile = null;
   let tasks = null;     // R76: raw, forwarded to execute-plan-sdlc
   let fromWave = null;  // R76: raw, forwarded to execute-plan-sdlc
+  let noTag = false;            // A15: forwarded to version-sdlc
+  let noPush = false;           // A16: forwarded to version-sdlc
+  let releaseSubject = null;    // A17: forwarded to version-sdlc as --subject
   const errors = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -138,6 +143,17 @@ function parseArgs(argv) {
       errors.push(`${a} is no longer accepted: workspace is auto-detected from cwd + current branch (main worktree on the default branch → new feature branch; otherwise run in place). Remove the flag.`);
     } else if (a === '--rebase' && args[i + 1]) {
       rebase = args[++i]; // 'auto' | 'skip' | 'prompt'
+    } else if (a === '--review-threshold') {
+      const v = args[i + 1] && !args[i + 1].startsWith('--') ? args[++i] : '';
+      if (SEVERITIES.includes(v)) {
+        reviewThreshold = v;
+      } else {
+        errors.push(`--review-threshold must be one of ${SEVERITIES.join(', ')}, got "${v}".`);
+      }
+    } else if (a === '--review-rounds') {
+      const v = args[i + 1] && !args[i + 1].startsWith('--') ? args[++i] : '';
+      if (/^[1-3]$/.test(v)) reviewRounds = Number(v);
+      else errors.push(`--review-rounds must be an integer from 1 to 3, got "${v}".`);
     } else if (a === '--openspec-change' && args[i + 1]) {
       openspecChange = args[++i];
     } else if (a === '--gc') {
@@ -163,6 +179,13 @@ function parseArgs(argv) {
         fromWave = args[++i];
         if (!/^[0-9]+$/.test(fromWave)) errors.push(`--from-wave must be an integer, got "${fromWave}".`);
       }
+    } else if (a === '--no-tag') {
+      noTag = true;
+    } else if (a === '--no-push') {
+      noPush = true;
+    } else if (a === '--release-subject') {
+      if (args[i + 1] === undefined || args[i + 1].startsWith('--')) errors.push('--release-subject requires a value.');
+      else releaseSubject = args[++i];
     } else if (a === '--hook-active-pipeline') {
       hookActivePipeline = true;
     } else if (a === '--verify-pipeline') {
@@ -176,7 +199,7 @@ function parseArgs(argv) {
     }
   }
 
-  return { hasPlan, auto, steps, quick, quality, bump, draft, dryRun, resume, rebase, openspecChange, gc, ttlDays, hookActivePipeline, planModeBlocked, planFile, tasks, fromWave, errors };
+  return { hasPlan, auto, steps, quick, quality, bump, draft, dryRun, resume, rebase, reviewThreshold, reviewRounds, openspecChange, gc, ttlDays, hookActivePipeline, planModeBlocked, planFile, tasks, fromWave, noTag, noPush, releaseSubject, errors };
 }
 
 // ---------------------------------------------------------------------------
@@ -292,14 +315,22 @@ function mergeFlags(cli, config) {
   }
   // Otherwise: no merged.quality / no sources.quality — intentionally absent.
 
-  // reviewThreshold: not a CLI flag, comes from config or default.
-  if (cfg.reviewThreshold !== undefined) {
+  // reviewThreshold (R40, A18): CLI > config > default.
+  if (cli.reviewThreshold) {
+    merged.reviewThreshold  = cli.reviewThreshold;
+    sources.reviewThreshold = 'cli';
+  } else if (SEVERITIES.includes(cfg.reviewThreshold)) {
+    // A config value outside SEVERITIES never reaches the sub-skill args (free text from a repo file).
     merged.reviewThreshold  = cfg.reviewThreshold;
     sources.reviewThreshold = 'config';
   } else {
     merged.reviewThreshold  = BUILT_IN_DEFAULTS.reviewThreshold;
     sources.reviewThreshold = 'default';
   }
+
+  // reviewRounds (A19, R84): CLI > default 1; never from config.
+  merged.reviewRounds  = cli.reviewRounds || 1;
+  sources.reviewRounds = cli.reviewRounds ? 'cli' : 'default';
 
   // rebase: CLI non-null string wins; otherwise map config boolean/string to
   // 'auto' | 'skip' | 'prompt'; otherwise default 'skip' (R75, like execute).
@@ -390,6 +421,13 @@ function mergeFlags(cli, config) {
   // R76: present only when given (mirrors quality); never from config.
   if (cli.tasks)    merged.tasks    = cli.tasks;
   if (cli.fromWave) merged.fromWave = cli.fromWave;
+  // A15-A17: release flags, never from config; the ledger freezes them with the other flags.
+  merged.noTag          = cli.noTag === true;
+  merged.noPush         = cli.noPush === true;
+  merged.releaseSubject = cli.releaseSubject || null;
+  sources.noTag          = cli.noTag === true ? 'cli' : 'default';
+  sources.noPush         = cli.noPush === true ? 'cli' : 'default';
+  sources.releaseSubject = cli.releaseSubject ? 'cli' : 'default';
   // quick is already set above in step resolution; re-affirm as bool for clarity.
   merged.quick            = cli.quick === true;
 
@@ -458,6 +496,8 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
         // deterministic non-interactive default under ship dispatch,
         // mirroring the resume-prompt's existing --auto handling.
         flags.auto ? '--auto' : '',
+        // R83: execute refuses a task that touches paths outside its Files.
+        '--strict-files',
         // Forward --quality only when the user passed it (or chose it at
         // execute_tier); ship never synthesizes a tier — under --auto,
         // execute-plan-sdlc resolves it (execute A6). Every other execute
@@ -485,6 +525,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       skipSource: skipSource('commit'),
       args: [
         '--auto',
+        '--no-stash',
         planSubject ? `--subject "${planSubject}"` : '',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
@@ -511,7 +552,10 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       ...stepAgent('received-review'),
       status: 'conditional',
       skipSource: 'none',
-      args: '--auto',
+      // R82: the plan scopes the fixes and the review-gate threshold is the fix floor (same value for gate and fix).
+      args: ['--auto',
+             planFile ? `--plan "${planFile}"` : '',
+             `--min-severity ${flags.reviewThreshold}`].filter(Boolean).join(' '),
       reason: 'triggered by review verdict (critical/high findings)',
       pause: !flags.auto,
       isolation: null,
@@ -525,6 +569,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       skipSource: 'none',
       args: [
         '--auto',
+        '--no-stash',
         planFixSubject ? `--subject "${planFixSubject}"` : '',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
@@ -549,6 +594,9 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       args: [
         `--bump ${flags.bump || 'patch'}`,
         '--auto',
+        flags.noTag ? '--no-tag' : '',
+        flags.noPush ? '--no-push' : '',
+        flags.releaseSubject ? `--subject "${flags.releaseSubject}"` : '',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
       reason: !isIn('version') ? 'not in steps[]' : 'in steps[]',
@@ -1277,7 +1325,7 @@ function writeFatalErrors(errors) {
 // ---------------------------------------------------------------------------
 
 // L5: fixed step.id → ledger steps[].name table. Ids not listed here
-// (confirm_pipeline, branch_prepare, stage_changes, review_gate, rebase,
+// (confirm_pipeline, branch_prepare, stage_changes, stage_fixes, review_gate, rebase,
 // rebase_conflict, verify_version_tag, cleanup) are recorded in history[] only.
 const STEP_ID_TO_LEDGER_NAME = {
   dispatch_execute:         'execute',
@@ -1299,7 +1347,7 @@ const STEP_ORDER = [
   'confirm_pipeline', 'branch_prepare',
   'execute_handoff', 'execute_state', 'execute_tier', 'dispatch_execute', 'execute_gate', 'stage_changes',
   'confirm_commit', 'dispatch_commit', 'dispatch_review', 'review_gate',
-  'confirm_received_review', 'dispatch_received_review',
+  'confirm_received_review', 'dispatch_received_review', 'stage_fixes',
   'confirm_commit_fixes', 'dispatch_commit_fixes', 'rebase', 'rebase_conflict',
   'confirm_version', 'dispatch_version', 'verify_version_tag', 'verify_openspec', 'archive_openspec',
   'confirm_pr', 'dispatch_pr', 'verify_pipeline', 'await_remote_review', 'learnings_commit', 'cleanup',
@@ -1358,7 +1406,38 @@ function stageCommands(planFile, cwd) {
   return paths.size ? [STAGE_COMMAND, `git add -- ${[...paths].sort().join(' ')}`] : [STAGE_COMMAND];
 }
 
-const LEARNINGS_COMMIT_COMMAND = 'git diff --quiet -- .sdlc/learnings/log.md || { git add .sdlc/learnings/log.md && git commit -m "chore(ship-sdlc): capture pipeline learnings" && { git push || echo "push failed (non-fatal)" >&2; }; }';
+/**
+ * R83, G9: changed paths (git status, rename targets included) outside every plan Files path.
+ * `.sdlc/` is never outside (R8 rule); an unreadable plan or git status yields none (R8 behaviour).
+ */
+function stageScope(planFile, cwd) {
+  let text = '';
+  try { text = fs.readFileSync(planFile, 'utf8'); } catch { return { outside: [] }; }
+  const st = spawnSync('git', ['status', '--porcelain', '-z', '--untracked-files=all'], { cwd, encoding: 'utf8', timeout: 8000 });
+  if (st.status !== 0) return { outside: [] };
+  const allowed = new Set();
+  for (const t of extractTasks(text)) {
+    for (const e of parseFilesEntries(taskSection(t.body))) allowed.add(e.path.replace(/^\.\//, '').replace(/\/$/, ''));
+  }
+  const parts = st.stdout.split('\0').filter(Boolean);
+  const changed = [];
+  for (let i = 0; i < parts.length; i++) {
+    changed.push(parts[i].slice(3));
+    if (/^[RC]/.test(parts[i])) i++; // the next entry is the rename source
+  }
+  const outside = changed.filter(p => !p.startsWith('.sdlc/') && ![...allowed].some(a => p === a || p.startsWith(`${a}/`)));
+  return { outside: [...new Set(outside)].sort() };
+}
+
+/** R83: the pending-question return for stage_changes / stage_fixes when paths fall outside the plan Files. */
+function stageOutsidePending(outside) {
+  return {
+    pending: { prompt: `These files are outside the plan Files: ${outside.join(', ')}. Keep them out (revert) or add them to the plan?`, options: ['revert', 'amend-plan'], id: 'stageOutsideFiles', paths: outside },
+    commands: [],
+  };
+}
+
+const LEARNINGS_COMMIT_COMMAND ='git diff --quiet -- .sdlc/learnings/log.md || { git add .sdlc/learnings/log.md && git commit -m "chore(ship-sdlc): capture pipeline learnings" && { git push || echo "push failed (non-fatal)" >&2; }; }';
 
 /**
  * W44-R2 (a): the archive_openspec prompt and --decision are fixed at emission, from fresh
@@ -1776,9 +1855,30 @@ function sweepStateFiles(flags) {
 }
 
 /**
+ * R80 re-run guard: a version entry left `in_progress` or `failed` after
+ * `dispatch_version` was emitted, with HEAD moved off the recorded `dispatchHead`,
+ * means the release commit may already exist. Records a fact (the two SHAs), never
+ * a verdict: the caller turns it into a pending question.
+ * @returns {null | { prompt, options, id, step, dispatchHead, head }}
+ */
+function rerunGuard(entry, cwd) {
+  if (!entry || (entry.status !== 'in_progress' && entry.status !== 'failed') || !entry.dispatchHead) return null;
+  const c = checkHeadCommit(entry.dispatchHead, cwd);
+  if (!c.head || c.landed) return null;
+  return {
+    prompt: `The ${entry.name} step ran before and HEAD has moved since: it was ${entry.dispatchHead} when the step was dispatched and is ${c.head} now. Record the work already done, or run the step again?`,
+    options: ['record', 'rerun'],
+    id: 'rerunGuard',
+    step: entry.name,
+    dispatchHead: entry.dispatchHead,
+    head: c.head,
+  };
+}
+
+/**
  * Pick the next step after `after` in P-TRANS-1 order (L6, L19) and build its
  * payload. Conditional steps whose condition is not met are recorded skipped.
- * @returns {{ step, planTasks?, llmDecision, warnings: string[] } | { error: string } | { done: true }}
+ * @returns {{ step, planTasks?, llmDecision, warnings: string[] } | { pending: object, commands: string[] } | { error: string } | { done: true }}
  */
 function pickNextStep(after, ctx) {
   const { ledger, flags, steps, ledgerPath, recorded, skipped } = ctx;
@@ -1814,6 +1914,10 @@ function pickNextStep(after, ctx) {
         const reason = unmetCondition(target, ledger);
         if (reason) { skipEntry(ledger, target, reason); skipped.push(target); continue; }
       }
+    } else if (id === 'stage_fixes' || id === 'review_gate') {
+      // R84: these repeat per review round, so only rows after the latest dispatch_review count.
+      const h = historyAfter(ledger, id, 'dispatch_review');
+      if (h && h.result === 'success') continue;
     } else if (historySuccess(ledger, id)) {
       continue;
     }
@@ -1833,9 +1937,14 @@ function pickNextStep(after, ctx) {
         break;
       }
       case 'stage_changes':
-        if (!recorded.has('execute')) continue;
-        data = { commands: stageCommands(flags.planFile, resolveActiveWorktreeSafe()) };
+      case 'stage_fixes': {
+        if (id === 'stage_changes' ? !recorded.has('execute') : unmetCondition('commit-fixes', ledger) !== null) continue;
+        const wt = resolveActiveWorktreeSafe();
+        const { outside } = stageScope(flags.planFile, wt);
+        if (outside.length) return stageOutsidePending(outside);
+        data = { commands: stageCommands(flags.planFile, wt) };
         break;
+      }
       case 'review_gate': {
         if (!recorded.has('review')) continue;
         const d = reviewGateDecision(ledger);
@@ -1870,7 +1979,7 @@ function pickNextStep(after, ctx) {
         data = {
           NEW_TAG,
           EXECUTE_BRANCH,
-          commands: NEW_TAG && EXECUTE_BRANCH
+          commands: NEW_TAG && EXECUTE_BRANCH && !flags.noTag
             ? [`node "${VERIFY_TAG_SCRIPT}" --tag "${NEW_TAG}" --branch "${EXECUTE_BRANCH}" --remote origin`]
             : [],
         };
@@ -1942,6 +2051,18 @@ function pickNextStep(after, ctx) {
         llmDecision = { type: 'choice', prompt: `Run ${cs.skill} (${cs.name}) now with "${cs.args}"? It runs unattended, without its own approval prompt.`, options: ['yes', 'skip', 'cancel'] };
         break;
       default: // dispatch_*
+        if (id === 'dispatch_version') {
+          const guard = rerunGuard(entryOf('version'), resolveActiveWorktreeSafe());
+          if (guard) {
+            return {
+              pending: guard,
+              commands: [
+                `node "${STATE_SHIP_SCRIPT}" complete --step version --result "release commit ${guard.head} recorded by hand"`,
+                `node "${STATE_SHIP_SCRIPT}" skip --step version --reason "re-run guard: release already made"`,
+              ],
+            };
+          }
+        }
         data = { skill: cs.skill, args: cs.args, invocation: cs.invocation, agent: cs.agent, model: cs.model, ...(cs.effort ? { effort: cs.effort } : {}), ...(cs.isolation ? { isolation: cs.isolation } : {}) };
         if (id === 'dispatch_received_review') {
           const input = receivedReviewInput(ledger);
@@ -1973,6 +2094,7 @@ function pickNextStep(after, ctx) {
     const ACTIONS = {
       branch_prepare: 'Create the feature branch: run data.commands, then report the result.',
       stage_changes: 'Stage the changes: run data.commands, then report the result.',
+      stage_fixes: 'Stage the received-review fixes: run data.commands, then report the result.',
       review_gate: 'Apply the review gate: ask the user when llm_decision is set; otherwise report the result.',
       rebase: 'Run data.commands (none when the branch is up to date). On a rebase conflict run `git rebase --abort` first, then report success:false.',
       verify_version_tag: 'Run data.commands (a no-op when empty) to verify the release tag ancestry.',
@@ -2143,11 +2265,19 @@ function runAfter(stepArgs) {
   const archiveAbort = after === 'archive_openspec' && answer === 'abort';
   let success = result.success === true;
   let failureText = output.summary;
-  if (name && STEP_SIDE_EFFECTS[name] === 'tag' && success) {
+  if (name && STEP_SIDE_EFFECTS[name] === 'tag' && success && !flags.noTag) {
     const tag = output.artifacts && output.artifacts.tag;
     if (!tag || !getTagList(resolveActiveWorktreeSafe()).includes(tag)) {
       success = false;
       failureText = `version tag "${tag || ''}" was not found in the git tag list`;
+    }
+  }
+  // R-b3 exception (A15): an untagged release is checked by its commit.
+  if (name === 'version' && success && flags.noTag) {
+    const sha = output.artifacts && output.artifacts.commit;
+    if (!checkHeadCommit(sha, resolveActiveWorktreeSafe()).landed) {
+      success = false;
+      failureText = `release commit "${sha || ''}" is not HEAD`;
     }
   }
   // W4.6: commit/commit-fixes and pr are cross-checked like version (git HEAD; gh pr view).
@@ -2237,11 +2367,14 @@ function runAfter(stepArgs) {
     sweepStateFiles(flags);
     return finish(createEnvelope('error', null, { error: message, stateFile: ledgerPath, progress: progress(), ext }), exitCode);
   };
-  const pendingStop = (question, viaExecute) => {
+  const pendingStop = (question, viaExecute, extraCommands = []) => {
     ledger.paused = { at: new Date().toISOString(), reason: 'pending question' };
     const commands = [
-      ...(viaExecute ? [`/sdlc:execute-plan-sdlc --plan "${flags.planFile}" --resume`] : []),
-      '/sdlc:ship-sdlc --resume',
+      // R83: strictFiles is CLI-only in execute, so a resumed execute must repeat it.
+      ...(viaExecute ? [`/sdlc:execute-plan-sdlc --plan "${flags.planFile}" --resume --strict-files`] : []),
+      ...extraCommands,
+      // R80: the caller repeats --auto on resume, so the printed line carries it when the run used it.
+      `/sdlc:ship-sdlc --resume${flags.auto ? ' --auto' : ''}`,
     ];
     return finish(createEnvelope('done', null, {
       ext: { ...ext, reason: 'pending-question', pendingQuestion: question, commands },
@@ -2342,10 +2475,32 @@ function runAfter(stepArgs) {
     if (answer === 'not finished') return pendingStop(lastHistory(ledger, 'dispatch_execute').data.pendingQuestion, true);
     return failStep(`execute_handoff: unknown answer "${answer}" (expected finished or not finished).`);
   }
+  // R84: commit-fixes completed in round k < reviewRounds starts round k + 1 at dispatch_review.
+  const round = ledger.round || 1;
+  if (after === 'dispatch_commit_fixes' && recorded.has('commit-fixes') && round < (flags.reviewRounds || 1)) {
+    const entryOf = (n) => ledger.steps.find(s => s.name === n);
+    if (!Array.isArray(ledger.rounds)) ledger.rounds = [];
+    ledger.rounds.push({
+      round,
+      review: { ...entryOf('review') },
+      receivedReview: { ...entryOf('received-review') },
+      commitFixes: { ...entryOf('commit-fixes'), commitSha: (output.artifacts && output.artifacts.commit) || null },
+    });
+    ledger.round = round + 1;
+    for (const n of ['review', 'received-review', 'commit-fixes']) {
+      const i = ledger.steps.findIndex(s => s.name === n);
+      if (i < 0) continue;
+      const fresh = { name: n, status: 'pending' };
+      if (ledger.steps[i].condition) fresh.condition = ledger.steps[i].condition;
+      ledger.steps[i] = fresh;
+    }
+    from = 'dispatch_commit';
+  }
 
   // 5. Pick the next step.
   const next = pickNextStep(from, { ledger, flags, steps, ledgerPath, recorded, skipped });
   if (next.error) return failStep(next.error);
+  if (next.pending) return pendingStop(next.pending, false, next.commands);
   if (next.done) {
     return finish(createEnvelope('done', null, { ext: { ...ext, summary: buildSummary(ledger) }, stateFile: ledgerPath, progress: progress() }));
   }
@@ -2356,6 +2511,10 @@ function runAfter(stepArgs) {
   if (nextName) {
     const res = shipState.startStepCore(ledger, nextName);
     if (!res.ok) return failStep(`${next.step.id}: ${res.error} in the ledger.`);
+    if (next.step.id === 'dispatch_version') {
+      const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
+      if (head) res.step.dispatchHead = head; // R80: the fact rerunGuard compares against
+    }
     delete ledger.paused;
     try {
       fs.unlinkSync(path.join(resolveStateDir(), '.stop-cap-exhausted-' + slugifyBranch(ledger.branch) + '.json'));
@@ -2793,6 +2952,20 @@ function main() {
   const planCommit = readPlanCommitSubject(planFile, commitSubjectPattern);
   if (planCommit.error) errors.push({ id: 'planCommitSubjectInvalid', message: planCommit.error });
 
+  // A17: --release-subject is forwarded verbatim inside double quotes, so it passes the same rules as the plan's subject.
+  if (cli.releaseSubject) {
+    const rs = cli.releaseSubject;
+    let rule = null;
+    if (/["`$\\\r\n]/.test(rs)) rule = 'contains ", `, $, \\ or a newline';
+    else if (rs.length > 72) rule = `is ${rs.length} characters long (at most 72)`;
+    else if (commitSubjectPattern) {
+      let ok;
+      try { ok = new RegExp(commitSubjectPattern).test(rs); } catch (_) { ok = false; }
+      if (!ok) rule = `does not match commit.subjectPattern ${commitSubjectPattern}`;
+    }
+    if (rule) errors.push({ id: 'releaseSubjectInvalid', message: `--release-subject ${rule}. Fix: pass one line of at most 72 characters, without ", \`, $ or \\, matching commit.subjectPattern. Why: ship forwards it verbatim to version-sdlc as --subject.` });
+  }
+
   const context = {
     currentBranch: gitState.currentBranch,
     defaultBranch,
@@ -2936,6 +3109,11 @@ function main() {
       hasPlan: flags.hasPlan,
       workspace: flags.workspace,
       rebase: flags.rebase,
+      reviewThreshold: flags.reviewThreshold,
+      reviewRounds: flags.reviewRounds,
+      noTag: flags.noTag,
+      noPush: flags.noPush,
+      releaseSubject: flags.releaseSubject,
       openspecChange: flags.openspecChange,
       // R57: post-PR CI verification + await-remote-review tunables
       // (gating is via step membership in flags.steps, not boolean flags)

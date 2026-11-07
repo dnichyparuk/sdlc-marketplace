@@ -157,6 +157,26 @@
     - type: javascript
       value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='invalidFlag' && e.flag==='--wave-timeout')"
 
+- description: "execute-prepare: (strict-files) flag resolves true with source cli"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/project-execute-prepare/plan.md --strict-files --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.strictFiles===true && o.flags.sources.strictFiles==='cli'"
+
+- description: "execute-prepare: (strict-files) default is false"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/project-execute-prepare/plan.md --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.strictFiles===false && o.flags.sources.strictFiles==='default'"
+
 # ---------------------------------------------------------------------------
 # Config-version check
 # ---------------------------------------------------------------------------

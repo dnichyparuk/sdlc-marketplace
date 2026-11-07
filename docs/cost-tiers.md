@@ -93,12 +93,12 @@ Spike S1 (§7) answered NO: a forked sub-skill cannot ask the user. So ship asks
 
 | Step | Agent | Main-context decision before dispatch (interactive only) | Arguments ship adds |
 |---|---|---|---|
-| execute | ship-step-execute | `execute_handoff` (resume after a stop), `execute_state` (state file found), `execute_tier` (no `--quality`); `execute_gate` after a high-risk pending question | `--quality <tier>`; `--resume`; `--resume --auto` after `execute_gate` yes |
-| commit | ship-step-commit | `confirm_commit` | `--auto` |
+| execute | ship-step-execute | `execute_handoff` (resume after a stop), `execute_state` (state file found), `execute_tier` (no `--quality`); `execute_gate` after a high-risk pending question | `--strict-files`; `--quality <tier>`; `--resume`; `--resume --auto` after `execute_gate` yes |
+| commit | ship-step-commit | `confirm_commit` | `--auto --no-stash` |
 | review | ship-step-review | none | `--committed` |
-| received-review | ship-step-received-review | `review_gate` (`confirm_received_review` when `review_gate` did not ask) | `--auto` |
-| commit-fixes | ship-step-commit | `confirm_commit_fixes` | `--auto` |
-| version | ship-step-version | `confirm_version` | `--bump <type> --auto` |
+| received-review | ship-step-received-review | `review_gate` (`confirm_received_review` when `review_gate` did not ask) | `--auto [--plan "<p>"] --min-severity <t>`, then the input |
+| commit-fixes | ship-step-commit | `confirm_commit_fixes` | `--auto --no-stash` |
+| version | ship-step-version | `confirm_version` | `--bump <type> --auto [--no-tag] [--no-push] [--subject "<text>"]` |
 | pr | ship-step-pr | `confirm_pr` | `--auto` |
 
 A question a sub-skill still cannot ask comes back as `output.pendingQuestion`. Ship carries a high-risk `yes` back to execute; for any other answer it stops with the state kept and prints the commands to continue.
