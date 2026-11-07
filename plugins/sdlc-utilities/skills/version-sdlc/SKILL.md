@@ -243,7 +243,7 @@ The release proceeds regardless of the user's answer. This is informational, not
    - If `releaseCommit.messageFile` is non-null: `git commit -F "<releaseCommit.messageFile>"`.
    - Otherwise the subject is `releaseCommit.subject` when non-null; else `chore(release): ${newTag}`, with ` [hotfix]` appended when `flags.hotfix === true`.
      - If `releaseCommit.trailers` is empty: `git commit -m "<subject>"`.
-     - Otherwise write the message to `releaseCommit.draftFile` with the Write tool — the subject, a blank line, then one line per entry: `Key: Value` when `value` is set, `Key: ` when `value` is null — and run `git commit -F "<releaseCommit.draftFile>"`.
+     - Otherwise write the message to `releaseCommit.draftFile` with the Write tool — the subject, a blank line, then one line per entry: `Key: Value` when `value` is set, `Key: ` when `value` is null — and run `git commit -F "<releaseCommit.draftFile>"`. The file name is fixed per branch: when it already exists, Read it once before the Write (the Write tool refuses to overwrite an unread file), and remove it with `rm -f "<releaseCommit.draftFile>"` as its own Bash call after the commit, whether the commit succeeded or failed.
 5. **Tag** (only when `flags.noTag === false`) <!-- R9, R21 -->:
    - If `flags.hotfix === true`:
      ```bash
@@ -276,10 +276,12 @@ If `flags.hotfix === true`, show instead:
 
 ```
 ✓ Release v1.3.0 complete (hotfix).
-  Commit: abc1234 — chore(release): v1.3.0 [hotfix]
+  Commit: abc1234 — <subject>
   Tag:    v1.3.0  (annotated with Type: hotfix)
   Pushed: yes → origin/main
 ```
+
+In the hotfix block `<subject>` is `chore(release): v1.3.0 [hotfix]` for the default subject and the given subject verbatim otherwise (R10); when `flags.noTag === true`, show `Tag:    none (--no-tag)`.
 
 ---
 

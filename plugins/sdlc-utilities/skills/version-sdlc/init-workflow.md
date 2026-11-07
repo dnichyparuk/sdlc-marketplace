@@ -45,6 +45,8 @@ On `yes` or `changelog`, write the version section with `suggestedConfig` (adjus
 node -e "const c=require(process.argv[1]); c.writeSection(c.resolveSdlcRoot(),'version',JSON.parse(process.argv[2]))" "<PLUGIN_ROOT>/scripts/lib/config.js" '<suggestedConfig as one-line JSON>'
 ```
 
+Write any `'` inside the JSON as `'\''` so a value cannot end the single-quoted argument.
+
 Fallback: `node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --project-config '{"version": <suggestedConfig>}' --output-file` (writes relative to the current directory).
 
 Then scaffold CI scripts and workflows using `scaffold-ci.js`.
