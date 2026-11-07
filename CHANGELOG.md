@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-07
+
+### Added
+- ship-sdlc: opt-in `--no-tag`, `--no-push` and `--release-subject` flags are forwarded to version-sdlc, so an unattended run can cut an untagged release commit (#9319).
+- ship-sdlc: `--no-stash` is forwarded to the commit steps, and a `stage_fixes` step stages the review fixes before the fix commit (#9319).
+- ship-sdlc: `--review-threshold` sets the severity that triggers received-review, and `--review-rounds 2` runs a second review round (#9319).
+- ship-sdlc: a re-run guard stops with a pending question instead of repeating the version or execute step (#9319).
+- received-review-sdlc: a fix-scope guard with `--plan` and `--min-severity` keeps fixes inside the plan's Files (#9319).
+- execute-plan-sdlc: ship always forwards `--strict-files`, so a worker cannot touch a file outside the plan (#9319).
+- exec cases for the new ship flags, the stage steps and the received-review scope check (#9319).
+
+### Changed
+- ship-sdlc stage steps refuse any changed path outside the plan's Files, so the plan file must be committed before ship runs (#9319).
+- the ship, received-review, commit, version, pr and execute-plan specs describe the new flags and guards (#9319).
+
+### Fixed
+- Nothing fixed.
+
+### Removed
+- Nothing removed.
+
 ## [0.45.0] - 2026-11-07
 
 ### Added
