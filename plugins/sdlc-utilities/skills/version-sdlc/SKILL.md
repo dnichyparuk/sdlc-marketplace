@@ -139,7 +139,7 @@ If `conventionalSummary.hasBreakingChanges` is `true` AND the resolved bump is n
 
 ### Step 3 (CRITIQUE and IMPROVE)
 
-Before presenting, check the plan and changelog draft against the Quality Gates table and fix what fails.
+Before presenting, check the plan and changelog draft against the Quality Gates table and fix what fails. Never skip this step, even when the plan looks correct; at most 2 fix iterations per gate. <!-- C3 -->
 
 ### Step 5 (DO): Present Release Plan for Approval
 
