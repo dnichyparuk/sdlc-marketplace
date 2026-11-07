@@ -2,7 +2,7 @@
 name: received-review-sdlc
 description: "Use this skill when responding to code review feedback on a pull request or inline reviewer comments. Covers reading, verifying, evaluating, and responding to reviewer comments with a dual self-critique gate — prevents performative agreement and ensures technical rigor. Can be launched manually or automatically after /review-sdlc. Triggers on: process review feedback, respond to review, handle review comments, address PR feedback, fix review findings, received-review."
 user-invocable: true
-argument-hint: "[--pr <number>] [--auto] [--comment-file <path>]"
+argument-hint: "[--pr <number>] [--auto] [--comment-file <path>] [--plan <path>] [--min-severity <level>]"
 model: opus
 ---
 
@@ -220,6 +220,11 @@ Using verification results, determine for each item:
 - **disagree** — technically incorrect for this codebase (provide reasoning)
 - **needs discussion** — architectural impact, requires owner input
 
+**Fix scope (R28, R29):** When `manifest.allowedFiles` is non-null, a finding whose fix needs a
+path outside it gets the verdict "needs discussion". When `flags.minSeverity` is set, a finding
+whose severity ranks below it, or is null, gets "below threshold" and is never fixed, even under
+`--auto` or the R18 bypass.
+
 **YAGNI check for feature requests:**
 ```
 grep codebase for actual usage
@@ -388,6 +393,16 @@ Correct: "You were right — I checked [X] and it does [Y]. Implementing now."
 Wrong:   Long apology, defensive explanation, over-explaining
 ```
 State the correction factually and move on.
+
+**Scope check (R30, G13):** After the last fix, when `manifest.allowedFiles` or `flags.minSeverity`
+is set, run as one plain Bash call:
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/received-review.js" --check-scope --manifest "<MANIFEST_FILE>" --fixed <comma-separated fixed ids>
+```
+
+Exit 0: continue. Exit 1 or 2: stop. Return failure with `pendingQuestion` = the printed JSON and
+"Revert or keep the listed changes?" (options: keep, revert). Do not revert. Skip Steps 11.6–12 (E9).
 
 ---
 

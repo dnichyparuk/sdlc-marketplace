@@ -1,8 +1,8 @@
 ---
 name: execute-plan-sdlc
-description: "Execute an implementation plan: classify tasks, build dependency waves, dispatch workers, verify each wave, recover from failures. Arguments: <plan> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--commit-waves] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <s>] [--wave-interval <s>]. Triggers on: execute plan, run plan, implement plan, autonomous execution."
+description: "Execute an implementation plan: classify tasks, build dependency waves, dispatch workers, verify each wave, recover from failures. Arguments: <plan> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--commit-waves] [--strict-files] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <s>] [--wave-interval <s>]. Triggers on: execute plan, run plan, implement plan, autonomous execution."
 user-invocable: true
-argument-hint: "<plan-file-path> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--branch <name>] [--commit-waves] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <seconds>] [--wave-interval <seconds>]"
+argument-hint: "<plan-file-path> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--branch <name>] [--commit-waves] [--strict-files] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <seconds>] [--wave-interval <seconds>]"
 model: sonnet
 ---
 
@@ -450,7 +450,7 @@ Do NOT spawn a separate watchdog Agent.
 
    **1a. `expectedFiles` cross-check (R34) — IN ADDITION to step 1, not a replacement.** Compute `diffFiles` from the same `git diff --stat` output (the file set with non-zero `+/-` lines). Compute `expectedSet = wave.expectedFiles` from the wave manifest.
    - If `expectedSet ≠ ∅` AND `diffFiles ∩ expectedSet === ∅`: **HARD FAILURE** — phantom success at the wave level (wave-runner reported done but touched zero expected files). Trigger the existing failure flow (escalation budget / retry / Step 6 recovery / user surface) — do NOT proceed to subsequent sub-steps.
-   - If `diffFiles \ expectedSet ≠ ∅` (the diff touches files outside `expectedFiles`): **SOFT WARNING** — surface a single line `Wave N touched files outside expectedFiles: <comma-separated diff \ expected>` and CONTINUE to step 2. Do not block.
+   - If `diffFiles \ expectedSet ≠ ∅` (the diff touches files outside `expectedFiles`): when `flags.strictFiles` is true (R44, E16): mark no task of the wave done, print the line `Wave N touched files outside expectedFiles: <comma-separated diff \ expected>`, and stop with failure — no Step 6 RECOVER (a re-dispatch would touch the same files again). Otherwise: **SOFT WARNING** — surface that single line and CONTINUE to step 2. Do not block.
    - If `expectedSet === ∅` (rare — wave produced no `expectedFiles` because every task lacks `Files:` declarations): skip 1a entirely. Step 1's existing `WAVE_SUMMARY.tasks[].filesTouched` check still runs.
 
    This check augments — never replaces — the per-task `filesTouched` check in step 1. They guard different invariants: step 1 catches per-task agent drift; step 1a catches wave-level scope drift (agent touched files outside what the plan declared).

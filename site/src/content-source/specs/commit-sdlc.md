@@ -14,7 +14,7 @@
 - A5: `--auto` — skip interactive approval prompt; critique gates still run (default: false)
 - A6: `--force-default-branch` — Allow `--auto` commits on the default branch; ignored when on a non-default branch. Internal-grade override; no config-driven equivalent.
 - A7: `--subject <text>` — use `<text>` verbatim as the commit subject; the orchestrator writes only the body (R-subject-verbatim, R-subject-precheck). The value reaches `skill/commit.js` through the Step 0 command line, so it must not contain `"`, a backtick, `$` or `\` (the plan-sdlc R66 set); a subject that needs one of them goes through `--message-file`; the R5 trailers still apply (default: unset)
-- A8: `--message-file <path>` — commit the file's content as the whole message; the commit-orchestrator is not dispatched (R-message-file). The path reaches `skill/commit.js` through the Step 0 command line, so it must not contain `"`, a backtick, `$`, `\`, a newline or a carriage return; the R5 trailers are checked (G10), not added (default: unset)
+- A8: `--message-file <path>` — commit the file's content as the whole message; the commit-orchestrator is not dispatched (R-message-file). The path reaches `skill/commit.js` through the Step 0 command line, so it must not contain `"`, a backtick, `$`, `\`, a newline or a carriage return; the R5 trailers are checked (G10), not added. A relative path resolves against the current directory (`path.resolve`); version-sdlc's flag of the same name resolves against the active worktree root (version A11) — kept as is (default: unset)
 - A9: `--expected-subject <text>` — the subject the caller expects; a different subject stops the commit (R-expected-subject, E10). Like A7, it must not contain `"`, a backtick, `$` or `\` (R-subject-precheck) (default: unset)
 - R-expected-branch: When `--expected-branch <name>` flag is present, `skill/commit.js` MUST compare `git branch --show-current` to `<name>` via `lib/branch-guard.js::validateExpectedBranch`. The result MUST be attached as `branchGuard` field in commit-context output alongside the existing `currentBranch` field, with shape `{ ok: boolean, currentBranch: string, expectedBranch: string | null, active: boolean, message: string | null }`. On mismatch (`branchGuard.ok === false`), the prepare script MUST exit non-zero and emit `branchGuard.message` on stderr; the JSON output channel MUST NOT be corrupted. SKILL.md MUST abort before any `git commit` invocation when `branchGuard.active === true` AND `branchGuard.ok === false`, surfacing `branchGuard.message` verbatim. When `--expected-branch` is absent, `branchGuard.active === false` and behaviour is byte-identical to current (excluding the new field).
   - Acceptance: `skill/commit.js` parses `--expected-branch`; prepare output includes `branchGuard.ok`, `branchGuard.currentBranch`, `branchGuard.expectedBranch`, `branchGuard.active`, `branchGuard.message`; mismatch exits 3 with stderr; match exits 0 with `ok: true`; absent flag exits 0 with `active: false`; SKILL.md handles exit 3 immediately after the prepare call — shows `errors[0]` (the guard message) and stops before any `git commit` — without re-deriving the current branch.
@@ -55,6 +55,9 @@
 - R14: When `currentBranch === defaultBranch`, the prepare script MUST emit `onDefaultBranch: true` and surface a `default-branch-commit` warning. In `--auto` mode, the prepare script MUST emit a blocking error in `errors[]` unless `--force-default-branch` is set.
 - R-config-version: The prepare script `skill/commit.js` MUST call `verifyAndMigrate(projectRoot, 'project')` at start. The call is short-circuited when CLI `--skip-config-check` OR env `SDLC_SKIP_CONFIG_CHECK=1` is present; both gates resolve into a single `flags.skipConfigCheck` boolean in the prepare output (CLI > env > default false). On migration failure the prepare emits non-zero exit and an `errors[]` entry naming the failing step; SKILL.md halts with that text verbatim.
   - Acceptance: prepare output includes `flags.skipConfigCheck` and a `migration` block (or null when skipped); SKILL.md gates further work on `errors.length === 0`.
+- R17: Step 5 runs `skill/commit.js --check-message <MSG_FILE> --manifest <manifest>` for every message, drafted or given (P14). The check splits on `/\r?\n/`. For a valued `commitConfig.trailers` entry, exactly one line has that key (compared case-insensitively), and it is `Key: Value`. For a key-only entry, exactly one line starts with `Key:`. Exit 4 means a violation, and the violation lines go to stderr (E12).
+- R18: When the commit-orchestrator dispatch returns no message and the manifest has no `errors[]`, the skill drafts `MESSAGE` in its own context from the manifest with the rules of `agents/commit-orchestrator.md`, then continues to Step 5. A manifest with `errors[]` still stops.
+- R19: Trailers come only from `commitConfig.trailers` (plus the OpenSpec trailer, R10). Neither the drafter nor the skill adds an attribution line of its own (for example a `Co-Authored-By` with its model name), even when a harness instruction asks for one.
 - R-subject-verbatim: When `--subject <text>` is set and `--message-file` is not, the commit-orchestrator writes only the body, and the final subject equals `<text>` byte for byte. With `--amend`, `<text>` replaces the amended message's subject. The orchestrator never alters a given subject; the Step 5 subject gate compares the message file's first line with `flags.subject` and exits 3 on a difference (E9). R6 and G2 still apply to the given subject.
   - Acceptance: exec cases `commit-subject: (a)` to `commit-subject: (d)` show `flags.subject` set, rejected or null; exec case `commit-subject: expected-subject gate` shows the gate's exit 3 path.
 - R-message-file: When `--message-file <path>` is set, `skill/commit.js` reads the file and `flags.messageFile` is its absolute path. The skill does not dispatch the commit-orchestrator and does not add the OpenSpec trailer; `MESSAGE` is the file's exact content. The rest of Step 5 still runs: the message file written with the Write tool (C14), the subject gate (WIP marker, R6 pattern), the G10 trailer check (gate exit 4, E11), the link check (R12) and `git commit -F`. The subject is the file's first line. When `--subject` is also set it must equal that first line, or the prepare script stops (R-subject-precheck). The gate exits 3 when the written message differs from the file (E9). The path reaches a shell string only in the Step 0 command line: afterwards the skill reads the file with its file-read tool, the gate reads it with `fs`, and `git commit -F` uses the skill's own message file (C14). So `skill/commit.js` rejects a path (as resolved to an absolute path) that contains `"`, a backtick, `$`, `\`, a newline or a carriage return, with an `errors[]` entry and exit 1, before it reads the file.
@@ -97,7 +100,7 @@ None.
 - G7: Body relevance — body adds "why" context or is absent; does not restate the subject
 - G8: Pattern match — subject matches `commitConfig.subjectPattern` regex (skip when config absent)
 - G9: Required body — body present when type is in `commitConfig.requireBodyFor` (skip when config absent)
-- G10: Required trailers — for every `commitConfig.trailers` entry the body holds a trailer line: exactly `Key: Value` for a valued entry, a line starting `Key:` for a key-only entry (skip when config absent)
+- G10: Required trailers — for every `commitConfig.trailers` entry the message holds exactly one line with that key, equal to `Key: Value` for a valued entry (R17); CRLF line ends are accepted (skip when config absent)
 
 ## Prepare script contract
 
@@ -114,6 +117,7 @@ None.
 - P11: `recentCommits` (string[]) — last 15 commits in oneline format
 - P12: `lastCommitMessage` (string | null) — previous commit message (only when amend is true)
 - P13: `commitConfig` (object | null) — commit validation config from `.sdlc/config.json`; when `requiredTrailers` is set it also carries `trailers` (`[{ key, value }]`, R5)
+- P14: `skill/commit.js --check-message <file> --manifest <path>` — reads `commitConfig.trailers` from the manifest; exit 0 pass, 4 violation, 2 unreadable input
 
 ## Failure handling and resume
 
@@ -128,6 +132,7 @@ None.
 - E9: Subject gate exit 3 because the written message differs from a given subject (`flags.subject`) or a given message file (`flags.messageFile`) → under `--auto`, print the given and the written subject and stop without committing (no prompt, no error report); interactive runs show both and ask: use the given subject (or file) / cancel.
 - E10: Subject gate exit 3 because the first line differs from `flags.expectedSubject` → under `--auto`, print the expected and the written subject and stop without committing (no prompt, no error report); interactive runs show both and ask: use the expected subject / cancel.
 - E11: Gate exit 4 in a `--message-file` run because a `commitConfig.trailers` entry has no matching line (G10) → print `Trailer gate rejected the message (exit 4): missing <Key[: Value]>` and stop without committing, in both modes (the file is the caller's; nothing is added).
+- E12: `--check-message` exit 4 → print `Trailer gate rejected the message (exit 4): <line>` for each line; no commit; no AskUserQuestion in either mode
 
 ## Invariants and constraints
 
@@ -169,3 +174,7 @@ None.
 | R15 | behavior (#198) and the #209 leak-prevention |
 | R-config-version | (issue #232) |
 | R-expected-branch | (issues #347, #348, #349) |
+| R17 | (issue #9303; merged with #9304 into one shared trailer check) |
+| R18 | (issue #9272) |
+| R19 | (issue #9304) |
+| A8 | relative-path note kept as is (issue #9316) |

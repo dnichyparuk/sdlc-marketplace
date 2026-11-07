@@ -16,6 +16,7 @@
 - A7: `--plan <path>` — explicit path to the active plan markdown; when set, Step 1 (LOAD) uses this file directly. Forwarded by ship-sdlc from `context.planFile` for compaction stability. Users may also pass it directly for non-interactive invocations. Per R41, this skill never falls back to conversation context for plan content — `--plan <path>` (or the positional form, A1) is required on every standalone invocation, with no discovery heuristic of any kind to skip. (default: unset)
 - A8: `--tasks <ids>` — run only the listed plan tasks: a comma-separated list of the integer task ids `lib/plan-parse.js` yields from the `### Task N:` headings (for example `--tasks 3,4`); duplicates are ignored and no `T` prefix is accepted. Mutually exclusive with `--from-wave` (R43) (default: unset, every task runs)
 - A9: `--from-wave <n>` — run the plan from wave `n` on: an integer `>= 1` naming one of the `waves` (P4) that prepare prints for the resolved quality tier, guardrails and dispatch budget; earlier waves are dropped and the remaining waves keep their numbers. Mutually exclusive with `--tasks` (R43) (default: unset, every wave runs)
+- A10: `--strict-files` — a wave that touches a file outside its `expectedFiles` fails (R44) (default: false)
 
 - R16: Workspace is derived, not selected, via the shared pure helper `lib/git.js::deriveWorkspace({ inLinkedWorktree, currentBranch, defaultBranch })` → `branch` (cwd is the main worktree AND HEAD is the default branch) or `continue` (linked worktree, OR feature-branch-in-main-worktree). On `branch`, Step 1 derives a feature-branch name and runs `git checkout -b`. On `continue`, Step 1 runs in place — no branch creation, no worktree creation. There is no worktree-creation path and no workspace prompt. (When `--branch <name>` is passed by ship-sdlc, R30 short-circuits this entirely.)
 - R30: execute-plan-sdlc accepts an internal `--branch <name>` flag. When `--branch <name>` is passed, Step 1 MUST skip all workspace-derivation logic — no `deriveWorkspace` call, no `git checkout -b`. The skill trusts the caller's branch/cwd as authoritative and captures the passed name as `EXECUTE_NEW_BRANCH` for Step 9 emission. When `--branch` is ABSENT, Step 1 derives workspace via `deriveWorkspace` (R16) and runs `git checkout -b` only on a `branch` outcome. The flag is internal: ship-sdlc sets it in pipeline mode; users do not pass it directly. (In practice ship-sdlc establishes the feature branch before dispatching execute, so the standalone derive would yield `continue` anyway — `--branch` makes the short-circuit explicit.)
@@ -31,6 +32,7 @@
   - Passing both flags is an `invalidFlag` error.
   - Plan-size predicates (the small-plan check and the runner-mode check) keep counting the whole plan, not the selection; the small-plan path runs only the selected tasks.
   - State: `state/execute.js init --selection '<json>'` records the selection as the state file's `selection` field (`null` without a selection), and `--planned-task-ids` / `--total-tasks` carry only the selected task ids, so the R14 completeness check covers exactly the tasks that run.
+- R44: Strict wave files. With `flags.strictFiles` true (A10, P10), the Step 5c `expectedFiles` cross-check is hard: a non-empty `diffFiles \ expectedSet` marks every task of the wave not done and stops the run with E16 (G13). There is no Step 6 retry. An empty `expectedSet` still skips the check.
   - Resume (`--resume`, including the implicit resume of R36): the selection recorded in the state file wins. A run without `--tasks` and `--from-wave` uses it; a CLI selection that differs from it is an `invalidFlag` error and nothing is written. A state file without a `selection` field counts as `null`.
   - Acceptance: exec cases in `tests/promptfoo/datasets/execute-prepare-exec.yaml` whose descriptions start with `execute-prepare: (sel`.
 
@@ -215,6 +217,7 @@
 - G9: Spec compliance reviewed — non-trivial tasks pass spec review at the cadence `flags.specReviewer` sets (R11)
 - G11: Post-wave guardrail check — error-severity pass/fixed/overridden; warnings reported
 - G12: Completion checklists valid — each agent's COMPLETE/VERIFY/STATUS block present and cross-checked
+- G13: Strict files — under `flags.strictFiles`, no wave diff path outside `expectedFiles` (R44)
 
 - R9: Filesystem verification mandatory after each wave: `git diff --stat` confirms claimed changes; canary check greps for verification token — mandatory for every task whose `WAVE_SUMMARY` status is `DONE` or `DONE_WITH_CONCERNS` (a missing `verifyToken` for such a task is a failure); tasks reporting `NEEDS_CONTEXT`, `BLOCKED`, or `FAILED` are exempt since no successful change is claimed for them
 - R10: Completion checklist parsing: cross-check `files_created`/`files_modified` against `git diff --stat`, verify STATUS field, handle NEEDS_CONTEXT and BLOCKED statuses
@@ -237,6 +240,8 @@
 - P8: `openspec` (object: `{ specsDir, specFiles, taskMap, refToTaskIds }`) — the change directory named by the plan's `**Source:**` (`openspec/changes/<name>/`) and the tasks' `openspec-task` blocks (R37); empty values when the plan is not OpenSpec-sourced.
 - P9: `wave-start.manifest` (object; the `manifest` field of the `{ runId, factSheets, manifest }` line that `state/execute.js wave-start --tasks-json … --manifest-json …` prints; `--manifest-json` requires `--tasks-json`) — `{ waveNumber, totalWaves, qualityTier, escalationBudget, waveTimeout, waveInterval, runId, stateScript, guardrails, expectedFiles, verificationHint, tasks: [{ id, complexity, risk, factSheetPath, assignedModel, effort, verifyToken }] }`. On the R8 runner path the skill passes it to the wave-runner verbatim; on the direct path the skill dispatches the workers from it.
 
+- P10: `flags.strictFiles: boolean`, source `cli` or `default` (A10).
+
 The prepare output also carries `errors[]` (each `{ id, message }`; ids `missingPlanFile`, `planFileNotFound`, `planParseError`, `invalidQuality`, `invalidFlag` and `configVersion`, the last carrying the failing role and step of R-config-version), `warnings[]` and `migration`. The script exits 0 when `errors[]` is empty, 1 when it is not, and 2 on a crash.
 
 ## Failure handling and resume
@@ -255,7 +260,8 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 - E12: Agent status BLOCKED → assess blocker, escalate model, break task, or escalate to user
 - E13: Malformed completion checklist → re-dispatch once with format reminder
 - E14: markTaskDone returns `{ changed: false, reason: 'not-found' | 'io-error' }` instead of throwing. Pipeline continues; warning recorded per R39.
-- E15: The Step 5c wave-summary parse prints no JSON line, or exits non-zero (PARSE_EXIT ≠ 0) → no task of the wave is marked done; the wave is treated as failed (wave-fail) and Step 6 (RECOVER) runs with the printed error.
+- E15: The Step 5c parse runs as one Bash call whose exit code is read from the tool result; the summary file is removed by a second, separate `rm -f` call. No JSON line, or a non-zero exit (PARSE_EXIT ≠ 0), → no task of the wave is marked done; the wave is treated as failed (wave-fail) and Step 6 (RECOVER) runs with the printed error.
+- E16: Strict-files violation (R44) → print `Wave N touched files outside expectedFiles: <paths>`, return failure; no retry, no revert.
 
 - R13: Maximum 2 retries per task. The first retry re-dispatches the same worker agent with the failure context and its effort raised one level; the second moves the task to the next worker agent tier. A task already at the top effort below the top agent moves to the next tier for both retries (first at medium, then at high effort). A task on the top worker agent below the top effort gets both retries there at the top effort; a task already on the top agent at the top effort is re-dispatched once with the failure context, then escalated to the user (ladder in `docs/cost-tiers.md` §5). Each retry's agent, model and effort is the task's dispatch entry's `retries` (P4); `model` is recorded for budgets and the manifest and is never passed to the Agent tool, because the agent file pins it; a task extracted from a failed batch is re-dispatched on the batch entry's second retry.
 - R15: Resume verifies plan hash; mismatch offers resume-with-existing or restart. Persisted state file uses field name `quality` (not `preset`) for the model tier.
@@ -324,6 +330,7 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 - C14: Must not override, reinterpret, or discard prepare script output — for every P-field, the script return value is authoritative and final; the skill must not substitute LLM-generated alternatives
 - C15: Must not independently compute, infer, or fabricate values for any field the prepare script is contracted to provide — if the script fails or a field is absent, the skill must stop rather than fill in data
 - C16: Must not re-derive data the prepare script already computes via shell commands, tool calls, or LLM inference — script output is the sole source for all factual context, preserving deterministic behavior
+- C17: Under `--auto` no AskUserQuestion: the `flags.rebase: prompt` choice and the `MaxSplitDepthExceededError` escalation stop with a failure and a `pendingQuestion` (ship R85).
 
 ## Integration
 
@@ -340,6 +347,7 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 - I11: OpenSpec — optional spec context for spec compliance review when plan is OpenSpec-sourced
 - I12: `lib/openspec.js` — `validateChangeStrict` helper for post-pipeline archive suggestion gating
 - I13: `scripts/skill/openspec-step.js flip` (wraps `lib/openspec.js::markTaskDone`) — mutator called per completed-and-grouped plan task to flip OpenSpec `tasks.md` checkboxes (R37); `scripts/skill/openspec-step.js tasks --change <name>` (wraps `lib/openspec.js::parseTasks`) — reader for the R38 re-parse of `tasks.md`.
+- I14: ship-sdlc R83 always forwards `--strict-files` (A10).
 
 ## Appendix — history
 
@@ -401,3 +409,11 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 | R-WAVE-RESUME-RESET | (Fixes #506) |
 | R-WAVE-DEADLINE | (Fixes #506) |
 | R-WAVE-BACKGROUND-DISPATCH | (Fixes #506) |
+| A10 | (issue #9319 — strict wave files; ship flag, deviation N1b) |
+| R44 | (issue #9319 — strict wave files; ship flag, deviation N1b) |
+| P10 | (issue #9319 — strict wave files; ship flag, deviation N1b) |
+| G13 | (issue #9319 — strict wave files; ship flag, deviation N1b) |
+| E15 | (issue #9241 — the parse and its summary-file removal are two Bash calls) |
+| E16 | (issue #9319 — strict wave files; ship flag, deviation N1b) |
+| I14 | (issue #9319 — ship always forwards the strict-files flag) |
+| C17 | (issue #9319 — auto mode stops with a pending question, never an interactive prompt) |

@@ -16,11 +16,18 @@
  *   --repo <repo>          Repository name (auto-detect if omitted)
  *   --project-root <path>  Project root (default: cwd)
  *   --auto                 Auto-proceed mode (surfaced as flags.auto in the manifest)
+ *   --plan <path>          Plan whose Files paths bound the fixes (manifest allowedFiles, R28)
+ *   --min-severity <level> Lowest severity that may be fixed: critical|high|medium|low (flags.minSeverity, R29)
  *   --output-file          Accepted for convention; the manifest file is always written
+ *
+ * Check mode (R30):
+ *   node received-review.js --check-scope --manifest <path> --fixed <id,id,...>
+ *   Prints {"ok","outOfScope","belowThreshold"} as one JSON line on stdout.
+ *   Exit 0 = in scope, 1 = out-of-scope path or below-threshold id, 2 = script error.
  *
  * Exit codes:
  *   0 = success, JSON on stdout (including when PR has no review threads)
- *   1 = missing --pr argument
+ *   1 = missing --pr argument, invalid --min-severity, unreadable --plan
  *   2 = script error
  *
  * Stdout: JSON manifest
@@ -33,6 +40,7 @@
 
 const fs   = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const LIB = path.join(__dirname, '..', 'lib');
 
 const {
@@ -43,7 +51,8 @@ const {
   getCurrentUser,
   fetchPrReviewThreads,
 } = require(path.join(LIB, 'git'));
-const { writeOutput } = require(path.join(LIB, 'output'));
+const { writeOutput, writeJsonLine } = require(path.join(LIB, 'output'));
+const { extractTasks, taskSection, parseFilesEntries } = require(path.join(LIB, 'plan-parse'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { readSection, readProjectConfig, resolveSdlcRoot } = require(path.join(LIB, 'config'));
 const { getPluginVersion } = require(path.join(LIB, 'config-version'));
@@ -246,6 +255,11 @@ function parseArgs(argv) {
   let projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/ (overridable via --project-root)
   let auto = false;
   let commentFile = null;
+  let planFile = null;
+  let minSeverity = null;
+  let checkScope = false;
+  let manifestPath = null;
+  let fixedIds = [];
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -255,10 +269,75 @@ function parseArgs(argv) {
     else if (a === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
     else if (a === '--auto')                    auto = true;
     else if (a === '--comment-file' && args[i + 1]) commentFile = path.resolve(args[++i]);
+    else if (a === '--plan' && args[i + 1])     planFile = path.resolve(args[++i]);
+    else if (a === '--min-severity') minSeverity = args[i + 1] && !args[i + 1].startsWith('--') ? args[++i] : ''; // '' fails the R29 check below
+    else if (a === '--check-scope')             checkScope = true;
+    else if (a === '--manifest' && args[i + 1]) manifestPath = path.resolve(args[++i]);
+    else if (a === '--fixed' && args[i + 1] !== undefined) fixedIds = args[++i].split(',').map(s => s.trim()).filter(Boolean);
     else if (a === '--output-file')          { /* accepted for convention; writeOutput always writes the manifest file and prints its path */ }
   }
 
-  return { prNumber, owner, repo, projectRoot, auto, commentFile };
+  return { prNumber, owner, repo, projectRoot, auto, commentFile,
+           planFile, minSeverity, checkScope, manifestPath, fixedIds };
+}
+
+// ---------------------------------------------------------------------------
+// Fix scope (R28-R30): allowedFiles from the plan, and the --check-scope mode
+// ---------------------------------------------------------------------------
+
+/** R29: rank order LOW < MEDIUM < HIGH < CRITICAL; null and unknown rank below LOW. */
+const SEVERITY_RANK = ['low', 'medium', 'high', 'critical'];
+
+/** R28: sorted, unique Files paths of every plan task, every kind. Throws when the plan is unreadable. */
+function allowedFilesFromPlan(planFile) {
+  const text = fs.readFileSync(planFile, 'utf8');
+  const paths = new Set();
+  for (const t of extractTasks(text)) {
+    // Same normalisation as ship's stageScope: no leading "./", no trailing "/".
+    for (const e of parseFilesEntries(taskSection(t.body))) paths.add(e.path.replace(/^\.\//, '').replace(/\/$/, ''));
+  }
+  return [...paths].sort();
+}
+
+/** NUL-separated path list from a git command run in cwd. Throws on a git failure. */
+function gitPathList(args, cwd) {
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 8000 });
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${(r.stderr || '').trim()}`);
+  return r.stdout.split('\0').filter(Boolean);
+}
+
+/**
+ * R30: compare the working tree's changed paths with manifest.allowedFiles and the
+ * fixed ids' severities with manifest.flags.minSeverity. Throws (exit 2) on an
+ * unreadable manifest or an unknown fixed id.
+ */
+function checkScope({ manifestPath, fixedIds, cwd }) {
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (err) {
+    throw new Error(`--manifest ${manifestPath} is not a readable manifest (${err.message})`);
+  }
+  const items = new Map([...(manifest.findings || []), ...(manifest.threads || [])].map(x => [x.id, x]));
+  const unknown = fixedIds.filter(id => !items.has(id));
+  if (unknown.length > 0) throw new Error(`--fixed ids not in the manifest: ${unknown.join(', ')}`);
+
+  let outOfScope = [];
+  if (Array.isArray(manifest.allowedFiles)) {
+    const allowed = manifest.allowedFiles;
+    const changed = new Set([
+      ...gitPathList(['diff', '--name-only', '-z', 'HEAD'], cwd),
+      ...gitPathList(['ls-files', '--others', '--exclude-standard', '--full-name', '-z', ':/'], cwd),
+    ]);
+    // A directory Files entry covers every path under it, as in ship's stageScope.
+    outOfScope = [...changed].filter(p => !p.startsWith('.sdlc/') && !allowed.some(a => p === a || p.startsWith(`${a}/`))).sort();
+  }
+
+  const minSeverity = manifest.flags?.minSeverity ?? null;
+  const belowThreshold = minSeverity === null ? [] : fixedIds.filter(
+    id => SEVERITY_RANK.indexOf(items.get(id).severity) < SEVERITY_RANK.indexOf(minSeverity));
+
+  return { ok: outOfScope.length === 0 && belowThreshold.length === 0, outOfScope, belowThreshold };
 }
 
 // ---------------------------------------------------------------------------
@@ -338,7 +417,39 @@ function classifyThread(thread, currentUser, changedFileSet) {
 // ---------------------------------------------------------------------------
 
 function main() {
-  const { prNumber, owner: cliOwner, repo: cliRepo, projectRoot, auto, commentFile } = parseArgs(process.argv);
+  const {
+    prNumber, owner: cliOwner, repo: cliRepo, projectRoot, auto, commentFile,
+    planFile, minSeverity, checkScope: checkScopeMode, manifestPath, fixedIds,
+  } = parseArgs(process.argv);
+
+  // R30: check mode reads only the given manifest and the working tree.
+  if (checkScopeMode) {
+    let result;
+    try {
+      result = checkScope({ manifestPath, fixedIds, cwd: process.cwd() });
+    } catch (err) {
+      process.stderr.write(`Error: ${err.message}\n`);
+      process.exit(2);
+    }
+    writeJsonLine(result, result.ok ? 0 : 1);
+    return;
+  }
+
+  // R29: an invalid --min-severity is an error; no manifest is written.
+  if (minSeverity !== null && !VALID_SEVERITIES.has(minSeverity)) {
+    process.stderr.write(`Error: --min-severity must be one of critical, high, medium, low (got "${minSeverity}").\n`);
+    process.exit(1);
+  }
+  // R28: allowedFiles from --plan; an unreadable plan is an error.
+  let allowedFiles = null;
+  if (planFile) {
+    try {
+      allowedFiles = allowedFilesFromPlan(planFile);
+    } catch (_) {
+      process.stderr.write(`Error: --plan ${planFile} is not a readable file.\n`);
+      process.exit(1);
+    }
+  }
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
   const skipConfigCheck = resolveSkipConfigCheck(process.argv);
@@ -364,6 +475,7 @@ function main() {
       alwaysFixSeverities: resolveAlwaysFixSeverities(projectRoot),
       alwaysHardenFromReview: resolveAlwaysHardenFromReview(projectRoot),
       hardenClusterCap: resolveHardenClusterCap(projectRoot),
+      minSeverity,
     };
     let text;
     try {
@@ -380,6 +492,7 @@ function main() {
       comment_file: commentFile,
       pr: null,
       currentUser: null,
+      allowedFiles,
       flags,
       threads: [],
       findings,
@@ -500,7 +613,8 @@ function main() {
     findings: [],
     pr: { number: prNumber, owner, repo },
     currentUser,
-    flags: { auto, alwaysFixSeverities, alwaysHardenFromReview, hardenClusterCap },
+    allowedFiles,
+    flags: { auto, alwaysFixSeverities, alwaysHardenFromReview, hardenClusterCap, minSeverity },
     threads,
     summary,
     plugin_version: pluginVersion,
@@ -519,4 +633,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseArgs, parseReviewComment, classifyThread, resolveAlwaysHardenFromReview, resolveHardenClusterCap, inferHardenSurfaceHint, inferHardenTargetFileHint };
+module.exports = { parseArgs, parseReviewComment, classifyThread, resolveAlwaysHardenFromReview, resolveHardenClusterCap, inferHardenSurfaceHint, inferHardenTargetFileHint, allowedFilesFromPlan, checkScope };

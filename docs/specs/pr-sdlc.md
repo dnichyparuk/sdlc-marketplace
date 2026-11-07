@@ -14,6 +14,8 @@
 - A3: `--base <branch>` — target base branch for the PR (default: auto-detected)
 - A4: `--auto` — skip interactive approval; critique gates still run (default: false)
 - A5: `--label <name>` — force a label onto the PR; repeatable; creates label if missing in repo (default: none)
+- A6: `--evidence-file <path>` — lines for the PR body's `## Evidence` section (R17) (default: unset)
+- R17: With `--evidence-file`, the PR body holds a `## Evidence` section with the file's non-empty lines verbatim, in order. Every line must end with `(at <sha7>)`, where `<sha7>` is the first seven hex characters of a commit on the branch. Without the flag, an `## Evidence` heading in the template is filled with "Not detected" (R12).
 - R10: Forced labels (`--label`) bypass `prConfig.labels.mode` entirely — they apply in all three modes (including `off`), are always included, dedupe against rule/llm matches with forced winning provenance, and are created via `gh label create` if missing in repo
 - R12: When `--auto` is set, skip AskUserQuestion approval and apply labels directly; critique gates still run. Under `--auto`, pr-sdlc never calls AskUserQuestion: a section without enough evidence (Business Context, Business Benefits or any other) is written as "Not detected", or "N/A" when it does not apply, with a one-line note saying what evidence was missing, and is never invented; a title that fails `prConfig.titlePattern` at the final check stops the run without creating or editing the PR.
   - Acceptance: every `AskUserQuestion` and every ask instruction left in `plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md` applies only when `isAuto` is false (the Step 5 approval prompt is skipped by its own auto-mode paragraph); behavioural case `pr-sdlc: --auto never asks — an unfilled business section is written as Not detected (R12)` in `tests/promptfoo/datasets/pr-sdlc.yaml`.
@@ -96,6 +98,7 @@ None.
 - G10: Documentation sync — structural changes have corresponding docs updates or user confirmation
 - G11: Label validity — every label in `suggestedLabels` exists in `repoLabels`
 - G12: Forced label inclusion — every label in `forcedLabels` appears in the final label list
+- G13: Evidence stamps — every Evidence line ends with `(at <sha7>)` of a branch commit
 - R6: When `prConfig.titlePattern` is set, validate title against the regex before executing `gh` CLI (hard gate)
 - R15: Link verification — every URL embedded in the PR body MUST be validated by `plugins/sdlc-utilities/scripts/lib/links.js` before any `gh pr create` / `gh pr edit` invocation. Three URL classes are checked: (1) `github.com/<owner>/<repo>/(issues|pull)/<n>` — owner/repo identity must match the current remote, and the issue/PR number must exist on that repo; (2) `*.atlassian.net/browse/<KEY-N>` — host must match the configured Jira site; (3) any other `http(s)://` URL — generic reachability via HEAD (fall back to GET on 405), bounded by the timeout `NETWORK_TIMEOUT_MS` in `scripts/lib/links.js`. Hosts in the built-in skip list (`linkedin.com`, `x.com`, `twitter.com`, `medium.com`) and any `ctx.skipHosts` entries are reported as `skipped`, not violations. `SDLC_LINKS_OFFLINE=1` skips network checks but keeps structural context-aware checks (GitHub identity match, Atlassian host match). Any violation aborts publication with non-zero exit and a structured violation list — no soft-warning mode.
 - R-gh-auth-preflight: The prepare script `skill/pr.js` MUST run a gh-auth preflight before any GitHub API call:
@@ -134,6 +137,7 @@ None.
 - P16: `ghAuth` (object | null) — `{ switched, account, previousAccount }` GitHub account switch result
 - P17: `remoteState` (object) — `{ pushed, remoteBranch, action }`
 - P18: `warnings` (string[]) — non-fatal notes
+- P19: `evidence: { file, lines[] } | null`
 
 ## Failure handling and resume
 
@@ -144,6 +148,7 @@ None.
 - E5: `gh` auth failure → show `gh auth login` instructions (no error report)
 - E6: Title pattern validation fails → show error message, ask user to edit title
 - E7: `gh pr create` fails with a repo-permission error → post-flight account-switch recovery (distinct from pre-flight `ensureGhAccount`): if a local gh account matching the repo owner is found, switch to it automatically and retry `gh pr create` exactly once; the user sees a single concise recovery line and not the raw error. If no matching account exists, surface the original error with a `gh auth login` hint for the correct hostname. A second consecutive permission failure is terminal. Max one retry per pipeline invocation.
+- E8: an unreadable file, an empty file or an unstamped line is an `errors[]` entry and exit 1, before any `gh` call
 - R16: SSH host-alias fallback in post-flight account-switch recovery — when the repo remote uses a non-canonical SSH host alias (e.g. `github-rn`) and no matching gh account is found under that alias, the recovery helper (`recoverGhAccountForRepo`) MUST query `github.com` as a fallback. If a matching account is found under `github.com`, it is switched to and `viaFallback: true` is set on the result. The failure hint MUST advise `gh auth login --hostname github.com` (the canonical host), never the SSH alias hostname. Live `gh auth switch` for fallback accounts MUST include `--hostname github.com`.
 
 ## Invariants and constraints
@@ -176,6 +181,7 @@ None.
 - I6: `version-sdlc` — common follow-up after merge
 - I7: `setup-sdlc --pr-template` — creates custom PR template
 - I8: `commit-sdlc` — commit changes before creating PR
+- I9: ship-sdlc forwards `--evidence-file` (R-b2)
 
 ## Appendix — history
 
@@ -196,3 +202,4 @@ None.
 | R-basebranch-config-cascade | (issue #339) |
 | E7 | References issue #184. |
 | R-expected-branch | (issues #347, #348, #349) |
+| A6, R17, G13, P19, E8, I9 | contract added in M9 wave R-b1 (#9319); implemented by the later ship-evidence wave (R-b2, PR evidence template). |

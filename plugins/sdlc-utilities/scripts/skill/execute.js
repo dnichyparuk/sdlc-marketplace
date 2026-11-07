@@ -9,7 +9,7 @@
  *
  * Usage:
  *   node execute.js [<plan>] [--plan <path>] [--quality full|balanced|minimal]
- *     [--resume] [--auto] [--commit-waves] [--rebase auto|skip|prompt]
+ *     [--resume] [--auto] [--commit-waves] [--strict-files] [--rebase auto|skip|prompt]
  *     [--wave-timeout <s>] [--wave-interval <s>] [--branch <name>]
  *     [--skip-config-check] [--project-root <dir>] [--output-file]
  *     [--tasks <ids> | --from-wave <n>]
@@ -44,6 +44,7 @@ const TEMPLATE_FILES = ['wave-runner-template.md', 'classifying-and-waving-tasks
 
 const EXECUTE_DEFAULTS = {
   commitWaves: false,
+  strictFiles: false,
   waveTimeout: 1800,
   waveInterval: 60,
   rebase: 'skip',
@@ -79,7 +80,7 @@ const TYPE_KEYWORDS = [
 ];
 
 const VALUE_FLAGS = ['--plan', '--quality', '--rebase', '--wave-timeout', '--wave-interval', '--branch', '--project-root', '--tasks', '--from-wave'];
-const BOOLEAN_FLAGS = ['--resume', '--auto', '--commit-waves', '--skip-config-check', '--output-file'];
+const BOOLEAN_FLAGS = ['--resume', '--auto', '--commit-waves', '--skip-config-check', '--output-file', '--strict-files'];
 
 // R41 what/how/why text (SKILL.md plan-argument gate), without issue numbers.
 const MISSING_PLAN_MESSAGE =
@@ -127,6 +128,7 @@ function parseArgs(argv) {
     resume: Boolean(booleans['--resume']),
     auto: Boolean(booleans['--auto']),
     commitWaves: Boolean(booleans['--commit-waves']),
+    strictFiles: Boolean(booleans['--strict-files']),
     rebase: values['--rebase'] !== undefined ? values['--rebase'] : null,
     waveTimeout: values['--wave-timeout'] !== undefined ? values['--wave-timeout'] : null,
     waveInterval: values['--wave-interval'] !== undefined ? values['--wave-interval'] : null,
@@ -179,6 +181,11 @@ function resolveFlags(cli, execCfg, shipCfg, errors, warnings) {
     { source: 'cli', key: '--commit-waves', value: cli.commitWaves ? true : undefined },
     { source: 'config', key: 'execute.commitWaves', value: ex.commitWaves },
     { source: 'legacy-ship', key: 'ship.execute.commitWaves', value: shExec.commitWaves },
+  ], isBool, warnings));
+
+  // strictFiles: CLI only (a caller such as ship passes it) → default false.
+  set('strictFiles', pick('strictFiles', [
+    { source: 'cli', key: '--strict-files', value: cli.strictFiles ? true : undefined },
   ], isBool, warnings));
 
   // rebase
@@ -704,6 +711,7 @@ function main() {
       auto: cli.auto,
       branch: cli.branch,
       commitWaves: resolved.commitWaves,
+      strictFiles: resolved.strictFiles,
       waveTimeout: resolved.waveTimeout,
       waveInterval: resolved.waveInterval,
       waveRunnerMinPlanTasks: resolved.waveRunnerMinPlanTasks,
