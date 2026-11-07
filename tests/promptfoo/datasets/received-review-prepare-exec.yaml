@@ -350,7 +350,7 @@
 - description: "rr-skill-text: (auto) the needs-discussion auto line appears twice"
   vars:
     script_path: "-e"
-    script_args: '((t)=>((c)=>console.log(JSON.stringify({auto:c("when\x20\x60manifest.flags.auto\x20===\x20true\x60,\x20ask\x20nothing;"),verdict:c("the\x20verdict\x20\x22needs\x20discussion\x22\x20(C19)")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_args: '((t)=>((c)=>console.log(JSON.stringify({auto:c("when\x20\x60flags.auto\x60\x20is\x20true\x20(the\x20boolean\x20resolved\x20in\x20Step\x201),\x20ask\x20nothing;"),verdict:c("the\x20verdict\x20\x22needs\x20discussion\x22\x20(C19)")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
   assert:
     - type: javascript
       value: |
