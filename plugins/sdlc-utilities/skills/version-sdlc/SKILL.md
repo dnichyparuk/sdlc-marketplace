@@ -58,6 +58,7 @@ Read and parse `VERSION_CONTEXT_FILE` as `VERSION_CONTEXT_JSON`.
 
 **If `VERSION_CONTEXT_JSON.warnings` is non-empty**, show the warnings to the user before continuing.
 For the warning `"You have uncommitted changes"`, use AskUserQuestion to ask:
+
 > You have uncommitted changes that will NOT be included in this release.
 
 Options:
@@ -66,6 +67,8 @@ Options:
 - **cancel** — abort the release
 
 On **commit first**: invoke `/commit-sdlc` via the Skill tool. After the commit completes, re-invoke `/version-sdlc` with the same original arguments.
+
+**Under `--auto`:** when `VERSION_CONTEXT_JSON.flags.auto === true`, do not call AskUserQuestion for this warning. Stop and return failure with `pendingQuestion`: "You have uncommitted changes that will NOT be included in this release." (options: proceed, commit first, cancel) (version C12).
 
 ---
 
@@ -392,6 +395,8 @@ New SHA: <head[:7]>
 | No fabricated entries | Every CHANGELOG entry traces to a real commit | (if changelog enabled) |
 | Commit count | There are commits to release | `commits.length > 0` OR pre-release (allow empty pre-releases) |
 | Version file writable | File type is supported | fileType is in the known list |
+| Retag exclusivity | `--retag` with a bump, `--init`, `--changelog`, `--hotfix` or `--no-tag` | `errors[]` names every conflict (G8) |
+| Message-file trailers | `--message-file` carries every `releaseCommit.trailers` entry | else `skill/version.js` exits 1 before any git command (G9) |
 
 ## Best Practices
 
@@ -438,8 +443,8 @@ When invoking `error-report-sdlc`, provide:
 - **Squash merge orphans tags**: When using GitHub's "squash and merge" strategy, the annotated tag created on the feature branch points to the pre-merge commit, which becomes unreachable from main after merge. The `retag-release.yml` workflow (scaffolded during init) automatically moves the tag to the squash commit on main whenever a push lands on main. Without this workflow, tags are orphaned and `git describe` / `git log --decorate` on main will not show them.
 - `bumpOptions.preRelease` is pre-computed in the JSON only when a pre-release source is active (`--pre`, label-form `<bump>`, or `config.preRelease`). If the user requests a different pre-label during `edit`, re-run the script — the `preRelease` field reflects the label resolved at script invocation, not a label added mid-session.
 - **Version-file edit hard gate:** for ALL version-file formats (JSON, TOML, YAML — package.json, plugin.json, Cargo.toml, pyproject.toml, etc.) use the Edit tool with a single targeted string replacement and verify with `git diff <versionFile>` that exactly one line changed. If more than one line differs, abort and `git checkout -- <versionFile>`. Never use the Write tool or rewrite the file from memory — LLMs reliably truncate or paraphrase fields like `description`.
-- `git push && git push --tags` are two separate pushes. `git push --tags` alone does NOT push the release commit — both commands are required.
-- **Auto-`--set-upstream` on first push (R15):** When `remoteState.hasUpstream === false`, Step 8 emits `git push --set-upstream origin <currentBranch>` instead of bare `git push`. This eliminates the `fatal: The current branch has no upstream` error on releases cut from a fresh feature branch. The branch comes from `currentBranch` in the `version-context` JSON — never hardcode it. The subsequent `git push --tags` is unchanged.
+- `git push && git push --tags` are two separate pushes. `git push --tags` alone does NOT push the release commit — both commands are required. `git push --tags` is skipped under `--no-tag` (R21).
+- **Auto-`--set-upstream` on first push (R15):** When `remoteState.hasUpstream === false`, Step 8 emits `git push --set-upstream origin <currentBranch>` instead of bare `git push`. This eliminates the `fatal: The current branch has no upstream` error on releases cut from a fresh feature branch. The branch comes from `currentBranch` in the `version-context` JSON — never hardcode it. The subsequent `git push --tags` is unchanged, and skipped under `--no-tag` (R21).
 - If the working tree has uncommitted changes at execution time, the release commit will include only the staged version file and changelog changes. Warn the user so they are not surprised by files missing from the commit.
 - `conventionalSummary.suggestedBump` is derived from commit types. If there are no conventional commits since the last tag, the suggested bump may default to `patch` — confirm with the user if this seems wrong.
 

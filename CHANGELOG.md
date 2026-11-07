@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-07
+
+### Added
+- ship-sdlc, execute-plan-sdlc, version-sdlc and received-review-sdlc: under `--auto` a question the skill cannot ask becomes a pending question instead of a prompt (#9319).
+- plugin consistency check: Rule 14 `ask-auto-branch` flags a skill that asks without an `--auto` branch (#9319).
+- commit-sdlc: `commit.js --check-message` checks that a message carries exactly the configured trailer lines (#9319).
+- `commit.requiredTrailers` in the project config names the trailer a commit must carry (#9319).
+- exec cases for the `--auto` branches, the resume flags, the trailer check and the ship re-run guard (#9319).
+
+### Changed
+- ship-sdlc refreshes the non-frozen flags of the ledger on `--resume`, so a resumed run keeps the flags of that run (#9319).
+- ship-sdlc does not run execute again when it finished but was not recorded, and sends the review copy to received-review instead of `--pr` (#9319).
+- received-review-sdlc: the comment-file mode takes its fixes from the review copy (#9319).
+- commit-sdlc: the drafter falls back to a plain message, and the `PARSE_EXIT` call of execute-plan-sdlc is split (#9319).
+- the ship, received-review, commit and execute-plan skill docs and their site copies describe the changes (#9319).
+
+### Fixed
+- Nothing fixed.
+
+### Removed
+- Nothing removed.
+
 ## [0.46.0] - 2026-11-07
 
 ### Added

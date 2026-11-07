@@ -28,6 +28,8 @@ Suggested config:
 
 ### Step 3 (CONFIRM): Ask User to Confirm
 
+**Under `--auto`:** when `VERSION_CONTEXT_JSON.flags.auto === true`, do not call AskUserQuestion. Stop and return failure with `pendingQuestion`: "Does this look right?" (options: yes, tag-only, changelog, cancel) (version C12).
+
 Use AskUserQuestion to present the detected setup and ask:
 > Does this look right?
 

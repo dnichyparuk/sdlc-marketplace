@@ -4692,6 +4692,39 @@
         if (!/^--auto --plan "[^"]+" --min-severity critical$/.test(next.step.data.args)) return `FAIL: args ${next.step.data.args}`;
         return true;
 
+- description: "ship-rr-input: (d) open PR with a review copy sends --comment-file"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json --summary-comment --answer yes --gh-pr-url https://example/pr/7 --gh-pr-number 7"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const next = o.calls[o.calls.length - 1].envelope;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        if (!/^--auto --plan "[^"]+" --min-severity critical --comment-file "\/.+\/review-summary-feat-ship\.comment\.md"$/.test(next.step.data.args)) return `FAIL: args ${next.step.data.args}`;
+        if (/--pr/.test(next.step.data.args)) return `FAIL: --pr present ${next.step.data.args}`;
+        return true;
+
+- description: "ship-rr-input: (e) open PR without a copy sends --pr"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario review-gate-rows --seed frozen --result results/review-critical.json --summary critical-1.json --answer yes --gh-pr-url https://example/pr/7 --gh-pr-number 7"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const next = o.calls[o.calls.length - 1].envelope;
+        if (next.step.id !== 'dispatch_received_review') return `FAIL: next ${next.step.id}`;
+        if (!/^--auto --plan "[^"]+" --min-severity critical --pr 7$/.test(next.step.data.args)) return `FAIL: args ${next.step.data.args}`;
+        return true;
+
 - description: "ship-rr-scope: (a) received-review args carry --plan and --min-severity"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
@@ -4913,7 +4946,7 @@
         const q = e.ext.pendingQuestion;
         if (!q || q.id !== 'rerunGuard' || q.step !== 'version') return `FAIL: pendingQuestion ${JSON.stringify(q)}`;
         if (q.dispatchHead !== o.snapshots[0].version.dispatchHead || q.head !== o.headAfter || q.dispatchHead === q.head) return `FAIL: shas ${JSON.stringify(q)}`;
-        if (JSON.stringify(q.options) !== '["record","rerun"]' || 'question' in q || 'commands' in q) return `FAIL: shape ${JSON.stringify(q)}`;
+        if (JSON.stringify(q.options) !== '["record","skip"]' || 'question' in q || 'commands' in q) return `FAIL: shape ${JSON.stringify(q)}`;
         if (!o.snapshots[1].paused) return 'FAIL: ledger not paused';
         if (e.step) return 'FAIL: a step was dispatched';
         const c = e.ext.commands;
@@ -5003,6 +5036,83 @@
         const e = o.calls[1].envelope;
         if (e.status !== 'done' || e.ext.reason !== 'pending-question' || !e.ext.pendingQuestion || e.ext.pendingQuestion.id !== 'rerunGuard') return `FAIL: ${e.status} ${e.ext && e.ext.reason} ${e.error}`;
         return o.snapshots[1].version.status === 'failed' && o.snapshots[1].paused ? true : `FAIL: ${JSON.stringify(o.snapshots[1])}`;
+
+# R86: the re-run guard for the execute step (no state file plus changes outside .sdlc/ means it finished).
+- description: "ship-rerun: (execute) finished execute without state stops with rerunGuard"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rerun-execute-finished --seed frozen"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const first = o.calls[0].envelope;
+        if (first.status !== 'step' || first.step.id !== 'dispatch_execute') return `FAIL: first ${first.status} ${first.step && first.step.id} ${first.error}`;
+        const e = o.calls[1].envelope;
+        if (e.status !== 'done' || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.ext && e.ext.reason} ${e.error}`;
+        const q = e.ext.pendingQuestion;
+        if (!q || q.id !== 'rerunGuard' || q.step !== 'execute') return `FAIL: pendingQuestion ${JSON.stringify(q)}`;
+        if (q.dispatchHead !== o.headAfter || q.head !== o.headAfter) return `FAIL: shas ${JSON.stringify(q)}`;
+        if (JSON.stringify(q.options) !== '["record","skip"]') return `FAIL: options ${JSON.stringify(q.options)}`;
+        if (e.step || !o.snapshots[1].paused) return 'FAIL: a step was dispatched or the ledger is not paused';
+        const c = e.ext.commands;
+        if (c.length !== 3 || !/ complete --step execute --result "/.test(c[0]) || !/ skip --step execute --reason "/.test(c[1]) || c[2] !== '/sdlc:ship-sdlc --resume --auto') return `FAIL: commands ${JSON.stringify(c)}`;
+        return o.snapshots[1].execute.status === 'in_progress' ? true : `FAIL: ${JSON.stringify(o.snapshots[1].execute)}`;
+
+- description: "ship-rerun: (execute) state file resumes"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rerun-execute-finished --seed frozen --with-state"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[1].envelope;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_execute') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.ext && e.ext.reason} ${e.error}`;
+        if (!/ --resume$/.test(e.step.data.args)) return `FAIL: args ${e.step.data.args}`;
+        return o.snapshots[1].paused ? 'FAIL: ledger paused' : true;
+
+- description: "ship-rerun: (execute) clean tree dispatches fresh"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rerun-execute-clean --seed frozen"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[1].envelope;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_execute') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.ext && e.ext.reason} ${e.error}`;
+        if (/--resume/.test(e.step.data.args)) return `FAIL: args ${e.step.data.args}`;
+        const x = o.snapshots[1].execute;
+        return !o.snapshots[1].paused && x.status === 'in_progress' && x.dispatchHead === o.headAfter ? true : `FAIL: ${JSON.stringify(x)}`;
+
+- description: "ship-rerun: (execute) repeated call is idempotent"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rerun-execute-finished --seed frozen"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[1].envelope.ext, b = o.calls[2].envelope.ext;
+        if (a.reason !== 'pending-question' || b.reason !== 'pending-question') return `FAIL: ${a.reason} / ${b.reason}`;
+        if (JSON.stringify(a.pendingQuestion) !== JSON.stringify(b.pendingQuestion)) return 'FAIL: pendingQuestion differs';
+        if (JSON.stringify(a.commands) !== JSON.stringify(b.commands)) return 'FAIL: commands differ';
+        const s1 = o.snapshots[1], s2 = o.snapshots[2];
+        if (JSON.stringify(s1.execute) !== JSON.stringify(s2.execute)) return `FAIL: execute entry changed ${JSON.stringify(s1.execute)} ${JSON.stringify(s2.execute)}`;
+        return s2.historyLength === s1.historyLength + 1 && s2.paused ? true : `FAIL: history ${s1.historyLength} -> ${s2.historyLength}`;
 
 # #9307 item 4: stage_fixes stages the received-review changes before commit-fixes.
 - description: "ship-stage-fixes: (a) dirty tree after received-review emits stage_fixes"
@@ -5265,3 +5375,60 @@
         const ids = o.calls.map(c => c.envelope.step && c.envelope.step.id);
         const r2 = ids.indexOf('dispatch_review');
         return r2 >= 0 && ids[r2 + 1] === 'review_gate' && ids.filter(id => id === 'review_gate').length === 2 ? true : `FAIL: ids ${ids}`;
+
+# #9228 / R11: --resume rewrites the ledger's non-frozen flags and their sources from the run's
+# merged CLI > config > default values. The fixture ledger holds auto: true, bump: "patch",
+# quality: "full"; planFile, openspecContext, steps and tasks follow their own rules.
+- description: "ship-resume-flags: (a) --resume rewrites the ledger flags from the merged values"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,js,led,rd=()=>JSON.parse(fs.readFileSync(led,"utf8")).flags,run=(a)=>cp.spawnSync("node",[js,"--resume","--has-plan",...a],{cwd:process.cwd(),encoding:"utf8"}))=>((r)=>console.log(JSON.stringify({status:r.status,flags:rd()})))(run(["--bump","minor","--review-threshold","medium"])))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js",".sdlc/execution/ship-main-20261027T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-resume-flags"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}`;
+        const f = o.flags;
+        if (f.bump !== 'minor' || f.sources.bump !== 'cli') return `FAIL: bump ${f.bump}/${f.sources.bump}`;
+        if (f.reviewThreshold !== 'medium' || f.sources.reviewThreshold !== 'cli') return `FAIL: reviewThreshold ${f.reviewThreshold}/${f.sources.reviewThreshold}`;
+        if (f.auto !== false || f.sources.auto !== 'default') return `FAIL: auto ${f.auto}/${f.sources.auto}`;
+        if ('quality' in f || 'quality' in f.sources) return `FAIL: stale quality kept ${f.quality}/${f.sources.quality}`;
+        return true;
+
+- description: "ship-resume-flags: (b) bare --resume twice gives byte-identical ledger flags"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,js,led,rd=()=>JSON.parse(fs.readFileSync(led,"utf8")).flags,run=(a)=>cp.spawnSync("node",[js,"--resume","--has-plan",...a],{cwd:process.cwd(),encoding:"utf8"}))=>((s1,f1)=>((s2)=>console.log(JSON.stringify({s1:s1,s2:s2,f1:f1,f2:JSON.stringify(rd())})))(run([]).status))(run([]).status,JSON.stringify(rd())))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js",".sdlc/execution/ship-main-20261027T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-resume-flags"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.s1 !== 0 || o.s2 !== 0) return `FAIL: exits ${o.s1}/${o.s2}`;
+        if (o.f1 !== o.f2) return `FAIL: flags differ between runs: ${o.f1} vs ${o.f2}`;
+        return JSON.parse(o.f1).auto === false ? true : 'FAIL: auto kept from the ledger';
+
+- description: "ship-resume-flags: (c) frozen and own-rule keys never change"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,js,led,rd=()=>JSON.parse(fs.readFileSync(led,"utf8")).flags,run=(a)=>cp.spawnSync("node",[js,"--resume","--has-plan",...a],{cwd:process.cwd(),encoding:"utf8"}))=>((b)=>((r)=>console.log(JSON.stringify({status:r.status,b:b,a:rd()})))(run(["--bump","minor"])))(rd()))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js",".sdlc/execution/ship-main-20261027T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-resume-flags"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: exit ${o.status}`;
+        for (const k of ['planFile', 'openspecContext']) {
+          if (JSON.stringify(o.a[k]) !== JSON.stringify(o.b[k])) return `FAIL: ${k} changed: ${JSON.stringify(o.b[k])} -> ${JSON.stringify(o.a[k])}`;
+        }
+        if (JSON.stringify(o.a.steps) !== JSON.stringify(o.b.steps)) return `FAIL: steps changed: ${JSON.stringify(o.a.steps)}`;
+        if (o.a.sources.steps !== o.b.sources.steps) return `FAIL: steps source changed: ${o.b.sources.steps} -> ${o.a.sources.steps}`;
+        if ('tasks' in o.a) return `FAIL: tasks restored: ${JSON.stringify(o.a.tasks)}`;
+        return o.a.bump === 'minor' ? true : `FAIL: bump ${o.a.bump}`;

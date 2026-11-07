@@ -148,3 +148,26 @@
       value: '"rule": "skill-runs-script"'
     - type: icontains
       value: 'assigns skill/commit.js to a shell variable'
+
+# Validator regression (ship C20, R85): the ask-auto-branch rule must flag an
+# AskUserQuestion line in a ship-path skill whose section has no --auto branch,
+# and must accept a guarded site and a prohibition line.
+- description: "ask-auto-branch: flags an unguarded AskUserQuestion section"
+  vars:
+    script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/ask-auto-branch-cases/bad-project"
+  assert:
+    - type: icontains
+      value: '"rule": "ask-auto-branch"'
+    - type: icontains
+      value: 'plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md'
+
+- description: "ask-auto-branch: passes a guarded site and a prohibition line"
+  vars:
+    script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/ask-auto-branch-cases/good-project"
+  assert:
+    - type: not-icontains
+      value: '"rule": "ask-auto-branch"'

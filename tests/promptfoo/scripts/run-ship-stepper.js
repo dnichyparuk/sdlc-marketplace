@@ -22,7 +22,7 @@
  *                        after-stage | tier | exec-state | confirm-pr | resume-twice | auto-walk | pending | handoff | after-pr |
  *                        openspec | resume-plan | resume-plan-auto | resume-plan-quick |
  *                        stale-plan | other-worktree-plan | finished-plan | rebase-conflict |
- *                        rerun-version-moved | rerun-version-same | after-received-review-changes | stage-outside-files |
+ *                        rerun-version-moved | rerun-version-same | rerun-execute-finished | rerun-execute-clean | after-received-review-changes | stage-outside-files |
  *                        rounds-2-fixes | rounds-2-no-fixes | rounds-1-default
  *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
  *   --steps <csv>        Appended to every initial call as `--steps <csv>`
@@ -41,7 +41,8 @@
  *   --commit             (pending) seed commit in_progress
  *   --late-exec          (handoff) copy the execute seed after the first call
  *   --auto-seed          Patch data.flags.auto = true into the seed (any scenario)
- *   --version-failed     (rerun-version-*) mark the version entry failed after the first emission
+ *   --with-state         (rerun-execute-*) copy seed/execute-complete.json as the branch's execute state file after the first emission
+ *   --version-failed    (rerun-version-*) mark the version entry failed after the first emission
  *   --clean-tree         (after-received-review-changes) commit everything but .sdlc/ first, so the tree is clean; otherwise a fix.txt change is written
  *   --plan-files <csv>   (stage-outside-files) commit a plan whose Task 1 Files are these paths
  *   --write <csv>        (stage-outside-files) create these files, untracked
@@ -242,6 +243,7 @@ function snap() {
   const d = readJson(statePath) || {};
   return {
     version: (d.steps || []).find(s => s.name === 'version') || null,
+    execute: (d.steps || []).find(s => s.name === 'execute') || null,
     pausedAt: d.paused ? d.paused.at : null,
     paused: d.paused !== undefined,
     historyLength: (d.history || []).length,
@@ -321,6 +323,10 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
       }
       for (const nm of ['execute', 'commit', 'review', 'version']) { const e = data.steps.find(x => x.name === nm); if (e) e.status = 'completed'; }
       for (const nm of ['received-review', 'commit-fixes']) { const e = data.steps.find(x => x.name === nm); if (e) { e.status = 'skipped'; e.reason = 'fixture'; } }
+    }
+    if (scenario.startsWith('rerun-execute-')) {
+      data.flags.auto = true;
+      data.flags.quality = 'balanced'; // execute_tier is skipped, so confirm_pipeline emits dispatch_execute
     }
     if (scenario.startsWith('rerun-version-')) {
       // R80: everything before version is done, so confirm_pipeline emits dispatch_version.
@@ -464,6 +470,24 @@ switch (scenario) {
     after('confirm_pipeline', 'results/yes.json');
     snapshots.push(snap());
     if (moved) { after('confirm_pipeline', 'results/yes.json'); snapshots.push(snap()); }
+    break;
+  }
+  case 'rerun-execute-finished':
+  case 'rerun-execute-clean': {
+    // R86: emit dispatch_execute, then (finished) leave uncommitted work outside .sdlc/ and, with --with-state,
+    // an execute state file; emit again, and once more to compare the two outcomes.
+    after('confirm_pipeline', 'results/yes.json');
+    snapshots.push(snap());
+    headAfter = sh('git rev-parse HEAD').stdout.trim();
+    if (scenario === 'rerun-execute-finished') fs.writeFileSync(path.join(projectRoot, 'executed-work.txt'), 'work from the first run\n');
+    if (process.argv.includes('--with-state')) {
+      fs.mkdirSync(execDir, { recursive: true });
+      fs.copyFileSync(path.join(projectRoot, 'seed', 'execute-complete.json'), path.join(execDir, `execute-feat-ship-${SEED_TS}.json`));
+    }
+    after('confirm_pipeline', 'results/yes.json');
+    snapshots.push(snap());
+    after('confirm_pipeline', 'results/yes.json');
+    snapshots.push(snap());
     break;
   }
   case 'after-execute':

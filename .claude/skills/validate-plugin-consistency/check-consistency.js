@@ -50,6 +50,10 @@
  *                                 R-orchestrator-await).
  *                                 Leaf drafters (`tools: Read`) do not dispatch and
  *                                 are excluded structurally (#487)
+ *  14. ask-auto-branch          — in the seven skills ship dispatches (SHIP_PATH_SKILLS), every
+ *                                 non-prohibition `AskUserQuestion` line outside a fence needs
+ *                                 `--auto`, `flags.auto` or `isAuto` in its enclosing section
+ *                                 (ship C20, R85)
  *
  * Usage:
  *   node check-consistency.js [--project-root <path>] [--json]
@@ -640,6 +644,55 @@ function checkReadmeSkillsTable(projectRoot, findings) {
   }
 }
 
+const SHIP_PATH_SKILLS = ['ship-sdlc', 'execute-plan-sdlc', 'commit-sdlc', 'review-sdlc', 'received-review-sdlc', 'version-sdlc', 'pr-sdlc'];
+
+/**
+ * Rule 14 — ask-auto-branch (ship C20, R85)
+ * A headless --auto run must never block on AskUserQuestion. In the skills ship dispatches,
+ * each non-prohibition AskUserQuestion line outside a fence must have --auto, flags.auto or
+ * isAuto somewhere in its enclosing section (previous heading outside a fence to the next).
+ */
+function checkAskAutoBranch(projectRoot, findings) {
+  for (const skill of SHIP_PATH_SKILLS) {
+    const skillDir = path.join(projectRoot, 'plugins/sdlc-utilities/skills', skill);
+    for (const file of walkForSuffix(skillDir, '.md', [])) {
+      const content = readFile(file);
+      if (!content) continue;
+      const lines = content.split(/\r?\n/);
+      let inFence = false;
+      const sections = [];
+      let current = { sites: [], text: [] };
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/^\s*```/.test(line)) { inFence = !inFence; current.text.push(line); continue; }
+        if (!inFence && /^#{1,6}\s/.test(line)) {
+          sections.push(current);
+          current = { sites: [], text: [] };
+        }
+        current.text.push(line);
+        if (!inFence && line.includes('AskUserQuestion') &&
+            !/\b(do not|never|not)\b[^.]*AskUserQuestion/i.test(line)) {
+          current.sites.push(i);
+        }
+      }
+      sections.push(current);
+      for (const sec of sections) {
+        if (sec.sites.length === 0) continue;
+        if (/--auto|flags\.auto|isAuto/.test(sec.text.join('\n'))) continue;
+        for (const i of sec.sites) {
+          findings.push({
+            rule: 'ask-auto-branch',
+            severity: 'error',
+            file: path.relative(process.cwd(), file),
+            line: i + 1,
+            message: 'AskUserQuestion without an --auto branch in the same section (ship C20).',
+          });
+        }
+      }
+    }
+  }
+}
+
 /**
  * Rule 11 — no-exit-trap
  * Prepare manifests persist under .sdlc/execution/out/ (W1.9). Each Bash tool call is its
@@ -810,6 +863,7 @@ function main() {
   checkNoExitTrap(projectRoot, findings);
   checkInvocationVerbatim(projectRoot, findings);
   checkOrchestratorAwaitBarrier(projectRoot, findings);
+  checkAskAutoBranch(projectRoot, findings);
 
   const errors   = findings.filter(f => f.severity === 'error');
   const warnings = findings.filter(f => f.severity === 'warning');

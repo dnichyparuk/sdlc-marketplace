@@ -42,7 +42,7 @@ const { writeManifestState, resolveStateDir, slugifyBranch } = require(path.join
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { truncateDiff } = require(path.join(LIB, 'diff-truncate'));
 const { validateExpectedBranch } = require(path.join(LIB, 'branch-guard'));
-const { resolveTrailers, checkGivenSubjects } = require(path.join(LIB, 'commit-message'));
+const { resolveTrailers, checkGivenSubjects, checkTrailers } = require(path.join(LIB, 'commit-message'));
 
 // ---------------------------------------------------------------------------
 // Diff truncation
@@ -222,10 +222,49 @@ function detectWipSquash() {
 }
 
 // ---------------------------------------------------------------------------
+// --check-message mode (G10+, commit R17)
+// ---------------------------------------------------------------------------
+
+/**
+ * `--check-message <file> --manifest <path>`: checks the message file against the
+ * manifest's configured trailers. Exit 0 = pass, 4 = violations (JSON on stdout, one line each on stderr),
+ * 2 = unreadable file or manifest (message on stderr).
+ */
+function checkMessageMode(argv) {
+  const args = argv.slice(2);
+  const valueOf = (flag) => { const i = args.indexOf(flag); return i >= 0 && i + 1 < args.length ? args[i + 1] : null; };
+  const file = valueOf('--check-message');
+  const manifestPath = valueOf('--manifest');
+  if (!file || !manifestPath) {
+    process.stderr.write('commit.js --check-message needs <file> and --manifest <path>\n');
+    return 2;
+  }
+  let text;
+  let manifest;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (err) {
+    process.stderr.write(`commit.js --check-message cannot read input: ${err.message}\n`);
+    return 2;
+  }
+  const cfg = manifest && manifest.commitConfig;
+  let trailers = cfg && Array.isArray(cfg.trailers) ? cfg.trailers : [];
+  if (!trailers.length && cfg && Array.isArray(cfg.requiredTrailers)) trailers = resolveTrailers(cfg.requiredTrailers, []);
+  const violations = checkTrailers(text, trailers);
+  process.stdout.write(JSON.stringify({ ok: violations.length === 0, violations }) + '\n');
+  for (const v of violations) process.stderr.write(v + '\n');
+  return violations.length === 0 ? 0 : 4;
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 function main() {
+  if (process.argv.includes('--check-message')) {
+    process.exit(checkMessageMode(process.argv));
+  }
   const projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/
   const { noStash, scope, type, amend, auto, noSquashWip, expectedBranch, forceDefaultBranch, subject, messageFile: messageFileArg, expectedSubject, warnings: parseWarnings } = parseArgs(process.argv);
   const messageFile = messageFileArg ? path.resolve(messageFileArg) : messageFileArg;

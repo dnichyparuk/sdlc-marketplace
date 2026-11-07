@@ -336,3 +336,23 @@
       value: |
         const o = JSON.parse(output);
         return o.fix === 1 && o.chk === 1 && o.cmd === 1 ? true : `FAIL: ${output}`;
+
+- description: "rr-skill-text: (comment-file) R31 and R32 lines appear once"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>((c)=>console.log(JSON.stringify({r31:c("**Comment-file\x20mode\x20(R31):**"),r32:c("PR:\x20none\x20(comment-file\x20\x3cbasename\x20of\x20manifest.comment_file\x3e))\x20(R32)"),src:c("When\x20\x60manifest.source\x60\x20is\x20\x60comment-file\x60")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.r31 === 1 && o.r32 === 1 && o.src === 1 ? true : `FAIL: ${output}`;
+
+- description: "rr-skill-text: (auto) the needs-discussion auto line appears twice"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>((c)=>console.log(JSON.stringify({auto:c("when\x20\x60flags.auto\x60\x20is\x20true\x20(the\x20boolean\x20resolved\x20in\x20Step\x201),\x20ask\x20nothing;"),verdict:c("the\x20verdict\x20\x22needs\x20discussion\x22\x20(C19)")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.auto === 2 && o.verdict === 2 ? true : `FAIL: ${output}`;
