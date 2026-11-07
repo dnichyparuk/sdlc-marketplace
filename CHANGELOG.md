@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-07
+
+### Added
+- version-sdlc: `--no-tag` skips the tag and the tag push; with `--no-push` nothing is pushed (#9311).
+- version-sdlc: `--subject` and `--message-file` set the release commit message, and `commit.requiredTrailers` are added or checked on it (#9311).
+- `scripts/lib/commit-message.js` holds the trailer resolver and the given-subject check, shared by commit-sdlc and version-sdlc (#9311).
+- exec cases for `--no-tag`, linked-worktree version-file, changelog and git-state paths, and release subject and trailers (#9311).
+
+### Changed
+- version-sdlc reads and writes the version file, the changelog and the git state of the active working tree, so it works from a linked worktree; config reads stay on the `.sdlc` root (R-projectroot amended) (#9311).
+- the version-sdlc spec uses the contract layout; its `<PLUGIN_ROOT>` paragraph is stated once and the skill carries the "run exactly as written" sentence (#9311).
+- commit-sdlc loads its trailer and given-subject checks from the shared module; behaviour is unchanged (#9311).
+
+### Fixed
+- version-sdlc SKILL.md no longer names the retired `/version` command, the stale Step 2.5 and 2.6 text or the derived `NEW_TAG` prose (#9311).
+
+### Removed
+- Nothing removed.
+
 ## [0.44.0] - 2026-11-06
 
 ### Added
