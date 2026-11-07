@@ -9,12 +9,16 @@
  * Usage:
  *   node version-prepare.js [major|minor|patch] [--init] [--pre <label>]
  *                           [--no-push] [--changelog] [--hotfix] [--retag] [--file <path>]
+ *                           [--no-tag] [--subject <text>] [--message-file <path>]
  *
  * Flags:
  *   major|minor|patch   Requested bump type (positional, optional)
  *   --init              Run setup detection (outputs init JSON, not release JSON)
  *   --pre <label>       Pre-release label (e.g., beta, rc)
  *   --no-push           Skip push to remote
+ *   --no-tag            Release commit without a tag; skip the tag push (R21)
+ *   --subject <text>    Release commit subject, verbatim (R22)
+ *   --message-file <path>  Release commit message file; trailers checked (R22, G9)
  *   --changelog         Enable changelog generation for this run
  *   --hotfix            Mark this release as a hotfix (DORA metrics)
  *   --retag             Retag current version at HEAD (R-RETAG, #424; incompatible with bump/--init/--changelog/--hotfix)
@@ -24,6 +28,7 @@
  *   0  Success — JSON written to stdout
  *   1  User-facing error — JSON with errors[] written to stdout
  *   2  Unexpected script error
+ *   3  Expected-branch guard failed — JSON with errors[0] = branchGuard.message
  *
  * @module version-prepare
  */
@@ -44,9 +49,11 @@ const {
 const { writeOutput } = require(path.join(LIB, 'output'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { truncateText } = require(path.join(LIB, 'diff-truncate'));
-const { resolveSdlcRoot } = require(path.join(LIB, 'config'));
+const { resolveSdlcRoot, readSection } = require(path.join(LIB, 'config'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { validateExpectedBranch } = require(path.join(LIB, 'branch-guard'));
+const { resolveStateDir, slugifyBranch } = require(path.join(LIB, 'state'));
+const { resolveTrailers, checkGivenSubjects, missingTrailers } = require(path.join(LIB, 'commit-message'));
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -99,6 +106,9 @@ function parseArgs(argv) {
   // --bump flag (or vice-versa) can raise bumpFlagConflict.
   let bumpFromPositional  = false;
   let noPush              = false;
+  let noTag               = false;
+  let subject             = null;
+  let messageFile         = null;
   let changelog           = false;
   let hotfix              = false;
   let auto                = false;
@@ -109,6 +119,8 @@ function parseArgs(argv) {
   const errors            = [];
 
   const BUMP_VALUES = new Set(['major', 'minor', 'patch']);
+  // A value flag without a value yields '' so checkGivenSubjects rejects it (R22).
+  const valueAt = (i) => (i + 1 < args.length && !args[i + 1].startsWith('--') ? args[i + 1] : '');
 
   // Helper: validate a --bump flag value (matches positional value space:
   // major|minor|patch OR a pre-release label).
@@ -183,6 +195,14 @@ function parseArgs(argv) {
       }
     } else if (a === '--no-push') {
       noPush = true;
+    } else if (a === '--no-tag') {
+      noTag = true;
+    } else if (a === '--subject') {
+      subject = valueAt(i);
+      if (subject !== '') i++;
+    } else if (a === '--message-file') {
+      messageFile = valueAt(i);
+      if (messageFile !== '') i++;
     } else if (a === '--changelog') {
       changelog = true;
     } else if (a === '--hotfix') {
@@ -225,7 +245,7 @@ function parseArgs(argv) {
   }
 
   return {
-    init, requestedBump, preLabel, noPush, changelog, hotfix, auto, retag,
+    init, requestedBump, preLabel, noPush, noTag, subject, messageFile, changelog, hotfix, auto, retag,
     fileOverride, expectedBranch, warnings, errors, bumpFromLabel, preLabelExplicit,
     bumpFromFlag,
   };
@@ -263,15 +283,12 @@ function fileTypeFromPath(filePath) {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  // R-projectroot (#360): route to the main worktree's .sdlc/ root, never cwd.
-  // Lets version-sdlc be invoked from subdirectories or linked worktrees
-  // without writing to the wrong directory.
+  // R-projectroot: two roots, never the shell's working directory directly.
+  // projectRoot = the main worktree's .sdlc/ root: config reads and ensureConfigVersion only.
   const projectRoot = resolveSdlcRoot();
-  // Task 3 (#498): HEAD-relative git ops (tags-at-head, commit ranges, remote
-  // state, retag rev-parse) must read the ACTIVE worktree, not the main
-  // worktree — otherwise a linked worktree's release gets computed against
-  // main's HEAD/tags. Version-file/changelog/config PATH reads stay on
-  // projectRoot (always the main worktree's .sdlc/ root).
+  // activeRoot = the checkout being released (a linked worktree's own top level):
+  // version file, changelog, --file override, checkGitState and every HEAD-relative
+  // git op. In the main worktree both roots are the same directory.
   const activeRoot  = resolveActiveWorktreeSafe();
   const args        = parseArgs(process.argv);
 
@@ -325,6 +342,9 @@ async function main() {
     if (args.hotfix) {
       retagErrors.push('--retag cannot be combined with --hotfix');
     }
+    if (args.noTag) {
+      retagErrors.push('--retag cannot be combined with --no-tag');
+    }
 
     // Resolve config to derive current version and tag prefix.
     let config;
@@ -348,7 +368,7 @@ async function main() {
           if (!versionFile) {
             retagErrors.push('config.versionFile is required when mode=file');
           } else {
-            const vfPath = path.join(projectRoot, versionFile);
+            const vfPath = path.join(activeRoot, versionFile);
             currentVersion = readVersion(vfPath, config.fileType || 'package.json');
           }
         } else {
@@ -416,7 +436,7 @@ async function main() {
     // 1. Verify git repo
     let gitState;
     try {
-      gitState = checkGitState(process.cwd());
+      gitState = checkGitState(activeRoot);
     } catch (err) {
       writeOutput({ flow: 'init', errors: [err.message], warnings }, 'version-context', 1);
       return;
@@ -428,17 +448,17 @@ async function main() {
     if (args.fileOverride) {
       const absPath  = path.isAbsolute(args.fileOverride)
         ? args.fileOverride
-        : path.join(projectRoot, args.fileOverride);
+        : path.join(activeRoot, args.fileOverride);
       const fileType = fileTypeFromPath(absPath);
-      const relPath  = path.relative(projectRoot, absPath);
+      const relPath  = path.relative(activeRoot, absPath);
       detectedVersionFile = { filePath: absPath, fileType, relativePath: relPath };
     } else {
-      const detected = detectVersionFile(projectRoot);
+      const detected = detectVersionFile(activeRoot);
       if (detected) {
         detectedVersionFile = {
           filePath:     detected.filePath,
           fileType:     detected.fileType,
-          relativePath: path.relative(projectRoot, detected.filePath),
+          relativePath: path.relative(activeRoot, detected.filePath),
         };
       }
     }
@@ -512,7 +532,7 @@ async function main() {
 
     // 2. Verify git repo
     try {
-      checkGitState(process.cwd());
+      checkGitState(activeRoot);
     } catch (err) {
       errors.push(err.message);
       writeOutput({ flow: 'changelog-update', errors, warnings }, 'version-context', 1);
@@ -523,7 +543,7 @@ async function main() {
     let currentVersion = null;
 
     if (config.mode === 'file') {
-      const absFilePath = path.join(projectRoot, config.versionFile);
+      const absFilePath = path.join(activeRoot, config.versionFile);
       try {
         currentVersion = readVersion(absFilePath, config.fileType);
       } catch (_) {
@@ -591,7 +611,7 @@ async function main() {
 
     // 6. Read existing changelog
     const changelogFile = config.changelogFile || 'CHANGELOG.md';
-    const changelogPath = path.join(projectRoot, changelogFile);
+    const changelogPath = path.join(activeRoot, changelogFile);
     const changelogExists = fs.existsSync(changelogPath);
     let changelogContent  = null;
 
@@ -682,7 +702,7 @@ async function main() {
   // 3. Verify git repo
   let gitState;
   try {
-    gitState = checkGitState(process.cwd());
+    gitState = checkGitState(activeRoot);
   } catch (err) {
     errors.push(err.message);
     writeOutput({ flow: 'release', errors, warnings }, 'version-context', 1);
@@ -710,7 +730,7 @@ async function main() {
   let versionSource  = null;
 
   if (config.mode === 'file') {
-    const absFilePath = path.join(projectRoot, config.versionFile);
+    const absFilePath = path.join(activeRoot, config.versionFile);
     let version;
     try {
       version = readVersion(absFilePath, config.fileType);
@@ -952,7 +972,7 @@ async function main() {
 
   if (changelogEnabled) {
     const changelogFile = config.changelogFile || 'CHANGELOG.md';
-    const changelogPath = path.join(projectRoot, changelogFile);
+    const changelogPath = path.join(activeRoot, changelogFile);
     const exists        = fs.existsSync(changelogPath);
     let currentContent  = null;
 
@@ -975,6 +995,26 @@ async function main() {
     remoteState = { hasUpstream: false, remoteBranch: null, isAhead: false };
   }
 
+  // 13.5 Release commit message (R22, G9)
+  // R22: commit.requiredTrailers via the shared resolver; given subjects via the shared check.
+  const messageFile = args.messageFile ? path.resolve(activeRoot, args.messageFile) : args.messageFile;
+  const relErrors = checkGivenSubjects({ subject: args.subject, messageFile, expectedSubject: null });
+  const commitSection = readSection(projectRoot, 'commit');            // lib/config.js, config root
+  const trailers = Array.isArray(commitSection?.requiredTrailers) ? resolveTrailers(commitSection.requiredTrailers, relErrors) : [];
+  let subject = args.subject;
+  if (messageFile && relErrors.length === 0) {
+    const text = fs.readFileSync(messageFile, 'utf8');
+    subject = text.split('\n')[0];
+    for (const m of missingTrailers(text, trailers)) relErrors.push(`--message-file lacks required trailer ${m}`);   // G9
+  }
+  if (relErrors.length > 0) { writeOutput({ flow: 'release', errors: relErrors, warnings }, 'version-context', 1); return; }
+  const releaseCommit = {
+    subject: subject ?? null,
+    messageFile: messageFile || null,
+    trailers,
+    draftFile: path.join(resolveStateDir(), `version-release-${slugifyBranch(currentBranch || 'nobranch')}.msg`),
+  };
+
   // 14. Build and output final JSON
   writeOutput({
     flow:    'release',
@@ -987,6 +1027,7 @@ async function main() {
     requestedBump: args.requestedBump,
     flags: {
       noPush:             args.noPush,
+      noTag:              args.noTag,
       changelog:          changelogEnabled, // resolved: config.changelog OR --changelog CLI flag
       preLabel:           args.preLabel,
       hotfix:             args.hotfix,
@@ -1010,6 +1051,7 @@ async function main() {
     changelog:          changelogOutput,
     remoteState,
     branchGuard,
+    releaseCommit,
     idempotency: {
       alreadyBumped: false,
       headReleaseTags,

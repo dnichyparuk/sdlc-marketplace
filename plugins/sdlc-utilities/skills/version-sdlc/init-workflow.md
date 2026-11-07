@@ -39,15 +39,21 @@ Options:
 
 ### Step 4 (WRITE): Write Config on Confirmation
 
-On `yes` or `changelog`, write the version section to `.sdlc/config.json` using `writeSection` from lib/config.js with
-the content from `suggestedConfig` (adjusted if `changelog` was chosen).
+On `yes` or `changelog`, write the version section with `suggestedConfig` (adjusted if `changelog` was chosen):
+
+```bash
+node -e "const c=require(process.argv[1]); c.writeSection(c.resolveSdlcRoot(),'version',JSON.parse(process.argv[2]))" "<PLUGIN_ROOT>/scripts/lib/config.js" '<suggestedConfig as one-line JSON>'
+```
+
+Write any `'` inside the JSON as `'\''` so a value cannot end the single-quoted argument.
+
+Fallback: `node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --project-config '{"version": <suggestedConfig>}' --output-file` (writes relative to the current directory).
 
 Then scaffold CI scripts and workflows using `scaffold-ci.js`.
 
 Run the scaffold (include `--changelog` when `config.changelog === true`):
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 # Without changelog:
 node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --output-file
 # With changelog:
@@ -74,7 +80,6 @@ The check-changelog lines are only shown when `config.changelog === true`.
 **Version check** — after scaffolding, check if any installed files are outdated. Run the scaffold script again in check-only mode:
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --output-file
 # With changelog:
 node "<PLUGIN_ROOT>/scripts/util/scaffold-ci.js" --check-only --changelog --output-file

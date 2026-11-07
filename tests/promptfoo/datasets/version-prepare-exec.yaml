@@ -192,6 +192,8 @@
       value: 'already carries release tag'
     - type: icontains
       value: 'skipping to stay idempotent'
+    - type: icontains
+      value: '"reason": "HEAD already carries release tag'
     - type: not-icontains
       value: 'bumpOptions'
 
@@ -236,3 +238,120 @@
       value: 'already carries release tag'
     - type: icontains
       value: '"patch": "1.0.1"'
+
+# --no-tag, linked-worktree roots, release subject and trailers (M9-Ra, #9311)
+
+- description: 'version-prepare: --no-tag resolves flags.noTag (R21)'
+  vars:
+    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
+    script_args: 'patch --no-tag'
+    script_cwd: '{{project_root}}'
+    project_root: 'file://fixtures-fs/version-sdlc-config-changelog'
+  assert:
+    - type: icontains
+      value: '"noTag": true'
+    - type: not-icontains
+      value: 'Unknown flag'
+
+- description: 'version-prepare: no --no-tag gives flags.noTag=false (R21)'
+  vars:
+    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
+    script_args: 'patch'
+    script_cwd: '{{project_root}}'
+    project_root: 'file://fixtures-fs/version-sdlc-config-changelog'
+  assert:
+    - type: icontains
+      value: '"noTag": false'
+
+- description: 'version-prepare: --no-tag --no-push both resolve (R21)'
+  vars:
+    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
+    script_args: 'patch --no-tag --no-push'
+    script_cwd: '{{project_root}}'
+    project_root: 'file://fixtures-fs/version-sdlc-config-changelog'
+  assert:
+    - type: icontains
+      value: '"noTag": true'
+    - type: icontains
+      value: '"noPush": true'
+
+- description: 'version-prepare: --retag --no-tag is an exclusivity error (G8)'
+  vars:
+    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
+    script_args: '--retag --no-tag'
+    script_cwd: '{{project_root}}'
+    project_root: 'file://fixtures-fs/version-sdlc-config-changelog'
+  assert:
+    - type: icontains
+      value: '--retag cannot be combined with --no-tag'
+
+- description: 'version-prepare: linked worktree reads wt1 version file and changelog (R-projectroot)'
+  vars:
+    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
+    script_args: 'patch'
+    script_cwd: '{{project_root}}/worktrees/wt1'
+    project_root: 'file://fixtures-fs/version-linked-worktree'
+  assert:
+    - type: icontains
+      value: 'worktrees/wt1/package.json'
+    - type: icontains
+      value: '"currentVersion": "1.1.0"'
+    - type: icontains
+      value: 'WT1-CHANGELOG-MARKER'
+    - type: not-icontains
+      value: 'MAIN-CHANGELOG-MARKER'
+    - type: icontains
+      value: 'uncommitted changes'
+
+- description: 'version-prepare: --subject with requiredTrailers (R22)'
+  vars:
+    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
+    # script_args is split on whitespace (no shell), so the subject has no spaces.
+    script_args: 'patch --subject chore(#9311):release-v1.0.1'
+    script_cwd: '{{project_root}}'
+    project_root: 'file://fixtures-fs/version-release-trailers'
+  assert:
+    - type: icontains
+      value: '"subject": "chore(#9311):release-v1.0.1"'
+    - type: icontains
+      value: '"key": "Refs"'
+    - type: icontains
+      value: '"value": "M9-Ra"'
+    - type: icontains
+      value: '"key": "Signed-off-by"'
+    - type: icontains
+      value: '"draftFile":'
+
+- description: 'version-prepare: --message-file with all trailers (R22, G9)'
+  vars:
+    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
+    script_args: 'patch --message-file msg-ok.txt'
+    script_cwd: '{{project_root}}'
+    project_root: 'file://fixtures-fs/version-release-trailers'
+  assert:
+    - type: icontains
+      value: '"messageFile":'
+    - type: icontains
+      value: 'msg-ok.txt'
+    - type: icontains
+      value: '"subject": "chore(#9311): release - v1.0.1"'
+
+- description: 'version-prepare: --message-file missing a trailer fails (G9)'
+  vars:
+    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
+    script_args: 'patch --message-file msg-missing.txt'
+    script_cwd: '{{project_root}}'
+    project_root: 'file://fixtures-fs/version-release-trailers'
+  assert:
+    - type: icontains
+      value: '--message-file lacks required trailer Refs: M9-Ra'
+
+- description: 'version-prepare: --subject with $ fails (R22)'
+  vars:
+    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
+    script_args: "patch --subject 'a$b'"
+    script_cwd: '{{project_root}}'
+    project_root: 'file://fixtures-fs/version-release-trailers'
+  assert:
+    - type: icontains
+      value: 'cannot pass the Step 0 shell line'
