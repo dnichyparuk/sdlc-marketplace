@@ -4946,7 +4946,7 @@
         const q = e.ext.pendingQuestion;
         if (!q || q.id !== 'rerunGuard' || q.step !== 'version') return `FAIL: pendingQuestion ${JSON.stringify(q)}`;
         if (q.dispatchHead !== o.snapshots[0].version.dispatchHead || q.head !== o.headAfter || q.dispatchHead === q.head) return `FAIL: shas ${JSON.stringify(q)}`;
-        if (JSON.stringify(q.options) !== '["record","rerun"]' || 'question' in q || 'commands' in q) return `FAIL: shape ${JSON.stringify(q)}`;
+        if (JSON.stringify(q.options) !== '["record","skip"]' || 'question' in q || 'commands' in q) return `FAIL: shape ${JSON.stringify(q)}`;
         if (!o.snapshots[1].paused) return 'FAIL: ledger not paused';
         if (e.step) return 'FAIL: a step was dispatched';
         const c = e.ext.commands;
@@ -5056,7 +5056,7 @@
         const q = e.ext.pendingQuestion;
         if (!q || q.id !== 'rerunGuard' || q.step !== 'execute') return `FAIL: pendingQuestion ${JSON.stringify(q)}`;
         if (q.dispatchHead !== o.headAfter || q.head !== o.headAfter) return `FAIL: shas ${JSON.stringify(q)}`;
-        if (JSON.stringify(q.options) !== '["record","rerun"]') return `FAIL: options ${JSON.stringify(q.options)}`;
+        if (JSON.stringify(q.options) !== '["record","skip"]') return `FAIL: options ${JSON.stringify(q.options)}`;
         if (e.step || !o.snapshots[1].paused) return 'FAIL: a step was dispatched or the ledger is not paused';
         const c = e.ext.commands;
         if (c.length !== 3 || !/ complete --step execute --result "/.test(c[0]) || !/ skip --step execute --reason "/.test(c[1]) || c[2] !== '/sdlc:ship-sdlc --resume --auto') return `FAIL: commands ${JSON.stringify(c)}`;

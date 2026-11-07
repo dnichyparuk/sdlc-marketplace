@@ -421,7 +421,7 @@ function mergeFlags(cli, config) {
   // R76: present only when given (mirrors quality); never from config.
   if (cli.tasks)    merged.tasks    = cli.tasks;
   if (cli.fromWave) merged.fromWave = cli.fromWave;
-  // A15-A17: release flags, never from config; the ledger freezes them with the other flags.
+  // A15-A17: release flags, CLI or default, never from config; non-frozen, so the R11 refresh (part 2 Task 4) rewrites them on resume.
   merged.noTag          = cli.noTag === true;
   merged.noPush         = cli.noPush === true;
   merged.releaseSubject = cli.releaseSubject || null;
@@ -1903,9 +1903,9 @@ function rerunGuard(entry, cwd, executeHasState) {
   if (c.landed && !dirty) return null;
   return {
     prompt: dirty
-      ? `The ${entry.name} step ran before, left no state file, and the working tree has changes outside .sdlc/ (HEAD is still ${c.head}). Record the work already done, or run the step again?`
-      : `The ${entry.name} step ran before and HEAD has moved since: it was ${entry.dispatchHead} when the step was dispatched and is ${c.head} now. Record the work already done, or run the step again?`,
-    options: ['record', 'rerun'],
+      ? `The ${entry.name} step ran before, left no state file, and the working tree has changes outside .sdlc/ (HEAD is still ${c.head}). Record the work already done, or skip the step?`
+      : `The ${entry.name} step ran before and HEAD has moved since: it was ${entry.dispatchHead} when the step was dispatched and is ${c.head} now. Record the work already done, or skip the step?`,
+    options: ['record', 'skip'],
     id: 'rerunGuard',
     step: entry.name,
     dispatchHead: entry.dispatchHead,
