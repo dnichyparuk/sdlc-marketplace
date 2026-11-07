@@ -2371,7 +2371,8 @@ function runAfter(stepArgs) {
     const commands = [
       ...(viaExecute ? [`/sdlc:execute-plan-sdlc --plan "${flags.planFile}" --resume`] : []),
       ...extraCommands,
-      '/sdlc:ship-sdlc --resume',
+      // R80: the caller repeats --auto on resume, so the printed line carries it when the run used it.
+      `/sdlc:ship-sdlc --resume${flags.auto ? ' --auto' : ''}`,
     ];
     return finish(createEnvelope('done', null, {
       ext: { ...ext, reason: 'pending-question', pendingQuestion: question, commands },

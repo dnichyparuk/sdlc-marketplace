@@ -4917,8 +4917,26 @@
         if (!o.snapshots[1].paused) return 'FAIL: ledger not paused';
         if (e.step) return 'FAIL: a step was dispatched';
         const c = e.ext.commands;
-        if (c.length !== 3 || !/ complete --step version --result "release commit [0-9a-f]+ recorded by hand"$/.test(c[0]) || !/ skip --step version --reason "re-run guard: release already made"$/.test(c[1]) || c[2] !== '/sdlc:ship-sdlc --resume') return `FAIL: commands ${JSON.stringify(c)}`;
+        if (c.length !== 3 || !/ complete --step version --result "release commit [0-9a-f]+ recorded by hand"$/.test(c[0]) || !/ skip --step version --reason "re-run guard: release already made"$/.test(c[1]) || c[2] !== '/sdlc:ship-sdlc --resume --auto') return `FAIL: commands ${JSON.stringify(c)}`;
         return true;
+
+- description: "ship-rerun: (version) moved HEAD under --auto prints a resume line with --auto"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rerun-version-moved --seed frozen --auto-seed"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[1].envelope;
+        if (e.status !== 'done' || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.ext && e.ext.reason} ${e.error}`;
+        const q = e.ext.pendingQuestion;
+        if (!q || q.id !== 'rerunGuard') return `FAIL: pendingQuestion ${JSON.stringify(q)}`;
+        const c = e.ext.commands;
+        return c.length === 3 && c[2] === '/sdlc:ship-sdlc --resume --auto' ? true : `FAIL: commands ${JSON.stringify(c)}`;
 
 - description: "ship-rerun: (version) same HEAD dispatches again"
   vars:
