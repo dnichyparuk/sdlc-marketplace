@@ -59,8 +59,6 @@ Read and parse `VERSION_CONTEXT_FILE` as `VERSION_CONTEXT_JSON`.
 **If `VERSION_CONTEXT_JSON.warnings` is non-empty**, show the warnings to the user before continuing.
 For the warning `"You have uncommitted changes"`, use AskUserQuestion to ask:
 
-**Under `--auto`:** when `VERSION_CONTEXT_JSON.flags.auto === true`, do not call AskUserQuestion. Stop and return failure with `pendingQuestion`: "You have uncommitted changes that will NOT be included in this release." (options: proceed, commit first, cancel) (version C12).
-
 > You have uncommitted changes that will NOT be included in this release.
 
 Options:
@@ -69,6 +67,8 @@ Options:
 - **cancel** — abort the release
 
 On **commit first**: invoke `/commit-sdlc` via the Skill tool. After the commit completes, re-invoke `/version-sdlc` with the same original arguments.
+
+**Under `--auto`:** when `VERSION_CONTEXT_JSON.flags.auto === true`, do not call AskUserQuestion for this warning. Stop and return failure with `pendingQuestion`: "You have uncommitted changes that will NOT be included in this release." (options: proceed, commit first, cancel) (version C12).
 
 ---
 

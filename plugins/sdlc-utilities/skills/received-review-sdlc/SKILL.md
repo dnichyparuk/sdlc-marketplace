@@ -187,7 +187,7 @@ For each item:
 
 If any item is unclear, ask about all unclear items in one message before implementing anything: items may be related, and partial understanding produces the wrong change.
 
-**Under `--auto`:** when `manifest.flags.auto === true`, ask nothing; give each unclear item the verdict "needs discussion" (C19).
+**Under `--auto`:** when `flags.auto` is true (the boolean resolved in Step 1), ask nothing; give each unclear item the verdict "needs discussion" (C19).
 
 Only proceed to Step 3 after all items are understood.
 
@@ -210,7 +210,7 @@ Determine the verification status:
 - **cannot verify** — would need runtime data or external context
 
 For "cannot verify" items: state the limitation explicitly, ask the user for direction.
-**Under `--auto`:** when `manifest.flags.auto === true`, ask nothing; give the item the verdict "needs discussion" (C19).
+**Under `--auto`:** when `flags.auto` is true (the boolean resolved in Step 1), ask nothing; give the item the verdict "needs discussion" (C19).
 
 ---
 

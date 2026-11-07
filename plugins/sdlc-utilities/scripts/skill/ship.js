@@ -1868,11 +1868,21 @@ function sweepStateFiles(flags) {
   } catch (_) { /* the sweep is best effort; the error envelope must still be emitted */ }
 }
 
-/** True when `git status --porcelain` lists a path outside `.sdlc/` (a rename counts by its target). */
+/**
+ * True when `git status --porcelain -z` lists a path outside `.sdlc/` (a rename counts by its target).
+ * A failed git call also gives true: the tree state is unknown, so the guard asks instead of
+ * letting a finished execute run again.
+ */
 function changesOutsideSdlc(cwd) {
-  const res = spawnSync('git', ['status', '--porcelain'], { cwd, encoding: 'utf8', timeout: 8000 });
-  if (res.status !== 0) return false;
-  return res.stdout.split('\n').filter(Boolean).some(l => !l.slice(3).split(' -> ').pop().replace(/^"|"$/g, '').startsWith('.sdlc/'));
+  const res = spawnSync('git', ['status', '--porcelain', '-z', '--untracked-files=all'], { cwd, encoding: 'utf8', timeout: 8000 });
+  if (res.status !== 0) return true;
+  const parts = res.stdout.split('\0').filter(Boolean);
+  for (let i = 0; i < parts.length; i++) {
+    const code = parts[i].slice(0, 2);
+    if (!parts[i].slice(3).startsWith('.sdlc/')) return true;
+    if (code[0] === 'R' || code[0] === 'C') i++; // the next entry is the rename source
+  }
+  return false;
 }
 
 /**
