@@ -1,0 +1,3 @@
+chore(#9311): release - v1.0.1
+
+Signed-off-by: Test
