@@ -1,8 +1,8 @@
 ---
 name: version-sdlc
-description: "Use this skill when bumping a version, creating a release tag, generating or updating a changelog, retagging the current version at HEAD, or setting up versioning (--init). Arguments: [major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--changelog] [--hotfix] [--retag] [--auto]. A positional <label> (e.g. rc) means --bump patch --pre <label>. Triggers on: version bump, create release, tag release, changelog, semver, pre-release, retag."
+description: "Use this skill when bumping a version, creating a release tag, generating or updating a changelog, retagging the current version at HEAD, or setting up versioning (--init). Arguments: [major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--changelog] [--hotfix] [--retag] [--auto] [--no-tag] [--subject <text>] [--message-file <path>]. A positional <label> (e.g. rc) means --bump patch --pre <label>. Triggers on: version bump, create release, tag release, changelog, semver, pre-release, retag."
 user-invocable: true
-argument-hint: "[major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--bump <type>] [--changelog] [--hotfix] [--retag] [--auto]"
+argument-hint: "[major|minor|patch|<label>] [--init] [--pre <label>] [--no-push] [--bump <type>] [--changelog] [--hotfix] [--retag] [--auto] [--no-tag] [--subject <text>] [--message-file <path>]"
 model: inherit
 ---
 
@@ -107,6 +107,8 @@ Read `VERSION_CONTEXT_JSON`. Key fields to extract:
 | `flags` | `{ preLabel, noPush, changelog, hotfix, auto, bumpFromFlag, bumpFromLabel, preLabelExplicit, preLabelFromConfig }` — parsed CLI flags plus bump and pre-release provenance fields. `bumpFromFlag` is `true` when the bump came from the named `--bump <value>` flag (R-bump-flag). The pre-release provenance flags are mutually exclusive: at most one of `bumpFromLabel`, `preLabelExplicit`, `preLabelFromConfig` is `true`. |
 | `flags.hotfix` | Whether this release is a hotfix (for DORA metrics tracking) |
 | `flags.auto` | Whether `--auto` was passed — skip interactive approval prompts |
+| `flags.noTag` | `true` when `--no-tag` was passed — no tag, no tag push (R21) |
+| `releaseCommit` | `{ subject, messageFile, trailers, draftFile }` — the release commit message source (R22) |
 | `config.ticketPrefix` | Optional Jira/project key prefix (e.g. `"PROJ"`). When set, ticket IDs matching this prefix are extracted from commits. |
 | `commits[].ticketIds` | Array of extracted ticket IDs (e.g. `["PROJ-123"]`) found in the commit subject and body. Empty array if none. |
 | `conflictsWithNext` | `{ major, minor, patch, preRelease }` — whether each candidate tag already exists; `preRelease` is checked against all semver tags incl. `-<label>.N` (R20) |
@@ -150,7 +152,7 @@ Show the full release plan to the user. **Do not execute any git commands before
 Release Plan
 ────────────────────────────────────────────
 Version:    1.2.3 → 1.3.0
-Tag:        v1.3.0 (annotated)
+Tag:        v1.3.0 (annotated)   ← render 'none (--no-tag)' when flags.noTag === true
 File:       package.json
 Push:       yes (to origin/main)
 Changelog:  yes             ← render 'yes' when flags.changelog === true, else 'no' (substitute from flags.changelog)
@@ -240,18 +242,23 @@ The release proceeds regardless of the user's answer. This is informational, not
 
    On zero exit, proceed to step 4. `SDLC_LINKS_OFFLINE=1` skips network reachability while keeping context-aware checks — use in sandboxed CI.
 
-4. **Commit**:
-   - If `flags.hotfix === true`: `git commit -m "chore(release): ${newTag} [hotfix]"`
-   - Otherwise: `git commit -m "chore(release): ${newTag}"`
-5. **Tag**:
+4. **Commit** <!-- R10, R22 -->:
+   - If `releaseCommit.messageFile` is non-null: `git commit -F "<releaseCommit.messageFile>"`.
+   - Otherwise the subject is `releaseCommit.subject` when non-null; else `chore(release): ${newTag}`, with ` [hotfix]` appended when `flags.hotfix === true`.
+     - If `releaseCommit.trailers` is empty: `git commit -m "<subject>"`.
+     - Otherwise write the message to `releaseCommit.draftFile` with the Write tool — the subject, a blank line, then one line per entry: `Key: Value` when `value` is set, `Key: ` when `value` is null — and run `git commit -F "<releaseCommit.draftFile>"`.
+5. **Tag** (only when `flags.noTag === false`) <!-- R9, R21 -->:
    - If `flags.hotfix === true`:
      ```bash
      git tag -a ${newTag} -m "$(printf 'Release %s\n\nType: hotfix' ${newTag})"
      ```
    - Otherwise: `git tag -a ${newTag} -m "Release ${newTag}"`
-6. **Push** (unless `flags.noPush === true`):
-   - If `remoteState.hasUpstream === true` (R11): `git push && git push --tags`
-   - If `remoteState.hasUpstream === false` (R15): `git push --set-upstream origin <currentBranch> && git push --tags` — uses `currentBranch` from the prepare-script `version-context` output. This auto-heals first push from a fresh feature branch; no manual `git push -u` is required.
+
+   When `flags.noTag === true`, create no tag (C11).
+6. **Push** (unless `flags.noPush === true`) <!-- R11, R15, R21 -->:
+   - `flags.noTag === false` and `remoteState.hasUpstream === true`: `git push && git push --tags`
+   - `flags.noTag === false` and `remoteState.hasUpstream === false`: `git push --set-upstream origin <currentBranch> && git push --tags` — uses `currentBranch` from the prepare-script `version-context` output. This auto-heals first push from a fresh feature branch; no manual `git push -u` is required.
+   - `flags.noTag === true`: `git push`, or `git push --set-upstream origin <currentBranch>` when `remoteState.hasUpstream === false`; never `git push --tags`.
 
 **If any git command fails** (commit, tag, or push) with a non-auth error, show the error.
 
@@ -261,10 +268,12 @@ Display result:
 
 ```
 ✓ Release v1.3.0 complete.
-  Commit: abc1234 — chore(release): v1.3.0
+  Commit: abc1234 — <subject>
   Tag:    v1.3.0
   Pushed: yes → origin/main
 ```
+
+When `flags.noTag === true`, show `Tag:    none (--no-tag)`.
 
 If `flags.hotfix === true`, show instead:
 
@@ -398,7 +407,7 @@ New SHA: <head[:7]>
 
 - Execute any git commands without explicit user approval (`yes`) or auto-mode implicit approval (`flags.auto === true`)
 - Fabricate commit descriptions or changelog entries not backed by real commits
-- Push to remote without checking `flags.noPush`
+- Push to remote without checking `flags.noPush`, or tag without checking `flags.noTag`
 - Modify the version file if `config.mode === "tag"` — in tag mode, the version lives in git only
 - Omit the pre-condition verification in Step 6 before executing
 
@@ -414,7 +423,7 @@ New SHA: <head[:7]>
 | Pre-release tag conflict (`conflictsWithNext.preRelease` true) | Advance the pre-release counter (`rc.N` → `rc.N+1`); suggest re-running with the same label | No — user decision |
 | `git commit` fails | Show error; check for uncommitted changes or hook failure | Yes if non-hook failure |
 | `git tag` fails | Show error; check for duplicate tag or missing git identity | Yes if non-duplicate failure |
-| `git push --tags` fails | Show error; check remote connectivity and branch protection rules | Yes if non-auth failure |
+| `git push --tags` fails (only run when `flags.noTag === false`) | Show error; check remote connectivity and branch protection rules | Yes if non-auth failure |
 
 When invoking `error-report-sdlc`, provide:
 - **Skill**: version-sdlc
