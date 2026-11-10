@@ -167,6 +167,17 @@ function resolveDefaultBranch() {
 // WIP-commit squash detection (Fixes #392 / R35)
 // ---------------------------------------------------------------------------
 
+function mergeBase(ref) {
+  // argv array, no shell: a ref name may contain shell metacharacters.
+  try {
+    return require('node:child_process').execFileSync('git', ['merge-base', 'HEAD', String(ref)], {
+      cwd: process.cwd(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch (_) {
+    return null;
+  }
+}
+
 /**
  * Detects `wip(execute):` commits between the current branch's fork-point and HEAD.
  * Returns { commits: string[], stagedClean: boolean, forkPoint: string|null } — consumed by commit-sdlc
@@ -187,15 +198,14 @@ function detectWipSquash() {
   // Try upstream first.
   const upstream = exec('git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null', { cwd: process.cwd() });
   if (upstream && upstream.trim().length > 0) {
-    const base = exec(`git merge-base HEAD ${upstream.trim()} 2>/dev/null`, { cwd: process.cwd() });
+    const base = mergeBase(upstream.trim());
     if (base && base.trim().length > 0) forkPoint = base.trim();
   }
 
   // Fall back to detected default branch.
   if (!forkPoint) {
     const defaultBranch = resolveDefaultBranch();
-    const base = exec(`git merge-base HEAD ${defaultBranch} 2>/dev/null`, { cwd: process.cwd() })
-              || exec(`git merge-base HEAD master 2>/dev/null`, { cwd: process.cwd() });
+    const base = mergeBase(defaultBranch) || mergeBase('master');
     if (base && base.trim().length > 0) forkPoint = base.trim();
   }
 
