@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-11-10
+
+### Added
+- ship-sdlc: `--resume` resumes a failed execute step when its execute state file exists (#9338).
+- ship-sdlc: the summary adds the token usage of every review round and lists the commit-fixes commit of each round (#9338).
+- exec cases and the `project-commit-wip-squash-no-upstream` fixture for the resume, re-run guard and WIP squash changes (#9338).
+
+### Changed
+- ship-sdlc: the execute re-run guard compares a tree fingerprint recorded at dispatch instead of testing for a dirty tree (#9338).
+- ship-sdlc: the commit and version step agents add no attribution trailer of their own (#9338).
+- commit-sdlc: the subject-gate menu offers only cancel when a subject was given (#9338).
+
+### Fixed
+- commit-sdlc: the WIP squash finds its fork point without an upstream, and runs `merge-base` with an argument list instead of a shell command (#9338).
+
+### Removed
+- Nothing removed.
+
 ## [0.47.0] - 2026-11-07
 
 ### Added
