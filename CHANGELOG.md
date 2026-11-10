@@ -7,9 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Removed
-- ship-sdlc: the `rerun` option of the re-run guard; the guard offers `record` or `skip` (#9330).
-
 ## [0.47.0] - 2026-11-07
 
 ### Added
@@ -30,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nothing fixed.
 
 ### Removed
-- Nothing removed.
+- ship-sdlc: the `rerun` option of the re-run guard; the guard offers `record` or `skip` (#9330).
 
 ## [0.46.0] - 2026-11-07
 
