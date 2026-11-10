@@ -2633,6 +2633,10 @@ function runAfter(stepArgs) {
 
   // X1: `cleanup-pipeline` deletes the ledger before `--after cleanup` runs, so keep
   // the Step 6 summary where that call can still read it.
+  // R89: the pr step is done, so its testing-summary file is no longer needed.
+  if (next.step.id === 'cleanup') {
+    try { fs.unlinkSync(path.join(resolveStateDir(), `pr-testing-${slugifyBranch(ledger.branch)}.md`)); } catch (_) { /* absent is fine */ }
+  }
   if (next.step.id === 'cleanup' && next.step.data && next.step.data.summary) {
     try {
       fs.writeFileSync(summarySidecarPath(ledgerPath), JSON.stringify(next.step.data.summary));
