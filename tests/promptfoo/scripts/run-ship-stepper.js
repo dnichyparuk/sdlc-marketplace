@@ -43,7 +43,10 @@
  *   --auto-seed          Patch data.flags.auto = true into the seed (any scenario)
  *   --with-state         (rerun-execute-*) copy seed/execute-complete.json as the branch's execute state file after the first emission
  *   --version-failed    (rerun-version-*) mark the version entry failed after the first emission
- *   --clean-tree         (after-received-review-changes) commit everything but .sdlc/ first, so the tree is clean; otherwise a fix.txt change is written
+ *   --dirty-before       (rerun-execute-*) write pre-existing.txt before the first call, so the tree is dirty at dispatch
+ *   --drop-dispatch-tree (rerun-execute-*) delete the execute entry's dispatchTree from the ledger after the first call
+ *   --exec-failed        (rerun-execute-*) mark the execute entry failed after the first emission
+ *   --clean-tree       (after-received-review-changes) commit everything but .sdlc/ first, so the tree is clean; otherwise a fix.txt change is written
  *   --plan-files <csv>   (stage-outside-files) commit a plan whose Task 1 Files are these paths
  *   --write <csv>        (stage-outside-files) create these files, untracked
  *   --edit-plan          (stage-outside-files) leave plan.md modified and uncommitted
@@ -476,9 +479,20 @@ switch (scenario) {
   case 'rerun-execute-clean': {
     // R86: emit dispatch_execute, then (finished) leave uncommitted work outside .sdlc/ and, with --with-state,
     // an execute state file; emit again, and once more to compare the two outcomes.
+    if (process.argv.includes('--dirty-before')) fs.writeFileSync(path.join(projectRoot, 'pre-existing.txt'), 'dirty before dispatch\n');
     after('confirm_pipeline', 'results/yes.json');
     snapshots.push(snap());
     headAfter = sh('git rev-parse HEAD').stdout.trim();
+    if (process.argv.includes('--drop-dispatch-tree')) {
+      const d = readJson(statePath);
+      delete d.steps.find(x => x.name === 'execute').dispatchTree;
+      fs.writeFileSync(statePath, JSON.stringify(d, null, 2));
+    }
+    if (process.argv.includes('--exec-failed')) {
+      const d = readJson(statePath);
+      d.steps.find(x => x.name === 'execute').status = 'failed';
+      fs.writeFileSync(statePath, JSON.stringify(d, null, 2));
+    }
     if (scenario === 'rerun-execute-finished') fs.writeFileSync(path.join(projectRoot, 'executed-work.txt'), 'work from the first run\n');
     if (process.argv.includes('--with-state')) {
       fs.mkdirSync(execDir, { recursive: true });

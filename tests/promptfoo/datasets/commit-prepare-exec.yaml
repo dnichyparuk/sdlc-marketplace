@@ -277,6 +277,20 @@
       value: '"wipSquash"'
     - type: regex
       value: '"commits":\s*\[\s*\]'
+    - type: icontains
+      value: '"forkPoint"'
+
+- description: "commit-prepare: wipSquash forkPoint is the default-branch merge-base without an upstream (#9239)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-wip-squash-no-upstream"
+  assert:
+    - type: javascript
+      value: |
+        const w = JSON.parse(output).wipSquash;
+        // forkPoint is the main commit below the two wip commits: a sha that is none of them
+        return /^[0-9a-f]{40}$/.test(w.forkPoint) && w.commits.length === 2 && !w.commits.includes(w.forkPoint) ? true : `FAIL: ${JSON.stringify(w)}`;
 
 # R-expected-branch (issues #347, #348, #349): --expected-branch flag is parsed and validated.
 
@@ -771,3 +785,13 @@
       value: |
         const o = JSON.parse(output);
         return o.fallback === 1 && o.errors === 1 && o.old === 0 ? true : `FAIL: ${output}`;
+
+- description: "commit-skill-text: (R16, R20) the soft-reset uses wipSquash.forkPoint, no symbolic-ref call, and the Exit 2 given-subject sentence appears once"
+  vars:
+    script_path: "-e"
+    script_args: '((s)=>((c)=>console.log(JSON.stringify({sym:c("git\x20symbolic-ref\x20--short\x20HEAD"),fork:c("wipSquash.forkPoint"),mb:c("git\x20merge-base"),up:c("@{upstream}"),exit2:c("offer\x20only\x20**cancel**\x20(R16)")})))((t)=>s.split(t).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.sym === 0 && o.fork >= 1 && o.mb === 0 && o.up === 0 && o.exit2 === 1 ? true : `FAIL: ${output}`;

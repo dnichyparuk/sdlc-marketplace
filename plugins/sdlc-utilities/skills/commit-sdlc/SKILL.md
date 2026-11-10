@@ -80,12 +80,13 @@ Read `wipSquash` from `COMMIT_CONTEXT_JSON`. The field has the shape:
 {
   "wipSquash": {
     "commits": ["<sha>", "<sha>", ...],
-    "stagedClean": true
+    "stagedClean": true,
+    "forkPoint": "<sha>"
   }
 }
 ```
 
-`commits[]` is the list of commit SHAs whose subject starts with `wip(execute):` between the current branch's fork-point and `HEAD` (per `git log --format='%H %s' <fork>..HEAD`, filtered to subjects matching `^wip\(execute\)`). `stagedClean` is `true` iff `git diff --cached --name-only` returned nothing at prepare time.
+`commits[]` is the list of commit SHAs whose subject starts with `wip(execute):` between the current branch's fork-point and `HEAD` (per `git log --format='%H %s' <fork>..HEAD`, filtered to subjects matching `^wip\(execute\)`). `stagedClean` is `true` iff `git diff --cached --name-only` returned nothing at prepare time. `forkPoint` is that fork-point sha: the merge-base with the upstream, else with the default branch, or null (R20, P15).
 
 **When `wipSquash.commits.length === 0`**: skip this step silently — proceed to Step 2 PLAN with the staged diff unchanged.
 
@@ -96,20 +97,10 @@ Read `wipSquash` from `COMMIT_CONTEXT_JSON`. The field has the shape:
 1. Print:
    > Detected N `wip(execute):` commit(s) from execute-plan-sdlc per-wave commits. The final commit will subsume them via soft-reset.
 
-2. Resolve the fork-point and soft-reset. Run each command below as its own plain Bash call, in this order:
-   1. Find the upstream branch:
-      ```bash
-      git rev-parse --abbrev-ref --symbolic-full-name @{upstream}
-      ```
-      When it exits 0, its output is `<BASE>`. When it fails (no upstream is set), run `git symbolic-ref --short HEAD` and use its output as `<BASE>`.
-   2. Find the fork-point; its output is `<FORK_POINT>`:
-      ```bash
-      git merge-base HEAD '<BASE>'
-      ```
-   3. Soft-reset to it:
-      ```bash
-      git reset --soft '<FORK_POINT>'
-      ```
+2. Soft-reset to the fork point from the prepare output (R20), as one plain Bash call:
+   ```bash
+   git reset --soft '<wipSquash.forkPoint>'
+   ```
    The soft-reset preserves all changes in the working tree and index — the WIP commits are dropped from history; nothing on disk changes.
 
 3. Re-stage so user hand-edits on top of the WIP commits (preserved by the soft-reset because `stagedClean === false`) and the unwound WIP file changes are both staged:
@@ -226,13 +217,13 @@ Set `Source:` to the flag that supplied the given subject, in the same order (`-
    - **Exit 1 or 2 with `flags.auto` true:** do not call AskUserQuestion. Print `Subject gate rejected the subject (exit <code>): <reason>` — for 2 the reason is "internal WIP marker"; for 1 it is `commitConfig.subjectPatternError` if set, otherwise the pattern — and stop without committing. The next run prunes the manifest and message file (R-script-prune). (C14, E8)
    - **Exit 3 with `flags.auto` true:** do not call AskUserQuestion. Print `Subject gate rejected the message (exit 3): given "<the given subject>", written "<first line of <MSG_FILE>>"` and stop without committing. (E9; E10 when only `flags.expectedSubject` is set)
    - **Exit 3:** the written message differs from what the caller gave. Show the given subject and the written one, and use AskUserQuestion with **use the given subject** or **cancel**. On **use the given subject**: when `flags.messageFile` is set, set `MESSAGE` to the file's content; otherwise replace the first line of `MESSAGE` with the given subject. Then rewrite `<MSG_FILE>` with the Write tool and re-run the gate. (E9, E10)
-   - **Exit 2:** the subject starts with an internal WIP marker. Do not commit. Use AskUserQuestion with **edit subject** or **cancel** (no **harden** option).
+   - **Exit 2:** the subject starts with an internal WIP marker. Do not commit. Use AskUserQuestion with **edit subject** or **cancel** (no **harden** option). When a subject was given (`flags.subject`, `flags.expectedSubject` or `flags.messageFile`), offer only **cancel** (R16): an edited subject trips exit 3, and the given subject trips exit 2 again.
    - **Exit 1:** keep the existing handling — show the error message from `commitConfig.subjectPatternError` if set, otherwise show the pattern itself as a fallback. Do **not** proceed with the commit. Use AskUserQuestion to offer:
      - **edit subject** — let the user revise the subject line to match the pattern; re-run the gate
      - **harden** — run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time. Opt-in — no surface is edited without your approval. (This option targets refining the regex or error message in `commitConfig`, not the current subject. Suppressed when `--auto` is set.) When the user selects **harden**, dispatch `Skill(harden-sdlc)` with `--failure-text "Subject pattern reject: subject '<line>' does not match pattern '<subjectPattern>' — error: <subjectPatternError>"`, `--skill commit-sdlc`, `--step "Step 5 — subject pattern gate"`, `--operation "subject pattern validation"`. Implements R13.
      - **cancel** — abort the commit
      Do not allow overriding this gate via a non-edit choice.
-     At this Exit 1 menu only (the Exit 2 menu above is unchanged): when a subject was given (`flags.subject`, `flags.expectedSubject` or `flags.messageFile`), offer only **harden** and **cancel** (R13): an edited subject would differ from the given one and trip exit 3, and the given subject fails the pattern again.
+     At this Exit 1 menu: when a subject was given (`flags.subject`, `flags.expectedSubject` or `flags.messageFile`), offer only **harden** and **cancel** (R13): an edited subject would differ from the given one and trip exit 3, and the given subject fails the pattern again.
 
 0b. **Trailer gate (G10, R17):** Check the trailers of every message, drafted or given:
 

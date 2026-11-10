@@ -247,7 +247,7 @@ plan-sdlc      (--auto if     (--committed)
 
 ### Review rounds
 
-With `--review-rounds <n>` (default 1), the review, received-review and commit-fixes steps can run up to `n` times. When commit-fixes completes in round k and k is below `n`, ship records that round in `rounds[]` of the state file, sets `round` to k + 1, resets the three steps to pending and runs review again on the new commit. The review gate, the staging of the fixes and, in interactive runs, the confirm questions are asked again in each round. The loop ends after round `n`, or earlier when a round's commit-fixes is skipped (the review found nothing at the threshold, the gate was deferred, or received-review changed nothing). With the default of one round the pipeline runs as before.
+With `--review-rounds <n>` (default 1), the review, received-review and commit-fixes steps can run up to `n` times. When commit-fixes completes in round k and k is below `n`, ship records that round in `rounds[]` of the state file, sets `round` to k + 1, resets the three steps to pending and runs review again on the new commit. The review gate, the staging of the fixes and, in interactive runs, the confirm questions are asked again in each round. The loop ends after round `n`, or earlier when a round's commit-fixes is skipped (the review found nothing at the threshold, the gate was deferred, or received-review changed nothing). The final summary adds the token usage of every round and lists the commit-fixes commit of each round. With the default of one round the pipeline runs as before.
 
 ---
 
@@ -801,7 +801,7 @@ To resume:
 
 1. The skill finds the most recent state file for the current branch (matched by branch name in the filename).
 2. Steps with status `completed` or `skipped` are skipped.
-3. Steps with status `in_progress` are retried from the beginning.
+3. Steps with status `in_progress` are retried from the beginning. An `execute` step with status `failed` is re-dispatched with `--resume` when its execute state file exists.
 4. Steps with status `pending` run normally.
 5. The plan (`flags.planFile`) and the step list are restored from the state file unless `--plan`, `--steps` or `--quick` is given; every other flag resolves from the CLI, then config, then the default. A `--plan` that differs from the ledger's plan stops with `resumePlanMismatch`.
 

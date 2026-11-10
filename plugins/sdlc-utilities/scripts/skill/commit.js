@@ -167,16 +167,27 @@ function resolveDefaultBranch() {
 // WIP-commit squash detection (Fixes #392 / R35)
 // ---------------------------------------------------------------------------
 
+function mergeBase(ref) {
+  // argv array, no shell: a ref name may contain shell metacharacters.
+  try {
+    return require('node:child_process').execFileSync('git', ['merge-base', 'HEAD', String(ref)], {
+      cwd: process.cwd(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch (_) {
+    return null;
+  }
+}
+
 /**
  * Detects `wip(execute):` commits between the current branch's fork-point and HEAD.
- * Returns { commits: string[], stagedClean: boolean } — consumed by commit-sdlc
+ * Returns { commits: string[], stagedClean: boolean, forkPoint: string|null } — consumed by commit-sdlc
  * SKILL.md Step 1c to decide whether to soft-reset before generating the final
  * commit message.
  *
  * Fork-point resolution order:
  *   1. `git merge-base HEAD <upstream>` when an upstream is configured
  *   2. Detected default branch (origin/HEAD symbolic ref → main/master fallback)
- *   3. When neither resolves, returns { commits: [], stagedClean } — never errors
+ *   3. When neither resolves, returns { commits: [], stagedClean, forkPoint: null } — never errors
  */
 function detectWipSquash() {
   const stagedRaw = exec('git diff --cached --name-only', { cwd: process.cwd() });
@@ -187,24 +198,23 @@ function detectWipSquash() {
   // Try upstream first.
   const upstream = exec('git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null', { cwd: process.cwd() });
   if (upstream && upstream.trim().length > 0) {
-    const base = exec(`git merge-base HEAD ${upstream.trim()} 2>/dev/null`, { cwd: process.cwd() });
+    const base = mergeBase(upstream.trim());
     if (base && base.trim().length > 0) forkPoint = base.trim();
   }
 
   // Fall back to detected default branch.
   if (!forkPoint) {
     const defaultBranch = resolveDefaultBranch();
-    const base = exec(`git merge-base HEAD ${defaultBranch} 2>/dev/null`, { cwd: process.cwd() })
-              || exec(`git merge-base HEAD master 2>/dev/null`, { cwd: process.cwd() });
+    const base = mergeBase(defaultBranch) || mergeBase('master');
     if (base && base.trim().length > 0) forkPoint = base.trim();
   }
 
   if (!forkPoint) {
-    return { commits: [], stagedClean };
+    return { commits: [], stagedClean, forkPoint: null };
   }
 
   const logRaw = exec(`git log --format=%H%x09%s ${forkPoint}..HEAD`, { cwd: process.cwd() });
-  if (!logRaw) return { commits: [], stagedClean };
+  if (!logRaw) return { commits: [], stagedClean, forkPoint };
 
   const wipPrefixRe = /^wip\(execute\)/;
   const commits = logRaw
@@ -218,7 +228,7 @@ function detectWipSquash() {
     .filter(e => e && wipPrefixRe.test(e.subject))
     .map(e => e.sha);
 
-  return { commits, stagedClean };
+  return { commits, stagedClean, forkPoint };
 }
 
 // ---------------------------------------------------------------------------
@@ -352,7 +362,7 @@ function main() {
     wipSquashEarly = detectWipSquash();
   } catch (err) {
     warnings.push(`Could not detect wip(execute): commits for squash: ${err.message}`);
-    wipSquashEarly = { commits: [], stagedClean: true };
+    wipSquashEarly = { commits: [], stagedClean: true, forkPoint: null };
   }
 
   // Step 5: Error if nothing staged and not amending
