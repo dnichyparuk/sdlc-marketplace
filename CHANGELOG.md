@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-10
+
 ### Added
 - review-sdlc: `--plan <path>`; reviewers treat the plan's recorded decisions as intent (#9339).
 - pr-sdlc: `--testing-file <path>`; the Testing section reports the verification summary (#9339).
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - received-review-sdlc: a finding that would reverse a recorded plan decision is declined (#9339).
 
 ### Fixed
+- ship-sdlc: lean mode stage, hook and review fixes; the pr testing summary file is removed after the pr step and stale ones are swept (#9339).
 - tests: two `--expected-branch` exec fixtures no longer depend on the global git default branch (#9339).
 
 ## [0.48.0] - 2026-11-10
