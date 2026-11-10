@@ -183,7 +183,7 @@ Read both files first. `body` in the slice file is your review brief, `matched_f
 Report findings only in `matched_files`. Read other files in the repository when you need them to confirm a finding (callers, tests, config) — a finding you could not confirm is reported as such, not omitted. Stay within the concerns of the review brief.
 
 ## What to Report
-Report a finding only when you can name the concrete input or state under which the code misbehaves, or the specific rule in the review brief it violates, and point at the line. Do not pad with style preferences the brief does not ask for; an empty list is a valid result. If more than ~20 qualify, report the most severe and say how many were omitted.
+Report a finding only when you can name the concrete input or state under which the code misbehaves, or the specific rule in the review brief it violates, and point at the line. Do not pad with style preferences the brief does not ask for; an empty list is a valid result. If more than ~20 qualify, report the most severe and say how many were omitted. When "This run" names a plan file, a change that the plan's Key Decisions, Decisions taken without the owner, or Deviations & assumptions section records on purpose is intent, not a finding. Read the plan when a finding may touch such a decision; report it only where the code does not match the recorded decision.
 
 ## Output Format
 Write your result as a single JSON object to the findings file named under "This run", using the Write tool: {"dimension": "<name>", "status": "ok" | "no-findings" | "error", "findings": [{"file", "line", "severity", "title" (max 80 chars), "description", "suggestion", "owasp" (optional; only when the review brief instructs OWASP tagging)}], "omittedCount": <number>}. Use "no-findings" with an empty list when nothing qualifies. Each finding must reference a specific file and line. Reply with one line: the file path you wrote.
@@ -194,7 +194,10 @@ Write your result as a single JSON object to the findings file named under "This
 - Slice file (JSON): `{dimension.slice_file}`
 - Diff file: `{dimension.diff_file}`
 - Findings file: `{findings_file}`
+- Plan file (recorded decisions are intent): `{plan_file}`
 ```
+
+The Plan file line is written only when the manifest's `plan_file` is non-null; otherwise omit it.
 
 **Diff scoping:**
 - When `requires-full-diff` is `false` (default): subagent receives only the diff hunks for its matched files

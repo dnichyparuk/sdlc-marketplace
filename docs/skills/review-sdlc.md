@@ -30,6 +30,7 @@ Branch-contribution diffs (the `committed` and `all` scopes) use git's three-dot
 | `--dry-run` | Show the review plan without dispatching subagents | — |
 | `--auto` | No prompts: the post decision comes from `--post` (default `yes` with a PR, `save` without); no self-fix offer | off |
 | `--post yes\|save\|none` | Post, save to `.sdlc/reviews/`, or keep in the terminal, without asking | ask |
+| `--plan <path>` | The plan this change implements. Reviewers treat its recorded decisions as intent, not defects (ship-sdlc passes it). | none |
 
 > **Scope flags:** `--committed`, `--staged`, `--working`, and `--worktree` are mutually exclusive. `--staged` and `--working` cannot be combined with `--base`.
 

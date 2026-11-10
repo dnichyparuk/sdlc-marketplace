@@ -38,6 +38,7 @@ For each dimension with `status: "ACTIVE"` or `status: "TRUNCATED"`:
    - `{dimension.name}`, `{dimension.description}`, `{dimension.severity}`
    - `{dimension.slice_file}` and `{dimension.diff_file}` → the path strings (the subagent reads them). Fill the `## This run` block at the end of the template with them; everything above it is the static prefix.
    - `{findings_file}` → `{manifest.diff_dir}/{dimension.name}.findings.json`
+   - When `manifest.plan_file` is non-null, add the last line of the `## This run` block: ``- Plan file (recorded decisions are intent): `{manifest.plan_file}` `` (path only; do not read the plan). Omit the line when it is null.
 3. Dispatch via Agent tool (subagent_type: general-purpose, model: dimension.model || manifest.subagent_model, effort: dimension.effort || manifest.subagent_effort)
    - Per-dimension precedence: a dimension's `model:` field (from its frontmatter, see R15) wins; otherwise fall back to `manifest.subagent_model`. Forward the string verbatim; D13 has already rejected values that are not Claude models (R15).
    - `effort` follows the same precedence; `review.js` has already nulled a value outside low|medium|high|xhigh|max (D14).

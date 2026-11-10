@@ -92,6 +92,8 @@
 - R30: After Step 11, SKILL.md runs `received-review.js --check-scope --manifest <m> --fixed <ids>`. Exit 0 prints `{"ok":true,…}`. Exit 1 prints `{"ok":false,"outOfScope":[…],"belowThreshold":[…]}` when a changed path (`git diff --name-only HEAD` plus untracked files, `.sdlc/` excluded) is not in `allowedFiles`, or a fixed id's severity ranks below `minSeverity`. Exit 2 is a script error. On exit 1 or 2 the skill stops with a failure and a `pendingQuestion` that names the paths and ids; it never reverts.
 - R31: When `manifest.source` is `comment-file`, Steps 7, 8 and 10 draft no thread reply. Step 7 keeps one decision line per finding, Step 8's thread-level row is not applied, and Step 10 shows no "Drafted PR responses" block.
 - R32: When `manifest.pr` is null, Step 11.6 writes `PR: none (comment-file <basename of manifest.comment_file>)`, and its dedup matches prior entries by `surface=`, `targetFile=` and that same `PR:` line.
+- R33: When `planFile` is non-null, a finding whose fix would reverse a decision recorded in the plan's `## Key Decisions`, `## Decisions taken without the owner` or `## Deviations & assumptions` section gets the verdict "disagree", with the decision cited in the reply, and is never fixed, also under `--auto` and the R18 bypass.
+  - Acceptance: exec cases whose descriptions start with `rr-plan:`.
 
 ### Step-emitter contract
 
@@ -156,6 +158,7 @@ Critique 2 (responses):
 - P18: `comment_file` (string | null) — the absolute path read with `source: comment-file`; null otherwise. With `source: comment-file`, `pr` and `currentUser` are null and `threads` is `[]`
 - P19: `allowedFiles: string[] | null`
 - P20: `flags.minSeverity: string | null`
+- P21: `planFile` — the absolute `--plan` path, or null; present in every manifest the prepare script writes.
 
 ## Failure handling and resume
 

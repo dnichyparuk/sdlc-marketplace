@@ -71,6 +71,7 @@ function parseArgs(argv) {
   let isAuto           = false;
   let forcedLabels     = [];
   let expectedBranch   = null;
+  let testingFile      = null;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -87,10 +88,12 @@ function parseArgs(argv) {
     } else if (a === '--expected-branch' && args[i + 1]) {
       // R-expected-branch (issues #347, #348, #349): validated after gitState is resolved
       expectedBranch = args[++i];
+    } else if (a === '--testing-file' && args[i + 1]) {
+      testingFile = path.resolve(args[++i]);
     }
   }
 
-  return { isDraft, forceUpdate, baseBranchOverride, isAuto, forcedLabels: [...new Set(forcedLabels)], expectedBranch };
+  return { isDraft, forceUpdate, baseBranchOverride, isAuto, forcedLabels: [...new Set(forcedLabels)], expectedBranch, testingFile };
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +198,7 @@ function detectPrMode(forceUpdate, prMeta) {
 function main() {
   const projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/
   const activeRoot = resolveActiveWorktreeSafe(); // issue #490: HEAD-relative git ops target the active worktree
-  const { isDraft, forceUpdate, baseBranchOverride, isAuto, forcedLabels, expectedBranch } = parseArgs(process.argv);
+  const { isDraft, forceUpdate, baseBranchOverride, isAuto, forcedLabels, expectedBranch, testingFile } = parseArgs(process.argv);
 
   const errors   = [];
   const warnings = [];
@@ -558,6 +561,16 @@ function main() {
   // R13: OpenSpec context for enrichment; never blocks PR creation.
   const openspec = prOpenspec(activeRoot);
 
+  // Testing summary file (--testing-file): text handed over by the caller, null when absent or unreadable
+  let testingSummary = null;
+  if (testingFile) {
+    try {
+      testingSummary = fs.readFileSync(testingFile, 'utf8').trim().slice(0, 4000);
+    } catch (err) {
+      warnings.push(`Could not read testing file ${testingFile}: ${err.message}`);
+    }
+  }
+
   // Build output
   const result = {
     mode,
@@ -595,6 +608,7 @@ function main() {
     errors,
     branchGuard,
     openspec,
+    testingSummary,
   };
 
   writeOutput(result, 'pr-context', 0);

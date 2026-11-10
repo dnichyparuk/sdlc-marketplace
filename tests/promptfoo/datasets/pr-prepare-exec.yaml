@@ -487,3 +487,50 @@
           && /"proposalPath": "[^"]*openspec\/changes\/my-change\/proposal\.md"/.test(m[0])
           && /"designPath": null/.test(m[0]);
         return ok ? true : `FAIL: ${m[0]}`;
+
+- description: "pr-prepare-testing: (a) --testing-file fills testingSummary"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_args: "--testing-file {{project_root}}/setup.sh"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-detect-diff"
+  assert:
+    - type: javascript
+      value: |
+        const m = /"testingSummary": "((?:[^"\\]|\\.)*)"/.exec(output);
+        return m && m[1].length > 100 && /^#!\/usr\/bin\/env bash|^#!\/bin\/bash/.test(JSON.parse('"' + m[1] + '"')) ? true : 'FAIL: ' + (m ? m[1].slice(0, 60) : 'no testingSummary');
+
+- description: "pr-prepare-testing: (b) no flag gives null"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-detect-diff"
+  assert:
+    - type: icontains
+      value: '"testingSummary": null'
+
+- description: "pr-prepare-testing: (c) unreadable file warns"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_args: "--testing-file missing.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-detect-diff"
+  assert:
+    - type: icontains
+      value: '"testingSummary": null'
+    - type: regex
+      value: 'Could not read testing file [^"]*missing\.md'
+
+- description: "pr-prepare-testing: (d) long text is cut to 4000 characters"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_args: "--testing-file {{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-detect-diff"
+  assert:
+    - type: javascript
+      value: |
+        const m = /"testingSummary": "((?:[^"\\]|\\.)*)"/.exec(output);
+        if (!m) return 'FAIL: no testingSummary';
+        const n = JSON.parse('"' + m[1] + '"').length;
+        return n === 4000 ? true : `FAIL: length ${n}`;

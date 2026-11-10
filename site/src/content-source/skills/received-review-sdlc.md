@@ -34,6 +34,10 @@ Provide review feedback in one of three ways:
 
 When `--plan` or `--min-severity` is set, Step 4 applies the scope and threshold rules. After the last fix, Step 11 runs `received-review.js --check-scope` against the manifest and the fixed finding ids. If a changed file is outside the allowed files, or a fixed finding is below the threshold, the skill stops with a failure and asks "Revert or keep the listed changes?". It never reverts on its own, and it skips Steps 11.6 to 12. When run from `/ship-sdlc`, ship stops before commit-fixes.
 
+### Plan decisions
+
+When `--plan` is set, the manifest also carries `planFile`. A finding whose fix would reverse a decision recorded in the plan (Key Decisions, Decisions taken without the owner, Deviations & assumptions) gets the verdict "disagree" and the reply cites the decision. It is never fixed, also under `--auto` or the always-fix bypass.
+
 ---
 
 ## Configuration

@@ -42,7 +42,8 @@ State files are always written to the **main working tree's** `.sdlc/execution/`
     "guardrailsEvaluated": "2026-05-09T14:05:30.000Z",
     "critiqueRan":         "2026-05-09T14:06:00.000Z"
   },
-  "planFilePath": "/Users/dev/.claude/plans/2026-05-09-fix-auth.md"
+  "planFilePath": "/Users/dev/.claude/plans/2026-05-09-fix-auth.md",
+  "sessionId": "<sid or null>"
 }
 ```
 
@@ -50,6 +51,7 @@ State files are always written to the **main working tree's** `.sdlc/execution/`
 |----------------|------------------|-----------------------------------------------------------------------------|
 | `planIntegrity`| object           | Checkpoint markers; each key's presence means that checkpoint was reached.  |
 | `planFilePath` | string \| null   | Absolute path to the written plan file. Used by the Stop hook to stat the file for non-empty content verification. `null` until the `planFile` marker is written. |
+| `sessionId`    | string \| null   | Owning session id, optional. The Stop hook leaves the marker in place when this and the payload `session_id` are both non-empty and differ (R21); a missing value keeps the hook acting on the marker. |
 
 ---
 
@@ -79,7 +81,7 @@ Each field inside `planIntegrity` is an ISO 8601 timestamp string. Absence of a 
 `hooks/stop-plan-integrity.js` runs at session end (Stop hook):
 
 1. Calls `findStateFile('plan', branchSlug)` and captures the returned path.
-2. Reads the marker via `readState`.
+2. Reads the marker via `readState`, then the stdin payload. If marker `sessionId` and payload `session_id` are both non-empty and differ, exits 0 and leaves the marker in place.
 3. Evaluates all four `planIntegrity` keys and stats `planFilePath`.
 4. Calls `deleteState(path)` **regardless of integrity outcome** — the marker is single-use.
 5. Subsequent Stop events on the same branch find no marker and the hook exits 0 (R21).

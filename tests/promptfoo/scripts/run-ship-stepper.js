@@ -51,6 +51,11 @@
  *   --write <csv>        (stage-outside-files) create these files, untracked
  *   --edit-plan          (stage-outside-files) leave plan.md modified and uncommitted
  *   --fixes              (stage-outside-files) reach stage_fixes (after received-review) instead of stage_changes
+ *   --resume-after-fix   (stage-outside-files) after the stop: delete every --write path not in --plan-files, then
+ *                        --after confirm_pipeline (yes); with --again also --after stage_changes (generic-ok) and
+ *                        --after confirm_pipeline (yes) once more
+ *   --untrack-plan       (stage-outside-files) untrack plan.md (git rm --cached + commit) before the --after call
+ *   --ignore-sdlc        (after-pr) write .sdlc/.gitignore holding `*` before the first call
  *   --rounds <n>         (rounds-*) patch data.flags.reviewRounds = n into the seed; absent: the seed has no reviewRounds
  *                        rounds-*: auto seed; each round answers dispatch_review, review_gate, received-review (rounds-2-no-fixes:
  *                        clean tree; otherwise it appends to fix.txt, stages and commits it) until the next step is not dispatch_review;
@@ -455,6 +460,7 @@ switch (scenario) {
     after('cleanup', 'results/cleanup-ok.json');
     break;
   case 'after-pr':
+    if (process.argv.includes('--ignore-sdlc')) fs.writeFileSync(path.join(projectRoot, '.sdlc', '.gitignore'), '*\n');
     after('dispatch_pr', resultRel);
     break;
   case 'rerun-version-moved':
@@ -588,7 +594,18 @@ switch (scenario) {
       fs.writeFileSync(path.join(projectRoot, rel), 'x\n');
     }
     if (process.argv.includes('--edit-plan')) fs.appendFileSync(path.join(projectRoot, 'plan.md'), '\nedited\n');
+    if (process.argv.includes('--untrack-plan')) sh('git rm -q --cached plan.md && git commit -q -m "fixture: untrack plan"');
     after(process.argv.includes('--fixes') ? 'dispatch_received_review' : 'dispatch_execute', 'results/generic-ok.json');
+    if (process.argv.includes('--resume-after-fix')) {
+      // R87: the user reverts the outside paths, then resumes; stage_changes must still be emitted (once).
+      const keep = csv('--plan-files');
+      for (const rel of csv('--write')) if (!keep.includes(rel)) fs.rmSync(path.join(projectRoot, rel), { force: true });
+      after('confirm_pipeline', 'results/yes.json');
+      if (process.argv.includes('--again')) {
+        after('stage_changes', 'results/generic-ok.json');
+        after('confirm_pipeline', 'results/yes.json');
+      }
+    }
     break;
   }
   case 'rounds-2-fixes':
