@@ -5,7 +5,9 @@
  * is presented. Exits 2 with the warning on stderr when markers are missing, so
  * the model sees it; exits 0 otherwise.
  *
- * Reads the plan state file for the current branch (no stdin). If one exists,
+ * Reads the plan state file for the current branch. If one exists, reads the stdin
+ * payload and acts only on a marker this session owns (a marker whose sessionId
+ * differs from the payload session_id is left in place), then
  * checks the planIntegrity markers and stats the recorded planFilePath, then
  * deletes the marker (single-shot). Warns on any missing or failed check.
  *
@@ -80,6 +82,15 @@ try {
     }
 
     const data = stateResult.data;
+
+    // R21: act only on a marker this session owns. stdin is read only here, so
+    // the no-marker path stays stdin-free.
+    let payload = {};
+    try { const raw = fs.readFileSync(0, 'utf8'); payload = raw ? JSON.parse(raw) : {}; } catch (_) { payload = {}; }
+    const hookSid = typeof payload.session_id === 'string' && payload.session_id ? payload.session_id : null;
+    const markerSid = typeof data.sessionId === 'string' && data.sessionId ? data.sessionId : null;
+    if (hookSid && markerSid && hookSid !== markerSid) process.exit(0);
+
     const pi = (data.planIntegrity && typeof data.planIntegrity === 'object')
       ? data.planIntegrity
       : {};

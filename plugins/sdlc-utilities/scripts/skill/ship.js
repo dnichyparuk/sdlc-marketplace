@@ -541,7 +541,8 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       ...stepAgent('review'),
       status: isIn('review') ? 'will_run' : 'skipped',
       skipSource: skipSource('review'),
-      args: ['--committed', flags.auto ? '--auto' : ''].filter(Boolean).join(' '),
+      // R88: the plan's recorded decisions are review intent.
+      args: ['--committed', flags.auto ? '--auto' : '', planFile ? `--plan "${planFile}"` : ''].filter(Boolean).join(' '),
       reason: isIn('review') ? 'in steps[]' : 'not in steps[]',
       pause: false,
       isolation: null,
@@ -1420,6 +1421,9 @@ function stageScope(planFile, cwd) {
   for (const t of extractTasks(text)) {
     for (const e of parseFilesEntries(taskSection(t.body))) allowed.add(e.path.replace(/^\.\//, '').replace(/\/$/, ''));
   }
+  // R83: the plan file itself is always allowed.
+  const rel = path.relative(cwd, path.resolve(cwd, planFile)).split(path.sep).join('/');
+  if (rel && !rel.startsWith('..')) allowed.add(rel);
   const parts = st.stdout.split('\0').filter(Boolean);
   const changed = [];
   for (let i = 0; i < parts.length; i++) {
@@ -1787,6 +1791,20 @@ function receivedReviewInput(ledger) {
   return '';
 }
 
+/** R89: `--testing-file "<path>"` with the latest successful execute summary, or null. */
+function prTestingInput(ledger) {
+  let row = null;
+  for (let i = ledger.history.length - 1; i >= 0 && !row; i--) {
+    const h = ledger.history[i];
+    if (h.step === 'dispatch_execute' && h.result === 'success') row = h;
+  }
+  const text = row && row.data && typeof row.data.summary === 'string' ? row.data.summary.trim() : '';
+  if (!text) return null;
+  const file = path.join(resolveStateDir(), `pr-testing-${slugifyBranch(ledger.branch)}.md`);
+  try { fs.writeFileSync(file, text + '\n'); } catch { return null; }
+  return `--testing-file "${file}"`;
+}
+
 /** Reason a conditional step's condition is not met, or null when it is met. */
 function unmetCondition(name, ledger) {
   if (name === 'received-review') {
@@ -1965,6 +1983,10 @@ function pickNextStep(after, ctx) {
       // R84: these repeat per review round, so only rows after the latest dispatch_review count.
       const h = historyAfter(ledger, id, 'dispatch_review');
       if (h && h.result === 'success') continue;
+    } else if (id === 'stage_changes') {
+      // R87: decided from the ledger, so a resumed run stages too.
+      const h = historyAfter(ledger, id, 'dispatch_execute');
+      if (h && h.result === 'success') continue;
     } else if (historySuccess(ledger, id)) {
       continue;
     }
@@ -1985,7 +2007,9 @@ function pickNextStep(after, ctx) {
       }
       case 'stage_changes':
       case 'stage_fixes': {
-        if (id === 'stage_changes' ? !recorded.has('execute') : unmetCondition('commit-fixes', ledger) !== null) continue;
+        if (id === 'stage_changes'
+          ? !(entryOf('execute') && entryOf('execute').status === 'completed' && !isDone('commit'))
+          : unmetCondition('commit-fixes', ledger) !== null) continue;
         const wt = resolveActiveWorktreeSafe();
         const { outside } = stageScope(flags.planFile, wt);
         if (outside.length) return stageOutsidePending(outside);
@@ -2053,6 +2077,12 @@ function pickNextStep(after, ctx) {
         data = { commands: [`node "${id === 'verify_pipeline' ? VERIFY_PIPELINE_SCRIPT : AWAIT_REVIEW_SCRIPT}" ${cs.args} --state-file "${ledgerPath}"`] };
         break;
       case 'learnings_commit':
+        // R36: a git-ignored learnings log can never be committed.
+        if (spawnSync('git', ['check-ignore', '-q', '--', '.sdlc/learnings/log.md'], { cwd: resolveActiveWorktreeSafe(), timeout: 8000 }).status === 0) {
+          skipEntry(ledger, 'learnings-commit', 'learnings log is git-ignored');
+          skipped.push('learnings-commit');
+          continue;
+        }
         data = { commands: [LEARNINGS_COMMIT_COMMAND] };
         break;
       case 'cleanup': {
@@ -2128,6 +2158,13 @@ function pickNextStep(after, ctx) {
         data = { skill: cs.skill, args: cs.args, invocation: cs.invocation, agent: cs.agent, model: cs.model, ...(cs.effort ? { effort: cs.effort } : {}), ...(cs.isolation ? { isolation: cs.isolation } : {}) };
         if (id === 'dispatch_received_review') {
           const input = receivedReviewInput(ledger);
+          if (input) {
+            data.args = `${cs.args} ${input}`;
+            data.invocation = `skill: "${cs.skill}", args: "${data.args}"`;
+          }
+        }
+        if (id === 'dispatch_pr') {
+          const input = prTestingInput(ledger); // R89
           if (input) {
             data.args = `${cs.args} ${input}`;
             data.invocation = `skill: "${cs.skill}", args: "${data.args}"`;

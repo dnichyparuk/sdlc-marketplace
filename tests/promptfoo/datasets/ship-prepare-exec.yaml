@@ -2567,6 +2567,38 @@
         if (o.ledger.stepStatuses.pr !== 'completed') return `FAIL: pr ${o.ledger.stepStatuses.pr}`;
         return true;
 
+# R36: a git-ignored learnings log can never be committed, so learnings_commit is skipped, not emitted.
+- description: "ship-lean: (learnings) a an ignored learnings log skips learnings_commit"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-pr --seed frozen --result results/pr-ok.json --gh-pr-url https://example/pr/1 --ignore-sdlc"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status === 'error') return `FAIL: error ${e.error}`;
+        if (o.calls.some(c => c.envelope.step && c.envelope.step.id === 'learnings_commit')) return 'FAIL: learnings_commit emitted';
+        if (o.ledger.stepStatuses['learnings-commit'] !== 'skipped') return `FAIL: learnings-commit ${o.ledger.stepStatuses['learnings-commit']}`;
+        return o.ledger.stepReasons['learnings-commit'] === 'learnings log is git-ignored' ? true : `FAIL: reason ${o.ledger.stepReasons['learnings-commit']}`;
+
+- description: "ship-lean: (learnings) b a tracked learnings log still emits learnings_commit after dispatch_pr"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-pr --seed frozen --result results/pr-ok.json --gh-pr-url https://example/pr/1"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        return e.status === 'step' && e.step.id === 'learnings_commit' ? true : `FAIL: ${e.status} ${e.step && e.step.id} ${e.error || ''}`;
+
 - description: "ship-step: (w46) --after dispatch_pr whose URL gh cannot confirm returns error and records pr failed"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
@@ -3696,7 +3728,8 @@
       value: |
         const o = JSON.parse(output);
         const ids = o.calls.map(c => c.envelope.step ? c.envelope.step.id : c.envelope.status);
-        if (ids[0] !== 'execute_handoff' || ids[1] !== 'stage_changes') return `FAIL: ids ${JSON.stringify(ids)}`;
+        // R87: --walk skips commit, so stage_changes is not emitted.
+        if (ids[0] !== 'execute_handoff' || ids.includes('stage_changes')) return `FAIL: ids ${JSON.stringify(ids)}`;
         if (o.ledger.stepStatuses.execute !== 'completed') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
         const h = o.ledger.history.find(x => x.step === 'execute_handoff');
         if (!h || h.source !== 'user-attested') return `FAIL: history ${JSON.stringify(o.ledger.history)}`;
@@ -5309,7 +5342,7 @@
         const q = e.ext.pendingQuestion;
         return q.id === 'stageOutsideFiles' && JSON.stringify(q.paths) === JSON.stringify(['out.txt']) ? true : `FAIL: ${JSON.stringify(q)}`;
 
-- description: "ship-strict: (e) an uncommitted plan file is listed as outside"
+- description: "ship-strict: (e) an edited plan file is staged, not outside"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
@@ -5321,8 +5354,58 @@
       value: |
         const o = JSON.parse(output);
         const e = o.calls[0].envelope;
-        if (e.status !== 'done' || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.ext && e.ext.reason}`;
-        return JSON.stringify(e.ext.pendingQuestion.paths) === JSON.stringify(['plan.md']) ? true : `FAIL: ${JSON.stringify(e.ext.pendingQuestion)}`;
+        if (e.status !== 'step' || e.step.id !== 'stage_changes') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.ext && e.ext.reason}`;
+        return e.ext && e.ext.pendingQuestion ? `FAIL: pending ${JSON.stringify(e.ext.pendingQuestion)}` : true;
+
+- description: "ship-strict: (f) an untracked plan file is staged, not outside"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario stage-outside-files --seed frozen-exec --plan-files in.txt --write in.txt --untrack-plan"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        return e.status === 'step' && e.step.id === 'stage_changes' ? true : `FAIL: ${e.status} ${e.step && e.step.id} ${e.ext && JSON.stringify(e.ext.pendingQuestion)}`;
+
+# R87: stage_changes is decided from the ledger, so a run resumed after the outside-files stop still stages, once.
+- description: "ship-lean: (resume) a resumed run after the outside-files stop emits stage_changes"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario stage-outside-files --seed frozen-exec --plan-files in.txt --write in.txt,out.txt --resume-after-fix"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const first = o.calls[0].envelope;
+        if (first.status !== 'done' || first.ext.reason !== 'pending-question') return `FAIL: first ${first.status} ${first.ext && first.ext.reason}`;
+        const e = o.calls[1].envelope;
+        if (e.status !== 'step' || e.step.id !== 'stage_changes') return `FAIL: resumed ${e.status} ${e.step && e.step.id} ${e.error || ''}`;
+        return JSON.stringify(e.step.data.commands) === JSON.stringify(["git add -A -- ':!.sdlc/'"]) ? true : `FAIL: commands ${JSON.stringify(e.step.data.commands)}`;
+
+- description: "ship-lean: (resume) b a second resume after stage_changes succeeded does not emit it again"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario stage-outside-files --seed frozen-exec --plan-files in.txt --write in.txt,out.txt --resume-after-fix --again"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.calls.length !== 4) return `FAIL: calls ${o.calls.length}`;
+        const r = o.calls[1].envelope;
+        if (r.status !== 'step' || r.step.id !== 'stage_changes') return `FAIL: resumed ${r.status} ${r.step && r.step.id}`;
+        const e = o.calls[3].envelope;
+        if (e.status === 'error') return `FAIL: error ${e.error}`;
+        return e.step && e.step.id === 'stage_changes' ? 'FAIL: stage_changes emitted again' : true;
 
 # A19, R84 (#9308): --review-rounds repeats review → received-review → commit-fixes up to n times.
 - description: "ship-rounds: (a) --review-rounds 2 resolves with source cli"
@@ -5521,3 +5604,65 @@
       value: |
         const o = JSON.parse(output);
         return o.commit === 1 && o.version === 1 ? true : `FAIL: ${output}`;
+
+# R88: the plan's recorded decisions are review intent, so ship forwards --plan to review.
+- description: "ship-lean: (review args) a --plan is forwarded to review"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const got = o.steps.find(s => s.name === 'review').args;
+        return /^--committed --plan "[^"]*plan-3-tasks\.md"$/.test(got) ? true : `FAIL: ${got}`;
+
+- description: "ship-lean: (review args) b --auto precedes --plan"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --auto --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const got = o.steps.find(s => s.name === 'review').args;
+        return /^--committed --auto --plan "[^"]*plan-3-tasks\.md"$/.test(got) ? true : `FAIL: ${got}`;
+
+# R89: the latest successful execute summary reaches pr as --testing-file. The -e script seeds a ledger whose
+# steps before pr are completed, records an execute row, then runs `ship.js --after confirm_pipeline`.
+- description: "ship-lean: (pr testing) a the execute summary is passed to pr as --testing-file"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>eval("const\x20cwd=process.cwd();const\x20d=JSON.parse(fs.readFileSync(path.join(cwd,`seed`,`ledger-frozen.json`),`utf8`));d.steps.forEach(s=>{if([`execute`,`commit`,`review`,`version`].includes(s.name))s.status=`completed`;if([`received-review`,`commit-fixes`].includes(s.name))s.status=`skipped`});d.history=[{step:`dispatch_execute`,result:`success`,data:{summary:`25/25\x20exec\x20cases\x20passed`},timestamp:`2026-10-19T12:00:00.000Z`}];fs.mkdirSync(path.join(cwd,`.sdlc`,`execution`),{recursive:true});const\x20st=path.join(cwd,`.sdlc`,`execution`,`ship-feat-ship-20261019T120000Z.json`);fs.writeFileSync(st,JSON.stringify(d,null,2));const\x20run=(id,f)=>JSON.parse(fs.readFileSync(cp.spawnSync(`node`,[js,`--after`,id,`--result-file`,path.join(cwd,`results`,f),`--state`,st],{cwd,encoding:`utf8`}).stdout.trim(),`utf8`));let\x20e=run(`confirm_pipeline`,`yes.json`);if(e.step&&e.step.id===`confirm_pr`)e=run(`confirm_pr`,`yes.json`);const\x20a=(e.step&&e.step.data&&e.step.data.args)||``;const\x20m=a.match(/--testing-file\x20\x22([^\x22]+)/);console.log(JSON.stringify({env:e,file:m?fs.readFileSync(m[1],`utf8`):null,stateDir:path.dirname(st)}))"))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.env;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_pr') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.error || ''}`;
+        const want = `--testing-file "${o.stateDir}/pr-testing-feat-ship.md"`;
+        if (!e.step.data.args.endsWith(want)) return `FAIL: args ${e.step.data.args}`;
+        return o.file === '25/25 exec cases passed\n' ? true : `FAIL: file ${JSON.stringify(o.file)}`;
+
+- description: "ship-lean: (pr testing) b an execute result without a summary adds no --testing-file"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,path,js)=>eval("const\x20cwd=process.cwd();const\x20d=JSON.parse(fs.readFileSync(path.join(cwd,`seed`,`ledger-frozen.json`),`utf8`));d.steps.forEach(s=>{if([`execute`,`commit`,`review`,`version`].includes(s.name))s.status=`completed`;if([`received-review`,`commit-fixes`].includes(s.name))s.status=`skipped`});d.history=[{step:`dispatch_execute`,result:`success`,data:{},timestamp:`2026-10-19T12:00:00.000Z`}];fs.mkdirSync(path.join(cwd,`.sdlc`,`execution`),{recursive:true});const\x20st=path.join(cwd,`.sdlc`,`execution`,`ship-feat-ship-20261019T120000Z.json`);fs.writeFileSync(st,JSON.stringify(d,null,2));const\x20run=(id,f)=>JSON.parse(fs.readFileSync(cp.spawnSync(`node`,[js,`--after`,id,`--result-file`,path.join(cwd,`results`,f),`--state`,st],{cwd,encoding:`utf8`}).stdout.trim(),`utf8`));let\x20e=run(`confirm_pipeline`,`yes.json`);if(e.step&&e.step.id===`confirm_pr`)e=run(`confirm_pr`,`yes.json`);console.log(JSON.stringify({env:e}))"))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const e = JSON.parse(output).env;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_pr') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.error || ''}`;
+        return e.step.data.args.includes('--testing-file') ? `FAIL: ${e.step.data.args}` : true;

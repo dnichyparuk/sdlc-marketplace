@@ -231,6 +231,34 @@
         if (!('minSeverity' in m.flags) || m.flags.minSeverity !== null) return `FAIL: minSeverity ${JSON.stringify(m.flags)}`;
         return true;
 
+- description: "rr-plan: (a) --plan writes planFile"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,manifest:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: status ${o.status}`;
+        if (typeof o.manifest.planFile !== 'string' || !o.manifest.planFile.endsWith('/plan.md')) return `FAIL: planFile ${JSON.stringify(o.manifest.planFile)}`;
+        return true;
+
+- description: "rr-plan: (b) no --plan gives null planFile"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,manifest:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.status !== 0) return `FAIL: status ${o.status}`;
+        if (!('planFile' in o.manifest) || o.manifest.planFile !== null) return `FAIL: planFile ${JSON.stringify(o.manifest.planFile)}`;
+        return true;
+
 - description: "rr-scope: (c) invalid --min-severity is an error (and an unreadable --plan)"
   vars:
     script_path: "-e"

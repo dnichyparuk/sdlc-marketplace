@@ -229,6 +229,8 @@ path outside it gets the verdict "needs discussion". When `flags.minSeverity` is
 whose severity ranks below it, or is null, gets "below threshold" and is never fixed, even under
 `--auto` or the R18 bypass.
 
+**Plan decisions (R33):** When `manifest.planFile` is non-null, read its Key Decisions, Decisions taken without the owner, and Deviations & assumptions sections. A finding whose fix would reverse a decision recorded in the plan gets the verdict "disagree"; the reply cites the decision. It is never fixed, also under `--auto` or the R18 bypass.
+
 **YAGNI check for feature requests:**
 ```
 grep codebase for actual usage

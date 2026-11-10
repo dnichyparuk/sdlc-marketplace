@@ -265,7 +265,7 @@
     - type: regex
       value: '"failed":\s*0'
     - type: regex
-      value: '"total":\s*12'
+      value: '"total":\s*13'
     - type: regex
       value: '"id":\s*"PF10",\s*"status":\s*"pass"'
     - type: not-icontains
@@ -282,7 +282,7 @@
     - type: regex
       value: '"failed":\s*0'
     - type: regex
-      value: '"total":\s*12'
+      value: '"total":\s*13'
     - type: regex
       value: '"id":\s*"PF10",\s*"status":\s*"pass"'
     - type: not-icontains
@@ -325,7 +325,7 @@
     - type: regex
       value: '"failed":\s*0'
     - type: regex
-      value: '"total":\s*12'
+      value: '"total":\s*13'
     - type: regex
       value: '"id":\s*"PF10",\s*"status":\s*"pass"'
     - type: icontains
@@ -547,3 +547,30 @@
   assert:
     - type: javascript
       value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "fail" && x.details.some(d => d.message.includes("README.md")) && !x.details.some(d => d.message.includes("src/utils/helper.js")))'
+
+- description: "plan-format-lean: (a) PF15 fails a plan whose fence hides a task"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/plan.md --json"
+    project_root: "file://fixtures-fs/project-plan-fence-divergence"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).passed === false && JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF15" && x.status === "fail" && x.message.includes("Task 2"))'
+
+- description: "plan-format-lean: (b) PF15 passes a clean plan"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/test-plan.md --json"
+    project_root: "file://fixtures-fs/project-valid-plan"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF15" && x.status === "pass")'
+
+- description: "plan-format-lean: (c) --help prints usage and exits 0"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--help"
+    project_root: "file://fixtures-fs/project-valid-plan"
+  assert:
+    - type: javascript
+      value: '["--file", "--final", "--template", "--markdown", "--root", "--project-root", "--json"].every(s => output.includes(s)) && output.includes("0 = all pass")'

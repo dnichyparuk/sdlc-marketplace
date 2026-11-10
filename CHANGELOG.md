@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- review-sdlc: `--plan <path>`; reviewers treat the plan's recorded decisions as intent (#9339).
+- pr-sdlc: `--testing-file <path>`; the Testing section reports the verification summary (#9339).
+- plan-sdlc: validator check PF15 (execute parser agreement) and `validate-plan-format.js --help` (#9339).
+
+### Changed
+- ship-sdlc: a run resumed after a stage-scope stop stages before it commits (#9339).
+- ship-sdlc: the plan file is always inside the stage scope (#9339).
+- ship-sdlc: passes the plan to review-sdlc and execute's summary to pr-sdlc; skips learnings-commit when the learnings log is git-ignored (#9339).
+- plan-sdlc: the plan-integrity Stop hook leaves a marker of another session alone (#9339).
+- received-review-sdlc: a finding that would reverse a recorded plan decision is declined (#9339).
+
+### Fixed
+- tests: two `--expected-branch` exec fixtures no longer depend on the global git default branch (#9339).
+
 ## [0.48.0] - 2026-11-10
 
 ### Added

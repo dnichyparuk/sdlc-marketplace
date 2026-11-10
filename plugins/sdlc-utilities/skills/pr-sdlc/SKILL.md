@@ -1,8 +1,8 @@
 ---
 name: pr-sdlc
-description: "Use this skill when creating or updating a pull request or its description from commits and diffs: drafts the description, auto-labels with approval, and runs gh. Arguments: [--draft] [--update] [--base <branch>] [--auto] [--label <name>]. Triggers on: create PR, open pull request, update PR, PR description, PR summary."
+description: "Use this skill when creating or updating a pull request or its description from commits and diffs: drafts the description, auto-labels with approval, and runs gh. Arguments: [--draft] [--update] [--base <branch>] [--auto] [--label <name>] [--testing-file <path>]. Triggers on: create PR, open pull request, update PR, PR description, PR summary."
 user-invocable: true
-argument-hint: "[--draft] [--update] [--base <branch>] [--auto] [--label <name>]"
+argument-hint: "[--draft] [--update] [--base <branch>] [--auto] [--label <name>] [--testing-file <path>]"
 model: inherit
 ---
 
@@ -191,7 +191,7 @@ For each section, apply the fill rules:
 - **Technical Design**: Infer from `context.diffContent` — architecture, patterns, key decisions
 - **Technical Impact**: Identify affected systems/APIs/services from the diff
 - **Changes Overview**: Group by logical concern — each bullet describes a concept or behavior change (e.g. "Added retry deduplication", "New database migration for event tracking"). Never list file paths. Think about what a reviewer needs to understand, not which files were touched.
-- **Testing**: Summarize test coverage from diff; if none, say so explicitly
+- **Testing**: When `testingSummary` is non-null, report it (R18) and add coverage seen in the diff; never say that no test results exist. Otherwise summarize test coverage from the diff; if none, say so explicitly
 
 Also draft the PR title: under 72 characters. If `prConfig` is non-null, constrain the title generation:
 - **allowedTypes** set → choose from allowed types only for the title prefix (e.g., if `allowedTypes: ["feat", "fix"]`, only use those)

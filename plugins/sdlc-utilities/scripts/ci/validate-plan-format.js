@@ -31,6 +31,7 @@
  *   PF12 — Shared Modify paths in dependency order
  *   PF13 — Modify path existence (under --root only)
  *   PF14 — **Fix commit:** header field (R68; optional, checked when present)
+ *   PF15 — Both task parsers see the same task headings (no hidden tasks)
  *
  * Uses only Node.js built-in modules. No npm install required.
  */
@@ -42,8 +43,24 @@ const path = require('node:path');
 
 const { resolveSdlcRoot, readSection } = require(path.join(__dirname, '..', 'lib', 'config'));
 const {
-  extractField, stripFences, extractTasks, taskSection, parseFilesEntries, parseDependsOn, parsePlanCommit,
+  extractField, stripFences, extractTasks, extractTasksRaw, taskSection, parseFilesEntries, parseDependsOn, parsePlanCommit,
 } = require(path.join(__dirname, '..', 'lib', 'plan-parse'));
+
+const USAGE = `Usage:
+  node validate-plan-format.js [options]
+
+Options:
+  --project-root <path>   Project root (default: cwd)
+  --file <path>           Plan file to validate (required)
+  --json                  JSON output to stdout (default)
+  --markdown              Formatted markdown output to stdout
+  --final                 Also enforce PF9 (Verification Scorecard)
+  --template <path>       Active plan template; enables PF10 (under --final only)
+  --root <dir>            Active worktree root; enables PF13 (Modify paths exist)
+  -h, --help              Print this usage and exit
+
+Exit codes: 0 = all pass, 1 = issues found, 2 = script error
+`;
 
 // ---------------------------------------------------------------------------
 // CLI parsing
@@ -61,7 +78,10 @@ function parseArgs(argv) {
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a === '--project-root' && args[i + 1]) {
+    if (a === '--help' || a === '-h') {
+      process.stdout.write(USAGE);
+      process.exit(0);
+    } else if (a === '--project-root' && args[i + 1]) {
       projectRoot = path.resolve(args[++i]);
     } else if (a === '--file' && args[i + 1]) {
       filePath = path.resolve(args[++i]);
@@ -377,6 +397,19 @@ function checkPF6(content) {
   return { id: 'PF6', status: 'pass', message: 'Deviations & assumptions section present' };
 }
 
+// PF15 (#9339): a task only one parser sees is dropped by execute or by the checks.
+function checkPF15(content) {
+  const a = extractTasks(content).map(t => t.number);
+  const b = extractTasksRaw(content).map(t => t.number);
+  const onlyA = a.filter(n => !b.includes(n));
+  const onlyB = b.filter(n => !a.includes(n));
+  if (onlyA.length || onlyB.length || a.join(',') !== b.join(',')) {
+    const names = [...onlyA, ...onlyB].map(n => `Task ${n}`).join(', ') || 'task order';
+    return { id: 'PF15', status: 'fail', message: `Task headings differ between parsers (a nested or indented code fence?): ${names}` };
+  }
+  return { id: 'PF15', status: 'pass', message: `${a.length} task(s) seen by both parsers` };
+}
+
 function checkPF7(tasks) {
   const offenders = tasks
     .filter(t => /^[-*]\s+(Create|Modify|Test):/m.test(t.body)
@@ -610,6 +643,7 @@ if (require.main === module) {
       checkPF5(tasks),
       checkPF6(content),
       checkPF7(tasks),
+      checkPF15(content),
     ];
     let subjectPattern = null;
     try { subjectPattern = (readSection(projectRoot, 'commit') || {}).subjectPattern || null; } catch (_) { /* no commit config */ }
@@ -647,4 +681,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { checkPF4, checkPF11, checkCommitField, checkPF12, checkPF13 };
+module.exports = { checkPF4, checkPF11, checkCommitField, checkPF12, checkPF13, checkPF15 };

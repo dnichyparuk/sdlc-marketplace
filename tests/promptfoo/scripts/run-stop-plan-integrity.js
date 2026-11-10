@@ -12,6 +12,8 @@
  *                             (omit to test "no transcript" case)
  *   --fix-planfile-path       Rewrite planFilePath in the state file to use
  *                             the actual project-root (handles copied fixtures)
+ *   --session-id <id>         Send session_id in the hook's stdin payload
+ *   --marker-session <id>     Patch sessionId into the fixture's plan state file
  *   --readonly-state-dir      chmod the fixture's .sdlc/execution dir 0555 around
  *                             the hook run (an undeletable marker), 0755 after
  *
@@ -35,6 +37,8 @@ let fixPlanfilePath = false;
 let branchOverride = null; // passed as SDLC_BRANCH_OVERRIDE to the hook
 let reportStateFiles = false; // when true, append stateFiles[] to output JSON
 let readonlyStateDir = false; // when true, chmod the fixture state dir read-only around the hook run
+let sessionId = null;     // --session-id: payload.session_id sent to the hook
+let markerSession = null; // --marker-session: sessionId patched into the plan state file
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) {
@@ -49,6 +53,10 @@ for (let i = 0; i < args.length; i++) {
     reportStateFiles = true;
   } else if (args[i] === '--readonly-state-dir') {
     readonlyStateDir = true;
+  } else if (args[i] === '--session-id' && args[i + 1]) {
+    sessionId = args[++i];
+  } else if (args[i] === '--marker-session' && args[i + 1]) {
+    markerSession = args[++i];
   }
 }
 
@@ -112,6 +120,21 @@ if (fixPlanfilePath) {
   }
 }
 
+if (markerSession) {
+  const stateDir = path.join(projectRoot, '.sdlc', 'execution');
+  if (fs.existsSync(stateDir)) {
+    const entries = fs.readdirSync(stateDir).filter(f => f.startsWith('plan-') && f.endsWith('.json'));
+    for (const entry of entries) {
+      const fp = path.join(stateDir, entry);
+      try {
+        const data = JSON.parse(fs.readFileSync(fp, 'utf8'));
+        data.sessionId = markerSession;
+        fs.writeFileSync(fp, JSON.stringify(data, null, 2), 'utf8');
+      } catch (_) {}
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Construct stdin payload
 // ---------------------------------------------------------------------------
@@ -120,6 +143,8 @@ const payload = {};
 if (transcriptFile) {
   payload.transcript_path = path.join(projectRoot, transcriptFile);
 }
+
+if (sessionId) payload.session_id = sessionId;
 
 const stdinData = JSON.stringify(payload);
 

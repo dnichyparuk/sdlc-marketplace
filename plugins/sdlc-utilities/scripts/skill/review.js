@@ -97,6 +97,7 @@ function parseArgs(argv) {
   let setDefault = false;
   let auto = false;
   let post = null;
+  let plan = null;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -110,9 +111,10 @@ function parseArgs(argv) {
     else if (a === '--set-default') setDefault = true;
     else if (a === '--auto')        auto = true;
     else if (a === '--post')        post = (i + 1 < args.length) ? args[++i] : '';
+    else if (a === '--plan' && args[i + 1]) plan = path.resolve(args[++i]);
   }
 
-  return { projectRoot, baseBranch, dimensionFilter, scope, setDefault, auto, post };
+  return { projectRoot, baseBranch, dimensionFilter, scope, setDefault, auto, post, plan };
 }
 
 // ---------------------------------------------------------------------------
@@ -536,7 +538,7 @@ function loadAndMatchDimensions(projectRoot, changedFiles, dimensionFilter) {
 // ---------------------------------------------------------------------------
 
 function main() {
-  const { projectRoot, baseBranch, dimensionFilter, scope: cliScope, setDefault, auto, post } = parseArgs(process.argv);
+  const { projectRoot, baseBranch, dimensionFilter, scope: cliScope, setDefault, auto, post, plan } = parseArgs(process.argv);
   const activeRoot = resolveActiveWorktreeSafe(); // issue #490: HEAD-relative git ops target the active worktree
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
@@ -660,6 +662,17 @@ function main() {
   // PR metadata only relevant for branch-based scopes
   const pr = !isLocalScope ? fetchPrMetadata() : { exists: false };
 
+  // Plan decisions reach the reviewers through the plan path (A11, P14, R18).
+  let planFile = null;
+  if (plan !== null) {
+    try {
+      if (fs.statSync(plan).isFile()) planFile = plan;
+    } catch { /* unreadable: warn below */ }
+    if (planFile === null) {
+      process.stderr.write(`review.js warning: --plan ${plan} is not a readable file; plan decisions are not passed to the reviewers.\n`);
+    }
+  }
+
   // P12: single resolution site for the post decision.
   let postDecision = null;
   if (post === 'yes') {
@@ -696,6 +709,7 @@ function main() {
     flags: { auto, post, skipConfigCheck },
     post_decision: postDecision,
     save_path: savePath,
+    plan_file: planFile,
     dimensions: dims.map(toIndexEntry),
     plan_critique: {
       uncovered_files:        critique.uncoveredFiles,

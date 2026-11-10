@@ -131,6 +131,39 @@
     - type: regex
       value: '"post_decision": null'
 
+- description: "review-prepare-plan: (a) --plan sets plan_file"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--committed --base main --plan linked-file.txt"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    - type: regex
+      value: '"plan_file": "/[^"]*/worktrees/wt1/linked-file\.txt"'
+
+- description: "review-prepare-plan: (b) no --plan gives null"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--committed --base main"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    - type: regex
+      value: '"plan_file": null'
+
+- description: "review-prepare-plan: (c) unreadable --plan warns"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--committed --base main --plan missing.md"
+    script_capture_stderr: true
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/worktree-linked-ahead"
+  assert:
+    - type: regex
+      value: '"plan_file": null'
+    - type: regex
+      value: 'is not a readable file.*missing\.md|missing\.md is not a readable file'
+
 - description: "review-prepare-post: --auto without a PR resolves post_decision to save"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
