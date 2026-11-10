@@ -118,7 +118,7 @@ Completed: <comma-separated step names where status === "completed">.
 Pending:   <comma-separated step names where status !== "completed" && status !== "skipped">.
 ```
 
-Note: the banner check gates on `flags.implicitResume`, NOT `flags.resume`. The prepare script auto-sets `flags.resume = true` when `flags.implicitResume === true` so the rest of the pipeline (`ship.js` adds `--resume` to the execute dispatch when the ledger's execute step is `in_progress` and an execute state file exists) sees a unified `flags.resume` regardless of whether the user typed `--resume` or the hook triggered it.
+Note: the banner check gates on `flags.implicitResume`, NOT `flags.resume`. The prepare script auto-sets `flags.resume = true` when `flags.implicitResume === true` so the rest of the pipeline (`ship.js` adds `--resume` to the execute dispatch when the ledger's execute step is `in_progress` or `failed` and an execute state file exists) sees a unified `flags.resume` regardless of whether the user typed `--resume` or the hook triggered it.
 
 **Missing-state prompt (R-implicit-resume):** If the prepare output's `errors` array contains an entry with `id === "implicitResumeNoState"`, use AskUserQuestion:
 

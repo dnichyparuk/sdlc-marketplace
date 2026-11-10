@@ -37,6 +37,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const os   = require('os');
 const { spawnSync } = require('child_process');
 const LIB = path.join(__dirname, '..', 'lib');
 
@@ -1815,7 +1816,8 @@ function commitSubject(sha, cwd) {
 /** Step 6 report data: step statuses, usage totals, PR url, step commits, review summary path (R78). */
 function buildSummary(ledger) {
   const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
-  for (const s of ledger.steps || []) {
+  const roundSteps = (ledger.rounds || []).flatMap(r => [r.review, r.receivedReview, r.commitFixes]).filter(Boolean);
+  for (const s of [...(ledger.steps || []), ...roundSteps]) {
     for (const k of Object.keys(usage)) {
       if (s.usage && Number.isInteger(s.usage[k])) usage[k] += s.usage[k];
     }
@@ -1823,14 +1825,15 @@ function buildSummary(ledger) {
   const pr = lastHistory(ledger, 'dispatch_pr');
   const handoff = lastHistory(ledger, 'execute_handoff');
   const attested = !!(handoff && handoff.data && handoff.data.source === 'user-attested');
-  const shas = new Map();
+  const seen = new Set();
+  const shas = [];
   for (const h of ledger.history || []) {
     const sha = h.result === 'success' && h.data && h.data.artifacts && h.data.artifacts.commit;
     const stepName = STEP_ID_TO_LEDGER_NAME[h.step];
-    if (stepName && typeof sha === 'string') shas.set(stepName, sha);
+    if (stepName && typeof sha === 'string' && !seen.has(stepName + ' ' + sha)) { seen.add(stepName + ' ' + sha); shas.push([stepName, sha]); }
   }
   const worktree = resolveActiveWorktreeSafe();
-  const commits = [...shas].map(([step, sha]) => ({ step, sha, subject: commitSubject(sha, worktree) }));
+  const commits = shas.map(([step, sha]) => ({ step, sha, subject: commitSubject(sha, worktree) }));
   const review = (ledger.steps || []).find(s => s.name === 'review');
   const summaryFileCandidate = reviewSummaryPath(ledger.branch);
   const summaryFile = review && review.status === 'completed' && fs.existsSync(summaryFileCandidate) ? summaryFileCandidate : null;
@@ -1868,21 +1871,25 @@ function sweepStateFiles(flags) {
   } catch (_) { /* the sweep is best effort; the error envelope must still be emitted */ }
 }
 
-/**
- * True when `git status --porcelain -z` lists a path outside `.sdlc/` (a rename counts by its target).
- * A failed git call also gives true: the tree state is unknown, so the guard asks instead of
- * letting a finished execute run again.
- */
-function changesOutsideSdlc(cwd) {
-  const res = spawnSync('git', ['status', '--porcelain', '-z', '--untracked-files=all'], { cwd, encoding: 'utf8', timeout: 8000 });
-  if (res.status !== 0) return true;
-  const parts = res.stdout.split('\0').filter(Boolean);
-  for (let i = 0; i < parts.length; i++) {
-    const code = parts[i].slice(0, 2);
-    if (!parts[i].slice(3).startsWith('.sdlc/')) return true;
-    if (code[0] === 'R' || code[0] === 'C') i++; // the next entry is the rename source
+/** R80/R86: tree sha of the work tree outside .sdlc/, built in a throwaway index; null on any git error. */
+function treeFingerprint(cwd) {
+  const tmp = path.join(os.tmpdir(), `sdlc-fp-${process.pid}-${Date.now()}`);
+  try {
+    const run = (args, env) => spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 20000, env: env || process.env });
+    const ip = run(['rev-parse', '--git-path', 'index']);
+    if (ip.status !== 0) return null;
+    const indexFile = path.resolve(cwd, ip.stdout.trim());
+    if (fs.existsSync(indexFile)) fs.copyFileSync(indexFile, tmp);
+    const env = Object.assign({}, process.env, { GIT_INDEX_FILE: tmp });
+    if (run(['add', '-A', '--', '.', ':(exclude).sdlc'], env).status !== 0) return null;
+    if (run(['rm', '-r', '-q', '--cached', '--ignore-unmatch', '--', '.sdlc'], env).status !== 0) return null;
+    const wt = run(['write-tree'], env);
+    return wt.status === 0 ? wt.stdout.trim() || null : null;
+  } catch (_) {
+    return null;
+  } finally {
+    try { fs.unlinkSync(tmp); } catch (_) { /* absent */ }
   }
-  return false;
 }
 
 /**
@@ -1898,12 +1905,14 @@ function rerunGuard(entry, cwd, executeHasState) {
   if (entry.name === 'execute' && executeHasState) return null;
   const c = checkHeadCommit(entry.dispatchHead, cwd);
   if (!c.head) return null;
-  // execute leaves its work uncommitted, so no state file plus changes outside .sdlc/ means it finished.
-  const dirty = c.landed && entry.name === 'execute' && changesOutsideSdlc(cwd);
+  // R86: execute leaves its work uncommitted; a tree that differs from the one recorded at dispatch
+  // (or no recorded tree) means it may have run.
+  const now = c.landed && entry.name === 'execute' ? treeFingerprint(cwd) : null;
+  const dirty = c.landed && entry.name === 'execute' && (!entry.dispatchTree || !now || now !== entry.dispatchTree);
   if (c.landed && !dirty) return null;
   return {
     prompt: dirty
-      ? `The ${entry.name} step ran before, left no state file, and the working tree has changes outside .sdlc/ (HEAD is still ${c.head}). Record the work already done, or skip the step?`
+      ? `The ${entry.name} step ran before, left no state file, and the working tree outside .sdlc/ is not the one recorded when it was dispatched (HEAD is still ${c.head}). Record the work already done, or skip the step?`
       : `The ${entry.name} step ran before and HEAD has moved since: it was ${entry.dispatchHead} when the step was dispatched and is ${c.head} now. Record the work already done, or skip the step?`,
     options: ['record', 'skip'],
     id: 'rerunGuard',
@@ -2131,7 +2140,8 @@ function pickNextStep(after, ctx) {
           const st = historyAfter(ledger, 'execute_state', 'dispatch_execute');
           const gate = historyAfter(ledger, 'execute_gate', 'dispatch_execute');
           const gateYes = !!(gate && gate.data && executeGateChoice(gate.data.answer) === 'yes');
-          const resume = gateYes || (hasState && ((exec0 && exec0.status === 'in_progress') || (st && st.data && st.data.answer === 'resume')));
+          // P-TRANS-1 (#9326): a failed execute that left a state file resumes too.
+          const resume = gateYes || (hasState && ((exec0 && (exec0.status === 'in_progress' || exec0.status === 'failed')) || (st && st.data && st.data.answer === 'resume')));
           const extra = [resume ? '--resume' : '', gateYes && !flags.auto ? '--auto' : ''].filter(Boolean);
           if (extra.length > 0) {
             data.args = `${cs.args} ${extra.join(' ')}`;
@@ -2567,6 +2577,10 @@ function runAfter(stepArgs) {
     if (next.step.id === 'dispatch_version' || next.step.id === 'dispatch_execute') {
       const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
       if (head) res.step.dispatchHead = head; // R80: the fact rerunGuard compares against
+      if (next.step.id === 'dispatch_execute') {
+        const tree = treeFingerprint(resolveActiveWorktreeSafe());
+        if (tree) res.step.dispatchTree = tree; else delete res.step.dispatchTree; // R80/R86
+      }
     }
     delete ledger.paused;
     try {
@@ -3234,4 +3248,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseArgs, computeSteps, mergeFlags, loadConfig, detectWorktree, commitSubject, stageCommands };
+module.exports = { parseArgs, computeSteps, mergeFlags, loadConfig, detectWorktree, commitSubject, stageCommands, buildSummary };

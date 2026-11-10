@@ -47,7 +47,7 @@ When execute-plan-sdlc runs with `--commit-waves`, each completed wave produces 
 When `wipSquash.commits.length > 0` and `--no-squash-wip` is NOT set:
 
 1. Print `Detected N wip(execute): commit(s) from execute-plan-sdlc per-wave commits. The final commit will subsume them via soft-reset.`
-2. Resolve fork-point via `git merge-base HEAD <upstream-or-default-branch>` and run `git reset --soft <fork-point>` — preserves all changes in the working tree and index; drops the WIP commits from history.
+2. Run `git reset --soft <wipSquash.forkPoint>`; the prepare script finds the fork point (merge-base with the upstream, else with the default branch). This preserves all changes in the working tree and index and drops the WIP commits from history.
 3. Re-stage any user hand-edits that were preserved by the soft-reset: `git add -A`.
 4. Proceed to Step 2 PLAN — the orchestrator generates a single conventional-commit subject for the squashed change.
 
@@ -58,6 +58,17 @@ When `wipSquash.commits.length > 0` and `--no-squash-wip` is NOT set:
 **State-machine idempotency:** re-running commit-sdlc immediately after a successful squash is a no-op — `wipSquash.commits` will be empty (the WIP commits no longer exist between fork-point and HEAD), so Step 1c skips silently.
 
 (Fixes #392 / R35.)
+
+---
+
+## Subject Gate Menus
+
+Before it commits, commit-sdlc checks the subject line. When the check fails, it asks what to do.
+
+| Exit | Meaning | Interactive options | With a given subject (`--subject`, `--expected-subject`, `--message-file`) | Under `--auto` |
+|---|---|---|---|---|
+| 1 | The subject does not match `commit.subjectPattern`; the `subjectPatternError` text (or the pattern) is shown | **edit subject**, **harden** (runs `/harden-sdlc` to propose a better pattern or error text; opt-in), **cancel** | **harden**, **cancel** | prints `Subject gate rejected the subject (exit 1): <reason>` and stops |
+| 2 | The subject starts with an internal WIP marker (`wip:` or `wip(`) | **edit subject**, **cancel** | **cancel** | prints `Subject gate rejected the subject (exit 2): internal WIP marker` and stops |
 
 ---
 

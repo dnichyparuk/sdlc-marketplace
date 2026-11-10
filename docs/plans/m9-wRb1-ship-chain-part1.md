@@ -638,7 +638,7 @@ _3 additional candidates suppressed_
   | entry `in_progress` or `failed`, `dispatchHead` set, HEAD = `dispatchHead` | emit again | dispatch again |
   | entry `in_progress` or `failed`, `dispatchHead` set, HEAD ≠ `dispatchHead` | emit again | pending question `rerunGuard`, ledger `paused` |
 
-  `extraCommands` for version: `node "<PLUGIN_ROOT>/scripts/state/ship.js" complete --step version --result "release commit <head> recorded by hand"`, `node "<PLUGIN_ROOT>/scripts/state/ship.js" skip --step version --reason "re-run guard: release already made"`; the envelope ends with `/sdlc:ship-sdlc --resume` (the caller adds `--auto` when the run used it).
+  `extraCommands` for version: `node "<PLUGIN_ROOT>/scripts/state/ship.js" complete --step version --result "release commit <head> recorded by hand"`, `node "<PLUGIN_ROOT>/scripts/state/ship.js" skip --step version --reason "re-run guard: release already made"`; the envelope ends with `/sdlc:ship-sdlc --resume` (with `--auto` when the run used it, R80).
 - names: `dispatchHead`, `rerunGuard`, scenarios `rerun-version-moved`, `rerun-version-same`; R80.
 - mirror: `pendingStop` at `ship.js:2240-2250`; `checkHeadCommit` usage at `:2154-2160`.
 - decisions: Key Decisions "re-run guard records a fact".

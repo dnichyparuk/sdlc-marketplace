@@ -169,14 +169,14 @@ function resolveDefaultBranch() {
 
 /**
  * Detects `wip(execute):` commits between the current branch's fork-point and HEAD.
- * Returns { commits: string[], stagedClean: boolean } — consumed by commit-sdlc
+ * Returns { commits: string[], stagedClean: boolean, forkPoint: string|null } — consumed by commit-sdlc
  * SKILL.md Step 1c to decide whether to soft-reset before generating the final
  * commit message.
  *
  * Fork-point resolution order:
  *   1. `git merge-base HEAD <upstream>` when an upstream is configured
  *   2. Detected default branch (origin/HEAD symbolic ref → main/master fallback)
- *   3. When neither resolves, returns { commits: [], stagedClean } — never errors
+ *   3. When neither resolves, returns { commits: [], stagedClean, forkPoint: null } — never errors
  */
 function detectWipSquash() {
   const stagedRaw = exec('git diff --cached --name-only', { cwd: process.cwd() });
@@ -200,11 +200,11 @@ function detectWipSquash() {
   }
 
   if (!forkPoint) {
-    return { commits: [], stagedClean };
+    return { commits: [], stagedClean, forkPoint: null };
   }
 
   const logRaw = exec(`git log --format=%H%x09%s ${forkPoint}..HEAD`, { cwd: process.cwd() });
-  if (!logRaw) return { commits: [], stagedClean };
+  if (!logRaw) return { commits: [], stagedClean, forkPoint };
 
   const wipPrefixRe = /^wip\(execute\)/;
   const commits = logRaw
@@ -218,7 +218,7 @@ function detectWipSquash() {
     .filter(e => e && wipPrefixRe.test(e.subject))
     .map(e => e.sha);
 
-  return { commits, stagedClean };
+  return { commits, stagedClean, forkPoint };
 }
 
 // ---------------------------------------------------------------------------
@@ -352,7 +352,7 @@ function main() {
     wipSquashEarly = detectWipSquash();
   } catch (err) {
     warnings.push(`Could not detect wip(execute): commits for squash: ${err.message}`);
-    wipSquashEarly = { commits: [], stagedClean: true };
+    wipSquashEarly = { commits: [], stagedClean: true, forkPoint: null };
   }
 
   // Step 5: Error if nothing staged and not amending
