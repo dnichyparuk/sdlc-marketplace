@@ -174,6 +174,8 @@ Key fields available (including `customTemplate` added for project-level PR temp
 > as the template structure. Use each section's body text as the fill instruction.
 > Skip the default per-section instructions below and draft all custom sections instead.
 
+**Testing summary (R18):** This rule applies to the default and the custom template alike. When `testingSummary` is non-null, the Testing section (for a custom template, the section whose heading matches Testing) reports it and adds coverage seen in the diff; it never says that no test results exist.
+
 Using data from `PR_CONTEXT_JSON`, draft all sections of the active PR template (custom sections if `customTemplate` is present, or the default 8 sections below).
 
 **OpenSpec enrichment (automatic when detected):**

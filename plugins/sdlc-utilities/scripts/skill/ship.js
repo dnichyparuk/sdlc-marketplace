@@ -1800,7 +1800,16 @@ function prTestingInput(ledger) {
   }
   const text = row && row.data && typeof row.data.summary === 'string' ? row.data.summary.trim() : '';
   if (!text) return null;
-  const file = path.join(resolveStateDir(), `pr-testing-${slugifyBranch(ledger.branch)}.md`);
+  const dir = resolveStateDir();
+  const file = path.join(dir, `pr-testing-${slugifyBranch(ledger.branch)}.md`);
+  // Sweep summaries abandoned by earlier runs (the cleanup-pipeline GC does not match this prefix).
+  try {
+    for (const n of fs.readdirSync(dir)) {
+      if (!/^pr-testing-.*\.md$/.test(n)) continue;
+      const p = path.join(dir, n);
+      if (Date.now() - fs.statSync(p).mtimeMs > 7 * 24 * 3600 * 1000) fs.unlinkSync(p);
+    }
+  } catch (_) { /* best effort */ }
   try { fs.writeFileSync(file, text + '\n'); } catch { return null; }
   return `--testing-file "${file}"`;
 }
