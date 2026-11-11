@@ -109,6 +109,10 @@ DONE2='{ "id": "2", "status": "completed" }'
 execute_state '"plannedTaskIds": ["1", "2"],' "$DONE1, $DONE2" > seed/execute-complete.json
 execute_state '"plannedTaskIds": ["1", "2"],' "$DONE1" > seed/execute-missing.json
 execute_state '' "$DONE1, $DONE2" > seed/execute-noplanned.json
+# R93: a wave still in flight when execute handed back.
+cat > seed/execute-midwave.json <<'EOF'
+{ "version": 1, "branch": "feat/ship", "plannedTaskIds": ["1", "2"], "waves": [ { "number": 1, "status": "completed", "tasks": [ { "id": "1", "status": "completed" } ] }, { "number": 2, "status": "in_progress", "tasks": [] } ] }
+EOF
 
 # workspace=branch ledger on main (case n): commit and review only, so the first
 # dispatch after branch_prepare carries --expected-branch.

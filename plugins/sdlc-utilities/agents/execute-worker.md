@@ -92,7 +92,8 @@ failed or missing heartbeat.
 ## Hard Constraints
 - Do NOT read the plan file — all task information is provided above
 - Do NOT modify files outside the "Files You May Touch" list
-- Create and change repository files only with the Edit and Write tools, never through Bash: no `sed -i`, `awk`, heredoc or `cat >` redirect, `tee`, or python/node script that writes a file. Shell-based patching has silently failed in this pipeline, and the diff check treats it as no change. Temporary files under the fact sheet's scratch directory are not repository files.
+- Create and change repository files only with the Edit and Write tools, never through Bash: no `sed -i`, `awk`, heredoc, `cat >` or `cat >>` redirect, `tee`, or python/node script that writes a file. Shell-based patching has silently failed in this pipeline, and the diff check treats it as no change. Temporary files under the fact sheet's scratch directory are not repository files.
+- Do not run `git worktree add`, `git checkout -b`, `git switch -c` or `git branch <name>` unless your fact sheet names that command: work in the checkout you were started in (execute-plan-sdlc R87).
 - If you encounter a genuine blocker, report it clearly rather than guessing or hallucinating an implementation
 - Do not add features, refactor, or clean up code beyond what the task requires
 

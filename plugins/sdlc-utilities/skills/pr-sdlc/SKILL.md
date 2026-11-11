@@ -497,7 +497,7 @@ This is idempotent — the command succeeds silently if the label already exists
    gh pr create --title '<title>' --body-file '<BODY_FILE>' [--draft] [--label '<l1>' --label '<l2>'] 2> '<ERR_FILE>'
    ```
 
-   If no labels were approved, omit the `--label` flags entirely. Substitute the title and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Take the command's exit code from the tool result as `GH_EXIT` (a tool result without an error is exit code 0). On `GH_EXIT` 0 the PR is created: go to step 4.
+   If no labels were approved, omit the `--label` flags entirely. Substitute the title and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Take the command's exit code from the tool result as `GH_EXIT` (a tool result without an error is exit code 0). On `GH_EXIT` 0 the PR is created: read `<ERR_FILE>` with the Read tool; when it is not empty, print its text under the line `gh pr create warnings:`; then go to step 4. <!-- E9 -->
 
 3. **Post-failure account-switch recovery (implements spec E7, issue #184):** If `GH_EXIT` is non-zero, invoke the recovery helper exactly once with the captured stderr file:
 

@@ -380,6 +380,8 @@ A batch entry repeats the `TASK_ID` / `FACT_SHEET` / `FILES_ALLOWED` / `VERIFY_T
 
 Subagents run in the background and notify on completion; the Agent tool has no background flag to set. Await barrier: collect exactly N results (N = entries dispatched) across the completion notifications before consolidating — never consolidate on partial or zero returns (R-WAVE-BACKGROUND-DISPATCH, R-orchestrator-await).
 
+**No hand-back mid-wave (R86).** When you run as a subagent (ship's execute step), never end your turn while a worker or wave-runner you dispatched is still in flight: ending the turn returns you to ship with the wave unfinished. Wait with the `Monitor` poll of the wave deadline below until all N results are in. Return once: after Step 9, or at a stop that records a pending question or a failure.
+
 **Wave deadline (direct mode; R-WAVE-DEADLINE).** The manifest carries `waveTimeout` (seconds). Enforce it here — the harness has no per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock). This is the procedure of `./wave-runner-template.md` §2b, run in main context:
 
 1. Record the dispatch time. All worker dispatches above run in the background, so each returns a task ID immediately rather than blocking. Keep a map from each returned task ID to the plan task IDs it covers (a batch covers several).
@@ -519,7 +521,7 @@ For each guardrail in `activeGuardrails`:
 
   Include in the progress report (Step 5d). No user prompt required.
 
-**5c-quater. Per-wave WIP commit (R35).** When `flags.commitWaves` is true → Read `./commit-waves.md` and follow it after G9 + G11 pass. Where `./commit-waves.md` still names its state-script variable, use the absolute path `<PLUGIN_ROOT>/scripts/state/execute.js`: no shell variable carries it from one Bash call to the next. The same holds for the commit sha that file captures in a variable: run `git rev-parse HEAD` as its own plain Bash call and pass the sha it prints as a literal value, `--sha '<SHA>'`, to `wave-committed`.
+**5c-quater. Per-wave WIP commit (R35).** When `flags.commitWaves` is true → Read `./commit-waves.md` and follow it after G9 + G11 pass.
 
 **5d. Progress report** — After each wave:
 ```

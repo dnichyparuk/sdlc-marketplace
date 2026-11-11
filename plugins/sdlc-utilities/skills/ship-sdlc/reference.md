@@ -9,7 +9,7 @@ On-demand companion for `ship-sdlc/SKILL.md` (implements R-progressive-disclosur
 | Error | Recovery | Invoke error-report-sdlc? |
 |-------|----------|---------------------------|
 | Sub-skill fails (script crash) | Show error from sub-skill, stop pipeline, save state for `--resume` | Delegated — sub-skill handles its own error reporting |
-| `gh auth status` fails | Stop at validation (Step 3). Tell user to run `gh auth login` | No — user setup |
+| `gh auth status` fails or times out and a gh step will run | Stop at validation (Step 3). Tell user to run `gh auth login`, or to retry after a timeout (R91) | No — user setup |
 | `git add -A -- ':!.sdlc/'` fails | Show error, stop pipeline | No — user action needed |
 | Network error (gh API) | Auto-retry via `retryExec` (3 attempts with exponential backoff). If exhausted, record failure + print resume instruction (see below) | No — transient |
 | State file write fails | Warn and continue — state persistence is best-effort | No |

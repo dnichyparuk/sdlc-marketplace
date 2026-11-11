@@ -252,6 +252,25 @@
         the helper twice or invoke any matching/decision logic itself — all decisions
         come from the helper.
 
+- description: "pr-sdlc (E9): gh pr create success with warnings prints them before the temp file is removed"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md"
+    project_context: "file://fixtures/feature-branch-with-commits.md"
+    user_request: >
+      Run /pr-sdlc. The `gh pr create` call has just succeeded (`GH_EXIT` 0) and its
+      stderr file contains a warning line. Describe exactly what Create mode does next,
+      including how the stderr file is read, what is printed, and when the temp file
+      is removed.
+  assert:
+    - type: icontains
+      value: "gh pr create warnings:"
+    - type: llm-rubric
+      value: >
+        The response reads the stderr temp file (`<ERR_FILE>`) with the Read tool on
+        `GH_EXIT` 0, prints its text under the line `gh pr create warnings:` when it is
+        not empty (nothing when empty), and only then proceeds to step 4, which removes
+        the temp file.
+
 # ---------------------------------------------------------------------------
 # Issue #197 — Configurable PR labels (mode: off | rules | llm)
 # ---------------------------------------------------------------------------

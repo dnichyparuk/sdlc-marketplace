@@ -477,6 +477,16 @@
     - type: javascript
       value: "const o = JSON.parse(output); o.flags.specReviewer==='per-wave' && o.flags.sources.specReviewer==='config'"
 
+- description: "execute-prepare: (s4) --quality minimal over a configured once spec reviewer warns and records source quality"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan {{repo_root}}/tests/promptfoo/fixtures-fs/project-execute-prepare/plan.md --quality minimal --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-config-once"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.specReviewer==='per-wave' && o.flags.sources.specReviewer==='quality' && o.warnings.some(w=>String(w).includes('execute.specReviewer'))"
+
 - description: "execute-prepare: (d1) an interactive run routes each wave for balanced: one entry per Standard, Complex and single Trivial task"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"

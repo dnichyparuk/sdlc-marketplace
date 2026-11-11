@@ -245,7 +245,7 @@ Wait for the user's response before proceeding with any affected waves.
 
 **Error-to-GitHub issue proposal**:
 
-After escalating, also offer to track the failure as a GitHub issue. Follow `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md` (same root as `$STATE_SCRIPT`) with:
+After escalating, also offer to track the failure as a GitHub issue. Follow `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md` (the same `<PLUGIN_ROOT>` as `scripts/state/execute.js`) with:
 
 - **Skill**: execute-plan-sdlc
 - **Step**: Step 6 — RECOVER (Escalation)

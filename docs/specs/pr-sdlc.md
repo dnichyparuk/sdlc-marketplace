@@ -153,6 +153,7 @@ None.
 - E6: Title pattern validation fails → show error message, ask user to edit title
 - E7: `gh pr create` fails with a repo-permission error → post-flight account-switch recovery (distinct from pre-flight `ensureGhAccount`): if a local gh account matching the repo owner is found, switch to it automatically and retry `gh pr create` exactly once; the user sees a single concise recovery line and not the raw error. If no matching account exists, surface the original error with a `gh auth login` hint for the correct hostname. A second consecutive permission failure is terminal. Max one retry per pipeline invocation.
 - E8: an unreadable file, an empty file or an unstamped line is an `errors[]` entry and exit 1, before any `gh` call
+- E9: `gh pr create` succeeds and wrote to stderr → show the stderr text (warnings) before the temp file is removed; nothing is shown when it is empty.
 - R16: SSH host-alias fallback in post-flight account-switch recovery — when the repo remote uses a non-canonical SSH host alias (e.g. `github-rn`) and no matching gh account is found under that alias, the recovery helper (`recoverGhAccountForRepo`) MUST query `github.com` as a fallback. If a matching account is found under `github.com`, it is switched to and `viaFallback: true` is set on the result. The failure hint MUST advise `gh auth login --hostname github.com` (the canonical host), never the SSH alias hostname. Live `gh auth switch` for fallback accounts MUST include `--hostname github.com`.
 
 ## Invariants and constraints
@@ -205,6 +206,7 @@ None.
 | R-pr-template-path | (issues #260, #231, precedent #259) |
 | R-basebranch-config-cascade | (issue #339) |
 | E7 | References issue #184. |
+| E9 | success stderr shown, #9192 |
 | R-expected-branch | (issues #347, #348, #349) |
 | A7, P20, R18 | testing summary, #9339 |
 | A6, R17, G13, P19, E8, I9 | contract added in M9 wave R-b1 (#9319); implemented by the later ship-evidence wave (R-b2, PR evidence template). |

@@ -23,7 +23,7 @@ waveInterval     — integer (seconds) `Monitor` poll interval, from ship config
                    `executeWaveInterval`
 runId            — string (returned by `wave-start`, derived from the state file's `startedAt`)
 stateScript      — absolute path to state/execute.js
-                   (`STATE_SCRIPT="<PLUGIN_ROOT>/scripts/state/execute.js"`)
+                   (<PLUGIN_ROOT>/scripts/state/execute.js, passed as a literal path)
 tasks            — array of task objects (see shape below)
 priorWaveSummary — context from completed waves (see shape below) (R-PRIORWAVE)
 agentFiles       — array, one entry per dispatch: the wave's `dispatch` list from the prepare output (P4),
@@ -80,6 +80,8 @@ Send all Agent dispatches in one message — one per `agentFiles` entry, with it
 - **DO NOT pass `isolation: "worktree"` (or any other `isolation` value) on any sub-Agent dispatch.** Adding `isolation` here creates ephemeral `.claude/worktrees/agent-<id>` paths that are not the intended SDLC worktree. Implements R-no-agent-sdk-isolation from spec. See issues #370 #372. (Mirrors ship-sdlc/SKILL.md anti-pattern section.)
 
 ### 2b. Enforce the wave deadline (R-WAVE-DEADLINE, #506)
+
+**No hand-back mid-wave (R86).** You run as a subagent: never end your turn while a worker you dispatched is still in flight; keep polling with Monitor until every worker has returned or the deadline has passed.
 
 You received `waveTimeout` (seconds) in your manifest. Enforce it yourself — the harness has no
 per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).

@@ -27,6 +27,7 @@
  *                         effective byte limit for the call — issue #522.
  *   execNormalFailure          — proves non-overflow failures still return null (throwOnError=false).
  *   execGhTimeoutApplied       — proves every gh call through exec() carries GH_TIMEOUT_MS and other commands none (#9188).
+ *   probeGhAuthTimeout         — proves a timed-out gh auth status reports timedOut, a plain failure reports "Not logged in" (#9237).
  */
 'use strict';
 
@@ -177,6 +178,28 @@ switch (op) {
       otherTimeouts: other.map(c => (c.timeout === undefined ? null : c.timeout)),
       authenticated: auth.authenticated,
     }));
+    break;
+  }
+
+  case 'probeGhAuthTimeout': {
+    // #9237: a timed-out `gh auth status` is named as a timeout, not "Not logged in".
+    let mode = 'timeout';
+    const realExecSync = cp.execSync;
+    cp.execSync = (cmd) => {
+      if (/^gh auth status/.test(cmd)) {
+        if (mode === 'timeout') throw Object.assign(new Error('spawnSync /bin/sh ETIMEDOUT'), { code: 'ETIMEDOUT' });
+        throw Object.assign(new Error('exit 1'), { status: 1 });
+      }
+      return 'ok';
+    };
+    delete require.cache[require.resolve(LIB_PATH)];
+    const fresh = require(LIB_PATH);
+    cp.execSync = realExecSync;
+    const pick = (r) => ({ authenticated: r.authenticated, timedOut: r.timedOut, errorMessage: r.errorMessage });
+    const timeout = pick(fresh.probeGhAuth());
+    mode = 'loggedOut';
+    const loggedOut = pick(fresh.probeGhAuth());
+    console.log(JSON.stringify({ timeout, loggedOut }));
     break;
   }
 

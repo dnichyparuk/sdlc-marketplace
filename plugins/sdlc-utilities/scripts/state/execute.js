@@ -22,6 +22,7 @@
  *   node execute-state.js wave-progress --wave <n> --run-id <id> --task <id> --phase <started|reading|editing|verifying|reporting>  (write)
  *   node execute-state.js wave-progress --wave <n> --run-id <id> --read                                                             (read; prints JSON)
  *   node execute-state.js resume-reset [--branch <b>]
+ *   node execute-state.js wave-watch   [--branch <b>] [--interval <s>] [--timeout <s>] [--once]
  *
  * Exit codes:
  *   0 = success
@@ -155,6 +156,16 @@ function parseArgs(argv) {
       result.read = true;
     } else if (a === '--manifest-json' && args[i + 1]) {
       result.manifestJson = args[++i];
+    } else if ((a === '--interval' || a === '--timeout') && args[i + 1]) {
+      const raw = args[++i];
+      const val = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+      if (isNaN(val) || val < 1) {
+        process.stderr.write(`Error: ${a} requires an integer >= 1, got "${raw}"\nUsage: node execute-state.js wave-watch [--branch <b>] [--interval <s>] [--timeout <s>] [--once]\n`);
+        process.exit(2);
+      }
+      result[a.slice(2)] = val;
+    } else if (a === '--once') {
+      result.once = true;
     }
   }
 
@@ -1335,6 +1346,47 @@ function cmdResumeReset(opts) {
   process.exit(0);
 }
 
+/**
+ * `wave-watch` — read-only poll over the execute state file. Prints one line per
+ * finished wave (completed | partial | failed), each wave once, in wave order.
+ * Exits 0 on --once after one pass, when the state file disappears after being
+ * seen, or at --timeout. A state file not yet present is not an error.
+ *
+ * Implements R88.
+ */
+function cmdWaveWatch(opts) {
+  const branch = resolveBranchOrExit(opts.branch);
+  const slug = slugifyBranch(branch);
+  const intervalMs = (opts.interval || 30) * 1000;
+  const timeoutMs = (opts.timeout || 3600) * 1000;
+  const startedAt = Date.now();
+  const printed = new Set();
+  let seen = false;
+
+  const pass = () => {
+    const found = readState('execute', slug);
+    if (!found) return false;
+    seen = true;
+    const waves = Array.isArray(found.data.waves) ? found.data.waves : [];
+    for (const wave of waves) {
+      if (!wave || printed.has(wave.number)) continue;
+      if (!['completed', 'partial', 'failed'].includes(wave.status)) continue;
+      const tasks = Array.isArray(wave.tasks) ? wave.tasks : [];
+      const done = tasks.filter(t => t && t.status === 'completed').length;
+      process.stdout.write(`execute wave ${wave.number}: ${wave.status}, ${done}/${tasks.length} tasks done\n`);
+      printed.add(wave.number);
+    }
+    return true;
+  };
+
+  const tick = () => {
+    const present = pass();
+    if (opts.once || (!present && seen) || Date.now() - startedAt >= timeoutMs) process.exit(0);
+    setTimeout(tick, intervalMs);
+  };
+  tick();
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -1359,9 +1411,10 @@ try {
     case 'verify-completeness': cmdVerifyCompleteness(opts); break;
     case 'wave-progress': cmdWaveProgress(opts); break;
     case 'resume-reset': cmdResumeReset(opts); break;
+    case 'wave-watch': cmdWaveWatch(opts); break;
     default:
       process.stderr.write(`Error: unknown subcommand "${opts.subcommand}"\n`);
-      process.stderr.write('Usage: node execute-state.js <init|wave-start|wave-done|wave-fail|wave-committed|task-done|task-fail|context|read|cleanup|gc|summarize-prior-wave-context|wave-split|verify-completeness|wave-progress|resume-reset> [options]\n');
+      process.stderr.write('Usage: node execute-state.js <init|wave-start|wave-done|wave-fail|wave-committed|task-done|task-fail|context|read|cleanup|gc|summarize-prior-wave-context|wave-split|verify-completeness|wave-progress|resume-reset|wave-watch> [options]\n');
       process.exit(2);
   }
 } catch (e) {

@@ -41,13 +41,10 @@ EOF
    - Persist `committedSha: null` via the state write below.
 
 4. Success path — commit landed:
-   - Capture `committedSha`:
+   - Run `git rev-parse HEAD` as its own plain Bash call; the sha it prints is `<SHA>`.
+   - Persist it, substituting `<PLUGIN_ROOT>` from the `sdlc plugin root:` context line:
      ```bash
-     committedSha=$(git rev-parse HEAD)
-     ```
-   - Persist via the new state subcommand:
-     ```bash
-     node "$STATE_SCRIPT" wave-committed --branch <slug> --wave <N> --sha "$committedSha"
+     node "<PLUGIN_ROOT>/scripts/state/execute.js" wave-committed --branch <slug> --wave <N> --sha '<SHA>'
      ```
    - For the soft-success path above, omit `--sha` (or pass `--sha ""`): the subcommand persists `committedSha: null`.
 

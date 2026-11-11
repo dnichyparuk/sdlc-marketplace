@@ -16,8 +16,8 @@
  * The project root is `--project-root <p>`, else the active worktree
  * (`resolveActiveWorktreeSafe()`), where OpenSpec content lives.
  *
- * `tasks` reads <root>/openspec/changes/<n>/tasks.md through `parseTasks`. Its --change
- * must match ^[A-Za-z0-9._-]+$ and not be . or .. (else the usage error, exit 2).
+ * `tasks` reads <root>/openspec/changes/<n>/tasks.md through `parseTasks`. Every --change
+ * must match ^[A-Za-z0-9][A-Za-z0-9._-]*$ (else the usage error, exit 2).
  *
  * Stdout: exactly ONE JSON line, one of:
  *   detect   {"detected":B,"changeName":S|null,"isArchived":B,"tasksDone":N,"tasksTotal":N,
@@ -59,9 +59,9 @@ const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const SUBCOMMANDS = ['detect', 'flip', 'validate', 'archive', 'tasks'];
 const DECISIONS = ['sync', 'anyway', 'cancel'];
 const VALUE_FLAGS = ['--change', '--ref', '--line', '--title', '--decision', '--project-root'];
-// The W44-R6 pattern (skill/ship.js OPENSPEC_CHANGE_RE). `tasks` also rejects `.` and `..`,
-// which would read openspec/changes/tasks.md and openspec/tasks.md.
-const CHANGE_NAME_RE = /^[A-Za-z0-9._-]+$/;
+// The W44-R6 pattern (skill/ship.js OPENSPEC_CHANGE_RE). The leading alphanumeric keeps a
+// name from being read as a CLI option (`-x`) and rejects `.` and `..`.
+const CHANGE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -84,8 +84,8 @@ function usageError(opts) {
       : `missing subcommand (expected ${SUBCOMMANDS.join('|')})`;
   }
   if (opts.sub !== 'detect' && !opts.change) return `${opts.sub}: --change <name> is required`;
-  if (opts.sub === 'tasks' && (!CHANGE_NAME_RE.test(opts.change) || opts.change === '.' || opts.change === '..')) {
-    return 'tasks: --change must match ^[A-Za-z0-9._-]+$ and not be . or ..';
+  if (opts.change && !CHANGE_NAME_RE.test(opts.change)) {
+    return `${opts.sub}: --change must match ^[A-Za-z0-9][A-Za-z0-9._-]*$`;
   }
   if (opts.sub === 'flip' && !opts.ref) return 'flip: --ref <ref> is required';
   if (opts.sub === 'archive' && !DECISIONS.includes(opts.decision)) {
