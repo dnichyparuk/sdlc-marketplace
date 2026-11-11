@@ -30,7 +30,7 @@
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
  *   --seed <name>        legacy | frozen | frozen-dryrun | frozen-branch | frozen-resumed | frozen-exec | frozen-pending | none
  *                        (copies seed/ledger-<name>.json to .sdlc/execution/ship-<slug>-<ts>.json)
- *   --exec-seed <name>   complete | missing | noplanned | none
+ *   --exec-seed <name>   complete | missing | noplanned | midwave | none
  *                        (copies seed/execute-<name>.json to .sdlc/execution/execute-feat-ship-<ts>.json)
  *   --exec-cleanup       (after-execute) runs `state/execute.js verify-completeness --branch feat/ship` and then
  *                        `state/execute.js cleanup --branch feat/ship` in the fixture after seeding, as execute's Step 5f and R14 do

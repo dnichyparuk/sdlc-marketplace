@@ -2,7 +2,7 @@
 
 ## Overview
 
-The sdlc-utilities plugin detects and consumes [OpenSpec](https://github.com/Fission-AI/OpenSpec/) artifacts when present in a project. OpenSpec owns the specification workflow (proposing changes, writing delta specs, designing solutions); SDLC skills own the implementation workflow (planning, executing, reviewing, committing, and creating PRs). The integration is read-only — SDLC skills read OpenSpec artifacts but never write to `openspec/`.
+The sdlc-utilities plugin detects and consumes [OpenSpec](https://github.com/Fission-AI/OpenSpec/) artifacts when present in a project. OpenSpec owns the specification workflow (proposing changes, writing delta specs, designing solutions); SDLC skills own the implementation workflow (planning, executing, reviewing, committing, and creating PRs). SDLC skills read OpenSpec artifacts. Only ship-sdlc writes to `openspec/`: its opt-in `verify-openspec` step runs `openspec validate --strict`, and its `archive-openspec` step archives the change and commits it.
 
 ---
 
@@ -137,6 +137,8 @@ Executes the plan with wave-based parallel dispatch. When the plan's Source poin
 /opsx:archive         # merges delta specs into main specs/
 ```
 
+Or let `/ship-sdlc` do it: add `verify-openspec` and `archive-openspec` to `ship.steps` (see [ship-sdlc](skills/ship-sdlc.md)).
+
 ---
 
 ## Per-Skill Behavior
@@ -239,8 +241,8 @@ Check that `openspec/config.yaml` exists in your project root. If you've customi
 
 ## Design Principles
 
-1. **Read-only consumer** — SDLC skills never write to `openspec/`. OpenSpec owns its directory.
+1. **Read-only by default** — SDLC skills do not write to `openspec/`; ship-sdlc's `archive-openspec` step is the one writer.
 2. **Graceful degradation** — Every OpenSpec-aware code path has a "skip if absent" guard. No skill breaks without OpenSpec.
-3. **No CLI coupling** — Skills read OpenSpec's markdown artifacts directly. They never call `openspec validate`, `openspec status`, or any OpenSpec CLI command. This prevents version coupling.
-4. **No new scripts or hooks** — Detection uses inline Glob calls, not a dedicated detection script or session-start hook.
+3. **Minimal CLI coupling** — only ship-sdlc's `verify-openspec` and `archive-openspec` steps call the `openspec` CLI, through `scripts/skill/openspec-step.js`; other skills read the markdown directly.
+4. **Script-based detection** — detection runs in `scripts/lib/openspec.js` and `scripts/skill/openspec-step.js`; there is no OpenSpec session-start hook.
 5. **Proportional context loading** — Enrichment-only skills (`pr-sdlc`, `commit-sdlc`) auto-load artifacts when a unique active change is detected — they read 1–2 files to improve output quality. Workflow-altering skills (`plan-sdlc`) remain opt-in via `--spec`, because loading there changes the planning workflow. When no active change can be uniquely identified, all skills silently skip — no context bloat on unrelated tasks.

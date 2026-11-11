@@ -156,6 +156,21 @@
         if (JSON.stringify(o.otherTimeouts) !== '[null]') return `FAIL: other timeouts ${JSON.stringify(o.otherTimeouts)}`;
         return o.authenticated === true ? true : 'FAIL: probeGhAuth not authenticated';
 
+- description: "git-lib: probeGhAuth names a gh auth status timeout and keeps Not logged in for other failures (#9237)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
+    script_args: "--op probeGhAuthTimeout"
+    project_root: "file://fixtures-fs/project-openspec-baseline"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const t = o.timeout, l = o.loggedOut;
+        if (t.authenticated !== false || t.timedOut !== true) return `FAIL: timeout ${JSON.stringify(t)}`;
+        if (t.errorMessage !== 'gh auth status timed out after 30s for github.com. Check the network and gh, then retry.') return `FAIL: timeout message ${t.errorMessage}`;
+        if (l.authenticated !== false || l.timedOut !== false) return `FAIL: loggedOut ${JSON.stringify(l)}`;
+        return l.errorMessage === 'Not logged in to github.com. Run: gh auth login --hostname github.com' ? true : `FAIL: loggedOut message ${l.errorMessage}`;
+
 - description: "git-lib: getAllSemverTags includes pre-release tags; getTagList excludes them"
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"

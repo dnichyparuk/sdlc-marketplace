@@ -3580,6 +3580,26 @@
         if (o.ledger.stepStatuses.execute !== 'in_progress') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
         return true;
 
+- description: "ship-step: (mw) --after dispatch_execute with a wave still in progress stops with a resume question; execute stays in_progress (R93)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-execute --seed frozen-exec --exec-seed midwave --result results/execute-ok.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[0];
+        const e = c.envelope;
+        if (e.status !== 'done' || c.exitCode !== 0) return `FAIL: ${e.status} exit ${c.exitCode}`;
+        if (e.ext.reason !== 'pending-question') return `FAIL: reason ${e.ext.reason}`;
+        if (!/wave 2/.test(e.ext.pendingQuestion.prompt)) return `FAIL: prompt ${e.ext.pendingQuestion.prompt}`;
+        if (o.ledger.stepStatuses.execute !== 'in_progress') return `FAIL: execute ${o.ledger.stepStatuses.execute}`;
+        if (!/--resume/.test((e.ext.commands || [])[0])) return `FAIL: commands ${JSON.stringify(e.ext.commands)}`;
+        return true;
+
 - description: "ship-step: (pq3) execute_gate stop ends with the pending-question stop envelope and both commands"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
@@ -4158,6 +4178,23 @@
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
     script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-change ../x"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.calls[o.calls.length - 1];
+        if (c.envelope.status !== 'error') return `FAIL: status ${c.envelope.status}`;
+        if (!String(c.envelope.error).includes('not shell-safe')) return `FAIL: error ${c.envelope.error}`;
+        if (c.exitCode !== 1) return `FAIL: exit ${c.exitCode}`;
+        return true;
+
+- description: "ship-step: openspec change name with a leading dash returns status error (W44-R6)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario openspec --seed frozen --os-change -x"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -5753,3 +5790,61 @@
         const o = JSON.parse(output);
         const s = o.steps.find(x => x.name === 'commit');
         return s.modelSource === 'agent' && !('dispatchModel' in s) && !('dispatchEffort' in s);
+
+# gh preflight gating (R91) and migration manifest (P8)
+
+- description: "ship-prepare: gh-gating (a) unauthenticated gh with --steps commit is a warning, not an error (R91)"
+  vars:
+    script_stub_bin: "bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--steps commit"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-gh-unauth"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const errs = o.errors || [];
+        const warns = o.warnings || [];
+        return !errs.some(e => /Not logged in|not authenticated/i.test(e))
+          && warns.filter(w => w.startsWith('gh is not required by the selected steps')).length === 1;
+
+- description: "ship-prepare: gh-gating (b) unauthenticated gh with --steps commit,pr stays an error (R91)"
+  vars:
+    script_stub_bin: "bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--steps commit,pr"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-gh-unauth"
+  assert:
+    - type: icontains
+      value: "Not logged in to github.com"
+
+- description: "ship-prepare: P8 migration (a) skipped config check gives an object without project or local"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--steps commit"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+    script_env: '{"SDLC_SKIP_CONFIG_CHECK": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.migration !== null && typeof o.migration === 'object'
+          && !('project' in o.migration) && !('local' in o.migration);
+
+- description: "ship-prepare: P8 migration (b) a run without the skip carries project and local"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--steps commit"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.migration !== null && typeof o.migration === 'object'
+          && 'project' in o.migration && 'local' in o.migration;

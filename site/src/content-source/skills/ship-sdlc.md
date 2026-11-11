@@ -252,6 +252,8 @@ plan-sdlc      (--auto if     (--committed)
 
 With `--review-rounds <n>` (default 1), the review, received-review and commit-fixes steps can run up to `n` times. When commit-fixes completes in round k and k is below `n`, ship records that round in `rounds[]` of the state file, sets `round` to k + 1, resets the three steps to pending and runs review again on the new commit. The review gate, the staging of the fixes and, in interactive runs, the confirm questions are asked again in each round. The loop ends after round `n`, or earlier when a round's commit-fixes is skipped (the review found nothing at the threshold, the gate was deferred, or received-review changed nothing). The final summary adds the token usage of every round and lists the commit-fixes commit of each round. With the default of one round the pipeline runs as before.
 
+During the execute step, ship prints one line per finished execute wave when the Monitor tool is available.
+
 ---
 
 ## What Gets Printed
@@ -866,7 +868,7 @@ ship-sdlc also removes the intermediate prepare output file (`$PLAN_MODE_OUTPUT_
 
 ## Prerequisites
 
-- **`gh` CLI** — required for PR creation. Must be authenticated (`gh auth login`). The pipeline validates this before execution and stops with a clear error if authentication fails.
+- **`gh` CLI** — required for the `pr`, `verify-pipeline` and `await-remote-review` steps. Must be authenticated (`gh auth login`) when one of them runs; the pipeline validates this before execution and stops with a clear error. A run without these steps continues with a warning.
 - **git** — must be run inside a git repository on a feature branch (not the default branch).
 - **Review dimensions** — `.sdlc/review-dimensions/` must contain at least one dimension file for the review step. Run `/setup-sdlc --dimensions` to create them. If review is in the skip set, this is not required.
 - **Plan in context** — for the execute step, a plan must be present in the conversation. If no plan is found and execute is not skipped, the step is auto-skipped.

@@ -662,6 +662,9 @@ function main() {
 
   // --quality minimal forces the per-wave spec reviewer (P1).
   if (quality.value === 'minimal' && resolved.specReviewer !== 'per-wave') {
+    if (sources.specReviewer === 'config') {
+      warnings.push(`--quality minimal overrides execute.specReviewer "${resolved.specReviewer}" from the config: the spec review runs per-wave.`);
+    }
     resolved.specReviewer = 'per-wave';
     sources.specReviewer = 'quality';
   }

@@ -95,6 +95,28 @@
           && typeof w1.tasks[0].completedAt === 'string'
           && w1.tasks[0].startedAt === undefined;
 
+- description: "execute-plan-sdlc/liveness/wave-watch: --once prints the finished wave only (R88)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "wave-watch --branch fix/resume-idem --once"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: javascript
+      value: "output.trim() === 'execute wave 1: completed, 2/2 tasks done'"
+
+- description: "execute-plan-sdlc/liveness/wave-watch: a non-numeric --interval exits 2 with a usage line"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "wave-watch --branch fix/resume-idem --interval abc"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: contains
+      value: "Usage: node execute-state.js wave-watch"
+
 # --- per-run directory GC (Task 17) ----------------------------------------
 
 - description: "execute-plan-sdlc/liveness/gc: an orphaned <runId>/ directory is removed while the run directory backed by a state file survives"

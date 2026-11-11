@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.2] - 2026-11-11
+
+### Changed
+- ship-sdlc: gh authentication is required only when `pr`, `verify-pipeline` or `await-remote-review` will run; other runs warn (#9349).
+- ship-sdlc: one progress line per finished execute wave (`state/execute.js wave-watch`) (#9349).
+- execute-plan-sdlc: `--quality minimal` warns when it overrides a configured `execute.specReviewer` (#9349).
+- execute-plan-sdlc: workers must not append with `cat >>` or create worktrees or branches on their own (#9349).
+
+### Fixed
+- ship-sdlc: an execute step that hands back mid-wave stops with a resume instruction instead of a failed execute (#9349).
+- ship-sdlc, openspec: change names that start with `-` are rejected (#9349).
+- lib/git: a timed-out `gh auth status` is reported as a timeout, not "Not logged in" (#9349).
+- pr-sdlc: warnings from a successful `gh pr create` are shown (#9349).
+- specs and docs: ship P8, R-projectroot-ship, R22, R27, R-archive-sync-3, R-verify-openspec-3, I12, C7 and the OpenSpec integration guide match the code; execute and harden prose use literal paths (#9349).
+
 ## [0.50.1] - 2026-11-11
 
 ### Changed

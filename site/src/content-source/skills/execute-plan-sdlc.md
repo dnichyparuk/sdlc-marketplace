@@ -59,7 +59,7 @@ Keys under `execute` in `.sdlc/config.json` (schema: `schemas/sdlc-config.schema
 | `commitWaves` | Commit each completed wave as a `wip(execute)` commit; the `--commit-waves` default. Legacy fallback: `ship.execute.commitWaves` in `.sdlc/local.json`. | false |
 | `rebase` | Rebase onto the default branch before execution: `auto`, `skip` or `prompt`; the `--rebase` default. | skip |
 | `waveRunnerMinPlanTasks` | Plans with at least this many tasks dispatch workers through one wave-runner Agent per wave (runner mode); smaller plans dispatch them from the main context (direct mode). No CLI flag. | 9 |
-| `specReviewer` | Spec compliance review cadence: `once` (one review after the final wave) or `per-wave` (after every wave with a non-trivial task). `--quality minimal` forces `per-wave`. No CLI flag. | once |
+| `specReviewer` | Spec compliance review cadence: `once` (one review after the final wave) or `per-wave` (after every wave with a non-trivial task). `--quality minimal` forces `per-wave` and warns when the config set `once`. No CLI flag. | once |
 | `dispatchBudget` | Optional per-model input-token budgets (`haiku`, `sonnet`, `opus`) for wave sizing; overrides the built-in defaults in `scripts/lib/dispatch-budget.js`. No CLI flag. | built-in defaults |
 
 `execute.guardrails` holds the execution guardrails; see [Guardrail Enforcement](#guardrail-enforcement).
@@ -201,7 +201,7 @@ The dispatching layer — main context in direct mode, the wave-runner in runner
 
 After mechanical verification passes (git diff + canary checks), a spec compliance reviewer (sonnet) checks that each non-trivial task's implementation matches its specification. The reviewer reads actual code — it does not trust agent completion reports.
 
-**Cadence (`execute.specReviewer`):** `once` (default) runs one review after the final wave (Step 8-bis), covering every non-trivial task of every wave; `per-wave` reviews after every wave that has a non-trivial task. `--quality minimal` forces `per-wave`. The Speed tier (`--quality full`) does not skip the review.
+**Cadence (`execute.specReviewer`):** `once` (default) runs one review after the final wave (Step 8-bis), covering every non-trivial task of every wave; `per-wave` reviews after every wave that has a non-trivial task. `--quality minimal` forces `per-wave` and warns when the config set `once`. The Speed tier (`--quality full`) does not skip the review.
 
 **Skipped when:** the reviewed tasks are all Trivial.
 

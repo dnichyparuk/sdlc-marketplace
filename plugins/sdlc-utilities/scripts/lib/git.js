@@ -665,12 +665,30 @@ function probeGhAuth(opts = {}) {
   const run = opts.execFn || ((cmd) => exec(cmd, { shell: true }));
 
   // gh auth status writes to stderr; we capture both with `2>&1`.
-  const statusRaw = run(`gh auth status --hostname ${host} 2>&1`);
+  // Only the default runner learns about timeouts; an injected execFn returns string or null.
+  const statusCmd = `gh auth status --hostname ${host} 2>&1`;
+  let statusRaw = null;
+  let timedOut = false;
+  if (opts.execFn) statusRaw = run(statusCmd);
+  else {
+    try { statusRaw = exec(statusCmd, { shell: true, throwOnError: true }); }
+    catch (err) { timedOut = err.code === 'ETIMEDOUT' || (err.killed === true && err.signal === 'SIGTERM'); }
+  }
+  if (timedOut) {
+    return {
+      authenticated: false,
+      activeAccount: null,
+      expired: false,
+      timedOut: true,
+      errorMessage: `gh auth status timed out after ${GH_TIMEOUT_MS / 1000}s for ${host}. Check the network and gh, then retry.`,
+    };
+  }
   if (statusRaw === null) {
     return {
       authenticated: false,
       activeAccount: null,
       expired: false,
+      timedOut: false,
       errorMessage: `Not logged in to ${host}. Run: gh auth login --hostname ${host}`,
     };
   }
@@ -682,6 +700,7 @@ function probeGhAuth(opts = {}) {
       authenticated: false,
       activeAccount: null,
       expired: true,
+      timedOut: false,
       errorMessage: `gh token for ${host} has expired. Run: gh auth refresh --hostname ${host}`,
     };
   }
@@ -692,6 +711,7 @@ function probeGhAuth(opts = {}) {
       authenticated: false,
       activeAccount: null,
       expired: false,
+      timedOut: false,
       errorMessage: `Not logged in to ${host}. Run: gh auth login --hostname ${host}`,
     };
   }
@@ -702,6 +722,7 @@ function probeGhAuth(opts = {}) {
     authenticated: true,
     activeAccount: activeAccount || null,
     expired: false,
+    timedOut: false,
     errorMessage: null,
   };
 }

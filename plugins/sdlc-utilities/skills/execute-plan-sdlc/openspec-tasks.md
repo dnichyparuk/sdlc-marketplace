@@ -76,7 +76,7 @@ If `openspecSpecs` was loaded in Step 1 (the plan was OpenSpec-sourced), also su
      node "<PLUGIN_ROOT>/scripts/skill/openspec-step.js" tasks --change "$OPENSPEC_CHANGE"
      ```
 
-     It prints one JSON line `{ ok, tasks }` and exits 0; each `tasks[]` entry is `{ ref, line, title, indent, done }`. A missing or unreadable `tasks.md` gives `{ ok: false, error }` with exit 1. A usage error (exit 2: the name fails `^[A-Za-z0-9._-]+$` or is `.` or `..`), exit 1 or output that is not this JSON is handled like `ok === false` in step 5, with the output as `<stderr output>`.
+     It prints one JSON line `{ ok, tasks }` and exits 0; each `tasks[]` entry is `{ ref, line, title, indent, done }`. A missing or unreadable `tasks.md` gives `{ ok: false, error }` with exit 1. A usage error (exit 2: the name fails `^[A-Za-z0-9][A-Za-z0-9._-]*$`), exit 1 or output that is not this JSON is handled like `ok === false` in step 5, with the output as `<stderr output>`.
 
      Build `unflippedTitles` from entries where `done === false`.
    - Parse the plan file's `## Out-of-scope OpenSpec tasks` section (a flat bullet list of `- <title> — <rationale>` items) into `outOfScopeTitles: Set<string>` (case-sensitive title match).

@@ -189,6 +189,16 @@
     - type: icontains
       value: '"error"'
 
+- description: "openspec-step: a change name with a leading dash is a usage error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/openspec-step.js"
+    script_args: "validate --change -x"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-active"
+  assert:
+    - type: icontains
+      value: 'validate: --change must match'
+
 - description: "openspec-step: validate exits 1 when the CLI reports failure"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-openspec-step.js"
@@ -312,7 +322,7 @@
         const o = JSON.parse(output);
         const a = o.calls[0];
         if (!a) return `FAIL: ${output}`;
-        if (a.exitCode !== 2 || !a.json || a.json.error !== 'tasks: --change must match ^[A-Za-z0-9._-]+$ and not be . or ..') return `FAIL: ${output}`;
+        if (a.exitCode !== 2 || !a.json || a.json.error !== 'tasks: --change must match ^[A-Za-z0-9][A-Za-z0-9._-]*$') return `FAIL: ${output}`;
         return true;
 
 # No script_cwd: the runner's cwd is then promptfoo's, distinct from the fixture copy
@@ -328,7 +338,7 @@
         const o = JSON.parse(output);
         const a = o.calls[0];
         if (!a || a.args[2] !== 'a$(touch PWNED)') return `FAIL args: ${output}`;
-        if (a.exitCode !== 2 || !a.json || a.json.error !== 'tasks: --change must match ^[A-Za-z0-9._-]+$ and not be . or ..') return `FAIL call: ${output}`;
+        if (a.exitCode !== 2 || !a.json || a.json.error !== 'tasks: --change must match ^[A-Za-z0-9][A-Za-z0-9._-]*$') return `FAIL call: ${output}`;
         if (!o.pwned || o.pwned.fixture !== false || o.pwned.cwd !== false) return `FAIL pwned: ${output}`;
         return true;
 
@@ -359,6 +369,6 @@
         const o = JSON.parse(output);
         if (o.calls.length !== 2 || o.calls[0].args[2] !== '.' || o.calls[1].args[2] !== '..') return `FAIL args: ${output}`;
         for (const a of o.calls) {
-          if (a.exitCode !== 2 || !a.json || a.json.error !== 'tasks: --change must match ^[A-Za-z0-9._-]+$ and not be . or ..') return `FAIL: ${output}`;
+          if (a.exitCode !== 2 || !a.json || a.json.error !== 'tasks: --change must match ^[A-Za-z0-9][A-Za-z0-9._-]*$') return `FAIL: ${output}`;
         }
         return true;

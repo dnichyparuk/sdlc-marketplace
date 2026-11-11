@@ -973,23 +973,15 @@ function runValidation(flags, flagSources, steps, context, resumeLedger = null) 
   const errors   = [];
   const warnings = [];
 
-  // gh auth must be true (issue #234 — preflight via lib/git.js::probeGhAuth).
-  if (!context.ghAuthenticated) {
-    errors.push(
-      context.ghAuthErrorMessage ||
-        'GitHub CLI is not authenticated. Run "gh auth login" before using ship-sdlc.'
-    );
-  }
-
-  // Active-account preflight — halt on identity mismatch with the canonical 3-line message.
-  if (context.accountMismatch && context.accountMismatchMessage) {
-    errors.push(context.accountMismatchMessage);
-  }
-
-  // Access-mode preflight — halt when the active account is definitively denied (404/403).
-  if (context.accessDeniedMessage) {
-    errors.push(context.accessDeniedMessage);
-  }
+  // R91: gh problems block only when a step that calls gh will run.
+  // Covers gh auth (issue #234), active-account mismatch and access-mode denial (404/403).
+  const ghProblems = [];
+  if (!context.ghAuthenticated) ghProblems.push(context.ghAuthErrorMessage || 'GitHub CLI is not authenticated. Run "gh auth login" before using ship-sdlc.');
+  if (context.accountMismatch && context.accountMismatchMessage) ghProblems.push(context.accountMismatchMessage);
+  if (context.accessDeniedMessage) ghProblems.push(context.accessDeniedMessage);
+  const ghStepsToRun = (steps || []).filter(s => GH_STEPS.includes(s.name) && s.status === 'will_run');
+  if (ghStepsToRun.length > 0) errors.push(...ghProblems);
+  else if (ghProblems.length > 0) warnings.push(`gh is not required by the selected steps (${GH_STEPS.join(', ')} will not run), so this run continues: ${ghProblems[0]} review and received-review cannot read or post to a pull request in this run.`);
 
   // Current branch should not equal base branch
   const notOnDefault = context.currentBranch !== context.defaultBranch;
@@ -1440,7 +1432,8 @@ const VERIFY_PIPELINE_SCRIPT = path.join(__dirname, 'verify-pipeline.js');
 const AWAIT_REVIEW_SCRIPT    = path.join(__dirname, 'await-remote-review.js');
 const OPENSPEC_STEP_SCRIPT   = path.join(__dirname, 'openspec-step.js');
 // W44-R6: the change name is quoted inside an emitted shell command, so only these characters pass.
-const OPENSPEC_CHANGE_RE     = /^[A-Za-z0-9._-]+$/;
+const OPENSPEC_CHANGE_RE     = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const GH_STEPS = ['pr', 'verify-pipeline', 'await-remote-review'];
 const STAGE_COMMAND = "git add -A -- ':!.sdlc/'";
 
 /** R8: STAGE_COMMAND, then `git add -- <paths>` for the plan's existing, not-ignored `.sdlc/` Files paths. */
@@ -2470,7 +2463,14 @@ function runAfter(stepArgs) {
     }
   }
   // ruling w2-pending: a dispatch failure that carries a question is not a step failure.
-  const pq = after.startsWith('dispatch_') && !success ? validPendingQuestion(output.pendingQuestion) : null;
+  // R93: execute returned while one of its waves was still in flight — stop for a resume, not a failure.
+  let midWave = null;
+  if (after === 'dispatch_execute' && !success && !validPendingQuestion(output.pendingQuestion)) {
+    const st = readState('execute', slugifyBranch(ledger.branch));
+    const open = st && st.data && Array.isArray(st.data.waves) ? st.data.waves.find(w => w && w.status === 'in_progress') : null;
+    if (open) midWave = { prompt: `execute-plan-sdlc returned while wave ${open.number} was still in progress; its workers may still be running. Wait until they finish, then resume.`, options: ['resume'] };
+  }
+  const pq = after.startsWith('dispatch_') && !success ? (validPendingQuestion(output.pendingQuestion) || midWave) : null;
   const ext = {};
   const recorded = new Set();
   if (name && !pq && !archiveAbort) {
@@ -2932,7 +2932,8 @@ function main() {
   // Two-mode cascade:
   //   Identity mode  (prConfig.expectedAccount set): strict login comparison.
   //   Access mode    (prConfig.expectedAccount unset): probe repo accessibility via gh api.
-  // Halt on no-auth, expired-token, identity mismatch, or definitive probe denial (404/403).
+  // R91: no-auth, expired-token, identity mismatch and definitive probe denial (404/403) halt
+  // only when a gh step will run (runValidation); otherwise they are one warning.
   // Network failure in probe warns and proceeds (non-blocking).
   const ghAuthState = probeGhAuth();
   const ghAuthenticated = ghAuthState.authenticated;
