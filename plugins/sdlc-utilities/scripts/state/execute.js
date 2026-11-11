@@ -329,6 +329,32 @@ function buildWaveManifest(opts, runId, m, writtenPaths) {
   };
 }
 
+/**
+ * R89: read the plan's header verification and per-task Verify values.
+ * Any failure (no path, unreadable file, parse error) yields empty values.
+ */
+function readPlanVerification(planPath) {
+  const empty = { planVerification: '', verifyById: new Map() };
+  if (typeof planPath !== 'string' || !planPath) return empty;
+  try {
+    const { parsePlan } = require(path.join(LIB, 'plan-parse'));
+    const { resolveMainWorktreeSafe } = require(path.join(LIB, 'worktree'));
+    const candidates = path.isAbsolute(planPath)
+      ? [planPath]
+      : [path.join(resolveMainWorktreeSafe(), planPath), path.resolve(planPath)];
+    const found = candidates.find(p => fs.existsSync(p));
+    if (!found) return empty;
+    const parsed = parsePlan(fs.readFileSync(found, 'utf8'));
+    const verifyById = new Map();
+    for (const t of parsed.tasks) {
+      if (t.verify) verifyById.set(normalizeTaskId(String(t.id)), t.verify);
+    }
+    return { planVerification: parsed.header.verification || '', verifyById };
+  } catch (_) {
+    return empty;
+  }
+}
+
 function cmdWaveStart(opts) {
   if (opts.wave == null || isNaN(opts.wave)) {
     process.stderr.write('Error: --wave is required\n');
@@ -402,8 +428,13 @@ function cmdWaveStart(opts) {
     // R-WAVE-CONTEXT-PRODUCER (#506): bounded prior-wave context is rendered into
     // each fact sheet so the worker never has to crawl the filesystem for it.
     const priorWaveSummary = summarizePriorWaveContext(data);
-    for (const task of tasks) {
-      if (!task || !task.id) continue; // skip malformed entries
+    // R89: the plan's verification commands come from the parsed plan, not LLM transcription.
+    const planChecks = readPlanVerification(data.planPath);
+    for (const rawTask of tasks) {
+      if (!rawTask || !rawTask.id) continue; // skip malformed entries
+      const task = { ...rawTask };
+      if (!task.verify) task.verify = planChecks.verifyById.get(normalizeTaskId(String(task.id))) || '';
+      if (!task.planVerification) task.planVerification = planChecks.planVerification;
       try {
         const p = writeTaskFactSheet(task, { runId, stateDir, priorWaveSummary, scratchDir: process.env.TMPDIR });
         writtenPaths.push(p);
@@ -1348,7 +1379,9 @@ function cmdResumeReset(opts) {
 
 /**
  * `wave-watch` — read-only poll over the execute state file. Prints one line per
- * finished wave (completed | partial | failed), each wave once per status, waves finished before the first poll excluded (without --once), in wave order.
+ * finished wave (completed | partial | failed) as
+ * `execute wave <n>: <status>, <done>/<total> tasks done (tasks <id>, <id>)`
+ * (ids in state order, `none` when the wave has no tasks), each wave once per status, waves finished before the first poll excluded (without --once), in wave order.
  * Exits 0 on --once after one pass, when the state file disappears after being
  * seen, or at --timeout. A state file not yet present is not an error.
  *
@@ -1377,7 +1410,9 @@ function cmdWaveWatch(opts) {
       if (first) continue; // R88: baseline at the first poll
       const tasks = Array.isArray(wave.tasks) ? wave.tasks : [];
       const done = tasks.filter(t => t && t.status === 'completed').length;
-      process.stdout.write(`execute wave ${wave.number}: ${wave.status}, ${done}/${tasks.length} tasks done\n`);
+      const ids = tasks.filter(Boolean).map(t => t.id);
+      const list = ids.length > 0 ? ids.join(', ') : 'none';
+      process.stdout.write(`execute wave ${wave.number}: ${wave.status}, ${done}/${tasks.length} tasks done (tasks ${list})\n`);
     }
     first = false;
     return true;

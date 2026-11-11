@@ -15,7 +15,7 @@ if (!fs.existsSync(MARKER)) {
 
 const PLUGIN = 'plugins/sdlc-utilities';
 const HANDBACK = 'No hand-back mid-wave (R86)';
-const WORKER_SENTINELS = ['`cat >>`', '- Do not run `git worktree add`'];
+const WORKER_SENTINELS = ['`cat >>`', '- Do not run `git worktree add`', 'has a `## Verification` section, run its commands exactly as written'];
 
 function has(rel, sentinels) {
   let content;
@@ -33,15 +33,21 @@ const waveRunner = has('skills/execute-plan-sdlc/wave-runner-template.md', [HAND
 const shipStepExecute = has('agents/ship-step-execute.md', [
   'Never end your turn while a worker or wave-runner you dispatched is still running',
 ]);
+const STEP_RETURN = 'Never end your turn while a subagent you dispatched is still running';
+const shipStepReview = has('agents/ship-step-review.md', [STEP_RETURN]);
+const shipStepReceivedReview = has('agents/ship-step-received-review.md', [STEP_RETURN, 'Do not run `git commit`']);
 const shipSkill = has('skills/ship-sdlc/SKILL.md', ['wave-watch']);
+const shipStale = has('skills/ship-sdlc/SKILL.md', ['**Stale hand-backs (R98).**']);
+const executeStale = has('skills/execute-plan-sdlc/SKILL.md', ['**Stale hand-backs (R91).**']);
+const waveRunnerStale = has('skills/execute-plan-sdlc/wave-runner-template.md', ['**Stale hand-backs (R91).**']);
 const workers = {};
 for (const name of ['execute-worker', 'execute-worker-complex', 'execute-worker-batch']) {
   workers[name] = has(`agents/${name}.md`, WORKER_SENTINELS);
 }
 
-const ok = skill && waveRunner && shipStepExecute && shipSkill && Object.values(workers).every(Boolean);
+const ok = skill && waveRunner && shipStepExecute && shipStepReview && shipStepReceivedReview && shipSkill && shipStale && executeStale && waveRunnerStale && Object.values(workers).every(Boolean);
 
-process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipSkill, workers }) + '\n');
+process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipStepReview, shipStepReceivedReview, shipSkill, shipStale, executeStale, waveRunnerStale, workers }) + '\n');
 if (!ok) {
   process.exit(1);
 }

@@ -509,7 +509,7 @@ function applyStepModel(base, stepName, overrides = {}) {
   };
 }
 
-function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject = null, planFixSubject = null } = {}) {
+function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject = null, planFixSubject = null, finalCheckBase = null } = {}) {
   // Steps[] is the canonical source of truth for which top-level steps run.
   // A step IS skipped when it is NOT in flags.steps. The provenance for an
   // exclusion is whatever determined the resolved steps[] (cli --steps /
@@ -594,8 +594,8 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
       ...applyStepModel(stepAgent('review'), 'review', flags.stepModels),
       status: isIn('review') ? 'will_run' : 'skipped',
       skipSource: skipSource('review'),
-      // R88: the plan's recorded decisions are review intent.
-      args: ['--committed', flags.auto ? '--auto' : '', planFile ? `--plan "${planFile}"` : ''].filter(Boolean).join(' '),
+      // R88: the plan's recorded decisions are review intent. R95: the final fix review diffs from the fix base.
+      args: ['--committed', finalCheckBase ? `--base ${finalCheckBase}` : '', flags.auto ? '--auto' : '', planFile ? `--plan "${planFile}"` : ''].filter(Boolean).join(' '),
       reason: isIn('review') ? 'in steps[]' : 'not in steps[]',
       pause: false,
       isolation: null,
@@ -1633,6 +1633,13 @@ function deriveBranchFromPlan(planPath, config) {
   return { type, slug, name: resolveBranchName({ type, slug, config }) };
 }
 
+/** R96: bump implied by a conventional subject; null when the subject is null or not conventional. */
+function bumpFromPlanSubject(subject) {
+  const m = typeof subject === 'string' ? /^([a-z]+)(\([^)]*\))?(!)?:/.exec(subject) : null;
+  if (!m) return null;
+  return m[3] ? 'major' : m[1] === 'feat' ? 'minor' : 'patch';
+}
+
 /**
  * R-plan-commit-subject / plan-sdlc R66: the plan header's `**Commit:** `<subject>`` field.
  * The header is every line before the first `---`, `## ` or `### ` line; per-task
@@ -1918,6 +1925,7 @@ function buildSummary(ledger) {
     prUrl: (pr && pr.data && pr.data.artifacts && pr.data.artifacts.prUrl) || null,
     commits,
     reviewSummaryPath: summaryFile,
+    finalCheck: ledger.finalCheck || null, // R95
   };
 }
 
@@ -2290,6 +2298,45 @@ function pickNextStep(after, ctx) {
 }
 
 /**
+ * R84/R95/R97: the one transition after a completed commit-fixes, whether commit-fixes recorded it or
+ * it was adopted from received-review. Round k < reviewRounds starts round k + 1 (R84); the last round
+ * starts the final fix review (R95), or warns and changes nothing when no fix base was recorded.
+ * @returns {string|null} the step id pickNextStep continues after, or null to keep the caller's
+ */
+function afterFixesCommitted(ledger, { sha, round, flags, warnings }) {
+  const entryOf = (n) => ledger.steps.find(s => s.name === n);
+  const last = round >= (flags.reviewRounds || 1);
+  const base = last ? (entryOf('received-review') || {}).fixBaseHead : null;
+  if (last && !base) {
+    warnings.push('final fix review skipped: no fix base recorded');
+    return null;
+  }
+  if (!Array.isArray(ledger.rounds)) ledger.rounds = [];
+  ledger.rounds.push({
+    round,
+    review: { ...entryOf('review') },
+    receivedReview: { ...entryOf('received-review') },
+    commitFixes: { ...entryOf('commit-fixes'), commitSha: sha || null },
+  });
+  if (last) {
+    const commit = sha || exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
+    ledger.finalCheck = { base, commit, status: 'pending', verdict: null };
+  } else {
+    ledger.round = round + 1;
+  }
+  for (const n of ['review', 'received-review', 'commit-fixes']) {
+    const i = ledger.steps.findIndex(s => s.name === n);
+    if (i < 0) continue;
+    const fresh = last && n !== 'review'
+      ? { name: n, status: 'skipped', reason: 'final check (R95): no further fix round' }
+      : { name: n, status: 'pending' };
+    if (ledger.steps[i].condition) fresh.condition = ledger.steps[i].condition;
+    ledger.steps[i] = fresh;
+  }
+  return 'dispatch_commit'; // pickNextStep then emits the pending review
+}
+
+/**
  * `--after <id> --result-file <p> --state <ledger>` (P-STEP-2): record the finished
  * step in the ledger, then emit the next one (P-TRANS-1). Every computeSteps
  * input comes from ledger.flags (L6, L8).
@@ -2380,14 +2427,16 @@ function runAfter(stepArgs) {
     flags.quality = tier;
   }
 
-  // 2. Recompute the step plan from the frozen flags.
-  const steps = computeSteps(flags, flags.sources, {
+  // 2. Recompute the step plan from the frozen flags (again after a transition that starts the R95 final check).
+  const recomputeSteps = () => computeSteps(flags, flags.sources, {
     openspecContext: flags.openspecContext,
     expectedBranch: ledger.branch,
     planFile: flags.planFile,
     planSubject: planCommit.subject,
     planFixSubject: planCommit.fixSubject,
+    finalCheckBase: (ledger.finalCheck && ledger.finalCheck.status === 'pending') ? ledger.finalCheck.base : null,
   });
+  let steps = recomputeSteps();
   const total = countTotal(steps);
   const skipped = [];
   const progress = () => ({
@@ -2651,26 +2700,31 @@ function runAfter(stepArgs) {
     if (answer === 'not finished') return pendingStop(lastHistory(ledger, 'dispatch_execute').data.pendingQuestion, true);
     return failStep(`execute_handoff: unknown answer "${answer}" (expected finished or not finished).`);
   }
-  // R84: commit-fixes completed in round k < reviewRounds starts round k + 1 at dispatch_review.
-  const round = ledger.round || 1;
-  if (after === 'dispatch_commit_fixes' && recorded.has('commit-fixes') && round < (flags.reviewRounds || 1)) {
-    const entryOf = (n) => ledger.steps.find(s => s.name === n);
-    if (!Array.isArray(ledger.rounds)) ledger.rounds = [];
-    ledger.rounds.push({
-      round,
-      review: { ...entryOf('review') },
-      receivedReview: { ...entryOf('received-review') },
-      commitFixes: { ...entryOf('commit-fixes'), commitSha: (output.artifacts && output.artifacts.commit) || null },
-    });
-    ledger.round = round + 1;
-    for (const n of ['review', 'received-review', 'commit-fixes']) {
-      const i = ledger.steps.findIndex(s => s.name === n);
-      if (i < 0) continue;
-      const fresh = { name: n, status: 'pending' };
-      if (ledger.steps[i].condition) fresh.condition = ledger.steps[i].condition;
-      ledger.steps[i] = fresh;
+  // R97: received-review committed its fixes itself; adopt that commit as commit-fixes.
+  let adopted = null;
+  if (after === 'dispatch_received_review' && result.success === true) {
+    const rr = ledger.steps.find(s => s.name === 'received-review');
+    const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
+    if (rr && rr.fixBaseHead && head && head !== rr.fixBaseHead && !exec('git status --porcelain', { cwd: resolveActiveWorktreeSafe() })) {
+      const cf = ledger.steps.find(s => s.name === 'commit-fixes');
+      if (cf) Object.assign(cf, { status: 'completed', reason: 'adopted: received-review committed its fixes', artifacts: { commit: head } });
+      warnings.push(`received-review committed ${head} itself; adopted as the commit-fixes commit (R97)`);
+      adopted = head;
     }
-    from = 'dispatch_commit';
+  }
+  // R84/R95/R97: one transition for a completed commit-fixes, reached from commit-fixes or from adoption.
+  const round = ledger.round || 1;
+  if ((after === 'dispatch_commit_fixes' && recorded.has('commit-fixes')) || adopted) {
+    from = afterFixesCommitted(ledger, { sha: (output.artifacts && output.artifacts.commit) || adopted, round, flags, warnings }) || from;
+    steps = recomputeSteps(); // R95: the final-check review args carry --base
+  }
+  // R95: the final fix review's result ends the review loop; a repeated result changes nothing.
+  if (after === 'dispatch_review' && ledger.finalCheck) {
+    if (ledger.finalCheck.status === 'pending') {
+      ledger.finalCheck.status = 'completed';
+      ledger.finalCheck.verdict = (output.artifacts && output.artifacts.verdict) ?? null;
+    }
+    from = 'dispatch_commit_fixes';
   }
 
   // 5. Pick the next step.
@@ -2694,6 +2748,10 @@ function runAfter(stepArgs) {
         const tree = treeFingerprint(resolveActiveWorktreeSafe());
         if (tree) res.step.dispatchTree = tree; else delete res.step.dispatchTree; // R80/R86
       }
+    }
+    if (next.step.id === 'dispatch_received_review') {
+      const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
+      if (head) res.step.fixBaseHead = head; // R95/R97: base of the fix diff; never read by rerunGuard
     }
     delete ledger.paused;
     try {
@@ -3141,6 +3199,11 @@ function main() {
   try { commitSubjectPattern = (readSection(projectRoot, 'commit') || {}).subjectPattern || null; } catch (_) { /* no commit config */ }
   const planCommit = readPlanCommitSubject(planFile, commitSubjectPattern);
   if (planCommit.error) errors.push({ id: 'planCommitSubjectInvalid', message: planCommit.error });
+  // R96: the plan's commit type fills only the default bump (after R63).
+  if (flagSources.bump === 'default') {
+    const b = bumpFromPlanSubject(planCommit.subject);
+    if (b) { flags.bump = b; flagSources.bump = 'plan (Commit type)'; }
+  }
 
   // A17: --release-subject is forwarded verbatim inside double quotes, so it passes the same rules as the plan's subject.
   if (cli.releaseSubject) {

@@ -1,0 +1,85 @@
+# Hook-runner tests for plugins/sdlc-utilities/hooks/worker-write-guard.js (R90, stdin payload). No LLM.
+
+- description: "worker-write-guard: (a) sed -i denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"sed -i ''s/a/b/'' src/x.js"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: sed-in-place\./.test(o.permissionDecisionReason) || 'FAIL: not denied by sed-in-place';
+
+- description: "worker-write-guard: (b) heredoc into repo denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"execute-worker-complex","tool_input":{"command":"cat > src/x.js <<''EOF''\nx\nEOF"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: redirect\./.test(o.permissionDecisionReason) || 'FAIL: not denied by redirect';
+
+- description: "worker-write-guard: (c) node write denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker-batch","tool_input":{"command":"node -e \"require(''fs'').writeFileSync(''a.md'',''x'')\""}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: node-write\./.test(o.permissionDecisionReason) || 'FAIL: not denied by node-write';
+
+- description: "worker-write-guard: (d) scratch redirect allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"node t.js > \"$TMPDIR/out.txt\" 2>&1"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (e) read-only command allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"grep -n foo src/x.js"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (f) main session not affected"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","tool_input":{"command":"sed -i ''s/a/b/'' src/x.js"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (g) other agent not affected"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:ship-step-commit","tool_input":{"command":"sed -i ''s/a/b/'' src/x.js"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (h) bad stdin silent exit 0"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: "not json"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (i) quoted > in a read-only command allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"grep -n ''a > b'' src/x.js"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"

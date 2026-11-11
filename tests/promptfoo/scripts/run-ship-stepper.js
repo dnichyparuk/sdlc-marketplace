@@ -23,8 +23,8 @@
  *                        openspec | resume-plan | resume-plan-auto | resume-plan-quick |
  *                        stale-plan | other-worktree-plan | finished-plan | rebase-conflict |
  *                        rerun-version-moved | rerun-version-same | rerun-execute-finished | rerun-execute-clean | after-received-review-changes | stage-outside-files |
- *                        rounds-2-fixes | rounds-2-no-fixes | rounds-1-default
- *   --plan <path>        Plan passed to initial calls only (never to --after, L8)
+ *                        rounds-2-fixes | rounds-2-no-fixes | rounds-1-default | rounds-final-check | rounds-self-commit
+ *   --plan <path>       Plan passed to initial calls only (never to --after, L8)
  *   --steps <csv>        Appended to every initial call as `--steps <csv>`
  *   --no-plan            Initial calls pass --has-plan without --plan (ship-sdlc/SKILL.md always passes --has-plan)
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
@@ -60,6 +60,10 @@
  *                        rounds-*: auto seed; each round answers dispatch_review, review_gate, received-review (rounds-2-no-fixes:
  *                        clean tree; otherwise it appends to fix.txt, stages and commits it) until the next step is not dispatch_review;
  *                        --summary is rewritten before each later round
+ *                        rounds-final-check: as rounds-2-fixes, every dispatch_review answered with results/review-approved.json;
+ *                        with --again the final-check review result is reported once more (a snapshot follows each)
+ *                        rounds-self-commit: clean tree; received-review appends to fix.txt and commits it itself (R97);
+ *                        a snapshot follows its --after call and headAfter is the fixture HEAD after that commit
  *   --no-tag             Patch data.flags.noTag = true into the seed (any scenario)
  *   --version-head       A successful dispatch_version result without artifacts.commit gets the fixture repo's HEAD sha
  *   --other-exec         Also copy seed/execute-complete.json to a second branch's execute state file (es2)
@@ -89,7 +93,7 @@
  *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, execPreGate, otherFiles,
  *     summarySidecars, commandScripts, stopCapExists, mdPrompts: { incomplete, allDone }, seedUnchanged }
  *   seedUnchanged = true when the seeded ledger file is byte-identical at the end; null when no seed was written
- *   ledger = { stepStatuses, history, stepReasons, currentStep, flagsKeys, flags, paused, stepResults } | null
+ *   ledger = { stepStatuses, history, stepReasons, currentStep, flagsKeys, flags, paused, stepResults, finalCheck } | null
  *   history entry = { step, result, source, completenessGate }; execPreGate = { verifyExit, cleanupExit } | null
  *   mdPrompts = the two "> OpenSpec change" prompt lines of ship-sdlc/openspec-steps.md, without the leading "> "
  */
@@ -261,6 +265,7 @@ function snap() {
     round: d.round === undefined ? null : d.round,
     rounds: d.rounds === undefined ? null : d.rounds,
     approvedScope: d.approvedScope === undefined ? null : d.approvedScope,
+    finalCheck: d.finalCheck === undefined ? null : d.finalCheck,
     stepStatuses: Object.fromEntries((d.steps || []).map(s => [s.name, s.status])),
   };
 }
@@ -283,13 +288,19 @@ function walk(env0, stopAt = null, max = 12) {
 
 // R84: one review round from `--after dispatch_review` to the step after it ends. With fixLine, received-review
 // appends it to fix.txt; stage_fixes' commands run and commit-fixes commits (a snapshot follows its --after call).
-function reviewRound(fixLine) {
+// selfCommit (R97): received-review commits fix.txt itself (a snapshot follows its --after call).
+function reviewRound(fixLine, { reviewResult = 'results/generic-ok.json', selfCommit = false } = {}) {
   const is = (c, id) => c.status === 'step' && c.step.id === id;
-  let c = after('dispatch_review', 'results/generic-ok.json');
+  let c = after('dispatch_review', reviewResult);
   if (is(c, 'review_gate')) c = after('review_gate', 'results/yes.json');
   if (!is(c, 'dispatch_received_review')) return c;
   if (fixLine) fs.appendFileSync(path.join(projectRoot, 'fix.txt'), fixLine);
+  if (selfCommit) {
+    sh('git add fix.txt && git commit -q -m "fixture: received-review commits its fixes"');
+    headAfter = sh('git rev-parse HEAD').stdout.trim();
+  }
   c = after('dispatch_received_review', 'results/generic-ok.json');
+  if (selfCommit) snapshots.push(snap());
   if (is(c, 'stage_fixes')) {
     for (const cmd of c.step.data.commands) sh(cmd); // the main context runs them
     c = after('stage_fixes', 'results/generic-ok.json');
@@ -624,18 +635,28 @@ switch (scenario) {
   }
   case 'rounds-2-fixes':
   case 'rounds-2-no-fixes':
-  case 'rounds-1-default': {
-    // R84: rounds-2-no-fixes leaves a clean tree after received-review (.sdlc/ ignored, rest committed).
+  case 'rounds-1-default':
+  case 'rounds-final-check':
+  case 'rounds-self-commit': {
+    // R84: rounds-2-no-fixes leaves a clean tree after received-review (.sdlc/ ignored, rest committed);
+    // rounds-self-commit starts from that clean tree too, so its own commit leaves it clean (R97).
     const fixes = scenario !== 'rounds-2-no-fixes';
-    if (fixes) setPlanFiles(['fix.txt']); // the fixes are inside the plan Files (R83)
+    const selfCommit = scenario === 'rounds-self-commit';
+    const reviewResult = scenario === 'rounds-final-check' || selfCommit ? 'results/review-approved.json' : 'results/generic-ok.json';
+    if (fixes && !selfCommit) setPlanFiles(['fix.txt']); // the fixes are inside the plan Files (R83)
     else {
       fs.writeFileSync(path.join(projectRoot, '.gitignore'), '.sdlc/\n');
       sh('git add -A && git commit -q -m "fixture: clean tree"');
     }
     for (let round = 1; round <= 3; round++) {
-      const c = reviewRound(fixes ? `review fix ${round}\n` : null);
+      const c = reviewRound(fixes ? `review fix ${round}\n` : null, { reviewResult, selfCommit });
       if (!(c.status === 'step' && c.step.id === 'dispatch_review')) break;
       if (summaryRel) writeSummary(); // review-sdlc writes a new summary each round
+    }
+    if (scenario === 'rounds-final-check') {
+      snapshots.push(snap());
+      // R95 idempotency: the final-check review result reported once more.
+      if (process.argv.includes('--again')) { after('dispatch_review', reviewResult); snapshots.push(snap()); }
     }
     break;
   }
@@ -761,6 +782,7 @@ if (data) {
     flags: data.flags || {},
     paused: data.paused !== undefined,
     stepResults: Object.fromEntries((data.steps || []).filter(s => s.result !== undefined).map(s => [s.name, s.result])),
+    finalCheck: data.finalCheck === undefined ? null : data.finalCheck,
   };
 }
 

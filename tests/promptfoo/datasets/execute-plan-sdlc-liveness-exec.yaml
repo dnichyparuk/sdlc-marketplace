@@ -104,7 +104,7 @@
     script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
   assert:
     - type: javascript
-      value: "output.trim() === 'execute wave 1: completed, 2/2 tasks done'"
+      value: "output.trim() === 'execute wave 1: completed, 2/2 tasks done (tasks T1, T2)'"
 
 - description: "execute-plan-sdlc/liveness/wave-watch: a watch started after wave 1 finished prints nothing (R88 baseline)"
   vars:

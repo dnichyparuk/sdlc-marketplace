@@ -5559,11 +5559,12 @@
       value: |
         const o = JSON.parse(output);
         const ids = o.calls.map(c => c.envelope.step && c.envelope.step.id);
-        if (ids.filter(id => id === 'dispatch_review').length !== 1) return `FAIL: dispatch_review emitted ${ids}`;
-        if (ids[ids.length - 1] !== 'dispatch_version') return `FAIL: last ${ids}`;
+        // R95: round 2's fixes get the final-check dispatch_review before dispatch_version.
+        if (ids.filter(id => id === 'dispatch_review').length !== 2) return `FAIL: dispatch_review emitted ${ids}`;
+        if (ids[ids.length - 1] !== 'dispatch_version' || ids[ids.length - 2] !== 'dispatch_review') return `FAIL: last ${ids}`;
         const s = o.snapshots[1];
-        if (!s || s.round !== 2 || s.rounds.length !== 1) return `FAIL: ${JSON.stringify(s)}`;
-        return o.ledger.stepStatuses['commit-fixes'] === 'completed' ? true : `FAIL: commit-fixes ${o.ledger.stepStatuses['commit-fixes']}`;
+        if (!s || s.round !== 2 || s.rounds.length !== 2) return `FAIL: ${JSON.stringify(s)}`;
+        return o.ledger.stepStatuses['commit-fixes'] === 'skipped' ? true : `FAIL: commit-fixes ${o.ledger.stepStatuses['commit-fixes']}`;
 
 - description: "ship-rounds: (e) skipped commit-fixes ends the loop early"
   vars:
@@ -5592,9 +5593,10 @@
       value: |
         const o = JSON.parse(output);
         const ids = o.calls.map(c => c.envelope.step && c.envelope.step.id);
-        if (JSON.stringify(ids) !== JSON.stringify(['review_gate', 'dispatch_received_review', 'stage_fixes', 'dispatch_commit_fixes', 'dispatch_version'])) return `FAIL: ids ${ids}`;
+        // R95: the one round's fixes get the final-check dispatch_review before dispatch_version.
+        if (JSON.stringify(ids) !== JSON.stringify(['review_gate', 'dispatch_received_review', 'stage_fixes', 'dispatch_commit_fixes', 'dispatch_review', 'dispatch_version'])) return `FAIL: ids ${ids}`;
         const s = o.snapshots[0];
-        return s && s.round === null && s.rounds === null ? true : `FAIL: ${JSON.stringify(s)}`;
+        return s && s.round === null && Array.isArray(s.rounds) && s.rounds.length === 1 ? true : `FAIL: ${JSON.stringify(s)}`;
 
 - description: "ship-rounds: (g) round 2 with fixes emits stage_fixes again"
   vars:
@@ -5627,6 +5629,119 @@
         const ids = o.calls.map(c => c.envelope.step && c.envelope.step.id);
         const r2 = ids.indexOf('dispatch_review');
         return r2 >= 0 && ids[r2 + 1] === 'review_gate' && ids.filter(id => id === 'review_gate').length === 2 ? true : `FAIL: ids ${ids}`;
+
+# R95: commit-fixes completed in the last round starts one final review of the fix commit (--committed --base <fixBaseHead>).
+- description: "ship-final-check: (a) one round with fixes reviews the fix commit"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const i = o.calls.findIndex(c => c.args[1] === 'dispatch_commit_fixes');
+        const e = i >= 0 ? o.calls[i].envelope : null;
+        if (!e || e.status !== 'step' || e.step.id !== 'dispatch_review') return `FAIL: after commit-fixes ${e && e.status} ${e && e.step && e.step.id} ${e && e.error}`;
+        if (!/--committed --base [0-9a-f]{40}\b/.test(e.step.data.invocation || '')) return `FAIL: invocation ${e.step.data.invocation}`;
+        const n = o.calls[i + 1] && o.calls[i + 1].envelope;
+        if (!n || n.status !== 'step' || n.step.id !== 'dispatch_version') return `FAIL: after the final review ${n && n.status} ${n && n.step && n.step.id}`;
+        const want = 'final check (R95): no further fix round';
+        for (const s of ['received-review', 'commit-fixes']) {
+          if (o.ledger.stepStatuses[s] !== 'skipped' || o.ledger.stepReasons[s] !== want) return `FAIL: ${s} ${o.ledger.stepStatuses[s]} ${o.ledger.stepReasons[s]}`;
+        }
+        const f = o.ledger.finalCheck;
+        return f && f.status === 'completed' && f.verdict === 'APPROVED' ? true : `FAIL: finalCheck ${JSON.stringify(f)}`;
+
+- description: "ship-final-check: (b) two rounds review three times"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --rounds 2"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ids = o.calls.map(c => c.envelope.step && c.envelope.step.id);
+        // The seeded ledger stands in for the first review's envelope: review 1, review 2 and the final check each report a result.
+        const reviews = o.calls.filter(c => c.args[1] === 'dispatch_review').length;
+        if (reviews !== 3 || ids.filter(id => id === 'dispatch_review').length !== 2) return `FAIL: ${reviews} review results, ids ${ids}`;
+        if (ids[ids.length - 1] !== 'dispatch_version') return `FAIL: last ${ids}`;
+        const s = o.snapshots[o.snapshots.length - 1];
+        return s && Array.isArray(s.rounds) && s.rounds.length === 2 ? true : `FAIL: rounds ${JSON.stringify(s && s.rounds)}`;
+
+- description: "ship-final-check: (c) no fixes means no final check"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-2-no-fixes --seed frozen --summary high-1.json --rounds 2"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ids = o.calls.map(c => c.envelope.step && c.envelope.step.id);
+        if (JSON.stringify(ids) !== JSON.stringify(['review_gate', 'dispatch_received_review', 'dispatch_version'])) return `FAIL: ids ${ids}`;
+        return o.ledger.finalCheck === null ? true : `FAIL: finalCheck ${JSON.stringify(o.ledger.finalCheck)}`;
+
+- description: "ship-final-check: (d) a repeated final review result does not re-run the check"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --again"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const last = o.calls[o.calls.length - 1];
+        if (last.args[1] !== 'dispatch_review') return `FAIL: last call ${last.args[1]}`;
+        if (last.envelope.status === 'error' || (last.envelope.step && last.envelope.step.id === 'dispatch_review')) return `FAIL: repeated result emitted ${last.envelope.status} ${last.envelope.step && last.envelope.step.id}`;
+        const [a, b] = o.snapshots.slice(-2).map(s => s.finalCheck);
+        if (!a || a.status !== 'completed') return `FAIL: first finalCheck ${JSON.stringify(a)}`;
+        return JSON.stringify(a) === JSON.stringify(b) ? true : `FAIL: finalCheck changed ${JSON.stringify(a)} -> ${JSON.stringify(b)}`;
+
+- description: "ship-final-check: (e) the Step 6 summary carries the ledger finalCheck, null without one"
+  vars:
+    script_path: "-e"
+    script_args: '((ship,f)=>console.log(JSON.stringify([ship.buildSummary({branch:"feat/ship",steps:[],history:[],finalCheck:f}).finalCheck,ship.buildSummary({branch:"feat/ship",steps:[],history:[]}).finalCheck])))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js"),{base:"aaaaaaa",commit:"bbbbbbb",status:"completed",verdict:"APPROVED"})'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const [withCheck, without] = JSON.parse(output);
+        if (JSON.stringify(withCheck) !== JSON.stringify({ base: 'aaaaaaa', commit: 'bbbbbbb', status: 'completed', verdict: 'APPROVED' })) return `FAIL: with ${JSON.stringify(withCheck)}`;
+        return without === null ? true : `FAIL: without ${JSON.stringify(without)}`;
+
+# R97: received-review that committed its fixes itself (HEAD moved, clean tree) is adopted as commit-fixes.
+- description: "ship-self-commit: (a) a commit made by received-review is adopted"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-self-commit --seed frozen --summary high-1.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ids = o.calls.map(c => c.envelope.step && c.envelope.step.id);
+        if (ids.includes('stage_fixes') || ids.includes('dispatch_commit_fixes')) return `FAIL: ids ${ids}`;
+        const i = o.calls.findIndex(c => c.args[1] === 'dispatch_received_review');
+        const e = i >= 0 ? o.calls[i].envelope : null;
+        if (!e || e.status !== 'step' || e.step.id !== 'dispatch_review' || !/--committed --base [0-9a-f]{40}\b/.test(e.step.data.invocation || '')) return `FAIL: after received-review ${e && e.status} ${e && e.step && e.step.data.invocation}`;
+        if (!((e.ext && e.ext.warnings) || []).some(w => w.includes('adopted as the commit-fixes commit'))) return `FAIL: warnings ${JSON.stringify(e.ext && e.ext.warnings)}`;
+        // The R95 transition records the adopted commit-fixes entry in rounds[] before it resets the round steps.
+        const cf = o.snapshots[0] && o.snapshots[0].rounds && o.snapshots[0].rounds[0].commitFixes;
+        if (!cf || cf.status !== 'completed') return `FAIL: commit-fixes ${JSON.stringify(cf)}`;
+        return /^[0-9a-f]{40}$/.test(o.headAfter || '') && cf.artifacts && cf.artifacts.commit === o.headAfter ? true : `FAIL: commit ${JSON.stringify(cf.artifacts)} head ${o.headAfter}`;
 
 # #9228 / R11: --resume rewrites the ledger's non-frozen flags and their sources from the run's
 # merged CLI > config > default values. The fixture ledger holds auto: true, bump: "patch",
@@ -5897,3 +6012,82 @@
         const o = JSON.parse(output);
         return o.migration !== null && typeof o.migration === 'object'
           && 'project' in o.migration && 'local' in o.migration;
+
+# R96 (F-37): the plan's commit type fills only the default bump.
+- description: "ship-bump: (a) feat plan gives minor"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60feat(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),JSON.parse(fs.readFileSync(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"}).stdout.trim(),"utf8")))))(fs.mkdtempSync(os.tmpdir()+"/ship-bump-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const v = (o.steps || []).find(s => s.name === 'version');
+        if (!v || !v.args.includes('--bump minor')) return `FAIL: version args ${v && v.args}`;
+        return o.flags.sources.bump === 'plan (Commit type)' || `FAIL: source ${o.flags.sources.bump}`;
+
+- description: "ship-bump: (b) fix plan gives patch"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60fix(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),JSON.parse(fs.readFileSync(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"}).stdout.trim(),"utf8")))))(fs.mkdtempSync(os.tmpdir()+"/ship-bump-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const v = (o.steps || []).find(s => s.name === 'version');
+        if (!v || !v.args.includes('--bump patch')) return `FAIL: version args ${v && v.args}`;
+        return o.flags.sources.bump === 'plan (Commit type)' || `FAIL: source ${o.flags.sources.bump}`;
+
+- description: "ship-bump: (c) breaking plan gives major"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60feat(x)!:\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),JSON.parse(fs.readFileSync(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"}).stdout.trim(),"utf8")))))(fs.mkdtempSync(os.tmpdir()+"/ship-bump-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const v = (o.steps || []).find(s => s.name === 'version');
+        if (!v || !v.args.includes('--bump major')) return `FAIL: version args ${v && v.args}`;
+        return o.flags.sources.bump === 'plan (Commit type)' || `FAIL: source ${o.flags.sources.bump}`;
+
+- description: "ship-bump: (d) CLI bump wins"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60feat(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),JSON.parse(fs.readFileSync(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md","--bump","patch"],{cwd:process.cwd(),encoding:"utf8"}).stdout.trim(),"utf8")))))(fs.mkdtempSync(os.tmpdir()+"/ship-bump-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const v = (o.steps || []).find(s => s.name === 'version');
+        if (!v || !v.args.includes('--bump patch')) return `FAIL: version args ${v && v.args}`;
+        return o.flags.sources.bump === 'cli' || `FAIL: source ${o.flags.sources.bump}`;
+
+- description: "ship-bump: (e) a re-run resolves the same bump"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((run)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60feat(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),[run(),run()])))(()=>JSON.parse(fs.readFileSync(cp.spawnSync("node",[js,"--has-plan","--plan",d+"/plan.md"],{cwd:process.cwd(),encoding:"utf8"}).stdout.trim(),"utf8"))))(fs.mkdtempSync(os.tmpdir()+"/ship-bump-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const runs = JSON.parse(output);
+        for (const o of runs) {
+          const v = (o.steps || []).find(s => s.name === 'version');
+          if (!v || !v.args.includes('--bump minor')) return `FAIL: version args ${v && v.args}`;
+          if (o.flags.sources.bump !== 'plan (Commit type)') return `FAIL: source ${o.flags.sources.bump}`;
+        }
+        return runs.length === 2;

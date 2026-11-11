@@ -170,3 +170,29 @@
           && r.factSheets.length === 2
           && r.factSheets[0].endsWith('/20250101T000000/task-7.md')
           && r.factSheets[1].endsWith('/20250101T000000/task-8.md');
+
+- description: "execute-plan-sdlc/context-producer/wave-start: the fact sheet carries the plan verification verbatim (R89)"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs)=>((r)=>((s)=>console.log(JSON.stringify({heading:s.includes("\x23\x23\x20Verification"),check:s.includes("Task\x20check:\x20tests"),cmd:s.includes("npx\x20--yes\x20promptfoo@0.123.1\x20eval\x20-c\x20promptfooconfig-exec.yaml")})))(fs.readFileSync(JSON.parse(r.stdout).factSheets[0],"utf8")))(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js","wave-start","--wave","1","--branch","fix/verify-sheet","--run-id","20250105T000000","--tasks-json","[{\x22id\x22:\x221\x22,\x22name\x22:\x22Alpha\x22}]"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.heading === true && r.check === true && r.cmd === true;
+
+- description: "execute-plan-sdlc/context-producer/wave-start: a missing plan omits the verification section (R89)"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs)=>((r)=>((s)=>console.log(JSON.stringify({heading:s.includes("\x23\x23\x20Verification")})))(fs.readFileSync(JSON.parse(r.stdout).factSheets[0],"utf8")))(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js","wave-start","--wave","3","--branch","fix/ctx-alpha","--run-id","20250101T000000","--tasks-json","[{\x22id\x22:\x22T9\x22,\x22name\x22:\x22Gamma\x22}]"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.heading === false;

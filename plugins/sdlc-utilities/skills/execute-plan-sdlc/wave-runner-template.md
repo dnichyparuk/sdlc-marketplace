@@ -83,6 +83,8 @@ Send all Agent dispatches in one message — one per `agentFiles` entry, with it
 
 **No hand-back mid-wave (R86).** You run as a subagent: never end your turn while a worker you dispatched is still in flight; keep polling with Monitor until every worker has returned or the deadline has passed.
 
+**Stale hand-backs (R91).** A worker hand-back for a task you already recorded, or that arrives after you returned the wave, is stale. Print one line `ignored stale hand-back for wave <n> task <id>` and do nothing else for it.
+
 You received `waveTimeout` (seconds) in your manifest. Enforce it yourself — the harness has no
 per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).
 

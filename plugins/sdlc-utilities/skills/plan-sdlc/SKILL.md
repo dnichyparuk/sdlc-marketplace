@@ -213,6 +213,7 @@ Wait for answer.
 **Task decomposition rules:**
 - Each task = one independently completable unit with a clear deliverable
 - Each task touches 1–5 files (more than 5 → split)
+- Every file a task creates, fixtures and test data included, is listed under its **Files:** as `Create:` or `Test:`. Ship runs execute with `--strict-files`, so an unlisted path fails the wave (implements R70).
 - Order: foundations → features → integration → polish
 - Dependencies explicit (task B names task A if it needs A's output)
 
