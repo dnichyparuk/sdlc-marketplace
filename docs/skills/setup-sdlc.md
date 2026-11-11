@@ -35,7 +35,7 @@ Pre-check every row in the menu and skip the per-field `keep` prompt — all con
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--migrate` | Run schema migration via `scripts/skill/migrate-config.js`: relocates legacy `.claude/sdlc.json` to `.sdlc/config.json`, walks the schema-version migration registry (`lib/config-migrations.js`) to bring both project + local configs to `schemaVersion: 3`, and consolidates legacy per-file configs (`.claude/version.json`, `.sdlc/ship-config.json`, etc.) via `lib/config.js::consolidateLegacyFiles`. Idempotent. Backups: legacy relocation writes to `.sdlc/sdlc.json.bak` (single, no timestamp); other in-place migrations write to `.sdlc/<file>.bak.<safe-iso>`. Setup sweeps to retain 3 newest per role. | — |
-| `--skip <section>` | Skip a config section during setup (version, ship, jira, review, commit, pr) | — |
+| `--skip <section>` | Skip a config section during setup (version, ship, jira, review, received-review, commit, pr) | — |
 | `--force` | Skip the per-field `keep` prompt for every field — all values are reconfirmed rather than accepted with one keystroke. Does not change which rows are pre-checked (all rows are pre-checked by default). | — |
 | `--unset-only` | Pre-check only sections in `not-set` state. Legacy fast-path before #235 — the default flow now pre-checks all rows. | — |
 | `--only <ids>` | Comma-separated section ids to configure non-interactively (skips the menu). Valid: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block` | — |
