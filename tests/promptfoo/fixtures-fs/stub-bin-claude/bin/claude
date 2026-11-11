@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Stub `claude` binary (fixtures-fs/stub-bin-claude), put first on PATH by
+# scripts/run-headless-case-stub.js to exercise providers/headless-case.js (#9346)
+# without a real session.
+# - $STUB_CLAUDE_LOG (optional): appends one JSON line {"argv":[...],"cwd":"...","claudecode":<bool>}.
+# - $STUB_CLAUDE_MODE: ok (default) | error | crash.
+if [[ -n "$STUB_CLAUDE_LOG" ]]; then
+  node -e 'process.stdout.write(JSON.stringify({ argv: process.argv.slice(1), cwd: process.cwd(), claudecode: "CLAUDECODE" in process.env }) + "\n")' -- "$@" >> "$STUB_CLAUDE_LOG"
+fi
+cat > /dev/null
+
+INIT='{"type":"system","subtype":"init","session_id":"stub-session","tools":["Read","Bash"]}'
+case "${STUB_CLAUDE_MODE:-ok}" in
+  ok)
+    echo "$INIT"
+    echo '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"echo hi"}}]}}'
+    echo '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"hi","is_error":false}]}}'
+    echo '{"type":"result","subtype":"success","is_error":false,"total_cost_usd":0.0123,"num_turns":2,"result":"done"}'
+    touch stub-touched.txt
+    exit 0;;
+  error)
+    echo "$INIT"
+    echo '{"type":"result","subtype":"error_max_budget_usd","is_error":true,"total_cost_usd":0.5,"num_turns":1}'
+    exit 1;;
+  crash)
+    echo "boom" >&2
+    exit 3;;
+esac
+echo "stub claude: unknown STUB_CLAUDE_MODE ${STUB_CLAUDE_MODE}" >&2
+exit 64

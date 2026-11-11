@@ -3,7 +3,6 @@
 tests/promptfoo/.promptfoo-data/
 tests/promptfoo/.env
 .evidences/
-plugins/sdlc-utilities/evals/results/
 
 .claude/learnings/log.md
 

@@ -24,6 +24,7 @@ tests:
   - file://datasets/sdlc-pr-template-exec.yaml
   - file://datasets/sdlc-script-resolution-exec.yaml
   - file://datasets/script-runner-stub-bin-exec.yaml
+  - file://datasets/headless-runner-exec.yaml
   - file://datasets/commit-prepare-exec.yaml
   - file://datasets/pr-prepare-exec.yaml
   - file://datasets/pr-recover-gh-account-exec.yaml

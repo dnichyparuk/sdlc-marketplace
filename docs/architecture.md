@@ -63,7 +63,6 @@ Each plugin has its own `.claude-plugin/plugin.json` that declares:
 - **name** and **description** — Identification
 - **version** — Semantic version for tracking updates
 - **author** — Who maintains this plugin
-- **experimental.evals** — Optional; the directory of the local `claude plugin eval` smoke suite (`"evals"` in this plugin)
 
 ### Name Resolution
 
@@ -191,7 +190,7 @@ Issue [#180](https://github.com/rnagrodzki/sdlc-marketplace/issues/180) (replaci
 
 ## Testing
 
-All testing uses [promptfoo](https://promptfoo.dev/) — a framework for evaluating LLM outputs — except the local `claude plugin eval` smoke suite in `plugins/sdlc-utilities/evals/` (owner-approved exception, 2026-10-20/21; local and pre-release only, never in CI; see `tests/promptfoo/README.md`). Two promptfoo configurations cover different test types:
+All testing uses [promptfoo](https://promptfoo.dev/) — a framework for evaluating LLM outputs — except the headless runner (`promptfooconfig-headless.yaml`, provider `providers/headless-case.js`), which runs real `claude -p` sessions: credentialed and owner-initiated only, never in CI (see `tests/promptfoo/README.md`). Two promptfoo configurations cover different test types:
 
 ### Behavioral Tests (`promptfooconfig.yaml`)
 
@@ -200,6 +199,7 @@ Test skill behavior end-to-end via the `claude-cli` provider. Each test case pro
 ```text
 tests/promptfoo/
 ├── promptfooconfig.yaml          # Behavioral test config
+├── promptfooconfig-headless.yaml # Headless runner config (credentialed, owner-initiated)
 ├── providers/claude-cli.js       # Invokes Claude Code skills
 ├── prompts/skill-runner.txt      # Prompt template
 ├── datasets/<skill-name>.yaml    # Test cases per skill
