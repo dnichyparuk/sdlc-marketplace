@@ -6091,3 +6091,19 @@
           if (o.flags.sources.bump !== 'plan (Commit type)') return `FAIL: source ${o.flags.sources.bump}`;
         }
         return runs.length === 2;
+
+# R96 / F4: ship-init without --bump writes no bump, so the plan commit type stays in effect
+- description: "ship-bump: (f) ship-init without --bump writes no bump and the plan bump applies"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+    script_args: '((cp,fs,os,init,js)=>((d)=>((sh)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))((sh("git",["init","-q","-b","main"]),sh("git",["-c","user.name=t","-c","user.email=t@t","commit","-q","--allow-empty","-m","i"]),sh("git",["checkout","-q","-b","feat/x"]),fs.writeFileSync(d+"/plan.md","#\x20Plan\n\n**Commit:**\x20\x60feat(#1):\x20x\x20-\x20y\x60\n\n---\n\n###\x20Task\x201:\x20A\n"),sh("node",[init,"--auto"]),{local:JSON.parse(fs.readFileSync(d+"/.sdlc/local.json","utf8")),prep:JSON.parse(fs.readFileSync(sh("node",[js,"--has-plan","--plan",d+"/plan.md"]).stdout.trim(),"utf8"))})))((c,a)=>cp.spawnSync(c,a,{cwd:d,encoding:"utf8"})))(fs.mkdtempSync(os.tmpdir()+"/ship-bump-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/util/ship-init.js","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.local.ship && 'bump' in o.local.ship) return 'FAIL: ship-init wrote bump';
+        const v = (o.prep.steps || []).find(s => s.name === 'version');
+        return (v && v.args.includes('--bump minor')) || `FAIL: version args ${v && v.args}`;
