@@ -93,4 +93,7 @@ async function main() {
   }
 }
 
-main();
+main().catch((err) => {
+  process.stderr.write(`run-headless-case-stub: ${err && err.stack || err}\n`);
+  process.exitCode = 2;
+});

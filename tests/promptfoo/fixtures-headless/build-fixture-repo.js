@@ -15,7 +15,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { execFileSync, spawnSync } =require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 
 const USAGE = 'usage: build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean|plan>';
 

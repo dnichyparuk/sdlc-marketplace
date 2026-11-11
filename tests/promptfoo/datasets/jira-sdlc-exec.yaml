@@ -126,6 +126,31 @@
                  (o.action === 'create' || o.action === 'comment');
         } catch (e) { return false; }
 
+- description: "mcp-failure: analyze --record emits proposalTitle, proposalText, errorReportArgs, labels, errorText"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
+    script_args: "--analyze --record --class auth --tool mcp__atlassian__createJiraIssue --site acme_atlassian_net --project PROJ --error 401-unauthorized --recovered no --r-path R23 --step Step3"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.trim());
+        return o.proposalTitle===o.proposal.title && o.proposalText.startsWith(o.proposalTitle) && o.errorReportArgs.includes('--error-type mcp-auth') && o.errorReportArgs.includes('--skill jira-sdlc') && o.errorReportArgs.includes('--step "Step3"') && JSON.stringify(o.labels)==='["mcp-failure","class:auth"]' && o.errorText===o.proposal.body;
+
+- description: "mcp-failure: analyze --record writes the telemetry block to stderr"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
+    script_args: "--analyze --record --class auth --tool mcp__atlassian__createJiraIssue --site acme_atlassian_net --project PROJ --error 401-unauthorized --recovered no --r-path R23 --step Step3"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+    script_capture_stderr: true
+  assert:
+    - type: icontains
+      value: "mcp-failure[auth]"
+    - type: icontains
+      value: "recovered"
+
 # ── mcp-failure.js record-occurrence test (KD7) ────────────────────────────
 
 - description: "mcp-failure: record-occurrence returns 1 on first call"

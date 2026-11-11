@@ -34,7 +34,7 @@
     timeout_seconds: 600
     max_budget_usd: 2
     tier: cheap
-    snapshot_files: [".git/logs/HEAD", ".git/COMMIT_EDITMSG"]
+    snapshot_files: [".git/logs/HEAD", ".git/COMMIT_EDITMSG", "README.md"]
   assert:
     - type: javascript
       value: |
@@ -49,6 +49,15 @@
         const msg = o.contents['.git/COMMIT_EDITMSG'] || '';
         return /^(feat|fix|docs|chore)(\([a-z0-9-]+\))?: \S/.test(msg)
           ? true : `FAIL: commit subject does not match the pattern: ${JSON.stringify(msg)}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const readme = o.contents['README.md'] || '';
+        if (!readme.endsWith('Second line.\r\n')) return 'FAIL: README.md lost its CRLF ending';
+        if (/[^\r]\n/.test(readme)) return 'FAIL: README.md has a bare LF line';
+        const msg = o.contents['.git/COMMIT_EDITMSG'] || '';
+        return msg.includes('\r') ? 'FAIL: commit message contains a CR' : true;
 
 - description: "headless: commit-subject"
   metadata: { tier: cheap }

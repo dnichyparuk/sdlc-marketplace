@@ -79,7 +79,7 @@ Updates both fields in a single `editJiraIssue` call.
 /jira-sdlc --project PROJ --force-refresh
 ```
 
-Runs the 5-phase initialization, reports N issue types and M workflow states mapped.
+Runs the 5-phase initialization, reports N issue types and M workflow states mapped. The skill writes the raw MCP results to a temp file and `jira.js --assemble --save` maps field types and writes the cache.
 
 ### Customize issue templates
 
@@ -278,14 +278,14 @@ Critique: <findings, or "none">
 Final: <one-line summary of the revised payload>
 ```
 
-The critique artifact is written to `$TMPDIR/jira-sdlc/critique-<hash>.json`.
+The write pipeline (critique, approval, link verification) lives in `write-ops.md`; the skill reads it only for write operations.
 
 ### Approval gate (R17)
 
 After the critique block, the full final payload (the exact bytes the MCP call will dispatch) is printed. The user must respond with one of:
 
 - **approve** — proceed to dispatch
-- **change `<what>`** — describe the desired change; the skill loops back through the critique pass with a revised draft and new artifacts
+- **change `<what>`** — describe the desired change; the skill loops back through the critique pass with a revised draft
 - **cancel** — abort without dispatching
 
 On `approve`, the skill proceeds to dispatch the write MCP call. Approval is the explicit `AskUserQuestion` gate — there is no token-file handshake.
@@ -313,10 +313,6 @@ Every `createJiraIssue` and `editJiraIssue` that touches `description` is requir
 **Enforcement (LLM-prose only):**
 - The Step 2.5 critique pass checks descriptions for prose paragraphs, filler tokens, and non-checklist acceptance criteria — findings appear in the `Critique:` block before the approval prompt. This is the sole enforcement: the former deterministic `pre-tool-jira-write-guard.js` checklist gate has been removed.
 
-### Diagnostics
-
-When `SDLC_DEBUG_DUMP=1` is set, the hook writes the received `tool_input` and the canonical-JSON byte-string to `$TMPDIR/jira-sdlc-debug/<hook-hash-prefix>.json`. Use this to diff against the skill artifact (`$TMPDIR/jira-sdlc/critique-<hash>.json`) byte-for-byte when a hash mismatch denial occurs. The dump is diagnostic only — it does not change the deny decision.
-
 ---
 
 ## What It Creates or Modifies
@@ -325,8 +321,6 @@ When `SDLC_DEBUG_DUMP=1` is set, the hook writes the received `tool_input` and t
 |-----------------|-------------|
 | `~/.sdlc-cache/jira/<site>/<KEY>.json` | Project metadata cache (home-keyed, outside the working tree): cloudId, issue types, field schemas, workflows, user mappings |
 | `.sdlc/jira-templates/<Type>.md` | Project-level issue description templates (created only when `--init-templates` is run, or manually) |
-| `$TMPDIR/jira-sdlc/critique-<hash>.json` | Per-operation critique artifact (write-ops only); contains initial/findings/final summary; verified by the PreToolUse hook |
-| `$TMPDIR/jira-sdlc/approval-<hash>.token` | Per-operation approval token (write-ops only); created on `approve`; verified and deleted by the PreToolUse hook after dispatch |
 | Jira issues | Created or updated via the Atlassian MCP |
 
 ## Link Verification (issue #198)
@@ -380,7 +374,7 @@ Sensitive values (bearer tokens, cookies, cloudIds, email addresses) are redacte
 
 ### Analyze-then-confirm dispatch gate (R28)
 
-On exhausted-recovery paths (R23 dual-namespace exhausted, R9 retry-exhausted, R14 unsampled-fallback failure, R21 hook-block twice in one session, R22 link-verification abort), the skill:
+On exhausted-recovery paths (R23 dual-namespace exhausted, R9 retry-exhausted, R14 unsampled-fallback failure, R22 link-verification abort), the telemetry and the proposal come from one `mcp-failure.js --analyze --record` call. The skill:
 
 1. Searches for duplicate open issues (`gh issue list --state open --label mcp-failure`).
 2. Synthesizes a proposal (title + body) using the `McpFailure.md` template.

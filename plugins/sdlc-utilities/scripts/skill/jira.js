@@ -14,8 +14,16 @@
  *   --load           Output full cache JSON
  *   --save           Read JSON from stdin, write as cache
  *   --save-field <n> Read JSON from stdin, merge into cache[n]
+ *   --assemble --input <file> [--save]
+ *                    Map raw MCP phase results into a cache (P6); --save writes it
+ *   --check-payload [--type <T>] [--input <file>]
+ *                    Report placeholders and invented headings in a payload (P7)
  *   --templates      Resolve templates per issue type
  *   --init-templates Copy defaults to .sdlc/jira-templates/
+ *   --copy-template --type <T> --from <T>
+ *                    Copy a shipped template into .sdlc/jira-templates/
+ *   --validate-body [--file <f>] [--json]
+ *                    Validate links in a Jira body (stdin or --file)
  *   --clear          Delete cache file
  *
  * Exit codes: 0 = success, 1 = user error, 2 = crash
@@ -34,6 +42,9 @@ const { validateLinks, formatViolations } = require(path.join(LIB, 'links'));
 const { parseRemoteOwner } = require(path.join(LIB, 'git'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { resolveSdlcRoot } = require(path.join(LIB, 'config'));
+const JIRA_SKILL_LIB = path.join(__dirname, '..', '..', 'skills', 'jira-sdlc', 'lib');
+const { findPlaceholdersForToolInput } = require(path.join(JIRA_SKILL_LIB, 'placeholder-detect.js'));
+const { extractHeadings, loadTemplateHeadings } = require(path.join(JIRA_SKILL_LIB, 'template-fingerprint.js'));
 
 // ---------------------------------------------------------------------------
 // Auto-migration: .claude/jira-templates/ → .sdlc/jira-templates/ (R-MIGR, #423)
@@ -194,6 +205,8 @@ function parseArgs(argv) {
   let skipWorkflowDiscovery  = false;
   let bodyFile               = null;   // for --validate-body
   let wantJson               = false;  // for --validate-body output format
+  let inputFile              = null;   // for --assemble / --check-payload
+  let saveSeen               = false;  // --save is a modifier under --assemble
   const errors               = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -213,7 +226,16 @@ function parseArgs(argv) {
     } else if (a === '--load') {
       subcommand = 'load';
     } else if (a === '--save') {
-      subcommand = 'save';
+      saveSeen = true;
+      if (subcommand !== 'assemble') subcommand = 'save';
+    } else if (a === '--assemble') {
+      subcommand = 'assemble';
+    } else if (a === '--check-payload') {
+      subcommand = 'check-payload';
+    } else if (a === '--input' && args[i + 1]) {
+      inputFile = args[++i];
+    } else if (a === '--output-file') {
+      // Accepted and ignored: output always goes through writeOutput.
     } else if (a === '--save-field' && args[i + 1]) {
       subcommand    = 'save-field';
       saveFieldName = args[++i];
@@ -239,9 +261,11 @@ function parseArgs(argv) {
     }
   }
 
-  if (!projectKey && subcommand !== 'validate-body') {
+  if (!projectKey && subcommand !== 'validate-body' && subcommand !== 'check-payload') {
     errors.push('--project <KEY> is required');
   }
+
+  const assembleSave = subcommand === 'assemble' && saveSeen;
 
   const flags = {
     skipWorkflowDiscovery,
@@ -260,6 +284,8 @@ function parseArgs(argv) {
     skipWorkflowDiscovery,
     bodyFile,
     wantJson,
+    inputFile,
+    assembleSave,
     flags,
     errors,
   };
@@ -676,21 +702,226 @@ function saveCache({ projectKey, cacheDir, site }) {
     return;
   }
 
+  const writePath = writeCacheFile(data, { projectKey, cacheDir, site });
+  if (!writePath) {
+    writeOutput({ errors: [`Cannot derive site host from siteUrl: ${data.siteUrl}`] }, 'jira-context', 1);
+    return;
+  }
+  writeOutput({ saved: true, cachePath: writePath }, 'jira-context', 0);
+}
+
+/**
+ * Write cache data to `--cache-dir` or the site-keyed home cache.
+ * Returns the written path, or null when no site host can be derived.
+ */
+function writeCacheFile(data, { projectKey, cacheDir, site }) {
   let writePath;
   if (cacheDir) {
     writePath = getCachePath(projectKey, cacheDir);
   } else {
     const resolvedSite = site || sanitizeSiteHost(data.siteUrl);
-    if (!resolvedSite) {
-      writeOutput({ errors: [`Cannot derive site host from siteUrl: ${data.siteUrl}`] }, 'jira-context', 1);
-      return;
-    }
+    if (!resolvedSite) return null;
     writePath = path.join(getHomeCacheRoot(), resolvedSite, `${projectKey}.json`);
   }
 
   fs.mkdirSync(path.dirname(writePath), { recursive: true });
   fs.writeFileSync(writePath, JSON.stringify(data, null, 2) + '\n', 'utf8');
-  writeOutput({ saved: true, cachePath: writePath }, 'jira-context', 0);
+  return writePath;
+}
+
+// ---------------------------------------------------------------------------
+// Subcommands: --assemble (P6) and --check-payload (P7)
+// ---------------------------------------------------------------------------
+
+// Read and parse JSON from `inputFile`, or from stdin when no file is given.
+// Returns { data } or { error }.
+function readJsonInput(inputFile) {
+  const label = inputFile ? '--input' : 'stdin';
+  let raw;
+  try {
+    raw = fs.readFileSync(inputFile || 0, 'utf8');
+  } catch (err) {
+    return { error: `Cannot read ${inputFile ? `--input ${inputFile}` : 'stdin'}: ${err.message}` };
+  }
+  try {
+    return { data: JSON.parse(raw) };
+  } catch (err) {
+    return { error: `Invalid JSON in ${label}: ${err.message}` };
+  }
+}
+
+// MCP results arrive either bare or wrapped (`{ values: [...] }`, `{ sites: [...] }`, ...).
+function unwrapList(value, ...keys) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object') {
+    for (const k of keys) {
+      if (Array.isArray(value[k])) return value[k];
+    }
+  }
+  return [];
+}
+
+const NAMED_FIELD_TYPES = new Set(['string', 'number', 'priority', 'option', 'user', 'date', 'datetime']);
+
+// Map a raw field `schema` to the cache `type`; second element is true when unmapped.
+function mapFieldType(schema) {
+  const s = schema || {};
+  if (s.type === 'array') {
+    if (s.items === 'option') return ['multi-option', false];
+    return [`array<${s.items}>`, true];
+  }
+  const raw = s.type || 'unknown';
+  return [raw, !NAMED_FIELD_TYPES.has(raw)];
+}
+
+function mapAllowedValues(values) {
+  return values.map(v => (v && typeof v === 'object') ? (v.name ?? v.value) : v);
+}
+
+function mapTransition(t) {
+  const requiredFields = {};
+  for (const [key, f] of Object.entries(t.fields || {})) {
+    if (f && f.required === true) {
+      requiredFields[key] = { required: true, type: f.schema && f.schema.type };
+    }
+  }
+  const to = (t.to && typeof t.to === 'object') ? t.to.name : t.to;
+  return { id: t.id, name: t.name, to, requiredFields };
+}
+
+function assembleCache({ projectKey, cacheDir, site, skipWorkflowDiscovery }, inputFile, save) {
+  const fail = (message) => writeOutput({ assembled: false, errors: [message], warnings: [] }, 'jira-context', 1);
+
+  if (!inputFile) return fail('--assemble requires --input <file>');
+  const input = readJsonInput(inputFile);
+  if (input.error) return fail(input.error);
+  const raw = input.data || {};
+  const phase1 = raw.phase1 || {};
+  const phase2 = raw.phase2 || {};
+  const phase4 = raw.phase4 || {};
+  const phase5 = raw.phase5 || {};
+  const warnings = [];
+
+  const resources = unwrapList(phase1.resources, 'sites')
+    .filter(r => !site || sanitizeSiteHost(r && r.url) === sanitizeSiteHost(site));
+  const resource = resources[0];
+  if (!resource || !resource.id || !resource.url) return fail('phase1.resources has no id/url');
+
+  const project = unwrapList(phase2.projects, 'values').find(p => p && p.key === projectKey);
+  if (!project) return fail(`phase2.projects has no project ${projectKey}`);
+
+  const rawTypes = unwrapList(raw.phase3, 'issueTypes', 'values');
+  if (rawTypes.length === 0) return fail('phase3 has no issue types');
+
+  const issueTypes = {};
+  for (const t of rawTypes) {
+    issueTypes[t.name] = { id: t.id, subtask: !!t.subtask, hierarchyLevel: t.hierarchyLevel };
+  }
+
+  const fieldSchemas = {};
+  for (const [typeName, entry] of Object.entries(phase4)) {
+    const schema = {};
+    for (const f of unwrapList(entry, 'fields', 'values')) {
+      const key = f.fieldId ?? f.key;
+      if (!key) continue;
+      const [type, unmapped] = mapFieldType(f.schema);
+      if (unmapped) warnings.push(`unmapped field type ${type} for ${typeName}.${key}`);
+      const out = { required: !!f.required, type };
+      if (key.startsWith('customfield_')) out.name = f.name;
+      if (Array.isArray(f.allowedValues)) out.allowedValues = mapAllowedValues(f.allowedValues);
+      schema[key] = out;
+    }
+    fieldSchemas[typeName] = schema;
+  }
+
+  const workflows = {};
+  let workflowStates = 0;
+  for (const [typeName, info] of Object.entries(issueTypes)) {
+    if (info.subtask) continue;
+    const entry = phase5[typeName];
+    if (skipWorkflowDiscovery || !raw.phase5 || (entry && entry.unsampled)) {
+      workflows[typeName] = { unsampled: true };
+      continue;
+    }
+    if (!entry) continue;
+    const transitions = {};
+    for (const [status, list] of Object.entries(entry.transitions || {})) {
+      transitions[status] = unwrapList(list, 'transitions').map(mapTransition);
+    }
+    workflowStates += Object.keys(transitions).length;
+    workflows[typeName] = { statuses: entry.statuses || Object.keys(transitions), transitions };
+  }
+
+  const userInfo = phase1.userInfo || {};
+  const cache = {
+    version:      1,
+    lastUpdated:  new Date().toISOString(),
+    maxAgeHours:  0,
+    cloudId:      resource.id,
+    siteUrl:      resource.url,
+    currentUser:  { accountId: userInfo.accountId, displayName: userInfo.displayName, email: userInfo.emailAddress ?? userInfo.email },
+    project:      { key: project.key, name: project.name, id: project.id },
+    issueTypes,
+    fieldSchemas,
+    workflows,
+    linkTypes:    unwrapList(phase2.linkTypes, 'issueLinkTypes').map(l => ({ name: l.name, inward: l.inward, outward: l.outward })),
+    userMappings: {},
+  };
+
+  const result = {
+    assembled: true,
+    cache,
+    counts: {
+      issueTypes:     Object.keys(issueTypes).length,
+      fieldSchemas:   Object.keys(fieldSchemas).length,
+      workflowStates,
+      linkTypes:      cache.linkTypes.length,
+    },
+    warnings,
+    errors: [],
+  };
+
+  if (save) {
+    const cachePath = writeCacheFile(cache, { projectKey, cacheDir, site });
+    if (!cachePath) return fail(`Cannot derive site host from siteUrl: ${cache.siteUrl}`);
+    result.saved = true;
+    result.cachePath = cachePath;
+  }
+
+  writeOutput(result, 'jira-context', 0);
+}
+
+function checkPayload({ templatesDir }, type, inputFile) {
+  const input = readJsonInput(inputFile);
+  if (input.error) {
+    writeOutput({ placeholders: [], unknownHeadings: [], templateSource: null, warnings: [], errors: [input.error] }, 'jira-context', 1);
+    return;
+  }
+  const payload = input.data;
+  const detected = findPlaceholdersForToolInput(payload);
+  const warnings = [...detected.warnings];
+
+  let unknownHeadings = [];
+  let templateSource = null;
+  if (type) {
+    const projectRoot = resolveSdlcRoot();
+    const opts = { shippedTemplatesDir: templatesDir };
+    let template = loadTemplateHeadings(type, projectRoot, opts);
+    if (template.source === null && TEMPLATE_FALLBACK_MAP[type]) {
+      template = loadTemplateHeadings(TEMPLATE_FALLBACK_MAP[type], projectRoot, opts);
+    }
+    templateSource = template.source;
+    if (template.source === null) {
+      warnings.push(`no template for ${type}`);
+    } else {
+      const description = payload && (payload.description ?? (payload.fields && payload.fields.description));
+      unknownHeadings = [...extractHeadings(description)].filter(h => !template.headings.has(h));
+    }
+  }
+
+  const placeholders = detected.results;
+  const code = placeholders.length === 0 && unknownHeadings.length === 0 ? 0 : 1;
+  writeOutput({ placeholders, unknownHeadings, templateSource, warnings }, 'jira-context', code);
 }
 
 // ---------------------------------------------------------------------------
@@ -903,7 +1134,7 @@ async function validateBodySubcommand({ projectKey, cacheDir, site, bodyFile, wa
 
 function main() {
   const parsed = parseArgs(process.argv);
-  const { projectKey, cacheDir, templatesDir: templatesOverride, subcommand, saveFieldName, copyType, copyFrom, site, skipWorkflowDiscovery, bodyFile, wantJson, errors } = parsed;
+  const { projectKey, cacheDir, templatesDir: templatesOverride, subcommand, saveFieldName, copyType, copyFrom, site, skipWorkflowDiscovery, bodyFile, wantJson, inputFile, assembleSave, errors } = parsed;
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
   const projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/
@@ -935,6 +1166,12 @@ function main() {
       break;
     case 'save-field':
       saveField(ctx, saveFieldName);
+      break;
+    case 'assemble':
+      assembleCache(ctx, inputFile, assembleSave);
+      break;
+    case 'check-payload':
+      checkPayload(ctx, copyType, inputFile);
       break;
     case 'templates':
       resolveTemplates(ctx, templatesDir);
@@ -984,6 +1221,9 @@ module.exports = {
   checkCache,
   loadCache,
   saveCache,
+  writeCacheFile,
+  assembleCache,
+  checkPayload,
   saveField,
   resolveTemplates,
   initTemplates,

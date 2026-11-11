@@ -16,7 +16,7 @@
  * CLI entrypoint (if require.main === module):
  *   node mcp-failure.js --classify [--http-status N] [--error-msg X] [--hook-deny Y] [--r-path Z] [--tool T]
  *   node mcp-failure.js --telemetry --class X --tool T --site S --project P --error E --recovered R
- *   node mcp-failure.js --analyze --class X --tool T --site S --project P --error E --recovered R [--session-id ID]
+ *   node mcp-failure.js --analyze [--record] [--step S] [--operation O] --class X --tool T --site S --project P --error E --recovered R [--r-path Z]
  *
  * Exit codes:
  *   0 — success
@@ -447,14 +447,29 @@ if (require.main === module) {
     const recovered = getArg('recovered') || 'no';
     const rPath     = getArg('r-path')    || '';
 
+    const step      = getArg('step')      || rPath;
+    const operation = getArg('operation') || tool;
+
     try {
+      if (hasFlag('record')) {
+        process.stderr.write(appendTelemetry({ class: cls, tool, site, project, error, recovered }));
+      }
       const result = analyzeForDispatch({ class: cls, tool, site, project, error, recovered, rPath });
-      // Stable key order: shouldDispatch, duplicate, proposal, action
+      const esc = (s) => String(s).replace(/"/g, '\\"');
+      const { title, body } = result.proposal;
+      // Stable key order
       const out = {
-        shouldDispatch: result.shouldDispatch,
-        duplicate:      result.duplicate,
-        proposal:       result.proposal,
-        action:         result.action,
+        shouldDispatch:  result.shouldDispatch,
+        duplicate:       result.duplicate,
+        proposal:        result.proposal,
+        action:          result.action,
+        proposalTitle:   title,
+        proposalText:    `${title}\n\n${body}` + (result.duplicate != null
+          ? `\n\nAn open issue #${result.duplicate} already tracks this failure class; the proposed action is to comment on it instead of filing a new issue.`
+          : ''),
+        errorReportArgs: `--error-type mcp-${cls} --skill jira-sdlc --step "${esc(step)}" --operation "${esc(operation)}"`,
+        labels:          ['mcp-failure', `class:${cls}`],
+        errorText:       body,
       };
       process.stdout.write(JSON.stringify(out) + '\n');
       process.exit(0);

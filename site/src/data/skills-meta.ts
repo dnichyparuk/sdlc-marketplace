@@ -225,13 +225,13 @@ export const skillsMeta: SkillMeta[] = [
     tagline: 'Manages Jira issues via Atlassian MCP with a project metadata cache that reduces most operations to a single MCP call; tracks MCP failures with a deterministic classifier and an analyze-then-confirm dispatch gate.',
     pipeline: [
       { id: 'resolve-project', label: 'Resolve project key', type: 'script', description: 'Auto-detects from git branch or .sdlc/jira-config.json' },
-      { id: 'load-cache', label: 'Initialize or load cache', type: 'script', description: 'Builds cache on first use; reads cached metadata after' },
+      { id: 'load-cache', label: 'Initialize or load cache', type: 'script', description: 'Builds cache on first use (jira.js --assemble maps and saves the raw MCP results); reads cached metadata after' },
       { id: 'parse-intent', label: 'Classify operation', type: 'llm', description: 'Interprets request into create/edit/search/transition/etc.' },
       { id: 'critique-payload', label: 'Critique payload', type: 'llm', description: 'Write-ops only: checks template completeness, placeholder resolution, and field validity before approval' },
       { id: 'approve-payload', label: 'Approve payload', type: 'user', description: 'Write-ops only: presents final payload for explicit approve / change / cancel before any MCP dispatch' },
       { id: 'execute-op', label: 'Execute Jira operation', type: 'script', description: 'Calls Atlassian MCP with cached field IDs and schemas' },
       { id: 'mcp-telemetry', label: 'MCP failure telemetry (R27)', type: 'script', description: 'On any MCP error path, classifies the failure (transport/auth/schema/workflow/hook-block/link-verification) and appends a 5-line redacted block to .sdlc/learnings/log.md' },
-      { id: 'analyze-confirm-gate', label: 'Analyze-then-confirm gate (R28)', type: 'critique', description: 'For recurrent or unrecoverable MCP failures, synthesizes a dispatch proposal (with gh-based duplicate detection) and presents it for explicit user approval before escalating to error-report-sdlc' },
+      { id: 'analyze-confirm-gate', label: 'Analyze-then-confirm gate (R28)', type: 'critique', description: 'For unrecoverable MCP failures, one mcp-failure.js --analyze --record call writes telemetry and synthesizes a proposal (with gh-based duplicate detection) for explicit user approval before escalating to error-report-sdlc' },
       { id: 'cache-refresh', label: 'Update cache', type: 'script', description: 'Saves new users, transitions; auto-refreshes on stale data' },
     ],
     connections: [

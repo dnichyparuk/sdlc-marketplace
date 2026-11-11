@@ -1,0 +1,49 @@
+{
+  "phase1": {
+    "resources": [
+      { "id": "a1b2c3d4-0000-0000-0000-000000000001", "url": "https://acme.atlassian.net", "name": "acme" }
+    ],
+    "userInfo": { "accountId": "acc-001", "displayName": "Test User", "emailAddress": "test.user@acme.example" }
+  },
+  "phase2": {
+    "projects": { "values": [ { "key": "PROJ", "name": "Project", "id": "10000" } ] },
+    "linkTypes": { "issueLinkTypes": [ { "name": "Blocks", "inward": "is blocked by", "outward": "blocks" } ] }
+  },
+  "phase3": {
+    "issueTypes": [
+      { "id": "10001", "name": "Task", "subtask": false, "hierarchyLevel": 0 },
+      { "id": "10002", "name": "Bug", "subtask": false, "hierarchyLevel": 0 },
+      { "id": "10003", "name": "Sub-task", "subtask": true, "hierarchyLevel": -1 }
+    ]
+  },
+  "phase4": {
+    "Task": {
+      "fields": [
+        { "fieldId": "summary", "name": "Summary", "required": true, "schema": { "type": "string" } },
+        { "fieldId": "priority", "name": "Priority", "required": false, "schema": { "type": "priority" },
+          "allowedValues": [ { "name": "High" }, { "name": "Low" } ] },
+        { "fieldId": "customfield_10050", "name": "Teams", "required": false,
+          "schema": { "type": "array", "items": "option" },
+          "allowedValues": [ { "value": "A" }, { "value": "B" } ] }
+      ]
+    },
+    "Bug": {
+      "fields": [
+        { "fieldId": "summary", "name": "Summary", "required": true, "schema": { "type": "string" } }
+      ]
+    }
+  },
+  "phase5": {
+    "Task": {
+      "statuses": [ "To Do" ],
+      "transitions": {
+        "To Do": {
+          "transitions": [
+            { "id": "21", "name": "Start", "to": { "name": "In Progress" }, "fields": {} }
+          ]
+        }
+      }
+    },
+    "Bug": { "unsampled": true }
+  }
+}
