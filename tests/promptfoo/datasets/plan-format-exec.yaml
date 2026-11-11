@@ -27,6 +27,10 @@
 #   project-plan-shared-modify-ordered        -- CORRECT: Tasks 1 and 3 both modify README.md, Task 3 reaches Task 1
 #                                                 through Task 2 -> PF12 pass; Task 3's src/utils/helper.js is created
 #                                                 by its ancestor Task 1 -> PF13 exempts it
+#   project-plan-long-contract                -- CORRECT: Acceptance block followed by a Contract over 5000 characters
+#                                                 -> PF5 pass (the Acceptance block has no length limit)
+#   project-plan-checkbox-outside-ac          -- CORRECT: Acceptance block is prose; the only checkbox sits in the
+#                                                 Contract -> PF5 fail (a checkbox outside the block does not count)
 
 - description: "plan-format: valid plan passes all checks (JSON)"
   vars:
@@ -136,6 +140,26 @@
       value: "PF5"
     - type: icontains
       value: "max 5"
+
+- description: "plan-format: PF5 passes when the Contract after Acceptance criteria exceeds 5000 characters"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/plan.md --json"
+    project_root: "file://fixtures-fs/project-plan-long-contract"
+  assert:
+    - type: regex
+      value: '"id":\s*"PF5",\s*"status":\s*"pass"'
+
+- description: "plan-format: PF5 does not count a checkbox outside the Acceptance criteria block"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/plan.md --json"
+    project_root: "file://fixtures-fs/project-plan-checkbox-outside-ac"
+  assert:
+    - type: icontains
+      value: "PF5"
+    - type: icontains
+      value: "has no checkbox items"
 
 - description: "plan-format: plan with Deviations and short Notes passes all checks"
   vars:

@@ -256,6 +256,17 @@ try {
     console.error('[sdlc/session-start] explore tempdir sweep error:', sweepErr.message);
   }
 
+  // Sweep stale plan-critique tempdirs (sdlc-plan-critique-XXXXXX, P22). The name
+  // carries no branch, so the rule is age only: older than 7 days.
+  try {
+    require('../scripts/lib/state').gcAgedTempdirs({
+      prefix: 'sdlc-plan-critique-', ttlHours: 168,
+      tmpdir: process.env.SDLC_EXPLORE_TMPDIR_OVERRIDE || undefined,
+    });
+  } catch (sweepErr) {
+    console.error('[sdlc/session-start] critique tempdir sweep error:', sweepErr.message);
+  }
+
   // Legacy `.compact-recovery.json` (no branch suffix, pre-#256 layout).
   // Unlink ONLY when older than the freshness gate to avoid destroying a
   // fresh file written by an even-older plugin version on a concurrent

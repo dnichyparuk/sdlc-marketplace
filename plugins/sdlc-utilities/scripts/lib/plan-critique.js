@@ -132,7 +132,7 @@ function affectedSets(triggers, afterTaskCount, full) {
 }
 
 /** Compare two plan texts: { material, triggers, details, affectedGates, affectedLanes }. */
-function diffMaterial(beforeText, afterText, { full = false } = {}) {
+function diffMaterial(beforeText, afterText, { full = false, prevDir = null } = {}) {
   const before = tasksOf(beforeText);
   const after = tasksOf(afterText);
   const common = [...before.keys()].filter(k => after.has(k));
@@ -162,7 +162,35 @@ function diffMaterial(beforeText, afterText, { full = false } = {}) {
   const devDelta = setDelta(keysOnly(sectionEntries(sectionBody(beforeText, dev), { bullets: false })), keysOnly(sectionEntries(sectionBody(afterText, dev), { bullets: false })));
   if (devDelta) fire('deviations', { added: devDelta.added, removed: devDelta.removed });
 
-  return { material: triggers.length > 0, triggers, details, ...affectedSets(triggers, after.size, full) };
+  const sets = affectedSets(triggers, after.size, full);
+  const rerun = prevDir === null ? [] : rerunFrom(prevDir, after.size);
+  if (sets.affectedLanes[0] !== '*') sets.affectedLanes = [...new Set([...sets.affectedLanes, ...rerun])].sort();
+  return { material: triggers.length > 0, triggers, details, ...sets, rerun };
+}
+
+/** Lanes and lenses whose previous result in prevDir is blocking or unreadable: they must be re-dispatched (R67). */
+function rerunFrom(prevDir, afterTaskCount) {
+  let files;
+  try { files = fs.readdirSync(prevDir); }
+  catch (err) { throw Object.assign(new Error(`cannot read --prev-dir ${prevDir}: ${err.message}`), { code: 'USAGE' }); }
+  const out = new Set();
+  const dirty = (file, valid, isBlocking) => {
+    const r = readResult(path.join(prevDir, file), valid);
+    return r.reason === 'invalid JSON' || r.reason === 'invalid result shape' || (r.value && isBlocking(r.value));
+  };
+  for (const { name } of LANE_DEFS) {
+    if (!files.includes(`${name}.json`)) continue;
+    if (dirty(`${name}.json`, v => isObject(v) && Array.isArray(v.issues),
+      v => v.laneStatus !== 'ok' || v.issues.some(i => isObject(i) && i.blocking === true))) out.add(name);
+  }
+  for (const lens of LENS_NAMES) {
+    if (!files.includes(`lens-${lens}.json`)) continue;
+    if (dirty(`lens-${lens}.json`, v => isObject(v) && Array.isArray(v.issues),
+      v => v.issues.some(i => isObject(i) && (i.blocking === true || i.severity === 'CRITICAL')))) {
+      out.add(afterTaskCount < 5 ? 'lens:all' : `lens:${lens}`);
+    }
+  }
+  return [...out].sort();
 }
 
 // ---------------------------------------------------------------------------
@@ -585,7 +613,7 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
       throw usage(`cannot read --carry ${carryDir}: ${err.message}`);
     }
     const laneCarry = [...LANE_DEFS.map(d => d.name), 'dimension-coverage']
-      .filter(n => !lanes.includes(n) && !(noGuardrails && n === 'guardrail-compliance'));
+      .filter(n => !lanes.includes(n) && !(noGuardrails && n === 'guardrail-compliance') && !(g17NotRun && n === 'dimension-coverage'));
     const lensCarry = prevFiles.map(f => f.match(/^lens-(.+)\.json$/)).filter(Boolean).map(m => m[1])
       .filter(n => LENS_NAMES.includes(n) && !lenses.includes(n)).sort();
     for (const file of [...laneCarry.map(n => `${n}.json`), ...lensCarry.map(n => `lens-${n}.json`)]) {

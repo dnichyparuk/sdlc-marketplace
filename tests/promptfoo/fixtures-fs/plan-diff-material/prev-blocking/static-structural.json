@@ -1,0 +1,1 @@
+{"gateIds":["G1","G2","G7"],"issues":[{"gateId":"G1","taskRef":"Task 2","message":"Requirement 3 has no task","severity":"error","blocking":true}],"passes":["G2","G7"],"laneStatus":"ok"}

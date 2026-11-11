@@ -41,12 +41,12 @@
 
 # --- Case 3: Warns and names missing checkpoints when state file is partial ---
 
-- description: "stop-plan-integrity: warns and names missing checkpoints when state file has only skillInvoked"
+- description: "stop-plan-integrity: warns and names missing checkpoints when Step 3 markers are missing"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
-    script_args: "--project-root {{project_root}}"
+    script_args: "--project-root {{project_root}} --fix-planfile-path"
     script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-integrity-partial"
+    project_root: "file://fixtures-fs/plan-integrity-step3-missing"
   assert:
     - type: javascript
       value: |
@@ -55,8 +55,6 @@
         return inner.exitCode === 2 || 'FAIL: inner exit ' + inner.exitCode;
     - type: icontains
       value: 'Missing checkpoints'
-    - type: icontains
-      value: 'planFile'
     - type: icontains
       value: 'guardrailsEvaluated'
     - type: icontains
@@ -122,9 +120,9 @@
 - description: "stop-plan-integrity-undeletable: marker that cannot be deleted warns once per Stop with exit 0, never exit 2"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
-    script_args: "--project-root {{project_root}} --readonly-state-dir --report-state-files"
+    script_args: "--project-root {{project_root}} --fix-planfile-path --readonly-state-dir --report-state-files"
     script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-integrity-partial"
+    project_root: "file://fixtures-fs/plan-integrity-step3-missing"
   assert:
     - type: javascript
       value: |
@@ -154,9 +152,9 @@
 - description: "stop-plan-integrity: owner (b) same session warns and consumes"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
-    script_args: "--project-root {{project_root}} --marker-session main-sid --session-id main-sid --report-state-files"
+    script_args: "--project-root {{project_root}} --fix-planfile-path --marker-session main-sid --session-id main-sid --report-state-files"
     script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-integrity-partial"
+    project_root: "file://fixtures-fs/plan-integrity-step3-missing"
   assert:
     - type: javascript
       value: |
@@ -170,9 +168,9 @@
 - description: "stop-plan-integrity: owner (c) marker without sessionId keeps old behaviour"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
-    script_args: "--project-root {{project_root}} --session-id main-sid --report-state-files"
+    script_args: "--project-root {{project_root}} --fix-planfile-path --session-id main-sid --report-state-files"
     script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-integrity-partial"
+    project_root: "file://fixtures-fs/plan-integrity-step3-missing"
   assert:
     - type: javascript
       value: |
@@ -180,4 +178,108 @@
         const inner = JSON.parse(r.stdout);
         if (inner.exitCode !== 2) return 'FAIL: inner exit ' + inner.exitCode;
         if (inner.stateFiles.some(f => /^plan-/.test(f))) return 'FAIL: marker not consumed ' + JSON.stringify(inner.stateFiles);
+        return true;
+
+- description: "stop-plan-integrity: run (a) no plan file named is consumed silently"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
+    script_args: "--project-root {{project_root}} --report-state-files"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-integrity-partial"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        const kept = inner.stateFiles && inner.stateFiles.some(f => /^plan-/.test(f));
+        if (inner.exitCode !== 0) return 'FAIL: inner exit ' + inner.exitCode;
+        if (inner.stderr.includes('[plan-integrity]')) return 'FAIL: unexpected warning';
+        if (kept) return 'FAIL: marker not consumed ' + JSON.stringify(inner.stateFiles);
+        return true;
+
+- description: "stop-plan-integrity: run (b) critique dir present keeps the marker"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
+    script_args: "--project-root {{project_root}} --fix-planfile-path --critique-dir present --report-state-files"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-integrity-step3-missing"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        const kept = inner.stateFiles && inner.stateFiles.some(f => /^plan-/.test(f));
+        if (inner.exitCode !== 0) return 'FAIL: inner exit ' + inner.exitCode;
+        if (inner.stderr.includes('[plan-integrity]')) return 'FAIL: unexpected warning';
+        if (!kept) return 'FAIL: marker was deleted ' + JSON.stringify(inner.stateFiles);
+        return true;
+
+- description: "stop-plan-integrity: run (c) critique dir gone warns and consumes"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
+    script_args: "--project-root {{project_root}} --fix-planfile-path --critique-dir gone --report-state-files"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-integrity-step3-missing"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        const kept = inner.stateFiles && inner.stateFiles.some(f => /^plan-/.test(f));
+        if (inner.exitCode !== 2) return 'FAIL: inner exit ' + inner.exitCode;
+        if (!inner.stderr.includes('guardrailsEvaluated') || !inner.stderr.includes('critiqueRan')) return 'FAIL: warning does not name the checkpoints';
+        if (kept) return 'FAIL: marker not consumed ' + JSON.stringify(inner.stateFiles);
+        return true;
+
+- description: "stop-plan-integrity: run (d) complete marker is consumed even while the critique dir exists"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
+    script_args: "--project-root {{project_root}} --fix-planfile-path --critique-dir present --report-state-files"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-integrity-complete"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        const kept = inner.stateFiles && inner.stateFiles.some(f => /^plan-/.test(f));
+        if (inner.exitCode !== 0) return 'FAIL: inner exit ' + inner.exitCode;
+        if (kept) return 'FAIL: marker not consumed ' + JSON.stringify(inner.stateFiles);
+        return true;
+
+- description: "stop-plan-integrity: run (e) a kept marker stays kept on a second Stop"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
+    script_args: "--project-root {{project_root}} --fix-planfile-path --critique-dir present --repeat 2 --report-state-files"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-integrity-step3-missing"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        const kept = inner.stateFiles && inner.stateFiles.some(f => /^plan-/.test(f));
+        if (!inner.runs || inner.runs.length !== 2) return 'FAIL: expected 2 runs';
+        for (const run of inner.runs) {
+          if (run.exitCode !== 0) return 'FAIL: run exit ' + run.exitCode;
+          if (run.stderr.includes('[plan-integrity]')) return 'FAIL: unexpected warning';
+        }
+        if (!kept) return 'FAIL: marker was deleted ' + JSON.stringify(inner.stateFiles);
+        return true;
+
+- description: "stop-plan-integrity: run (f) a second Stop after a warning is silent"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-stop-plan-integrity.js"
+    script_args: "--project-root {{project_root}} --fix-planfile-path --critique-dir gone --repeat 2 --report-state-files"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-integrity-step3-missing"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const inner = JSON.parse(r.stdout);
+        const kept = inner.stateFiles && inner.stateFiles.some(f => /^plan-/.test(f));
+        if (!inner.runs || inner.runs.length !== 2) return 'FAIL: expected 2 runs';
+        if (inner.runs[0].exitCode !== 2 || !inner.runs[0].stderr.includes('[plan-integrity]')) return 'FAIL: first run did not warn';
+        if (inner.runs[1].exitCode !== 0 || inner.runs[1].stderr.includes('[plan-integrity]')) return 'FAIL: second run not silent';
         return true;

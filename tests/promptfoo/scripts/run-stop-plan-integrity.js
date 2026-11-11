@@ -16,6 +16,11 @@
  *   --marker-session <id>     Patch sessionId into the fixture's plan state file
  *   --readonly-state-dir      chmod the fixture's .sdlc/execution dir 0555 around
  *                             the hook run (an undeletable marker), 0755 after
+ *   --critique-dir <present|gone>  Patch critiqueDir into the plan state file:
+ *                             present creates <project-root>/critique-dir, gone
+ *                             points at <project-root>/critique-dir-gone (not created)
+ *   --repeat <n>              Run the hook n times with the same payload (default 1);
+ *                             output gains runs: [{ stdout, stderr, exitCode }]
  *
  * Outputs JSON { stdout, stderr, exitCode } for promptfoo assertions.
  */
@@ -39,6 +44,8 @@ let reportStateFiles = false; // when true, append stateFiles[] to output JSON
 let readonlyStateDir = false; // when true, chmod the fixture state dir read-only around the hook run
 let sessionId = null;     // --session-id: payload.session_id sent to the hook
 let markerSession = null; // --marker-session: sessionId patched into the plan state file
+let critiqueDirMode = null; // --critique-dir: 'present' | 'gone'
+let repeat = 1;           // --repeat: number of hook runs
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) {
@@ -57,6 +64,10 @@ for (let i = 0; i < args.length; i++) {
     sessionId = args[++i];
   } else if (args[i] === '--marker-session' && args[i + 1]) {
     markerSession = args[++i];
+  } else if (args[i] === '--critique-dir' && args[i + 1]) {
+    critiqueDirMode = args[++i];
+  } else if (args[i] === '--repeat' && args[i + 1]) {
+    repeat = Math.max(1, parseInt(args[++i], 10) || 1);
   }
 }
 
@@ -135,6 +146,23 @@ if (markerSession) {
   }
 }
 
+if (critiqueDirMode) {
+  const critiqueDirPath = path.join(projectRoot, critiqueDirMode === 'present' ? 'critique-dir' : 'critique-dir-gone');
+  if (critiqueDirMode === 'present') fs.mkdirSync(critiqueDirPath, { recursive: true });
+  const stateDir = path.join(projectRoot, '.sdlc', 'execution');
+  if (fs.existsSync(stateDir)) {
+    const entries = fs.readdirSync(stateDir).filter(f => f.startsWith('plan-') && f.endsWith('.json'));
+    for (const entry of entries) {
+      const fp = path.join(stateDir, entry);
+      try {
+        const data = JSON.parse(fs.readFileSync(fp, 'utf8'));
+        data.critiqueDir = critiqueDirPath;
+        fs.writeFileSync(fp, JSON.stringify(data, null, 2), 'utf8');
+      } catch (_) {}
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Construct stdin payload
 // ---------------------------------------------------------------------------
@@ -163,20 +191,21 @@ if (fs.existsSync(fixtureStateDir)) {
 }
 
 if (readonlyStateDir && fs.existsSync(fixtureStateDir)) fs.chmodSync(fixtureStateDir, 0o555);
-const result = spawnSync('node', [hookScript], {
-  input: stdinData,
-  cwd: projectRoot,
-  env: spawnEnv,
-  encoding: 'utf8',
-  timeout: 10_000,
-});
+const runs = [];
+for (let n = 0; n < repeat; n++) {
+  const r = spawnSync('node', [hookScript], {
+    input: stdinData,
+    cwd: projectRoot,
+    env: spawnEnv,
+    encoding: 'utf8',
+    timeout: 10_000,
+  });
+  runs.push({ stdout: r.stdout || '', stderr: r.stderr || '', exitCode: r.status ?? -1 });
+}
 if (readonlyStateDir && fs.existsSync(fixtureStateDir)) fs.chmodSync(fixtureStateDir, 0o755);
 
-const output = {
-  stdout: result.stdout || '',
-  stderr: result.stderr || '',
-  exitCode: result.status ?? -1,
-};
+const output = { ...runs[0] };
+if (repeat > 1) output.runs = runs;
 
 // --report-state-files: list .sdlc/execution/ contents after the hook ran.
 // Enables assertions about file deletion (consume-then-delete contract).

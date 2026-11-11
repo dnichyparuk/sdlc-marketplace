@@ -52,6 +52,7 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lane
 Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Use `lens` from `merged.json`: `lens.status` is the iteration status (`Approved` iff every lens is Approved), `lens.issues` the issues, `lens.recommendations` the recommendations. Increment the iteration counter by 1 only after the await barrier above is satisfied (exactly N lens results collected); never on partial or zero returns. <!-- R36, R-orchestrator-await, R-c1 -->
 
 For plans with <5 tasks, dispatch one reviewer, `reviewerDispatch` (P25), by the same rule, including the R8 author rule (`description: "plan review"`). Its JSON goes to `<ITER_DIR>/lens-all.json` and merge-lanes runs with `--lenses all`.
+When `reviewerDispatch.agentPath` is null, do not dispatch it; log it as for a lens and still run merge-lanes with `--lenses all`, which reports the missing result as a blocking lens failure (P25).
 
 **Gate B — Verification Scorecard:** <!-- implements R40, R42, R44 -->
 
@@ -83,10 +84,12 @@ cp "<PLAN_PATH>" "<ITER_DIR>/plan-before.md"
 After the plan file is rewritten with the Step 6 fixes, run:
 
 ```bash
-node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/plan-before.md" --after "<PLAN_PATH>"
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/plan-before.md" --after "<PLAN_PATH>" --prev-dir "<ITER_DIR>"
 ```
 
 Set `materialChangeDetected` to its `material` value and keep its `affectedLanes` for the merged re-dispatch; on a non-zero exit set `materialChangeDetected` to `true` and `affectedLanes` to `["*"]` (E9). The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
+
+`affectedLanes` already includes the `rerun` entries: each lane or lens whose result in `<ITER_DIR>` held a blocking issue, so a result older than the fix is re-dispatched, not carried (R64, R67).
 
 Re-dispatch the reviewer (back to Step 5 loop). When `materialChangeDetected` is true, the Step 5 merged dispatch path activates — see "Material change detection and merged re-dispatch" in Step 5.
 

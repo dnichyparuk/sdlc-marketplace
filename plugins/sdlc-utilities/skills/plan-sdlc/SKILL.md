@@ -115,7 +115,7 @@ Naming convention: `YYYY-MM-DD-<feature-name>.md`. Create the directory if neede
 
 **State-file lifecycle (R20 Lifecycle):** The plan state file follows three rules that callers do NOT need to implement directly — they are enforced inside `skill/plan.js` and `hooks/stop-plan-integrity.js`:
 - **Prune-on-write** — the `--output-file` prepare branch prunes pre-existing `plan-<branchSlug>-*.json` files for the current branch before writing the new state file, so at most one marker per branch exists between plan-sdlc invocations. The `--mark` branch does NOT prune (it would unlink its own target).
-- **Consume-then-delete** — the Stop hook reads `planIntegrity` markers, evaluates the gates, then unlinks the marker regardless of outcome (single-shot semantics). Subsequent Stop events on the same branch find no marker and exit 0 — this is correct R21 behavior.
+- **Consume-then-delete** — the Stop hook reads `planIntegrity` markers and evaluates the gates. While a gate is missing and the recorded `critiqueDir` still exists, the run is in flight: the hook keeps the marker and stays silent. Otherwise it unlinks the marker (single-shot), and warns only when a gate is missing and a plan file was named (R21). Subsequent Stop events on the same branch find no marker and exit 0.
 - **GC orphan sweep** — `ship-sdlc --gc` and `execute-plan-sdlc --gc` sweep stale `plan-*` markers (TTL-expired or branch-deleted) alongside `ship-*` and `execute-*` files; the JSON output includes a `plan` bucket alongside `ship` and `execute`.
 
 Each `--mark` block references `plan.js` by its injected `<PLUGIN_ROOT>` path independently: SKILL.md bash blocks each run as a separate Bash tool invocation, so shell variables do NOT persist across blocks.
@@ -148,7 +148,7 @@ The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()
      independently from the manifest's `webResearchSignal` (which is a best-effort hint;
      plan.js may not have stdin when invoked from a TTY).
   2. Read the orchestrator's returned `Brief file:` absolute path. Use `Read` to load the brief into context. The brief is the source of truth for Step 2 task provenance.
-  3. **Brief validation:** After loading the brief, grep its content for the pattern `F-[A-Z0-9_-]+-[0-9]+` (the `F-<DIM>-<n>` finding ID format). If zero matches are found, treat the orchestrator as if it had failed: append one line to `.sdlc/learnings/log.md`: `## <YYYY-MM-DD> — plan-sdlc orchestrator returned brief without F-DIM-N findings; using fallback inline exploration`, then proceed via the **Error fallback** path below. Rationale: a brief with no findings cannot satisfy G15 (Brief citation coverage) and would force every task into "out-of-scope addition" — better to fall back cleanly.
+  3. **Brief validation:** After loading the brief, grep its content for the pattern `F-[A-Za-z0-9_.-]+-[0-9]+` (the `F-<DIM>-<n>` finding ID format; ids match in either case, and the orchestrator writes them in lowercase, R26). If zero matches are found, treat the orchestrator as if it had failed: append one line to `.sdlc/learnings/log.md`: `## <YYYY-MM-DD> — plan-sdlc orchestrator returned brief without F-DIM-N findings; using fallback inline exploration`, then proceed via the **Error fallback** path below. Rationale: a brief with no findings cannot satisfy G15 (Brief citation coverage) and would force every task into "out-of-scope addition" — better to fall back cleanly.
 
   **Brief consumption (when brief is present AND validation passed):**
   - Step 2 tasks MUST cite at least one `F-<DIM>-<n>` finding ID from the brief OR be explicitly marked "out-of-scope addition" with rationale <!-- implements R27 -->
@@ -176,7 +176,8 @@ Wait for answers before continuing.
 - Testing patterns used in the project
 - Build/lint/test commands (from Makefile, package.json, or similar)
 - Naming conventions and code style
-- Read, Glob and Grep calls that don't depend on each other go in one message (lightweight scope and error fallback included). <!-- implements R37 -->
+
+On the inline path (lightweight scope or error fallback), issue Read, Glob and Grep calls that do not depend on each other in one message. <!-- implements R37 -->
 
 Identify constraints: language, framework, existing conventions, testing approach.
 
@@ -396,7 +397,7 @@ Full-pipeline plans: Read `./review-loop.md` now and follow it for Steps 5–6. 
 After the reviewer loop converges (or the user resolves remaining issues), validate every URL embedded in the finalized plan file via the shared link validator. The script reads the plan content from stdin and auto-derives `expectedRepo` from `parseRemoteOwner(cwd)` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill MUST NOT construct ctx JSON.
 
 ```bash
-node "<PLUGIN_ROOT>/scripts/lib/links.js" --file "$plan_path" --json
+node "<PLUGIN_ROOT>/scripts/lib/links.js" --file "<PLAN_PATH>" --json
 ```
 
 Take the command's exit code from the tool result (a tool result without an error is exit code 0). On non-zero exit:
@@ -411,28 +412,18 @@ On zero exit, proceed to Step 7. `SDLC_LINKS_OFFLINE=1` skips network reachabili
 
 After link verification passes, run the deterministic plan format validator. PF9 (Verification Scorecard presence) is applied only when this run executed Step 5 (the multi-lens review). PF10 (template-required sections) is applied only on full-pipeline plans (`--final`, which also passes `--template`), like PF9. PF11 (the `**Commit:**` header line) always runs and is checked only when the line is present: a missing line passes (the omission is explained in a `## Deviations & assumptions` row), a malformed one fails. PF12 (shared Modify paths in dependency order) always runs; PF13 (Modify paths exist) runs because the block passes `--root`, the active worktree.
 
-**Set `FINAL_FLAG` from the Step 0 routing branch THIS run took** — NOT from scorecard presence (deriving it from the artifact it checks would make PF9 circular):
+Run the block for the Step 0 routing branch THIS run took — not chosen from scorecard presence (that would make PF9 circular). Substitute `<PLAN_PATH>` and `<activeTemplatePath>` (Step 0 template resolution) with literal paths.
 
-- **Full-pipeline plan** (Step 0 routed through Step 5, the multi-lens review — i.e. ≥4 files): `FINAL_FLAG="--final"`. A scorecard is expected, so PF9 is enforced.
-- **Lightweight plan** (Step 5 skipped): `FINAL_FLAG=""`. No scorecard expected, so PF9 is not applied.
-
-Substitute the correct values into the block below before running it; `${FINAL_FLAG:+--final}` expands to `--final` only when `FINAL_FLAG` is non-empty, and to nothing otherwise (no word-splitting, no empty positional argument). `TEMPLATE_PATH` passes the active template path so PF10 can check template-required sections — it is appended via a bash array, never inline-interpolated, so a path containing spaces is not word-split.
-
-**Set `TEMPLATE_PATH`:** When `FINAL_FLAG` is `"--final"` (full-pipeline plan), set `TEMPLATE_PATH="$activeTemplatePath"` (the absolute path resolved in Step 0's template resolution). When `FINAL_FLAG` is empty (lightweight plan), leave `TEMPLATE_PATH` unset/empty — PF10 is skipped along with PF9.
+Full-pipeline plan (Step 5 ran; PF9 and PF10 apply):
 
 ```bash
-# FINAL_FLAG is set above from the Step 0 routing branch THIS run took:
-#   "--final" for a full-pipeline plan (Step 5 ran → scorecard expected),
-#   ""        for a lightweight plan (Step 5 skipped → PF9 not applied).
-# It is NOT derived from scorecard presence (that would make PF9 circular).
-# TEMPLATE_PATH passes the active plan template path for PF10. Built as an array
-# (not a pre-joined "--template $path" string) so a path containing spaces is
-# passed as a single argument instead of being word-split on the unquoted expansion.
-ARGS=(--markdown --file "$plan_path")
-[ -n "$FINAL_FLAG" ] && ARGS+=(--final)
-[ -n "$TEMPLATE_PATH" ] && ARGS+=(--template "$TEMPLATE_PATH")
-ARGS+=(--root "$PWD")
-node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" "${ARGS[@]}"
+node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --markdown --file "<PLAN_PATH>" --final --template "<activeTemplatePath>" --root "$PWD"
+```
+
+Lightweight plan (Step 5 skipped; PF9 and PF10 do not apply):
+
+```bash
+node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --markdown --file "<PLAN_PATH>" --root "$PWD"
 ```
 
 Take the command's exit code from the tool result (a tool result without an error is exit code 0). On non-zero exit:

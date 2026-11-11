@@ -2,7 +2,7 @@
 
 ## Overview
 
-Writes an implementation plan from requirements, a spec, or a user description. Operates primarily in Plan Mode — the plan file is the single source of truth, built incrementally: a skeleton header is written at the start, then filled with requirements, tasks, and critique fixes as the pipeline progresses. Produces plans in the format consumed by `execute-plan-sdlc` — with per-task complexity, risk, dependency, and `Contract:` (decided-shape) metadata embedded. Follows a PCIDCI pipeline: analyzes requirements and codebase, decomposes into classified tasks, self-critiques, presents for user approval, and runs a cross-model plan review loop.
+Writes an implementation plan from requirements, a spec, or a user description. Operates primarily in Plan Mode — the plan file is the single source of truth, built incrementally: a skeleton header is written at the start, then filled with requirements, tasks, and critique fixes as the pipeline progresses. Produces plans in the format consumed by `execute-plan-sdlc` — with per-task complexity, risk, dependency, and `Contract:` (decided-shape) metadata embedded. Follows a PCIDCI pipeline: analyzes requirements and codebase, decomposes into classified tasks, self-critiques, runs a plan review loop (lens reviewers, or one reviewer for plans under 5 tasks), and presents the plan for user approval.
 
 ---
 
@@ -284,7 +284,7 @@ Invoke `/plan-sdlc` while Claude Code plan mode is active:
 2. After requirements discovery and codebase exploration, the plan file is updated: header fields (Goal, Architecture, Verification) and the `**Commit:**` line are filled in and a Requirements section is appended
 3. After task decomposition, task blocks (and a Key Decisions section, if applicable) are appended to the plan file
 4. After self-critique (Step 3) — which includes a guardrail compliance gate checking every task against the loaded guardrails — the plan file is rewritten with all fixes applied autonomously in Step 4; a `## Guardrail Compliance` section is appended listing each guardrail and its pass/fail status. Step 4 does NOT prompt for plan approval (Fixes #388); the user sees the plan only at the Step 7 handoff. The Step 4 error-severity guardrail-block harden offer remains the only user touchpoint at this stage
-5. The skill calls `ExitPlanMode` — Claude Code presents the finalized plan for your review; the cross-model reviewer also receives the guardrails as a `{GUARDRAILS}` template variable so the second model can verify compliance independently
+5. The skill runs the plan review loop; each reviewer receives the guardrails as its `GUARDRAILS` input and checks compliance independently. Then it calls `ExitPlanMode`, and Claude Code presents the finalized plan for your review
 6. After you approve, execution begins automatically — `/execute-plan-sdlc` is auto-invoked with the plan already in context
 
 The plan format is identical regardless of mode, so `/execute-plan-sdlc` loads it without any adjustments.
@@ -297,7 +297,7 @@ The plan format is identical regardless of mode, so `/execute-plan-sdlc` loads i
 |-----------------|-------------|
 | `<plansDirectory>/YYYY-MM-DD-<feature-name>.md` | The written plan document (normal mode). Starts as a skeleton header at Step 0 and grows incrementally: header fields and Requirements section added at Step 1, task blocks at Step 2, critique fixes applied at Steps 4 and 6. Artifact-touching tasks include rendered concrete artifacts — fenced payload blocks, before→after diffs, table schemas — embedded in the task body where the render-don't-narrate gate (G19) applies. Path resolved from: user-specified → project `.claude/settings.json` `plansDirectory` → global `~/.claude/settings.json` `plansDirectory` → `~/.claude/plans/` fallback. |
 | Plan mode designated file | When Claude Code plan mode is active, the plan is written to the system-designated file path instead of the above. Same incremental build process applies. The path appears in the plan mode system banner. |
-| `os.tmpdir()/sdlc-plan-critique-XXXX/iter-<k>/` | Critique directory (`critiqueDir`, P22): the validator report, the g17-prepare result, each lane's and lens's JSON, `merged.json` and the plan copy used for the material-change diff. Created by the prepare script; removed at Step 7, and on any stop, cancel or exit before Step 7. |
+| `os.tmpdir()/sdlc-plan-critique-XXXX/iter-<k>/` | Critique directory (`critiqueDir`, P22): the validator report, the g17-prepare result, each lane's and lens's JSON, `merged.json` and the plan copy used for the material-change diff. Created by the prepare script; removed at Step 7, and on any stop, cancel or exit before Step 7. The session-start hook removes a directory left by an abandoned run after 7 days. |
 | `.sdlc/learnings/log.md` | Planning learnings appended after writing: scope decisions, clarification patterns, decomposition issues. |
 | `os.tmpdir()/sdlc-explore-<branchSlug>-XXXX/discovery-brief.md` | Dynamic-dimension discovery brief produced by `plan-explore-orchestrator` for 4+ file scopes. Contains per-dimension findings with stable `F-<DIM>-<n>` IDs, a contradictions section, and (when web/hybrid dimensions ran) a `## Best-Practice Synthesis` section. Orphans swept by `ship-sdlc --gc` and by the session-start hook (stale at least 7 days, branch gone). |
 
@@ -373,7 +373,7 @@ When `plan-sdlc` runs, it writes a per-branch plan integrity state file at `.sdl
 
 A sibling field `planFilePath` stores the absolute path to the plan file so the hook can stat it for non-empty content.
 
-The `stop-plan-integrity.js` Stop hook reads this state file at session end and warns when any checkpoint is missing or when the recorded plan file is absent or empty. The hook exits 2 with the warning on stderr when a checkpoint is missing, so the model sees it, and exits 0 on every other path. With no state file it exits 0 silently. See [`hooks/stop-plan-integrity.js`](../../plugins/sdlc-utilities/hooks/stop-plan-integrity.js) and [issue #285](https://github.com/rnagrodzki/sdlc-marketplace/issues/285).
+The `stop-plan-integrity.js` Stop hook reads this state file at session end and warns when any checkpoint is missing or when the recorded plan file is absent or empty. The hook exits 2 with the warning on stderr when a checkpoint is missing, so the model sees it, and exits 0 on every other path. With no state file it exits 0 silently. While the run is still in flight (its critique directory exists), the hook keeps the state file and prints nothing. A run that never named a plan file ends silently. See [`hooks/stop-plan-integrity.js`](../../plugins/sdlc-utilities/hooks/stop-plan-integrity.js) and [issue #285](https://github.com/rnagrodzki/sdlc-marketplace/issues/285).
 
 ## State Format
 

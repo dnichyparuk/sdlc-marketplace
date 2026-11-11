@@ -57,19 +57,41 @@ if (!fs.existsSync(freshDir)) fs.mkdirSync(freshDir);
 const staleDate = new Date('2024-01-01T00:00:00Z');
 fs.utimesSync(staleDir, staleDate, staleDate);
 
-const r = spawnSync('node', [hook], {
-  input: '{}',
-  cwd: projectRoot,
-  encoding: 'utf8',
-  timeout: 30_000,
-  env: Object.assign({}, process.env, {
-    SDLC_EXPLORE_TMPDIR_OVERRIDE: fakeTmpdir,
-    SDLC_STATE_DIR_OVERRIDE: stateDir,
-  }),
-});
+// Plan-critique dirs: age-only sweep (7 days)
+const critiqueStale = path.join(fakeTmpdir, 'sdlc-plan-critique-old123');
+const critiqueFresh = path.join(fakeTmpdir, 'sdlc-plan-critique-new456');
+if (!fs.existsSync(critiqueStale)) fs.mkdirSync(critiqueStale);
+if (!fs.existsSync(critiqueFresh)) fs.mkdirSync(critiqueFresh);
+fs.utimesSync(critiqueStale, staleDate, staleDate);
 
-console.log(JSON.stringify({
+function runHook() {
+  return spawnSync('node', [hook], {
+    input: '{}',
+    cwd: projectRoot,
+    encoding: 'utf8',
+    timeout: 30_000,
+    env: Object.assign({}, process.env, {
+      SDLC_EXPLORE_TMPDIR_OVERRIDE: fakeTmpdir,
+      SDLC_STATE_DIR_OVERRIDE: stateDir,
+    }),
+  });
+}
+
+const r = runHook();
+const result = {
   staleRemoved: !fs.existsSync(staleDir),
   freshKept: fs.existsSync(freshDir),
+  critiqueStaleRemoved: !fs.existsSync(critiqueStale),
+  critiqueFreshKept: fs.existsSync(critiqueFresh),
+};
+const r2 = runHook();
+
+console.log(JSON.stringify({
+  staleRemoved: result.staleRemoved,
+  freshKept: result.freshKept,
+  critiqueStaleRemoved: result.critiqueStaleRemoved,
+  critiqueFreshKept: result.critiqueFreshKept,
+  secondRunExit: r2.status,
+  critiqueFreshKeptAfterSecond: fs.existsSync(critiqueFresh),
   exitCode: r.status,
 }));
