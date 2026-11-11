@@ -92,6 +92,10 @@
     - type: icontains
       value: '"planFilePathSet": true'
     - type: icontains
+      value: '"critiqueDirRecorded": true'
+    - type: icontains
+      value: '"rePrepareSingleMarker": true'
+    - type: icontains
       value: '"allPresent": true'
 
 - description: "plan-prepare: --mark with unknown name exits non-zero and lists valid names (#285)"
@@ -641,6 +645,33 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['contracts']) && JSON.stringify(r.affectedGates) === JSON.stringify(['G14', 'G18', 'G19', 'G20', 'G21']) && JSON.stringify(r.affectedLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance', 'lens:architecture', 'lens:risk']) && !r.affectedLanes.includes('static-structural')"
 
+- description: "plan-diff: --prev-dir adds lanes and lenses with blocking results to affectedLanes"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/after-contract.md --prev-dir {{project_root}}/prev-blocking"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['contracts']) && JSON.stringify(r.rerun) === JSON.stringify(['lens:requirements', 'static-structural']) && JSON.stringify(r.affectedLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance', 'lens:architecture', 'lens:requirements', 'lens:risk', 'static-structural'])"
+
+- description: "plan-diff: without --prev-dir rerun is empty"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/after-contract.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); Array.isArray(r.rerun) && r.rerun.length === 0"
+
+- description: "plan-diff: unreadable --prev-dir is a usage error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/after-contract.md --prev-dir {{project_root}}/no-such-dir"
+  assert:
+    - type: icontains
+      value: "--prev-dir"
+
 - description: "plan-diff: --full forces every lane without changing material"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
@@ -847,6 +878,17 @@
       value: |
         const r = JSON.parse(output);
         return r.scorecard.verdict === '…Ready for archive (with noted improvements).' && r.scorecard.markdown.includes('**G17:** not run — g17-prepare failed') && r.lens.status === 'Approved'
+
+- description: "plan-merge: --g17-not-run keeps dimension-coverage out of the carry"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}}/carry/lens-only --lenses requirements --carry {{project_root}}/carry/prev --g17-not-run"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return !r.carried.includes('dimension-coverage.json') && !JSON.stringify(r.laneFailures || []).includes('dimension-coverage')
 
 - description: "plan-merge: a parsed result with the wrong shape is reported as invalid result shape"
   vars:

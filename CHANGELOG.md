@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.1] - 2026-11-11
+
+### Changed
+- plan-sdlc: a merged re-dispatch re-runs every lane or lens whose earlier result had a blocking issue (`diff-material --prev-dir`) (#9276).
+- plan-sdlc: the session-start hook removes `sdlc-plan-critique-*` directories older than 7 days (#9258).
+
+### Fixed
+- plan-sdlc: the plan-integrity Stop hook keeps the marker while the run is in flight and stays silent when no plan file was named (#9271, #9278).
+- plan-sdlc: `dimension-coverage` is not carried when G17 did not run (#9277).
+- plan-sdlc: the Step 1 brief check accepts lowercase finding ids (#9301).
+- plan-sdlc: the Step 6.5 and 6.6 commands no longer use shell variables from other calls, so PF9 and PF10 run (#9246).
+- plan-sdlc: PF5 reads the whole Acceptance criteria block, with no 5000-character window (#9264).
+- plan-sdlc: SKILL.md, spec and doc wording fixes (#9249, #9270, #9274).
+
 ## [0.50.0] - 2026-11-11
 
 ### Added

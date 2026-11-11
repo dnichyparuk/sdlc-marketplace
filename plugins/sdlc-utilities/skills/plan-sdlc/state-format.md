@@ -51,6 +51,7 @@ State files are always written to the **main working tree's** `.sdlc/execution/`
 |----------------|------------------|-----------------------------------------------------------------------------|
 | `planIntegrity`| object           | Checkpoint markers; each key's presence means that checkpoint was reached.  |
 | `planFilePath` | string \| null   | Absolute path to the written plan file. Used by the Stop hook to stat the file for non-empty content verification. `null` until the `planFile` marker is written. |
+| `critiqueDir`  | string \| null   | Critique scratch directory of the run. While it exists, the Stop hook keeps a marker with failed checks (run in flight, R21). |
 | `sessionId`    | string \| null   | Owning session id, optional. The Stop hook leaves the marker in place when this and the payload `session_id` are both non-empty and differ (R21); a missing value keeps the hook acting on the marker. |
 
 ---
@@ -83,8 +84,9 @@ Each field inside `planIntegrity` is an ISO 8601 timestamp string. Absence of a 
 1. Calls `findStateFile('plan', branchSlug)` and captures the returned path.
 2. Reads the marker via `readState`, then the stdin payload. If marker `sessionId` and payload `session_id` are both non-empty and differ, exits 0 and leaves the marker in place.
 3. Evaluates all four `planIntegrity` keys and stats `planFilePath`.
-4. Calls `deleteState(path)` **regardless of integrity outcome** — the marker is single-use.
-5. Subsequent Stop events on the same branch find no marker and the hook exits 0 (R21).
+4. If a check failed and the state file's `critiqueDir` still exists (the run is in flight), exits 0 and keeps the marker (R21).
+5. Otherwise calls `deleteState(path)` — the marker is single-use. A failed check with no `planFilePath` recorded exits 0 silently; a failed check with a `planFilePath` warns and exits 2.
+6. Subsequent Stop events on the same branch find no marker and the hook exits 0 (R21).
 
 The `deleteState` call is wrapped in a try/catch; a failed unlink cannot turn into an internal error.
 

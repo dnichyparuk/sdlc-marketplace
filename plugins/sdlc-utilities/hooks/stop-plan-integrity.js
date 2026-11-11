@@ -120,16 +120,17 @@ try {
       }
     }
 
-    // Consume-then-delete: remove the marker regardless of integrity outcome,
-    // so the warning fires once. If the unlink fails the marker survives and
-    // every later Stop would block again, so only a consumed marker may exit 2.
+    // R21: a run still in flight (its critique dir exists) keeps its marker.
+    const critiqueDir = typeof data.critiqueDir === 'string' && data.critiqueDir ? data.critiqueDir : null;
+    if (missing.length > 0 && critiqueDir && fs.existsSync(critiqueDir)) process.exit(0);
+
+    // Consume-then-delete: remove the marker, so the warning fires once. If the
+    // unlink fails the marker survives, so only a consumed marker may exit 2.
     try { deleteState(markerPath); } catch (_) { /* best-effort */ }
     const consumed = !fs.existsSync(markerPath);
 
-    if (missing.length === 0) {
-      // All checks passed — silent exit
-      process.exit(0);
-    }
+    // All checks passed, or the run named no plan file (R21): silent exit.
+    if (missing.length === 0 || !planFilePath) process.exit(0);
 
     // Emit structured warning
     const lines = [

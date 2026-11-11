@@ -1,0 +1,1 @@
+{"status":"Issues Found","issues":[{"taskRef":"Task 1","message":"Acceptance criteria do not cover requirement 2","severity":"CRITICAL","dimension":"Completeness","blocking":false}],"recommendations":[],"traceability":[]}

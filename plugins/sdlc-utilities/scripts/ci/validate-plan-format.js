@@ -360,7 +360,7 @@ function checkPF5(tasks) {
     const prefix = `Task ${task.number}`;
 
     // Check Acceptance criteria with at least one checkbox
-    const acMatch = task.body.match(/\*\*Acceptance criteria:\*\*\s*\n([\s\S]{0,5000}?)(?=\n### |\n---|\n## |$)/);
+    const acMatch = task.body.match(/\*\*Acceptance criteria:\*\*\s*\n([\s\S]*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n---|\n## |$)/);
     if (!acMatch) {
       issues.push(`${prefix}: missing **Acceptance criteria:**`);
     } else {
@@ -371,7 +371,7 @@ function checkPF5(tasks) {
     }
 
     // Optional Notes block, capped at 5 non-blank lines
-    const notesMatch = task.body.match(/\*\*Notes:\*\*\s*\n([\s\S]{0,2000}?)(?=\n\*\*|\n### |\n---|\n## |$)/);
+    const notesMatch = task.body.match(/\*\*Notes:\*\*\s*\n([\s\S]*?)(?=\n\*\*|\n### |\n---|\n## |$)/);
     if (notesMatch) {
       const notesBody = notesMatch[1];
       const lineCount = notesBody.split('\n').filter(l => l.trim().length > 0).length;

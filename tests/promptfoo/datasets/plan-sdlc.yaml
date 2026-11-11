@@ -401,6 +401,23 @@
         axes like "architecture", "tests", or "security"). When writing Step 2 tasks, the
         response cites at least one F-DIM-N finding ID per Standard/Complex task.
 
+- description: "plan-sdlc: a brief with only lowercase F-<dim>-<n> ids passes brief validation (#9301)"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md"
+    project_context: "file://fixtures/plan-orchestrator-dispatch.md"
+    user_request: >
+      Run /plan-sdlc. The orchestrator returned the discovery brief shown in the context. Every
+      finding id in the brief is lowercase: F-jwt-validation-flow-1, F-session-model-schema-2.
+      Apply Step 1 brief validation to it and say whether the brief is accepted.
+  assert:
+    - type: not-icontains
+      value: "using fallback inline exploration"
+    - type: llm-rubric
+      value: >
+        The response treats the lowercase ids (F-jwt-validation-flow-1, F-session-model-schema-2)
+        as valid findings matching the brief-validation pattern, accepts the brief, and does not
+        fall back to inline exploration.
+
 - description: "plan-sdlc: webResearchSignal true triggers web/hybrid dimensions; Key Decisions adopt/reject each web finding (#408 web-mode trigger)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md"

@@ -149,6 +149,20 @@ try {
 
 const pi = stateData.planIntegrity || {};
 
+// Idempotency: a second --output-file run leaves exactly one plan state file,
+// and it records the second run's critiqueDir, not the first one's.
+const firstCritiqueDir = stateData.critiqueDir;
+runPlan(['--output-file']);
+const stateDir = path.join(projectRoot, '.sdlc', 'execution');
+const planFiles = fs.readdirSync(stateDir).filter(f => f.startsWith('plan-') && f.endsWith('.json'));
+let secondCritiqueDir = null;
+try {
+  secondCritiqueDir = JSON.parse(fs.readFileSync(path.join(stateDir, planFiles[0]), 'utf8')).critiqueDir;
+} catch (_) {}
+const rePrepareSingleMarker = planFiles.length === 1
+  && typeof secondCritiqueDir === 'string'
+  && secondCritiqueDir !== firstCritiqueDir;
+
 const result = {
   stateFileCreated: true,
   skillInvoked:          typeof pi.skillInvoked === 'string',
@@ -157,6 +171,8 @@ const result = {
   critiqueRan:           typeof pi.critiqueRan === 'string',
   planFilePathSet:       stateData.planFilePath === fakePlanPath,
   planFilePath:          stateData.planFilePath || null,
+  critiqueDirRecorded:   typeof stateData.critiqueDir === 'string' && path.basename(stateData.critiqueDir).startsWith('sdlc-plan-critique-'),
+  rePrepareSingleMarker,
   allPresent: !!(pi.skillInvoked && pi.planFile && pi.guardrailsEvaluated && pi.critiqueRan),
   step1_status: step1.status,
   step2_status: step2.status,

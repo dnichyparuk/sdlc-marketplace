@@ -7,7 +7,7 @@
  * Usage:
  *   node plan-prepare.js [--from-openspec <change-name>] [--output-file] [--quality full|balanced|minimal]
  *   node plan-prepare.js --mark <name> [--path <abs>]
- *   node plan.js diff-material --before <path> --after <path> [--full]
+ *   node plan.js diff-material --before <path> --after <path> [--full] [--prev-dir <iterDir>]
  *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
  *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>] [--carry <prevIterDir>] [--g17-not-run]
  *
@@ -339,7 +339,7 @@ const SUBCOMMANDS = { 'diff-material': runDiffMaterial, 'g17-prepare': runG17Pre
 
 // Flags each subcommand accepts (without `--`); any other flag is a usage error (exit 1).
 const SUBCOMMAND_FLAGS = {
-  'diff-material': ['before', 'after', 'full'],
+  'diff-material': ['before', 'after', 'full', 'prev-dir'],
   'g17-prepare': ['plan', 'dimensions-dir', 'instructions-dir', 'learnings', 'window', 'github-hosting', 'root', 'today'],
   'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory', 'carry', 'g17-not-run'],
 };
@@ -367,7 +367,7 @@ function readPlanFile(file) {
 function runDiffMaterial(flags) {
   const before = readPlanFile(requireFlag(flags, 'before'));
   const after = readPlanFile(requireFlag(flags, 'after'));
-  return diffMaterial(before, after, { full: flags.full === true });
+  return diffMaterial(before, after, { full: flags.full === true, prevDir: flags['prev-dir'] ?? null });
 }
 
 function runG17Prepare(flags) {
@@ -475,6 +475,14 @@ function main() {
     return;
   }
 
+  // P22 — critique temp directory, created before the marker so R20 can record it.
+  let critiqueDir = null;
+  try {
+    critiqueDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdlc-plan-critique-'));
+  } catch (err) {
+    errors.push(`Failed to create critiqueDir: ${err.message}`);
+  }
+
   // Write skillInvoked marker (R20) — plan-sdlc was invoked (issue #285).
   // Done early so the marker is present even if later steps fail.
   // Prune prior plan markers for this branch before writing a new one (issue #334):
@@ -485,6 +493,7 @@ function main() {
       pruneStateFiles('plan', slugifyBranch(branch));
       initState('plan', branch, {
         planIntegrity: { skillInvoked: new Date().toISOString() },
+        critiqueDir,
       });
     }
   } catch (_) {
@@ -621,14 +630,6 @@ function main() {
   const { g17Dispatch, lanes, lensReviewers, reviewerDispatch, intakeAuditDispatch } = buildDispatchSet(guardrails, openspecContext, flags.quality);
   for (const e of [...lanes, ...lensReviewers, reviewerDispatch, intakeAuditDispatch]) {
     if (e.agentPath === null) process.stderr.write(`[plan-prepare] ${e.agent}: agent file not found — not dispatched\n`);
-  }
-
-  // 7b. P22 — critique temp directory
-  let critiqueDir = null;
-  try {
-    critiqueDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdlc-plan-critique-'));
-  } catch (err) {
-    errors.push(`Failed to create critiqueDir: ${err.message}`);
   }
 
   // 7c. P23 — commit config
