@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 4,
+  "ship": {
+    "steps": ["execute", "commit", "review", "pr"],
+    "stepModels": {
+      "deploy": { "model": "opus" },
+      "review": { "effort": "huge" }
+    }
+  }
+}

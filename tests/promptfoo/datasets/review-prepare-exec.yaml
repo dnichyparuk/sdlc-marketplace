@@ -134,12 +134,15 @@
 - description: "review-prepare-plan: (a) --plan sets plan_file"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
-    script_args: "--committed --base main --plan linked-file.txt"
+    script_args: "--committed --base main --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_capture_stderr: true
     script_cwd: "{{project_root}}/worktrees/wt1"
     project_root: "file://fixtures-fs/worktree-linked-ahead"
   assert:
     - type: regex
-      value: '"plan_file": "/[^"]*/worktrees/wt1/linked-file\.txt"'
+      value: '"plan_file": "/[^"]*/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks\.md"'
+    - type: not-contains
+      value: 'is not a readable file'
 
 - description: "review-prepare-plan: (b) no --plan gives null"
   vars:

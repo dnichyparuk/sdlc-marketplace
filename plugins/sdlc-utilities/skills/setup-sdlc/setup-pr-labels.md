@@ -159,7 +159,6 @@ Then merge the labels block into the existing `pr` section without clobbering
 `titlePattern`, `allowedTypes`, or any other sibling key:
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 node -e "
 const { readSection, writeSection } = require('<PLUGIN_ROOT>/scripts/lib/config.js');
 const root = process.cwd();
@@ -191,7 +190,6 @@ Before marking complete, verify:
 - When `mode = 'rules'`, every rule has exactly one signal key in `when` and at
   least one value
 - Every rule's `label` exists in the scanned `repoLabels`
-- The written JSON validates against `schemas/sdlc-config.schema.json`
 - No partial writes occurred when the user cancelled or `gh` failed
 
 ---
@@ -283,5 +281,5 @@ When invoking `error-report-sdlc`, provide:
 - `setup-sdlc/setup-guardrails.md` — sibling sub-flow (plan guardrails)
 - `pr-sdlc/SKILL.md#step-2b-infer-labels` — consumer; reads `pr.labels` to
   dispatch the label evaluator
-- `schemas/sdlc-config.schema.json#$defs/prLabelsSection` — schema source of truth
+- `<repo-root>/schemas/sdlc-config.schema.json#$defs/prLabelsSection` — schema source of truth (repository file, not shipped with the plugin; a maintainer reference, not an executor step)
 - `scripts/skill/pr.js` — strips rules whose `label` is not in `repoLabels`

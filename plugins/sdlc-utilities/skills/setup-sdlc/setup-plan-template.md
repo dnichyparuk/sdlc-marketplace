@@ -37,7 +37,6 @@ On **cancel**: print `No changes made — existing .sdlc/plan-template.md kept.`
 ### Step 2 — Copy the Default Template
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 mkdir -p .sdlc
 cp "<PLUGIN_ROOT>/skills/plan-sdlc/plan-template-default.md" .sdlc/plan-template.md
 ```

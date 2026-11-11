@@ -1,6 +1,17 @@
 # Guardrails Sub-Flow
 
-Sub-flow of `/setup-sdlc --guardrails`. Runs skill/guardrails.js to scan the project and generate proposals, then lets the user review and select. Writes guardrails to `.sdlc/config.json` via lib/config.js.
+Sub-flow of `/setup-sdlc --guardrails` (`target=plan`) and `/setup-sdlc --execution-guardrails` (`target=execute`). Runs skill/guardrails.js to scan the project and generate proposals, then lets the user review and select. Writes guardrails to `.sdlc/config.json` via lib/config.js.
+
+## Target
+
+The parent passes `target` = `plan` (plan guardrails, section `plan`) or `execute` (execution guardrails, section `execute`). All commands below use these target-specific values:
+
+| | `plan` | `execute` |
+|---|---|---|
+| `guardrails.js` flag | `--target plan` | `--target execute` |
+| write section | `'plan'` | `'execute'` |
+| `validate-guardrails.js` flag | (default) | `--section execute` |
+| custom guardrails | Stage B prompt (below) | `custom` option in the selection prompt |
 
 ## Arguments
 
@@ -15,11 +26,10 @@ Sub-flow of `/setup-sdlc --guardrails`. Runs skill/guardrails.js to scan the pro
 Run skill/guardrails.js:
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-node "<PLUGIN_ROOT>/scripts/skill/guardrails.js" --output-file --project-root . --mode {init|add} --json
+node "<PLUGIN_ROOT>/scripts/skill/guardrails.js" --output-file --project-root . --target <target> --mode {init|add} --json
 ```
 
-Replace `{init|add}` with `add` if `--add` was passed, otherwise `init`.
+Replace `<target>` with `plan` or `execute` (see Target), and `{init|add}` with `add` if `--add` was passed, otherwise `init`.
 
 Run this as one plain Bash call. Take the output path the command prints on stdout as `PREPARE_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Read the file at that path, then remove it in its own Bash call:
 
@@ -29,7 +39,7 @@ rm -f '<PREPARE_OUTPUT_FILE>'
 
 Parse JSON output. If `errors` non-empty, show errors and stop. Store `signals`, `proposals`, and `existing`.
 
-If not in `--add` mode and `existing.count > 0`: Use AskUserQuestion: "N guardrails already configured. Replace all, or use --add to expand?" Options: replace / cancel. On cancel, stop.
+If not in `--add` mode and `existing.count > 0`: Use AskUserQuestion: "N guardrails already configured. Replace all, or use --add to expand?" (for `target=execute`: "N execution guardrails already configured. ...") Options: replace / cancel. On cancel, stop.
 
 ### Step 1 (REVIEW) — Refine Script-Generated Proposals
 
@@ -55,7 +65,22 @@ Proposed guardrails:
   ...
 ```
 
-**Stage A — Standard selection**
+**`target=execute` — single selection prompt**
+
+Use AskUserQuestion:
+
+> Install which execution guardrails?
+
+Options:
+
+- **all** — install all proposed guardrails
+- **select** — comma-separated numbers to install a subset
+- **custom** — prompt user for id, description, severity to add alongside selections
+- **cancel** — exit without changes
+
+On **custom**: collect id (validate kebab-case pattern `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`), description, severity (default: error). Allow multiple custom entries. Skip Stage A and Stage B below.
+
+**`target=plan` — Stage A — Standard selection**
 
 Use AskUserQuestion:
 
@@ -67,7 +92,7 @@ Options:
 - **select** — comma-separated numbers to install a subset
 - **cancel** — exit without changes (skips Stage B)
 
-**Stage B — Custom guardrails (always-on, unless Stage A was cancelled)**
+**`target=plan` — Stage B — Custom guardrails (always-on, unless Stage A was cancelled)**
 
 After Stage A completes (whether any standard guardrails were selected or not), always run this prompt. Use AskUserQuestion:
 
@@ -87,31 +112,28 @@ Allow multiple custom entries. Custom guardrails are added alongside the standar
 Write selected guardrails via inline Node.js using config library:
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 SCRIPT_DIR="<PLUGIN_ROOT>/scripts/lib"
 
 node -e "
 const { writeSection } = require('$SCRIPT_DIR/config.js');
 const guardrails = JSON.parse(process.argv[1]);
-writeSection(process.cwd(), 'plan', { guardrails });
+writeSection(process.cwd(), '<target>', { guardrails });
 console.log('Wrote ' + guardrails.length + ' guardrails to .sdlc/config.json');
 " '<GUARDRAILS_JSON>'
 ```
 
-Replace `<GUARDRAILS_JSON>` with the JSON array of selected guardrails. In `--add` mode: prepend existing guardrails from the prepare output to the array.
+Replace `<target>` with `plan` or `execute` (see Target) and `<GUARDRAILS_JSON>` with the JSON array of selected guardrails. In `--add` mode: prepend existing guardrails from the prepare output to the array.
 
 ### Step 4 (VALIDATE) — Run Validation Script
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-node "<PLUGIN_ROOT>/scripts/ci/validate-guardrails.js" --project-root . --json
+node "<PLUGIN_ROOT>/scripts/ci/validate-guardrails.js" --project-root . --section <target> --json
 ```
 
 Parse output. If `overall` is "pass", report success with count. If "fail", show errors and offer to fix.
 
 ## Do Not
 
-- Run full-suite or wide-subset `promptfoo eval` automatically — single targeted test scoped to the change is allowed; tight-loop retries are not.
 - Write config files using Write or Edit tools directly — always use lib/config.js via inline Node.js
 - Skip AskUserQuestion for user interaction
 - Scan the entire codebase — the prepare script handles scanning

@@ -52,3 +52,44 @@ Alembic migrations, pytest).
   ]
 }
 ```
+
+### prepare.scan
+
+```json
+{
+  "signals": {
+    "languages": ["python"],
+    "frameworks": ["fastapi"],
+    "hasDatabase": true,
+    "dbType": "sqlalchemy",
+    "hasApi": true,
+    "apiFormat": "rest",
+    "hasTests": true,
+    "testFramework": "pytest",
+    "hasCi": false,
+    "ciPlatform": null,
+    "hasMonorepo": false,
+    "hasOpenSpec": false,
+    "directories": ["src/"],
+    "reviewDimensions": [],
+    "claudeMdRules": [],
+    "structure": {
+      "**/routes/**": { "label": "API routes", "count": 1, "samples": ["src/routes/users.py"], "truncated": false },
+      "**/models/**": { "label": "Data models", "count": 1, "samples": ["src/models/user.py"], "truncated": false },
+      "**/migrations/**": { "label": "Database migrations", "count": 1, "samples": ["src/migrations/versions/abc123_add_user_table.py"], "truncated": false },
+      "**/tests/**": { "label": "Test files", "count": 1, "samples": ["src/tests/test_users.py"], "truncated": false }
+    }
+  },
+  "files": {
+    "requirements.txt": {
+      "content": "fastapi==0.104.1\nsqlalchemy==2.0.23\nalembic==1.12.1\npydantic==2.5.0\npytest==7.4.3\nhttpx==0.25.2\n",
+      "truncated": false
+    }
+  },
+  "hosting": { "github": true, "via": "remote" },
+  "ciFiles": [],
+  "git": { "branch": "main", "recentCommits": [] },
+  "jiraEvidence": { "keys": {}, "ambiguous": true },
+  "recentPrs": []
+}
+```

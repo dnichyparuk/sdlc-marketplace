@@ -1,7 +1,7 @@
 ---
 name: ship-step-execute
 description: Runs the execute-plan-sdlc step of a ship pipeline on the given plan and returns a structured result.
-model: opus
+model: sonnet
 effort: high
 skills: [sdlc:execute-plan-sdlc]
 ---

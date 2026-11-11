@@ -4,11 +4,6 @@ Project-aware dimension creator: consumes tech stack scan results from parent,
 proposes tailored dimensions with evidence, lets the user select, writes files,
 and validates with the validation script.
 
-> **CRITICAL — Inline output only.** Always produce dimension proposals, evidence citations,
-> and trigger patterns directly in your current response. Never write "the simulated output is
-> complete above", "see my previous response", or any similar deferral. If no files can be
-> written (simulation context), still emit the full proposed dimension YAML/Markdown inline.
-
 > **Permission context:** This sub-flow inherits the parent skill's permission mode.
 > Do NOT call ExitPlanMode, change permission settings, or exit any mode during this sub-flow.
 > Do NOT ask the user to approve file writes individually — the parent (setup-sdlc) manages mode transitions.
@@ -31,16 +26,14 @@ those paths. Do not search for them with Glob: a search can return a stale cache
 
 ## Scan Input
 
-This sub-flow expects the parent skill (setup-sdlc) to have provided the following scan results in Step 4:
+This sub-flow expects the parent skill (setup-sdlc) to have provided the scan in `prepare.scan` as "Scan Input":
 
-- **Dependency manifests** — contents of package.json, requirements.txt, pyproject.toml, setup.py, go.mod, Cargo.toml, pom.xml, build.gradle, Gemfile
-- **Framework/config signals** — .github/workflows/*.yml, .eslintrc*, tsconfig.json, lerna.json, pnpm-workspace.yaml, nx.json, *.graphql, openapi.yaml, openapi.json, openspec/config.yaml
-- **Directory structure** — glob results for all patterns in @scan-patterns.md
-- **CI/CD config** — .github/workflows, .circleci, Jenkinsfile presence
-- **Database signals** — migrations/ dir, *.sql files, Prisma/Alembic/Flyway presence
-- **Test structure** — *.test.*, *.spec.* files, test runner configs
-- **Existing review dimensions** — what is already installed in .sdlc/review-dimensions/
-- **GitHub hosting detection** — output of the multi-signal cascade (git remote, gh CLI, .github/ dir)
+- **Dependency manifests** — `signals.frameworks` and `signals.languages`, plus the manifest contents in `files`
+- **Directory structure** — `signals.structure`
+- **CI/CD config** — `ciFiles`
+- **Database and test signals** — `signals.hasDatabase`, `signals.hasTests`
+- **Existing review dimensions** — `signals.reviewDimensions`
+- **GitHub hosting detection** — `hosting.github`
 
 All structural and dependency evidence has been collected. This sub-flow consumes it and produces dimension proposals and installed files.
 
@@ -54,18 +47,15 @@ Check `.sdlc/review-dimensions/` for already-installed dimension files.
 
 In `--add` (expansion) mode:
 
-- Locate the validation script:
+- Run the validation script:
   ```bash
-  # Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-  SCRIPT="<PLUGIN_ROOT>/scripts/ci/validate-dimensions.js"
+  node "<PLUGIN_ROOT>/scripts/ci/validate-dimensions.js" --project-root . --json
   ```
-- Run: `node "$SCRIPT" --project-root . --json`
 - Extract installed dimension names and their trigger patterns (new proposals must avoid identical globs).
 
 Also check for uncovered file suggestions from a recent review run:
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 node "<PLUGIN_ROOT>/scripts/skill/review.js" --project-root . --json 2>/dev/null
 ```
 
@@ -143,16 +133,15 @@ For each selected dimension:
 
 ### Step 7 — Validate Installation
 
-Run the validation script (use `SCRIPT` resolved in Step 2, or re-resolve if Step 2 was skipped):
+Run the validation script:
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 node "<PLUGIN_ROOT>/scripts/ci/validate-dimensions.js" --project-root . --markdown
 EXIT_CODE=$?
 ```
 
 - Exit code **1**: Show validation errors. Use AskUserQuestion: "Fix these validation errors automatically? (yes / no)"
-- Exit code **2**: Show `Script error — see output above` and stop. Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=review-init-sdlc, step=Step 7 — Validate Installation, error=stderr.
+- Exit code **2**: Show `Script error — see output above` and stop. Dispatch `error-report-sdlc` with `--skill setup-sdlc --step "dimensions: Step 7"`, `--operation validate-dimensions.js` and the stderr as `--error-text`.
 
 Present the markdown output table. If any file has errors, show the error detail and offer to fix them automatically.
 
@@ -160,7 +149,9 @@ Present the markdown output table. If any file has errors, show the error detail
 
 ### Step 8 (COPILOT) — Propose GitHub Copilot Review Instructions
 
-**Skip this step if:** Step 7 reported any errors, or `copilotEnabled` is false (determined during Step 1 GitHub hosting detection in parent).
+Check `gh auth status` first; if unauthenticated, skip this step with a one-line notice.
+
+**Skip this step if:** Step 7 reported any errors, or `copilotEnabled` is false (determined by the scan in `prepare.scan`).
 
 **Check existing state:** Glob `.github/instructions/*.instructions.md`. If files exist with the same names as selected dimensions, confirm overwrite. In `--add` mode: when `_common.md` exists and contains new or changed content, regenerate ALL existing mirrors (not just newly added ones) to incorporate the common instructions; otherwise, only generate for newly added dimensions.
 
@@ -207,18 +198,6 @@ Present the markdown output table. If any file has errors, show the error detail
 
 5. Confirm each file with its path and character count. Print a final summary listing all generated files with sizes.
 
-   **Field mapping reference (for understanding the transformation):**
-
-   | Dimension field | Copilot field | Transformation |
-   |---|---|---|
-   | `triggers` (array) | `applyTo` (string) | Join with `,` |
-   | `description` | Opening paragraph | Used as-is |
-   | `severity` | Header note | "Default severity: {value}" |
-   | `_common.md` | Common Review Instructions section | Injected after severity, before Checklist (if present) |
-   | Body checklist | Checklist section | Strip `- [ ]` → `- ` |
-   | `skip-when` | Note section | Advisory text |
-   | `max-files`, `requires-full-diff`, `model`, `effort` | — | Omit |
-
 ---
 
 ## Quality Gates
@@ -247,8 +226,6 @@ Present the markdown output table. If any file has errors, show the error detail
 ## Gotchas
 
 - **Dimension file naming collision.** In `--add` mode, the skill derives a filename from the dimension name. If a file with that name already exists, it will be silently overwritten. Always check before writing.
-- **Glob pattern count explosion.** Step 1 runs ~35 glob patterns. On large monorepos this can produce thousands of matches — if Glob returns >500 paths, sample the first 20.
-- **Copilot step gated on gh auth.** Check `gh auth status` at the start of Step 8; skip gracefully if unauthenticated rather than failing mid-workflow.
 - **validate-dimensions.js YAML parser limitations.** The script uses a hand-rolled parser for simple key-value frontmatter only. Multi-line or nested YAML produces a misleading "malformed frontmatter" error. Use flat key-value frontmatter only.
 - **skill/review.js not available at init time.** If not found via standard resolution in `--add` mode, skip the dimension matching step and proceed with manual scan.
 - **GitHub hosting detection is multi-signal.** The primary `git remote -v` check may miss custom SSH aliases (e.g., `github-rn:org/repo`), but `gh repo view` (Signal 2) resolves the actual remote URL regardless of local SSH config. The `.github/` directory fallback (Signal 3) is a weak heuristic — it can false-positive for repos that have GitHub Actions config but are hosted elsewhere. If all three signals fail, use `--no-copilot` to bypass.
@@ -257,7 +234,7 @@ Present the markdown output table. If any file has errors, show the error detail
 
 ## DO NOT
 
-- Do NOT create dimension files without first running the tech stack scan (Step 1 in parent)
+- Do NOT create dimension files without first running the tech stack scan (the scan in `prepare.scan`)
 - Do NOT skip the validate-dimensions.js step — invalid dimensions cause review-sdlc to fail silently
 - Do NOT overwrite existing dimension files without explicit user consent
 - Do NOT propose more than 10 dimensions at once — offer expansion in follow-up runs with `--add`

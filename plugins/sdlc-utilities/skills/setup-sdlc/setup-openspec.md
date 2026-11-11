@@ -22,7 +22,6 @@ at the current plugin version is a no-op.
 Locate and run the enrichment script:
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 node "<PLUGIN_ROOT>/scripts/util/openspec-enrich.js" --output-file {REMOVE_FLAG} --project-root .
 ```
 
@@ -32,7 +31,7 @@ Replace `{REMOVE_FLAG}` with `--remove` if the parent passed `--remove-openspec`
 
 ### Step 2 — Parse and report
 
-Parse the JSON output from `$PREPARE_OUTPUT_FILE`. Report the result:
+Read the JSON at the literal `PREPARE_OUTPUT_FILE` path. Report the result:
 
 - `action: "append"` — "Managed block added to openspec/config.yaml."
 - `action: "update"` — "Managed block updated to v{version} in openspec/config.yaml."
@@ -43,4 +42,4 @@ Parse the JSON output from `$PREPARE_OUTPUT_FILE`. Report the result:
 
 If a `warning` field is present, display it.
 
-Return to the parent skill (Step 5 summary).
+Return to the parent skill (Step 4 summary).

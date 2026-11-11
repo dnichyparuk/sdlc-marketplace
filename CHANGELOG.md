@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- ship-sdlc: `ship.stepModels` in `.sdlc/local.json` overrides the model and effort of each ship step; invalid values stop prepare (#9341).
+- setup-sdlc: `setup.js --scan` and `--scan-prs`; the project scan runs in `scripts/lib/project-scan.js` (#9351).
+
+### Changed
+- ship-sdlc: the execute step runs on sonnet/high by default (was opus/high) (#9340).
+- pr-sdlc: `--testing-file` reads only a regular file inside the worktree or the ship state directory (#9342).
+- setup-sdlc: one guardrails sub-flow serves plan and execution guardrails (#9351).
+- tests: exec runs pin promptfoo 0.123.1 (#9343).
+
+### Fixed
+- setup-sdlc: dead workspace and hooks sections, stale step numbers, the phantom `--auto` and shell variables used across Bash calls removed; `received-review` added to the section lists (#9190, #9351).
+- ship-sdlc, pr-sdlc: the step-argument table and the pr field table name `--plan`, `--testing-file` and `testingSummary` (#9342).
+- tests: `pr-prepare-testing` cases stub gh and read real fixture files; the review `--plan` case reads a real plan (#9342, #9343).
+
+### Removed
+- setup-sdlc: `setup-execution-guardrails.md` and `scan-patterns.md` (#9351).
+
 ## [0.49.0] - 2026-11-10
 
 ### Added

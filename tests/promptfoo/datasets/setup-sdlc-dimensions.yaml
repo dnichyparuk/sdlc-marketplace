@@ -30,7 +30,8 @@
         cites the specific evidence that triggered it. The response does NOT propose security,
         api, data-integrity, or infrastructure dimensions since there is no evidence for these
         in the fixture. Trigger patterns reference the actual project directories (src/components/,
-        src/pages/, __tests__/).
+        src/pages/, __tests__/). The proposed dimensions, their evidence and trigger patterns
+        appear inline in the reply and are not deferred to earlier output.
 
 - description: "setup-sdlc --dimensions: monorepo with CI/CD gets extended dimension proposals"
   vars:

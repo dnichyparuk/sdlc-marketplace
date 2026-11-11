@@ -12,22 +12,22 @@ tasks:
     silent: true
     dir: tests/promptfoo
     cmds:
-      - promptfoo eval --env-file .env
+      - npx --yes promptfoo@0.123.1 eval --env-file .env
 
   test:view:
     desc: Open promptfoo web UI to inspect test results
     silent: true
     dir: tests/promptfoo
     cmds:
-      - promptfoo view --env-file .env
+      - npx --yes promptfoo@0.123.1 view --env-file .env
 
   test:exec:
     desc: Run script execution tests (no LLM, real scripts against fixtures)
     silent: true
     dir: tests/promptfoo
     cmds:
-      - promptfoo eval --config promptfooconfig-exec.yaml --env-file .env
-      - promptfoo eval --config promptfooconfig-exec-hooks.yaml --env-file .env
+      - npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec.yaml --env-file .env
+      - npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec-hooks.yaml --env-file .env
 
   test:skill:
     desc: "Run tests for specific skills (args: skill name, e.g. task test:skill -- pr-sdlc)"
@@ -51,7 +51,7 @@ tasks:
           exit 1
         fi
         PATTERN=$(echo "$SELECTED" | tr ' \n' '|' | sed 's/|$//')
-        promptfoo eval --env-file .env --filter-pattern "^($PATTERN):"
+        npx --yes promptfoo@0.123.1 eval --env-file .env --filter-pattern "^($PATTERN):"
 
   test:unit:
     desc: Run Node.js unit tests (no LLM)

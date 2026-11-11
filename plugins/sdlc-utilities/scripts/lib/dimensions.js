@@ -359,6 +359,8 @@ module.exports = {
   KNOWN_FIELDS,
   VALID_SEVERITIES,
   VALID_EFFORTS,
+  MODEL_ALIASES,
+  MODEL_ID_RE,
   GUARDRAIL_SEVERITIES,
   severityForSurface,
   validateDimensionFile,

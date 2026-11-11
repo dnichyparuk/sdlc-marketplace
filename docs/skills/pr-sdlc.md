@@ -26,7 +26,7 @@ The diff stat and diff content used by the description reflect only the branch's
 | `--auto` | Skip interactive approval — create/update the PR immediately after generation | — |
 | `--label <name>` | Force a label onto the PR (repeatable). Created automatically if it doesn't exist in the repo | — |
 | `--expected-branch <name>` | **Internal — set by ship-sdlc.** Validates that the current branch matches `<name>` before any `gh pr create` / `gh pr edit` invocation. Exits non-zero if the branches differ. Cross-link: see [ship-sdlc branch-verification guard](ship-sdlc.md#branch-verification-guard). | inactive |
-| `--testing-file <path>` | **Internal — set by ship-sdlc.** Text file with the testing summary to report in the PR description's Testing section. Output field `testingSummary` (trimmed, at most 4000 characters); an unreadable file gives `null` plus a warning. | none |
+| `--testing-file <path>` | **Internal — set by ship-sdlc.** Text file with the testing summary to report in the PR description's Testing section. Output field `testingSummary` (trimmed, at most 4000 characters); an unreadable file, a file that is not a regular file, or a file outside the current git worktree and the ship state directory gives `null` plus a warning. | none |
 
 ---
 
@@ -261,7 +261,7 @@ This recovery is one-shot per pipeline invocation — a second consecutive permi
 
 | Field | Value |
 |---|---|
-| `argument-hint` | `[--draft] [--update] [--base <branch>] [--auto] [--label <name>]` |
+| `argument-hint` | `[--draft] [--update] [--base <branch>] [--auto] [--label <name>] [--testing-file <path>]` |
 | Plan mode | Graceful refusal (Step 0) |
 
 ---

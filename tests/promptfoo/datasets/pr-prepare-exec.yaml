@@ -491,17 +491,29 @@
 - description: "pr-prepare-testing: (a) --testing-file fills testingSummary"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
-    script_args: "--testing-file {{project_root}}/setup.sh"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_args: "--testing-file {{project_root}}/testing.md"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-openspec-detect-diff"
   assert:
     - type: javascript
       value: |
         const m = /"testingSummary": "((?:[^"\\]|\\.)*)"/.exec(output);
-        return m && m[1].length > 100 && /^#!\/usr\/bin\/env bash|^#!\/bin\/bash/.test(JSON.parse('"' + m[1] + '"')) ? true : 'FAIL: ' + (m ? m[1].slice(0, 60) : 'no testingSummary');
+        if (!m) return 'FAIL: no testingSummary';
+        const got = JSON.parse('"' + m[1] + '"');
+        const want = [
+          '## Verification summary',
+          '',
+          '- Unit suite: 42 passed, 0 failed (node scripts/test.js).',
+          '- Lint: clean, no warnings on the changed files.',
+          '- Manual check: ran the prepare script against a fixture repo; the output listed the expected commits and changed files.',
+          '- Not run: the full behavioural promptfoo suite (user-initiated only).',
+        ].join('\n');
+        return got === want ? true : 'FAIL: ' + got.slice(0, 60);
 
 - description: "pr-prepare-testing: (b) no flag gives null"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-openspec-detect-diff"
@@ -511,6 +523,7 @@
 
 - description: "pr-prepare-testing: (c) unreadable file warns"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
     script_args: "--testing-file missing.md"
     script_cwd: "{{project_root}}"
@@ -523,8 +536,9 @@
 
 - description: "pr-prepare-testing: (d) long text is cut to 4000 characters"
   vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
-    script_args: "--testing-file {{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_args: "--testing-file {{project_root}}/testing-long.md"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-openspec-detect-diff"
   assert:
@@ -534,3 +548,30 @@
         if (!m) return 'FAIL: no testingSummary';
         const n = JSON.parse('"' + m[1] + '"').length;
         return n === 4000 ? true : `FAIL: length ${n}`;
+
+- description: "pr-prepare-testing: (e) file outside worktree and state dir is ignored"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_args: "--testing-file {{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-detect-diff"
+  assert:
+    - type: icontains
+      value: '"testingSummary": null'
+    - type: regex
+      value: 'Testing file [^"]*pr\.js is outside the worktree and the state directory; ignored'
+
+- description: "pr-prepare-testing: (f) file under the state directory is read"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}"}'
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_args: "--testing-file {{project_root}}/testing.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-openspec-detect-diff"
+  assert:
+    - type: javascript
+      value: |
+        const m = /"testingSummary": "((?:[^"\\]|\\.)*)"/.exec(output);
+        return m && m[1].length > 20 && !/is outside the worktree/.test(output) ? true : 'FAIL: ' + output.slice(0, 200);
