@@ -632,16 +632,27 @@ function readCapped(filePath) {
   }
 }
 
+function realPathWithin(abs, realRoot) {
+  try {
+    const real = fs.realpathSync(abs);
+    return real === realRoot || real.startsWith(realRoot + path.sep);
+  } catch (_) {
+    return false;
+  }
+}
+
 function scanFiles(contentRoot) {
   const files = {};
+  let realRoot;
+  try { realRoot = fs.realpathSync(contentRoot); } catch (_) { return files; }
   for (const rel of SCAN_FILES) {
     const abs = path.join(contentRoot, rel);
-    if (!isFile(abs)) continue;
+    if (!isFile(abs) || !realPathWithin(abs, realRoot)) continue;
     const read = readCapped(abs);
     if (read) files[rel] = read;
   }
   const templateDir = path.join(contentRoot, PR_TEMPLATE_DIR);
-  if (isDir(templateDir)) {
+  if (isDir(templateDir) && realPathWithin(templateDir, realRoot)) {
     try {
       files[PR_TEMPLATE_DIR] = { content: fs.readdirSync(templateDir).sort().join('\n'), truncated: false };
     } catch (_) { /* unreadable — omit */ }
@@ -652,9 +663,11 @@ function scanFiles(contentRoot) {
 function scanCiFiles(contentRoot) {
   const ciFiles = [];
   const workflowsDir = path.join(contentRoot, '.github', 'workflows');
+  let realRoot;
+  try { realRoot = fs.realpathSync(contentRoot); } catch (_) { return ciFiles; }
   try {
     for (const f of fs.readdirSync(workflowsDir).sort()) {
-      if ((f.endsWith('.yml') || f.endsWith('.yaml')) && isFile(path.join(workflowsDir, f))) {
+      if ((f.endsWith('.yml') || f.endsWith('.yaml')) && isFile(path.join(workflowsDir, f)) && realPathWithin(path.join(workflowsDir, f), realRoot)) {
         ciFiles.push(`.github/workflows/${f}`);
       }
     }

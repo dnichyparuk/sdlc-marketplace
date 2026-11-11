@@ -480,6 +480,7 @@ No owner was available. Each choice below took the recommended, most conservativ
 
 **Files:**
 - Modify: `plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md` — Step 5 item 5 passes dispatch keys; table rows 3 and 7
+- Modify: `plugins/sdlc-utilities/skills/ship-sdlc/reference.md` — line 39 passes `step.data.dispatchModel` and `step.data.dispatchEffort` when present (R90)
 - Modify: `schemas/sdlc-local.schema.json` — `shipSection.properties.stepModels`
 - Modify: `docs/skills/ship-sdlc.md` — `### Step models` subsection
 - Modify: `site/src/content-source/skills/ship-sdlc.md` — byte copy
