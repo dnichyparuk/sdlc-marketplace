@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.3] - 2026-11-11
+
+### Fixed
+- ship-sdlc: keeping out-of-scope review fixes at received-review's scope question is asked once; the resume stages the named files in the same round (R94) (#9350).
+- execute-plan-sdlc: `wave-watch` started on resume no longer reprints waves that finished before it started (R88) (#9350).
+- validate-discovery: agents without `tools` (they inherit every tool) pass PD16 (#9350).
+- check-consistency: the rule 1 message points to the injected `<PLUGIN_ROOT>` path (#9350).
+- schemas: execute-state lists every field the writer writes; review-dimension `model` accepts `fable` and `claude-*` ids (#9350).
+- tests: three behavioural assertions stop failing correct answers, the dead `concurrency` key is removed, and the error-report exec case writes to a temp state directory (#9350).
+- docs: pr-sdlc documents `gh pr create warnings:`, the ship-sdlc diagram matches R91, the site names version-sdlc `--no-tag` (#9350).
+
 ## [0.50.2] - 2026-11-11
 
 ### Changed
