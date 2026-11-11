@@ -312,7 +312,7 @@ function hasAwaitBarrierTokens(content) {
 
 /**
  * Rule 1 — script-resolution-order
- * All find patterns in skill files must use plugins-first order.
+ * A skill must not search CWD before ~/.claude/plugins; scripts are invoked by the injected path.
  */
 function checkScriptResolutionOrder(skills, findings) {
   for (const skill of skills) {
@@ -325,7 +325,7 @@ function checkScriptResolutionOrder(skills, findings) {
         severity: 'error',
         file: path.relative(process.cwd(), skill.file),
         line: issue.line,
-        message: 'Script resolution uses CWD-first order. Use plugins-first: find ~/.claude/plugins first, then fall back to find .',
+        message: 'Script resolution searches CWD before ~/.claude/plugins. Do not use find: invoke the script as node "<PLUGIN_ROOT>/scripts/…", substituting <PLUGIN_ROOT> from the \'sdlc plugin root:\' line in session context.',
       });
     }
   }

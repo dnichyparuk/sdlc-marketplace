@@ -24,7 +24,7 @@
  *   PD13 skill-agent-refs-valid         — agents referenced in skills exist
  *   PD14 skill-script-refs-valid        — scripts referenced in skills exist
  *   PD15 hooks-valid-json               — hooks.json exists and parses
- *   PD16 agents-discoverable            — agents have frontmatter with name+description+tools
+ *   PD16 agents-discoverable            — agents have frontmatter with name+description (tools optional: absent = all tools)
  */
 
 'use strict';
@@ -573,7 +573,6 @@ function checkPD16(plugins) {
       const fm = parseSimpleYaml(rawFm);
       if (!fm.name)        details.push(`${entry.name}/agents/${f}: frontmatter missing "name"`);
       if (!fm.description) details.push(`${entry.name}/agents/${f}: frontmatter missing "description"`);
-      if (!fm.tools)       details.push(`${entry.name}/agents/${f}: frontmatter missing "tools"`);
     }
   }
   if (details.length > 0) {
@@ -581,7 +580,7 @@ function checkPD16(plugins) {
       'One or more agent files are missing required frontmatter', details);
   }
   return pass('PD16', 'agents-discoverable',
-    'All agent files have frontmatter with name, description, and tools');
+    'All agent files have frontmatter with name and description');
 }
 
 // ---------------------------------------------------------------------------

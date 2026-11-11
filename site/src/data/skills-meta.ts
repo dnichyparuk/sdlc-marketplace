@@ -199,7 +199,7 @@ export const skillsMeta: SkillMeta[] = [
     command: '/version-sdlc',
     category: 'gitops',
     userInvocable: true,
-    tagline: 'Manages the full semantic release workflow: version bump, annotated git tag, optional CHANGELOG entry, and push.',
+    tagline: 'Manages the full semantic release workflow: version bump, annotated git tag, optional CHANGELOG entry, and push; --no-tag makes the release commit without a tag.',
     pipeline: [
       { id: 'prepare', label: 'Run version-prepare.js', type: 'script', description: 'Detects version source, tags, commits, existing config' },
       { id: 'plan-release', label: 'Determine bump and changelog', type: 'llm', description: 'Selects version bump; drafts changelog entry if enabled' },
@@ -209,7 +209,7 @@ export const skillsMeta: SkillMeta[] = [
       { id: 'verify-preconditions', label: 'Verify pre-conditions', type: 'verify', description: 'Checks tag conflicts, uncommitted changes, git identity' },
       { id: 'check-idempotency', label: 'Idempotency gate (Step 2.6)', type: 'verify', description: 'Detects release tags already at HEAD; skips bump if branch already tagged to stay idempotent' },
       { id: 'check-ci', label: 'Check CI scripts', type: 'verify', description: 'Verifies installed retag/changelog scripts are current' },
-      { id: 'execute-release', label: 'Execute release', type: 'script', description: 'Atomically: bump version, changelog, commit, tag, push' },
+      { id: 'execute-release', label: 'Execute release', type: 'script', description: 'Atomically: bump version, changelog, commit, tag, push (with --no-tag: no tag and no git push --tags)' },
     ],
     connections: [
       { to: 'pr-sdlc', label: 'follows PR merge in' },

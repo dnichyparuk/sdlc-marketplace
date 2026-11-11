@@ -113,7 +113,7 @@ Each sub-skill runs in its own agent (`agents/ship-step-<step>.md`), which sets 
                     (auto-skip logic applied)
                               |
                     Step 3: Validate Pipeline
-                    (gh auth, branch checks)
+                    (gh auth only when a gh step runs; branch checks)
                               |
                     Step 4: Confirm
                     (dry-run stops here)
@@ -228,6 +228,7 @@ plan-sdlc      (--auto if     (--committed)
 - **No mandatory pause points in `--auto` mode**: `--auto` is forwarded to execute-plan-sdlc, to review-sdlc (which then posts when the branch has a PR and saves the review otherwise, without asking; when ship has a plan file it is also given `--plan "<plan>"`, so the plan's recorded decisions count as review intent, R88), to received-review-sdlc (which is also given `--plan "<plan>"` when ship has a plan file, so its scope guard keeps fixes inside the plan's files, and `--min-severity <reviewThreshold>`, the same threshold that gated the review, so findings below it are not fixed; it auto-dispatches fixes without sign-off, enforced by the `block-askuserquestion-auto.js` PreToolUse hook — R71) and to version-sdlc (which skips the release approval prompt). In interactive mode (no `--auto`), received-review-sdlc pauses for human sign-off and version-sdlc pauses for release approval.
 - **Testing summary to pr (R89)**: when the latest successful `execute` result carries a summary, ship writes it to `pr-testing-<branch-slug>.md` in the state directory and dispatches pr-sdlc with `--testing-file "<path>"`, so the PR description can cite what execute verified. Without a summary, pr gets no `--testing-file`.
 - **Plan file in the stage scope (R83)**: the plan file itself is always an allowed stage path, so a new or edited plan file is staged with the wave instead of stopping the run as outside the plan's Files.
+- **Review-scope keep (R94)**: when received-review stops to ask whether to keep or revert fixes outside the plan's Files, resuming ship without reverting them is the keep answer. In the same review round, commit-fixes stages those files without asking again; any other outside file is still refused.
 - **Ignored learnings log (R36)**: when `.sdlc/learnings/log.md` is git-ignored in the active worktree, ship records `learnings-commit` as skipped (`learnings log is git-ignored`) and emits no `learnings_commit` step.
 - **Workspace auto-detection (R60, fixes #378, #379)**: ship-sdlc derives the workspace from cwd + current branch via `lib/git.js::deriveWorkspace` — there is no flag and no prompt. Two outcomes:
   - **`branch`** (cwd is the main worktree AND HEAD is the default branch): ship auto-creates a feature branch before dispatching execute. Lifecycle: (1) derive branch name from the plan title via `lib/branch-name.js` driven by `workspace.branch` config; (2) run ship state migration (`state/ship.js migrate --from <oldSlug> --to <newName>`) **before** creating the branch — critical because `state/ship.js read` must still resolve the OLD slug filename at migration time (load-bearing ordering); (3) `git checkout -b <name>`. After step (3), cwd is the main worktree on the new feature branch, so execute-plan-sdlc's own derive yields `continue` — ship does **not** forward a `--branch` value.

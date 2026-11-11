@@ -1458,7 +1458,7 @@ function stageCommands(planFile, cwd) {
  * R83, G9: changed paths (git status, rename targets included) outside every plan Files path.
  * `.sdlc/` is never outside (R8 rule); an unreadable plan or git status yields none (R8 behaviour).
  */
-function stageScope(planFile, cwd) {
+function stageScope(planFile, cwd, approved = []) {
   let text = '';
   try { text = fs.readFileSync(planFile, 'utf8'); } catch { return { outside: [] }; }
   const st = spawnSync('git', ['status', '--porcelain', '-z', '--untracked-files=all'], { cwd, encoding: 'utf8', timeout: 8000 });
@@ -1470,6 +1470,8 @@ function stageScope(planFile, cwd) {
   // R83: the plan file itself is always allowed.
   const rel = path.relative(cwd, path.resolve(cwd, planFile)).split(path.sep).join('/');
   if (rel && !rel.startsWith('..')) allowed.add(rel);
+  // R94: outside paths the user kept at received-review's scope question.
+  for (const p of approved) if (typeof p === 'string' && p) allowed.add(p.replace(/^\.\//, '').replace(/\/$/, ''));
   const parts = st.stdout.split('\0').filter(Boolean);
   const changed = [];
   for (let i = 0; i < parts.length; i++) {
@@ -2066,7 +2068,10 @@ function pickNextStep(after, ctx) {
           ? !(entryOf('execute') && entryOf('execute').status === 'completed' && !isDone('commit'))
           : unmetCondition('commit-fixes', ledger) !== null) continue;
         const wt = resolveActiveWorktreeSafe();
-        const { outside } = stageScope(flags.planFile, wt);
+        // stage_changes shares this case block; R94: only stage_fixes reads approvedScope.
+        const as = id === 'stage_fixes' ? ledger.approvedScope : null;
+        const approved = as && as.round === (ledger.round || 1) && Array.isArray(as.paths) ? as.paths : [];
+        const { outside } = stageScope(flags.planFile, wt, approved);
         if (outside.length) return stageOutsidePending(outside);
         data = { commands: stageCommands(flags.planFile, wt) };
         break;
@@ -2546,6 +2551,14 @@ function runAfter(stepArgs) {
 
   // Failure rows.
   if (pq) {
+    // R94: record the outside paths received-review's scope question named.
+    if (after === 'dispatch_received_review' && pq.options.includes('keep')) {
+      const { outside } = stageScope(flags.planFile, resolveActiveWorktreeSafe());
+      // Whole-token match: `a.txt` must not match a prompt that names `data.txt`.
+      const tokens = new Set(pq.prompt.split(/[\s"'`,:\[\]{}()]+/));
+      const named = outside.filter(p => tokens.has(p));
+      if (named.length) ledger.approvedScope = { round: ledger.round || 1, paths: named };
+    }
     if (after === 'dispatch_execute' && !flags.auto && flags.quality && isHighRiskGate(pq)) {
       ledger.currentStep = 'execute_gate';
       return finish(createEnvelope('step', {

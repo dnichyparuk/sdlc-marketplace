@@ -299,9 +299,9 @@
     # Must show pr-sdlc step
     - type: icontains
       value: "pr-sdlc"
-    # Must NOT show --auto --draft together (the bug from issue #97)
-    - type: not-icontains
-      value: "--auto --draft"
+    # The pr-sdlc table row must not carry --draft (issue #97); quoting the SKILL.md example in prose is fine
+    - type: not-regex
+      value: '\|[^\n|]*pr-sdlc[^\n]*--draft'
     # Behavioral: pr step args come from prepare output, not SKILL.md examples
     - type: llm-rubric
       value: >

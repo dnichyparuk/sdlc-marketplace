@@ -85,7 +85,7 @@
   sheets. Testable assertion: "After `wave-start` followed by one `wave-progress` write, the
   marker file exists, parses, and its `updatedAt` is not older than the wave's `startedAt`."
 
-- R88: `state/execute.js wave-watch [--branch <b>] [--interval <s>] [--timeout <s>] [--once]` polls the branch's execute state file and prints one line per wave whose `status` is `completed`, `partial` or `failed`, once per wave: `execute wave <n>: <status>, <done>/<total> tasks done`. `<done>` counts tasks with `status: completed`. It exits 0 when the state file disappears after it was seen, at `--timeout` (default 3600), or after one pass with `--once`; a bad argument exits 2. Defaults: `--interval` 30, branch from `git branch --show-current`. The intervals are tuning values.
+- R88: `state/execute.js wave-watch [--branch <b>] [--interval <s>] [--timeout <s>] [--once]` polls the branch's execute state file and prints one line per wave whose `status` is `completed`, `partial` or `failed`, once per wave: `execute wave <n>: <status>, <done>/<total> tasks done`. `<done>` counts tasks with `status: completed`. It exits 0 when the state file disappears after it was seen, at `--timeout` (default 3600), or after one pass with `--once`; a bad argument exits 2. Defaults: `--interval` 30, branch from `git branch --show-current`. The intervals are tuning values. Without `--once`, the waves already finished at the first poll (the state file may be absent then) are a baseline and are not printed; a wave is printed once for each later `status` it reaches. `--once` prints every finished wave.
   - Acceptance: exec case `execute-plan-sdlc/liveness/wave-watch: …`.
 
 - R-TODOWRITE-TRUTHFUL: When a wave or step failure occurs, substeps that were `pending` (never dispatched) MUST remain `pending` status but have their `activeForm` suffixed with `" (not attempted)"`. Only substeps that were `in_progress` when failure fired MUST be rewritten to `completed (failed)`. Substeps that were already `completed` are left unchanged. Testable assertion: "Given 5 substeps in mixed states {completed, in_progress, pending, pending, pending} with failure on step 2, steps 3–5 remain `pending` with activeForm containing '(not attempted)', and step 2 becomes `completed` with '(failed)'."
@@ -422,6 +422,7 @@ The prepare output also carries `errors[]` (each `{ id, message }`; ids `missing
 | R86 | mid-wave hand-back (ledger F-29), #9347 |
 | R87 | worker bans, #9320 |
 | R88 | per-wave progress (ledger F-28), #9347 |
+| R88 | resume baseline (#9354) |
 | P10 | (issue #9319 — strict wave files; ship flag, deviation N1b) |
 | G13 | (issue #9319 — strict wave files; ship flag, deviation N1b) |
 | E15 | (issue #9241 — the parse and its summary-file removal are two Bash calls) |

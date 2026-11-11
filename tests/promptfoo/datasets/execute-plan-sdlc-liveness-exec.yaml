@@ -106,6 +106,17 @@
     - type: javascript
       value: "output.trim() === 'execute wave 1: completed, 2/2 tasks done'"
 
+- description: "execute-plan-sdlc/liveness/wave-watch: a watch started after wave 1 finished prints nothing (R88 baseline)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "wave-watch --branch fix/resume-idem --interval 1 --timeout 1"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: javascript
+      value: "output.trim() === ''"
+
 - description: "execute-plan-sdlc/liveness/wave-watch: a non-numeric --interval exits 2 with a usage line"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"

@@ -181,6 +181,7 @@ echo '{"success":true,"output":{"answer":"balanced","summary":"balanced"}}' > re
 echo '{"success":true,"output":{"answer":"fast","summary":"fast"}}' > results/tier-bad.json
 echo '{"success":true,"output":{"answer":"resume","summary":"resume"}}' > results/resume.json
 echo '{"success":true,"output":{"answer":"restart","summary":"restart"}}' > results/restart.json
+echo '{"success":false,"output":{"summary":"scope check failed","pendingQuestion":{"prompt":"{\"ok\":false,\"outOfScope\":[\"out.txt\"]} Revert or keep the listed changes?","options":["keep","revert"]}}}' > results/received-review-scope.json
 echo '{"success":true,"output":{"summary":"ok","usage":{"inputTokens":10,"outputTokens":5,"model":"haiku"}}}' > results/generic-ok.json
 echo '{"success":true,"output":{"summary":"branch created","artifacts":{"branch":"feat/add-widget-support"}}}' > results/branch-prepare-ok.json
 echo '{"success":true,"output":{"summary":"committed abc1234","usage":{"inputTokens":120,"outputTokens":40,"model":"haiku"}}}' > results/commit-ok.json

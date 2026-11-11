@@ -45,6 +45,7 @@ Example: `.sdlc/execution/ship-feat-my-feature-20260327T143000Z.json`
 | `nextPendingStep` | string \| null | Derived at read time by `lib/state.js::detectResumeState`. Name of the first step in `steps[]` whose `status` is neither `completed` nor `skipped`, or `null` when every step is resolved. Not written into the on-disk file; recomputed on every read so a resumed run picks the correct re-entry point. Example: `"review"`. |
 | `history` | array \| absent | Optional append-only log of stepper transitions. Each entry: `step` (string), `result` (`"success"`, `"failed"` or `"unknown"`), `data` (any, optional), `timestamp` (string). Steps with no `steps[]` record, such as `cleanup`, appear here only. |
 | `currentStep` | string \| null \| absent | Optional name of the step the stepper last emitted and has not yet completed, or `null` when none. |
+| `approvedScope` | object \| absent | `{ round, paths }`: outside-plan paths that received-review's scope question named, kept by resuming without reverting them (spec R94). Read only by `stage_fixes` in the same review round. |
 
 ---
 

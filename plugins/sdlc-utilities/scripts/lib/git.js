@@ -654,11 +654,12 @@ function probeRepoAccess({ owner, repo, host, execFn } = {}) {
  *   - activeAccount: login of the active account (when authenticated)
  *   - expired: true when the token has expired (gh reports "expired" in stderr)
  *   - errorMessage: human-readable summary when authenticated === false
+ *   - timedOut: true when `gh auth status` did not answer before the probe timeout (spec ship-sdlc R91)
  *
  * For test injection, pass `opts.execFn` to substitute the gh invocations.
  *
  * @param {{ host?: string, execFn?: function }} [opts]
- * @returns {{ authenticated: boolean, activeAccount: string|null, expired: boolean, errorMessage: string|null }}
+ * @returns {{ authenticated: boolean, activeAccount: string|null, expired: boolean, errorMessage: string|null, timedOut: boolean }}
  */
 function probeGhAuth(opts = {}) {
   const host = opts.host || 'github.com';

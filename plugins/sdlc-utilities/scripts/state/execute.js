@@ -1348,7 +1348,7 @@ function cmdResumeReset(opts) {
 
 /**
  * `wave-watch` — read-only poll over the execute state file. Prints one line per
- * finished wave (completed | partial | failed), each wave once, in wave order.
+ * finished wave (completed | partial | failed), each wave once per status, waves finished before the first poll excluded (without --once), in wave order.
  * Exits 0 on --once after one pass, when the state file disappears after being
  * seen, or at --timeout. A state file not yet present is not an error.
  *
@@ -1360,22 +1360,26 @@ function cmdWaveWatch(opts) {
   const intervalMs = (opts.interval || 30) * 1000;
   const timeoutMs = (opts.timeout || 3600) * 1000;
   const startedAt = Date.now();
-  const printed = new Set();
+  const printed = new Set(); // keys `${number}:${status}`
+  let first = !opts.once;
   let seen = false;
 
   const pass = () => {
     const found = readState('execute', slug);
-    if (!found) return false;
+    if (!found) { first = false; return false; }
     seen = true;
     const waves = Array.isArray(found.data.waves) ? found.data.waves : [];
     for (const wave of waves) {
-      if (!wave || printed.has(wave.number)) continue;
-      if (!['completed', 'partial', 'failed'].includes(wave.status)) continue;
+      if (!wave || !['completed', 'partial', 'failed'].includes(wave.status)) continue;
+      const key = `${wave.number}:${wave.status}`;
+      if (printed.has(key)) continue;
+      printed.add(key);
+      if (first) continue; // R88: baseline at the first poll
       const tasks = Array.isArray(wave.tasks) ? wave.tasks : [];
       const done = tasks.filter(t => t && t.status === 'completed').length;
       process.stdout.write(`execute wave ${wave.number}: ${wave.status}, ${done}/${tasks.length} tasks done\n`);
-      printed.add(wave.number);
     }
+    first = false;
     return true;
   };
 

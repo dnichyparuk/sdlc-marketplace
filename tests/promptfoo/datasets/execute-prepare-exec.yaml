@@ -738,3 +738,11 @@
       value: |
         const o = JSON.parse(output);
         return o.parseExit === 0 && o.rm === 1 ? true : `FAIL: ${output}`;
+
+- description: "schema-truth: execute-state schema covers every key the writer writes"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-schema-truth.js"
+    script_args: "--surface execute-state"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.extraKeys.length === 0 && o.planHashNullable === true"

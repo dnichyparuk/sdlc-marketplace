@@ -99,6 +99,15 @@
         "required": ["step", "decision"]
       }
     },
+    "approvedScope": {
+      "type": "object",
+      "properties": {
+        "round": { "type": "integer", "minimum": 1 },
+        "paths": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["round", "paths"],
+      "additionalProperties": false
+    },
     "deferredFindings": {
       "type": "array",
       "items": {
