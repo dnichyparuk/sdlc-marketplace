@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.1] - 2026-11-11
+
 ### Changed
 - plan-sdlc: a merged re-dispatch re-runs every lane or lens whose earlier result had a blocking issue (`diff-material --prev-dir`) (#9276).
 - plan-sdlc: the session-start hook removes `sdlc-plan-critique-*` directories older than 7 days (#9258).
