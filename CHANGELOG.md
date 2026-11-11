@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.49.1] - 2026-11-11
+## [0.50.0] - 2026-11-11
 
 ### Added
 - ship-sdlc: `ship.stepModels` in `.sdlc/local.json` overrides the model and effort of each ship step; invalid values stop prepare (#9341).
