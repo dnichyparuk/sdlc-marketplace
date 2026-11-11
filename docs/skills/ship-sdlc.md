@@ -252,7 +252,7 @@ plan-sdlc      (--auto if     (--committed)
 
 With `--review-rounds <n>` (default 1), the review, received-review and commit-fixes steps can run up to `n` times. When commit-fixes completes in round k and k is below `n`, ship records that round in `rounds[]` of the state file, sets `round` to k + 1, resets the three steps to pending and runs review again on the new commit. The review gate, the staging of the fixes and, in interactive runs, the confirm questions are asked again in each round. The loop ends after round `n`, or earlier when a round's commit-fixes is skipped (the review found nothing at the threshold, the gate was deferred, or received-review changed nothing). The final summary adds the token usage of every round and lists the commit-fixes commit of each round. With the default of one round the pipeline runs as before.
 
-During the execute step, ship prints one line per finished execute wave.
+During the execute step, ship prints one line per finished execute wave when the Monitor tool is available.
 
 ---
 
