@@ -156,8 +156,11 @@
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
   assert:
-    - type: icontains
-      value: '"model": "opus"'
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.steps.find(s => s.name === 'execute');
+        return e && e.model === 'sonnet' && e.effort === 'high' ? true : `FAIL: ${JSON.stringify(e)}`;
     - type: icontains
       value: '"model": "haiku"'
     - type: icontains
@@ -2442,7 +2445,8 @@
         if (e.step.id !== 'dispatch_execute') return `FAIL: next ${e.step.id}`;
         if (o.ledger.history.some(h => h.step === 'branch_prepare')) return 'FAIL: branch_prepare recorded';
         if (!/--plan "/.test(e.step.data.invocation)) return `FAIL: invocation lacks the frozen --plan: ${e.step.data.invocation}`;
-        if (e.step.data.skill !== 'execute-plan-sdlc' || e.step.data.model !== 'opus') return `FAIL: data ${JSON.stringify(e.step.data)}`;
+        if (e.step.data.skill !== 'execute-plan-sdlc' || e.step.data.model !== 'sonnet') return `FAIL: data ${JSON.stringify(e.step.data)}`;
+        if ('dispatchModel' in e.step.data || 'dispatchEffort' in e.step.data) return `FAIL: unexpected dispatch keys ${JSON.stringify(e.step.data)}`;
         return true;
 
 - description: "ship-step: (j) --after confirm_pipeline with edit and nothing run deletes the ledger"
@@ -5666,3 +5670,86 @@
         const e = JSON.parse(output).env;
         if (e.status !== 'step' || e.step.id !== 'dispatch_pr') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.error || ''}`;
         return e.step.data.args.includes('--testing-file') ? `FAIL: ${e.step.data.args}` : true;
+
+- description: "ship-step-models: (d) unknown step key is an error"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-step-models-invalid"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const want = 'ship.stepModels.deploy: unknown step; expected one of execute, commit, review, received-review, commit-fixes, version, pr.';
+        return o.errors.filter(e => e === want).length === 1;
+
+- description: "ship-step-models: (e) invalid effort is an error"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-step-models-invalid"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const want = 'ship.stepModels.review.effort "huge" must be one of low, medium, high, xhigh, max.';
+        return o.errors.filter(e => e === want).length === 1;
+
+- description: "ship-step-models: (f) no stepModels gives an empty map"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-quick-defined"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return JSON.stringify(o.flags.stepModels) === '{}' && o.flags.sources.stepModels === 'default';
+
+- description: "ship-step-models: (a) execute override sets model, effort and dispatch keys"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-step-models"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const s = o.steps.find(x => x.name === 'execute');
+        return s.model === 'opus' && s.effort === 'xhigh' && s.modelSource === 'config' && s.dispatchModel === 'opus' && s.dispatchEffort === 'xhigh';
+
+- description: "ship-step-models: (b) effort-only override keeps the agent model"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-step-models"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const s = o.steps.find(x => x.name === 'review');
+        return s.model === 'sonnet' && s.effort === 'high' && s.dispatchEffort === 'high' && !('dispatchModel' in s);
+
+- description: "ship-step-models: (c) steps without an entry have modelSource agent"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-step-models"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const s = o.steps.find(x => x.name === 'commit');
+        return s.modelSource === 'agent' && !('dispatchModel' in s) && !('dispatchEffort' in s);

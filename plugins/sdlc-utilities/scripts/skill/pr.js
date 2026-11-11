@@ -58,6 +58,7 @@ const { jiraKeyRegex } = require(path.join(LIB, 'jira-keys'));
 const { validateExpectedBranch } = require(path.join(LIB, 'branch-guard'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { detectActiveChanges } = require(path.join(LIB, 'openspec'));
+const { resolveStateDir } = require(path.join(LIB, 'state'));
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -565,7 +566,14 @@ function main() {
   let testingSummary = null;
   if (testingFile) {
     try {
-      testingSummary = fs.readFileSync(testingFile, 'utf8').trim().slice(0, 4000);
+      const real = fs.realpathSync(testingFile);
+      if (!fs.statSync(real).isFile()) throw new Error('not a regular file');
+      const roots = [activeRoot, resolveStateDir()].filter(Boolean).map(r => { try { return fs.realpathSync(r); } catch { return null; } }).filter(Boolean);
+      if (!roots.some(r => real === r || real.startsWith(r + path.sep))) {
+        warnings.push(`Testing file ${testingFile} is outside the worktree and the state directory; ignored`);
+      } else {
+        testingSummary = fs.readFileSync(real, 'utf8').trim().slice(0, 4000);
+      }
     } catch (err) {
       warnings.push(`Could not read testing file ${testingFile}: ${err.message}`);
     }

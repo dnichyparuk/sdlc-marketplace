@@ -644,6 +644,25 @@ ship-sdlc does not forward `--commit-waves`, `--wave-timeout`, `--wave-interval`
 
 To opt out, omit the field (or set it to `false`) in `.sdlc/config.json`. There is no ship-sdlc CLI override; the user-facing knob is `execute.commitWaves`.
 
+### Step models
+
+`ship.stepModels` lives in `.sdlc/local.json`, keyed by step name (`execute`, `commit`, `review`, `received-review`, `commit-fixes`, `version`, `pr`), with values `{ model?, effort? }` that override the step agent's default model and effort at dispatch (R90). `model` is an alias (`haiku`, `sonnet`, `opus`, `fable`) or a `claude-*` model id; `effort` is `low`, `medium`, `high`, `xhigh` or `max`. An unknown step or an invalid value stops prepare.
+
+```json
+{
+  "schemaVersion": 4,
+  "ship": {
+    "steps": ["execute", "commit", "review", "pr"],
+    "stepModels": {
+      "execute": { "model": "opus", "effort": "xhigh" },
+      "review": { "effort": "high" }
+    }
+  }
+}
+```
+
+See `docs/cost-tiers.md` §5 for the dispatch-site override rules.
+
 ### Branch-verification guard
 
 Ship-sdlc defends against a class of silent failure (#347, #348, #349) where a sub-skill's Agent — through LLM contract violation, hook bypass, or environment drift — lands its git operations on a different branch than the feature branch ship created. Without a guard, release tags can silently land on orphaned commits that never merge to main; the user discovers the problem only after the PR merges and finds main has no version bump.

@@ -167,6 +167,7 @@ Key fields available (including `customTemplate` added for project-level PR temp
 | `prConfig` | PR title validation config from `.sdlc/config.json` (null when absent) |
 | `isAuto` | Whether `--auto` was passed — skip interactive prompts |
 | `forcedLabels` | `string[]` — labels forced via `--label` flag(s), pre-validated against `repoLabels`. Always included in PR regardless of signal matching |
+| `testingSummary` | Verification summary text from `--testing-file` (cut to 4000 characters), or `null`; drives the Testing section (R18) |
 
 ### Step 2 (PLAN): Draft PR Description
 

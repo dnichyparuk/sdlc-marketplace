@@ -45,3 +45,51 @@ Recent PRs consistently use the 5-section format above. All PRs include "Deploym
 
 Branch names in recent PRs: `feat/PROJ-123-add-payment`, `fix/PROJ-456-auth-bug`.
 JIRA project: PROJ.
+
+### prepare.scan
+
+```json
+{
+  "signals": {
+    "languages": [],
+    "frameworks": [],
+    "hasDatabase": false,
+    "dbType": null,
+    "hasApi": false,
+    "apiFormat": null,
+    "hasTests": false,
+    "testFramework": null,
+    "hasCi": false,
+    "ciPlatform": null,
+    "hasMonorepo": false,
+    "hasOpenSpec": false,
+    "directories": [".claude/", ".github/", "src/"],
+    "reviewDimensions": [],
+    "claudeMdRules": [],
+    "structure": {
+      "src/**": { "label": "Source", "count": 0, "samples": [], "truncated": false }
+    }
+  },
+  "files": {
+    ".claude/pr-template.md": {
+      "content": "## Summary\n\n## Technical Design\n\n## Testing\n\n## Deployment\n\n## Rollback\n",
+      "truncated": false
+    },
+    ".github/PULL_REQUEST_TEMPLATE.md": {
+      "content": "## What Changed\n\n## Testing Steps\n",
+      "truncated": false
+    }
+  },
+  "hosting": { "github": true, "via": "remote" },
+  "ciFiles": [],
+  "git": {
+    "branch": "feat/PROJ-123-add-payment",
+    "recentCommits": ["a1b2c3d feat(PROJ-123): add payment", "e4f5a6b fix(PROJ-456): auth bug"]
+  },
+  "jiraEvidence": { "keys": { "PROJ": 4 }, "ambiguous": false },
+  "recentPrs": [
+    { "title": "feat(PROJ-123): add payment", "headings": ["## Summary", "## Technical Design", "## Testing", "## Deployment", "## Rollback"] },
+    { "title": "fix(PROJ-456): auth bug", "headings": ["## Summary", "## Technical Design", "## Testing", "## Deployment", "## Rollback"] }
+  ]
+}
+```

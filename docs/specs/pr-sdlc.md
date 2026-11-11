@@ -16,7 +16,7 @@
 - A5: `--label <name>` — force a label onto the PR; repeatable; creates label if missing in repo (default: none)
 - A6: `--evidence-file <path>` — lines for the PR body's `## Evidence` section (R17) (default: unset)
 - R17: With `--evidence-file`, the PR body holds a `## Evidence` section with the file's non-empty lines verbatim, in order. Every line must end with `(at <sha7>)`, where `<sha7>` is the first seven hex characters of a commit on the branch. Without the flag, an `## Evidence` heading in the template is filled with "Not detected" (R12).
-- A7: `--testing-file <path>` — a text file with the verification summary for the Testing section (ship-sdlc R89) (default: none)
+- A7: `--testing-file <path>` — a text file with the verification summary for the Testing section (ship-sdlc R89). The file must be inside the current git worktree or the ship state directory (P20); its text is published in the PR body. (default: none)
 - R18: When `testingSummary` is non-null, the Testing section reports that text and does not say that no test results exist; it may add coverage seen in the diff. When it is null, the Testing section is inferred from the diff as before.
   - Acceptance: exec cases whose descriptions start with `pr-prepare-testing:`.
 - R10: Forced labels (`--label`) bypass `prConfig.labels.mode` entirely — they apply in all three modes (including `off`), are always included, dedupe against rule/llm matches with forced winning provenance, and are created via `gh label create` if missing in repo
@@ -56,7 +56,7 @@ None.
 1. CONSUME — run prepare script, read PR context JSON (commits, diff, labels, config, custom template)
    - **Script:** `skill/pr.js`
    - **Params:** A1-A5 forwarded (`--draft`, `--update`, `--base <branch>`, `--auto`, `--label <name>`)
-   - **Output:** JSON → P1-P18 (mode, branches, draft flag, existing PR, jira ticket, commits, diff stats/content, changed files, repo labels, custom template, PR config, auth, remote state, warnings)
+   - **Output:** JSON → P1-P20 (mode, branches, draft flag, existing PR, jira ticket, commits, diff stats/content, changed files, repo labels, custom template, PR config, auth, remote state, warnings)
 2. PLAN — draft all sections of the active template, draft title, infer labels
 3. CRITIQUE — self-review against all 12 quality gates
 4. IMPROVE — fix failing gates (max 2 iterations per gate); ask clarifying questions for Business Context/Benefits if needed
@@ -141,7 +141,7 @@ None.
 - P17: `remoteState` (object) — `{ pushed, remoteBranch, action }`
 - P18: `warnings` (string[]) — non-fatal notes
 - P19: `evidence: { file, lines[] } | null`
-- P20: `testingSummary` — the trimmed text of the `--testing-file` file, cut to 4000 characters; null when the flag is absent; null with a `warnings` entry when the file cannot be read.
+- P20: `testingSummary` — the trimmed text of the `--testing-file` file, cut to 4000 characters; null when the flag is absent; null with a `warnings` entry when the file cannot be read, is not a regular file, or resolves (after symlinks) outside both the current git worktree and the ship state directory (`resolveStateDir()`). Warning for the last case: `Testing file <path> is outside the worktree and the state directory; ignored`.
 
 ## Failure handling and resume
 

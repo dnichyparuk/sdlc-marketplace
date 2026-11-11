@@ -6,7 +6,7 @@ Regression tests that run SDLC skills through Claude and verify behavioral patte
 
 - Claude Code CLI installed (`claude` in PATH) and logged in
 - Node.js 18+
-- promptfoo installed globally: `npm install -g promptfoo`
+- promptfoo 0.123.1, run through `npx --yes promptfoo@0.123.1` (later versions read the templated `file://` `script_cwd` var as a file and fail with EISDIR)
 - [Task](https://taskfile.dev) installed (optional but recommended): `brew install go-task`
 
 ## Run tests
@@ -24,9 +24,9 @@ task test:view     # Open web UI to inspect results
 Or directly from `tests/promptfoo/` (first run `cp .env.example .env`; `.env` is untracked and holds local settings):
 
 ```bash
-promptfoo eval --env-file .env
-promptfoo eval --config promptfooconfig-exec.yaml --env-file .env
-promptfoo view --env-file .env
+npx --yes promptfoo@0.123.1 eval --env-file .env
+npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec.yaml --env-file .env
+npx --yes promptfoo@0.123.1 view --env-file .env
 ```
 
 ## Results

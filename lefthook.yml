@@ -7,7 +7,7 @@ pre-push:
   commands:
     exec-scripts:
       root: "tests/promptfoo/"
-      run: promptfoo eval --config promptfooconfig-exec.yaml
+      run: npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec.yaml
     exec-hooks:
       root: "tests/promptfoo/"
-      run: promptfoo eval --config promptfooconfig-exec-hooks.yaml
+      run: npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec-hooks.yaml

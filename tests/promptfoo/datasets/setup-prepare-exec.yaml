@@ -294,3 +294,55 @@
         const out = JSON.parse(output);
         const hooks = out.sections && out.sections.find(s => s.id === 'hooks');
         return hooks === undefined ? true : 'FAIL: hooks section still present';
+
+# ---------------------------------------------------------------------------
+# Project scan (R10, R14, P-scan; W6a.9): --scan emits `scan` from lib/project-scan.js.
+# ---------------------------------------------------------------------------
+
+- description: "setup-prepare: --scan emits scan.signals for a project with package.json"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-mongodb-express"
+    script_args: "--scan"
+  assert:
+    - type: javascript
+      value: |
+        const s = JSON.parse(output).scan;
+        if (!s || !s.signals) return 'FAIL: scan.signals missing';
+        const checks = {
+          typescript: s.signals.languages.includes('typescript'),
+          express: s.signals.frameworks.includes('express'),
+          hasDatabase: s.signals.hasDatabase === true,
+          mongodb: s.signals.dbType === 'mongodb',
+          structure52: Object.keys(s.signals.structure).length === 52,
+          packageJson: !!(s.files['package.json'] && s.files['package.json'].content),
+          hosting: typeof s.hosting.github === 'boolean',
+          ciFiles: Array.isArray(s.ciFiles),
+          recentPrs: Array.isArray(s.recentPrs) && s.recentPrs.length === 0,
+        };
+        const failed = Object.keys(checks).filter(k => !checks[k]);
+        return failed.length === 0 ? true : 'FAIL: ' + failed.join(', ');
+
+- description: "setup-prepare: no --scan omits the scan key"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        return !('scan' in out) ? true : 'FAIL: scan key present without --scan';
+
+- description: "setup-prepare: --scan reports the active branch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-scan-branch"
+    script_args: "--scan"
+  assert:
+    - type: javascript
+      value: |
+        const s = JSON.parse(output).scan;
+        return s && s.git.branch === 'feat/scan-root' ? true : 'FAIL: branch ' + (s && s.git.branch);

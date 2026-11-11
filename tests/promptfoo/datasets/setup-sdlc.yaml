@@ -112,7 +112,7 @@
         The response detects the "none" reply and exits cleanly with a "no changes" /
         "no sections selected" summary. It does NOT enter the Step 3 dispatch loop, does
         NOT run any AskUserQuestion for individual fields, and does NOT write any config
-        files. The summary at Step 5 reflects "nothing was configured."
+        files. The summary at Step 4 reflects "nothing was configured."
 
 - description: "setup-sdlc --only jira,review: menu skipped, both sections run"
   vars:

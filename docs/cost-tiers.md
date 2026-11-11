@@ -56,7 +56,7 @@ One row per agent in `plugins/sdlc-utilities/agents/`.
 | plan-reviewer | sonnet | medium | Step 5 review; sonnet as a cost choice |
 | plan-intake-verify | sonnet | medium | Gate A audit |
 | review-orchestrator | sonnet | - | Cross-dimension critique + dedup reasoning; dimension subagents use per-dimension `model:` |
-| ship-step-execute | opus | high | Runs execute-plan-sdlc for ship; plan execution and recovery need the strongest tier |
+| ship-step-execute | sonnet | high | Runs execute-plan-sdlc for ship; the orchestration is script-driven and the workers carry their own tiers (complex tasks run on execute-worker-complex, opus) |
 | ship-step-commit | haiku | low | Runs commit-sdlc for ship (also commit-fixes); mechanical, message drafting goes to commit-orchestrator |
 | ship-step-review | sonnet | medium | Runs review-sdlc for ship; dimension agents carry their own models |
 | ship-step-received-review | sonnet | medium | Runs received-review-sdlc for ship; triage and fixes at today's ship tier |
@@ -70,7 +70,7 @@ One row per agent in `plugins/sdlc-utilities/agents/`.
 
 Files where per-call `model:` is computed at runtime and **wins over frontmatter**:
 
-- `plugins/sdlc-utilities/scripts/skill/ship.js` — reads `model`/`effort` from `agents/ship-step-*.md`.
+- `plugins/sdlc-utilities/scripts/skill/ship.js` — reads `model`/`effort` from `agents/ship-step-*.md`; a `ship.stepModels.<step>` entry in `.sdlc/local.json` overrides them per step and is passed on the Agent call (ship-sdlc R90).
 - `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` — the worker routing table maps quality tier × complexity to a worker agent (whose frontmatter pins the model) and an Agent-dispatch `effort`; execute passes no per-task `model:`. `plugins/sdlc-utilities/scripts/skill/execute.js` emits the classification floor and the wave structure, applies the table to each wave, and emits the routing as `waves[].dispatch` (`WORKER_ROUTING`, `AGENT_MODELS`), which SKILL.md dispatches verbatim.
 - `plugins/sdlc-utilities/scripts/skill/review.js` — passes per-dimension `model:` resolved from each dimension file's own frontmatter.
 - `plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md` — passes `model: opus` to lens agents only when the plan author ran on sonnet (R8).

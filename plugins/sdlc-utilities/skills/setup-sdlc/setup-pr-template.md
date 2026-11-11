@@ -8,15 +8,14 @@ tailored template, guides the user through customization section by section, the
 
 ## Scan Input
 
-This sub-flow expects the parent to provide:
+This sub-flow expects the parent to provide the scan in `prepare.scan` as "Scan Input":
 
-- **GitHub PR template content** (if `.github/PULL_REQUEST_TEMPLATE.md` exists): sections and
-  structure
-- **Recent PR patterns**: heading patterns from the last 5 PRs (if available via `gh pr list`)
-- **Manifest signals**: project type (library, application, service, monorepo) from
-  `package.json`, `go.mod`, `Cargo.toml`, `pyproject.toml`, `pom.xml`
-- **JIRA evidence**: detected JIRA patterns from branch name, recent commits, or manifests
-- **Existing template** (if present): current `.sdlc/pr-template.md` sections and content
+- **GitHub PR template content**: `files[".github/PULL_REQUEST_TEMPLATE.md"]` and
+  `files[".github/PULL_REQUEST_TEMPLATE/"]`
+- **Recent PR patterns**: `recentPrs` (title and headings of the last 5 PRs)
+- **Manifest signals**: project type from `signals.frameworks`, `signals.languages` and the manifests in `files`
+- **JIRA evidence**: `jiraEvidence`
+- **Existing template** (if present): `files[".sdlc/pr-template.md"]`
 
 ---
 
@@ -124,10 +123,10 @@ updated template again. Loop until the user says **accept**.
 
 After the user accepts:
 
-1. Create the `.claude/` directory if it does not exist:
+1. Create the `.sdlc/` directory if it does not exist:
 
    ```bash
-   mkdir -p .claude
+   mkdir -p .sdlc
    ```
 
 2. Write the accepted template to `.sdlc/pr-template.md`.
@@ -148,7 +147,6 @@ After the user accepts:
 After writing, locate and run the validation script:
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 node "<PLUGIN_ROOT>/scripts/ci/validate-pr-template.js" --project-root .
 EXIT_CODE=$?
 ```
@@ -195,17 +193,17 @@ When invoking `error-report-sdlc`, provide:
 1. **Existing template detection false negative.**
    *Symptom:* The sub-flow proposes creating a new PR template even though the project already has one, causing conflicts or duplicates.
    *Root cause:* The parent scans for `.github/PULL_REQUEST_TEMPLATE.md` but projects may store templates at `.github/PULL_REQUEST_TEMPLATE/*.md` (multi-template setup). The single-file check misses the directory-based pattern entirely.
-   *Mitigation:* Parent should also check for `.github/PULL_REQUEST_TEMPLATE/` as a directory. If multiple templates exist there, the parent presents the list to the user and asks which one to use as a baseline.
+   *Mitigation:* Parent should also check for `.github/PULL_REQUEST_TEMPLATE/` as a directory. If multiple templates exist there, ask which one to use as the baseline with AskUserQuestion.
 
 2. **JIRA project key extraction fails silently.**
    *Symptom:* The generated template omits the Jira link section or formats it incorrectly (e.g., wrong project key prefix).
    *Root cause:* The `[A-Z]{2,10}-\d+` regex scans recent PR titles/bodies and branch names, but fails when the project uses a non-standard key format, when no PRs mention JIRA, or when the branch naming convention does not include the ticket key.
-   *Mitigation:* If JIRA evidence is ambiguous (fewer than 2 matches, or multiple distinct key prefixes found), the parent asks the user for the project key explicitly before invoking this sub-flow.
+   *Mitigation:* If JIRA evidence is ambiguous (fewer than 2 matches, or multiple distinct key prefixes found), ask the user for the project key with AskUserQuestion.
 
 3. **validate-pr-template.js path resolution failure.**
    *Symptom:* Validation step errors out and the user sees "ERROR: Could not locate validate-pr-template.js" — but the exit code is 2 (script not found), not 1 (validation failure), so the error recovery table routes it to `error-report-sdlc` instead of a simple retry.
    *Root cause:* The injected `<PLUGIN_ROOT>` path is wrong, or the sdlc plugin is not installed, so `node` cannot resolve `scripts/ci/validate-pr-template.js`.
-   *Mitigation:* If the script is not found, skip validation and warn the user that validation was skipped rather than blocking the entire flow. Log the missing-script event so `error-report-sdlc` can surface it later.
+   *Mitigation:* Stop and invoke `error-report-sdlc` as in the Error Recovery table; do not skip validation.
 
 4. **Interactive customization loop accumulates inconsistent state.**
    *Symptom:* After several edit rounds, the template contains contradictory sections (e.g., the user removed "Summary", then asked to "add linked issues above the summary" — the sub-flow re-adds a summary section implicitly).
@@ -229,4 +227,4 @@ When invoking `error-report-sdlc`, provide:
 - `setup-sdlc --pr-template` — parent skill that invokes this sub-flow
 - `setup-sdlc --dimensions` — sibling sub-flow for review dimensions
 - `pr-sdlc/SKILL.md` — uses the template written by this sub-flow
-- `scripts/validate-pr-template.js` — validates the template format
+- `scripts/ci/validate-pr-template.js` — validates the template format

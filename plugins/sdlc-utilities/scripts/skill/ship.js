@@ -57,6 +57,7 @@ const { detectActiveChanges, isArchived, getTaskCounts, validateChangeStrict } =
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { PRE_RELEASE_LABEL_RE } = require(path.join(LIB, 'version'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
+const { MODEL_ALIASES, MODEL_ID_RE, VALID_EFFORTS } = require(path.join(LIB, 'dimensions'));
 const { parsePlanCommit, extractTasks, taskSection, parseFilesEntries } = require(path.join(LIB, 'plan-parse'));
 
 const VALID_QUALITY = ['full', 'balanced', 'minimal'];
@@ -217,6 +218,43 @@ function loadConfig(projectRoot) {
   return result
     ? { config: result, source: '.sdlc/local.json' }
     : { config: null, source: 'defaults' };
+}
+
+const STEP_MODEL_KEYS = ['execute', 'commit', 'review', 'received-review', 'commit-fixes', 'version', 'pr'];
+
+/**
+ * R90: validate ship.stepModels (per-step model/effort overrides).
+ * @param {*} raw
+ * @returns {{ overrides: object, errors: string[] }}
+ */
+function resolveStepModels(raw) {
+  const overrides = {};
+  const errors = [];
+  if (raw === undefined) return { overrides, errors };
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { overrides, errors: ['ship.stepModels must be an object keyed by step name.'] };
+  }
+  for (const [k, v] of Object.entries(raw)) {
+    if (!STEP_MODEL_KEYS.includes(k)) {
+      errors.push(`ship.stepModels.${k}: unknown step; expected one of ${STEP_MODEL_KEYS.join(', ')}.`);
+      continue;
+    }
+    if (v === null || typeof v !== 'object' || Array.isArray(v) || Object.keys(v).length === 0) {
+      errors.push(`ship.stepModels.${k} must be an object with model and/or effort.`);
+      continue;
+    }
+    const entry = {};
+    if (v.model !== undefined) {
+      if (typeof v.model === 'string' && (MODEL_ALIASES.includes(v.model) || MODEL_ID_RE.test(v.model))) entry.model = v.model;
+      else errors.push(`ship.stepModels.${k}.model "${v.model}" must be haiku, sonnet, opus, fable or a claude-* id.`);
+    }
+    if (v.effort !== undefined) {
+      if (VALID_EFFORTS.has(v.effort)) entry.effort = v.effort;
+      else errors.push(`ship.stepModels.${k}.effort "${v.effort}" must be one of ${[...VALID_EFFORTS].join(', ')}.`);
+    }
+    if (Object.keys(entry).length > 0) overrides[k] = entry;
+  }
+  return { overrides, errors };
 }
 
 // ---------------------------------------------------------------------------
@@ -456,6 +494,21 @@ function stepAgent(file) {
   return stepAgentCache[file];
 }
 
+/**
+ * R90: apply the `ship.stepModels[stepName]` override to a copy of the agent-file base.
+ * `dispatchModel`/`dispatchEffort` appear only for overridden fields; never mutates `base`.
+ */
+function applyStepModel(base, stepName, overrides = {}) {
+  const o = (overrides && overrides[stepName]) || {};
+  if (!o.model && !o.effort) return { ...base, modelSource: 'agent' };
+  return {
+    ...base,
+    ...(o.model ? { model: o.model, dispatchModel: o.model } : {}),
+    ...(o.effort ? { effort: o.effort, dispatchEffort: o.effort } : {}),
+    modelSource: 'config',
+  };
+}
+
 function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject = null, planFixSubject = null } = {}) {
   // Steps[] is the canonical source of truth for which top-level steps run.
   // A step IS skipped when it is NOT in flags.steps. The provenance for an
@@ -481,7 +534,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'execute',
       skill: 'execute-plan-sdlc',
-      ...stepAgent('execute'),
+      ...applyStepModel(stepAgent('execute'), 'execute', flags.stepModels),
       status: (!flags.hasPlan || !isIn('execute')) ? 'skipped' : 'will_run',
       skipSource: !flags.hasPlan && isIn('execute')
         ? 'none'
@@ -521,7 +574,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'commit',
       skill: 'commit-sdlc',
-      ...stepAgent('commit'),
+      ...applyStepModel(stepAgent('commit'), 'commit', flags.stepModels),
       status: isIn('commit') ? 'will_run' : 'skipped',
       skipSource: skipSource('commit'),
       args: [
@@ -538,7 +591,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'review',
       skill: 'review-sdlc',
-      ...stepAgent('review'),
+      ...applyStepModel(stepAgent('review'), 'review', flags.stepModels),
       status: isIn('review') ? 'will_run' : 'skipped',
       skipSource: skipSource('review'),
       // R88: the plan's recorded decisions are review intent.
@@ -551,7 +604,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'received-review',
       skill: 'received-review-sdlc',
-      ...stepAgent('received-review'),
+      ...applyStepModel(stepAgent('received-review'), 'received-review', flags.stepModels),
       status: 'conditional',
       skipSource: 'none',
       // R82: the plan scopes the fixes and the review-gate threshold is the fix floor (same value for gate and fix).
@@ -566,7 +619,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'commit-fixes',
       skill: 'commit-sdlc',
-      ...stepAgent('commit'),
+      ...applyStepModel(stepAgent('commit'), 'commit-fixes', flags.stepModels),
       status: 'conditional',
       skipSource: 'none',
       args: [
@@ -583,7 +636,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'version',
       skill: 'version-sdlc',
-      ...stepAgent('version'),
+      ...applyStepModel(stepAgent('version'), 'version', flags.stepModels),
       // Version always runs when in steps[] regardless of checkout (issue #378,
       // #379): tags are repo-global and writable from any worktree, so there is
       // no worktree-mode auto-skip.
@@ -710,7 +763,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
     {
       name: 'pr',
       skill: 'pr-sdlc',
-      ...stepAgent('pr'),
+      ...applyStepModel(stepAgent('pr'), 'pr', flags.stepModels),
       status: isIn('pr') ? 'will_run' : 'skipped',
       skipSource: skipSource('pr'),
       // No skip-version-check label (issue #378, #379): version always runs in
@@ -2164,7 +2217,7 @@ function pickNextStep(after, ctx) {
             };
           }
         }
-        data = { skill: cs.skill, args: cs.args, invocation: cs.invocation, agent: cs.agent, model: cs.model, ...(cs.effort ? { effort: cs.effort } : {}), ...(cs.isolation ? { isolation: cs.isolation } : {}) };
+        data = { skill: cs.skill, args: cs.args, invocation: cs.invocation, agent: cs.agent, model: cs.model, ...(cs.effort ? { effort: cs.effort } : {}), ...(cs.dispatchModel ? { dispatchModel: cs.dispatchModel } : {}), ...(cs.dispatchEffort ? { dispatchEffort: cs.dispatchEffort } : {}), ...(cs.isolation ? { isolation: cs.isolation } : {}) };
         if (id === 'dispatch_received_review') {
           const input = receivedReviewInput(ledger);
           if (input) {
@@ -2775,6 +2828,11 @@ function main() {
 
   // Merge flags
   const { merged: flags, sources: flagSources } = mergeFlags(cli, fileConfig);
+  // R90: per-step model/effort overrides; invalid entries refuse the run like a bad flag.
+  const stepModels = resolveStepModels((fileConfig || {}).stepModels);
+  flags.stepModels = stepModels.overrides;
+  flagSources.stepModels = (fileConfig && fileConfig.stepModels !== undefined) ? 'config' : 'default';
+  errors.push(...stepModels.errors);
 
   // #394: When version.preRelease is set in .sdlc/config.json AND the user did
   // NOT explicitly pass --bump on the CLI, forward the pre-release label as
@@ -3241,6 +3299,7 @@ function main() {
       awaitRemoteReviewInterval: flags.awaitRemoteReviewInterval,
       awaitRemoteReviewers: flags.awaitRemoteReviewers,
       planModeBlocked: flags.planModeBlocked || false,
+      stepModels: flags.stepModels,
       skipConfigCheck,
       sources: flagSources,
     },
