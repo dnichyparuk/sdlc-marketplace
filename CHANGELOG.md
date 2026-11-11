@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.2] - 2026-11-11
+
 ### Changed
 - ship-sdlc: gh authentication is required only when `pr`, `verify-pipeline` or `await-remote-review` will run; other runs warn (#9349).
 - ship-sdlc: one progress line per finished execute wave (`state/execute.js wave-watch`) (#9349).
