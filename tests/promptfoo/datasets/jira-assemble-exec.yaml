@@ -67,7 +67,7 @@
     - type: icontains
       value: "Cannot read --input"
 
-- description: "jira-assemble: --check-payload with an unreadable --input exits 1 with errors"
+- description: "jira-assemble: --check-payload with an unreadable --input reports errors"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
     script_cwd: "{{project_root}}"
@@ -78,7 +78,11 @@
     - type: javascript
       value: |
         const d = JSON.parse(output);
-        return Array.isArray(d.errors) && d.errors.length > 0;
+        return Array.isArray(d.errors) && d.errors.length > 0
+          && d.errors[0].includes('Cannot read --input')
+          && d.templateSource === null
+          && d.placeholders.length === 0
+          && d.unknownHeadings.length === 0;
 
 - description: "jira-assemble: --check-payload flags a placeholder and an invented heading"
   vars:
