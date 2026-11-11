@@ -1,0 +1,18 @@
+# Headless runner cases (#9346): real `claude -p` runs against throwaway fixture repos.
+# CREDENTIALED and OWNER-INITIATED ONLY: every run spends credentials, never run it in CI.
+# Costly cases (datasets/headless-costly.yaml) are skipped by the provider unless
+# SDLC_HEADLESS_COSTLY=1 is set in the environment.
+description: "Headless runner cases (real claude -p, credentialed, owner-initiated only)"
+
+evaluateOptions:
+  maxConcurrency: 1
+
+providers:
+  - id: file://providers/headless-case.js
+
+prompts:
+  - "{{prompt}}"
+
+tests:
+  - file://datasets/headless-cheap.yaml
+  - file://datasets/headless-costly.yaml

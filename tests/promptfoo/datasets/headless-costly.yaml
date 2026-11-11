@@ -1,0 +1,122 @@
+# Costly headless cases (#9346, #9149, #9279): the provider skips them unless
+# SDLC_HEADLESS_COSTLY=1 is set.
+
+- description: "headless: execute-two-task"
+  metadata: { tier: costly }
+  vars:
+    prompt: "/sdlc:execute-plan-sdlc docs/plans/eval-plan.md --auto --quality minimal --rebase skip"
+    scaffold: execute
+    allowed_tools: "Read,Glob,Grep,Skill,Agent,TodoWrite,Write,Edit,Bash"
+    timeout_seconds: 1200
+    max_budget_usd: 3
+    tier: costly
+    snapshot_files: []
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const missing = ['notes/one.txt', 'notes/two.txt'].filter((f) => !o.files.includes(f));
+        return missing.length === 0 ? true : `FAIL: missing ${missing.join(', ')}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const bad = o.files.filter((f) => /^\.sdlc\/execution\/execute-.*\.json$/.test(f));
+        return bad.length === 0 ? true : `FAIL: execute state left behind ${bad.join(', ')}`;
+
+- description: "headless: ship-auto-commit-review"
+  metadata: { tier: costly }
+  vars:
+    prompt: "/sdlc:ship-sdlc --auto --plan docs/plans/eval-plan.md --steps execute,commit,review --rebase skip --quality minimal"
+    scaffold: ship
+    allowed_tools: "Read,Glob,Grep,Skill,Agent,TodoWrite,Write,Edit,Bash"
+    timeout_seconds: 1800
+    max_budget_usd: 5
+    tier: costly
+    snapshot_files: [".git/logs/HEAD"]
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        return /\tcommit: /.test(o.contents['.git/logs/HEAD'] || '')
+          ? true : 'FAIL: no commit line in .git/logs/HEAD';
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        return o.files.includes('.sdlc/execution/review-summary-eval-ship.json')
+          ? true : 'FAIL: review summary missing';
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const bad = o.files.filter((f) => /^\.sdlc\/execution\/ship-.*\.json$/.test(f));
+        return bad.length === 0 ? true : `FAIL: ship state left behind ${bad.join(', ')}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        return o.files.includes('.sdlc/execution/.stop-cap-exhausted-eval-ship.json')
+          ? 'FAIL: stop-cap-exhausted marker present' : true;
+
+- description: "headless: ship-review-zero-findings"
+  metadata: { tier: costly }
+  vars:
+    prompt: "/sdlc:ship-sdlc --auto --plan docs/plans/eval-plan.md --steps execute,commit,review --rebase skip --quality minimal"
+    scaffold: ship-clean
+    allowed_tools: "Read,Glob,Grep,Skill,Agent,TodoWrite,Write,Edit,Bash"
+    timeout_seconds: 1800
+    max_budget_usd: 5
+    tier: costly
+    snapshot_files: [".git/logs/HEAD", ".sdlc/execution/review-summary-eval-ship.json"]
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const raw = o.contents['.sdlc/execution/review-summary-eval-ship.json'];
+        if (raw === undefined) return 'FAIL: review summary missing';
+        let s;
+        try { s = JSON.parse(raw); } catch (e) { return `FAIL: review summary is not JSON: ${e.message}`; }
+        if (!['APPROVED', 'APPROVED WITH NOTES', 'CHANGES REQUESTED'].includes(s.verdict)) return `FAIL: unexpected verdict ${JSON.stringify(s.verdict)}`;
+        const c = s.counts || {};
+        return c.critical === 0 && c.high === 0
+          ? true : `FAIL: counts critical=${c.critical} high=${c.high}, expected 0 and 0`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const hit = o.toolUses.some((u) => u.name === 'Agent' && u.input && u.input.subagent_type === 'sdlc:ship-step-received-review');
+        return hit ? 'FAIL: ship-step-received-review was dispatched on a zero-findings review (#9149)' : true;
+
+- description: "headless: plan-sdlc"
+  metadata: { tier: costly }
+  vars:
+    prompt: '/sdlc:plan-sdlc --auto --quality full Add a notes/ folder with four files (notes/alpha.md, notes/beta.md, notes/gamma.md, notes/delta.md), each holding one heading line, and list the four files in README.md under a new "## Notes" heading. Write the plan to docs/plans/eval-plan-sdlc.md. At the Workflow Continuation menu, select done.'
+    scaffold: plan
+    allowed_tools: "Read,Glob,Grep,Skill,Agent,TodoWrite,Bash,Write,Edit"
+    timeout_seconds: 2400
+    max_budget_usd: 5
+    tier: costly
+    snapshot_files: ["docs/plans/eval-plan-sdlc.md"]
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        return o.files.includes('docs/plans/eval-plan-sdlc.md')
+          ? true : 'FAIL: plan file docs/plans/eval-plan-sdlc.md missing';
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const hit = o.toolUses.some((u) => u.name === 'Bash' && u.input && /validate-plan-format\.js[\s\S]*--final/.test(String(u.input.command || '')) && u.isError === false);
+        return hit ? true : 'FAIL: no successful Bash run of validate-plan-format.js --final (#9279)';
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const n = ((o.contents['docs/plans/eval-plan-sdlc.md'] || '').match(/\*\*Verdict:\*\* /g) || []).length;
+        return n === 1 ? true : `FAIL: expected exactly one Verdict line, found ${n}`;

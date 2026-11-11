@@ -746,3 +746,11 @@
   assert:
     - type: javascript
       value: "const o = JSON.parse(output); o.extraKeys.length === 0 && o.planHashNullable === true"
+
+- description: "schema-truth: init failure exits 2 and leaves no temp dir"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-schema-truth-cleanup.js"
+    script_args: ""
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.status === 2 && o.stderrHasInitFailed === true && o.leftovers.length === 0"

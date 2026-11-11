@@ -2556,7 +2556,8 @@ function runAfter(stepArgs) {
       const { outside } = stageScope(flags.planFile, resolveActiveWorktreeSafe());
       // Whole-token match: `a.txt` must not match a prompt that names `data.txt`.
       const tokens = new Set(pq.prompt.split(/[\s"'`,:\[\]{}()]+/));
-      const named = outside.filter(p => tokens.has(p));
+      // R94: received-review prints --check-scope JSON, so a path may appear only as a JSON string.
+      const named = outside.filter(p => tokens.has(p) || pq.prompt.includes(JSON.stringify(p)));
       if (named.length) ledger.approvedScope = { round: ledger.round || 1, paths: named };
     }
     if (after === 'dispatch_execute' && !flags.auto && flags.quality && isHighRiskGate(pq)) {

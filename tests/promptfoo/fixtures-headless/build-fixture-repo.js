@@ -2,20 +2,20 @@
 /**
  * build-fixture-repo.js
  * Builds one small git fixture repository in the current (empty) directory for
- * a `claude plugin eval` case. Every case's scaffold.sh calls it with a kind.
+ * a headless runner case (`providers/headless-case.js` calls it with a kind).
  * The fixture commits once on `main`, then switches to a feature branch
  * (`eval-<kind>`) so commit-sdlc --auto and ship run off the default branch.
  *
  * Usage: node build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean|plan>
  * Exit:  0 ok, 1 a git command failed (its stderr is passed through),
- *        2 usage or non-empty working directory.
+ *        2 usage, non-empty working directory, or inside a git work tree.
  */
 
 'use strict';
 
 const path = require('path');
 const fs = require('fs');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } =require('child_process');
 
 const USAGE = 'usage: build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean|plan>';
 
@@ -185,6 +185,12 @@ function main() {
   }
 
   const cwd = process.cwd();
+  // #9161: never git init/config inside an existing work tree.
+  const inside = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd, stdio: 'ignore' });
+  if (inside.status === 0) {
+    process.stderr.write('refusing: inside a git work tree\n');
+    return 2;
+  }
   if (fs.readdirSync(cwd).length > 0) {
     process.stderr.write(`build-fixture-repo: workspace not empty: ${cwd}\n`);
     return 2;

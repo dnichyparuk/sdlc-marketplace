@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-11
+
+### Added
+- tests: a promptfoo headless runner with datasets, fixtures and runner scripts under `tests/promptfoo/` replaces the local plugin eval suite (#9355).
+
+### Changed
+- ship-sdlc, pr-sdlc: skill docs, `ship.js` and the architecture doc match the headless runner (#9355).
+
 ## [0.50.3] - 2026-11-11
 
 ### Fixed

@@ -15,7 +15,7 @@
  *     invalid model values.
  *     Output: {"surface":"review-dimension","rejectedValid":[],"acceptedInvalid":[]}
  *
- * Exit 2 on a usage error or when `init` fails; exit 0 otherwise.
+ * Exit 2 on a usage error, when `init` fails, or when a schema read or parse fails; exit 0 otherwise.
  */
 
 'use strict';
@@ -68,7 +68,8 @@ function executeStateSurface() {
     const file = fs.readdirSync(T).find((f) => /^execute-.*\.json$/.test(f));
     if (r.status !== 0 || !file) {
       process.stderr.write('init failed: ' + (r.stderr || '') + '\n');
-      process.exit(2);
+      process.exitCode = 2;
+      return null; // `finally` still removes T
     }
     const state = JSON.parse(fs.readFileSync(path.join(T, file), 'utf8'));
     const schema = readSchema('execute-state.schema.json');
@@ -106,5 +107,11 @@ function reviewDimensionSurface() {
   };
 }
 
-const result = surface === 'execute-state' ? executeStateSurface() : reviewDimensionSurface();
-process.stdout.write(JSON.stringify(result) + '\n');
+let result;
+try {
+  result = surface === 'execute-state' ? executeStateSurface() : reviewDimensionSurface();
+} catch (err) {
+  process.stderr.write(`schema-truth: ${err.message}\n`);
+  process.exit(2);
+}
+if (result !== null) process.stdout.write(JSON.stringify(result) + '\n');

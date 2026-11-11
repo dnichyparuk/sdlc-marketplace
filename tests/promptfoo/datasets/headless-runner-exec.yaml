@@ -1,0 +1,127 @@
+# Script execution tests for the headless runner (#9346): the fixture builder
+# tests/promptfoo/fixtures-headless/build-fixture-repo.js, driven by
+# tests/promptfoo/scripts/run-headless-case-stub.js (no claude, no LLM).
+
+- description: "headless-runner: scaffold (a) commit kind builds eval-commit with README staged"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario scaffold --kind commit"
+  assert:
+    - type: contains
+      value: '"exit":0'
+    - type: contains
+      value: '"branch":"eval-commit"'
+    - type: contains
+      value: '"staged":["README.md"]'
+
+- description: "headless-runner: scaffold (b) refuses inside a work tree"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario scaffold-in-worktree"
+  assert:
+    - type: contains
+      value: '"exit":2'
+    - type: contains
+      value: 'refusing: inside a git work tree'
+    - type: contains
+      value: '"gitDirs":[]'
+
+- description: "headless-runner: scaffold (c) unknown kind exits 2"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario scaffold --kind bogus"
+  assert:
+    - type: contains
+      value: '"exit":2'
+    - type: contains
+      value: 'usage: build-fixture-repo.js'
+
+# providers/headless-case.js against the stub claude (fixtures-fs/stub-bin-claude).
+
+- description: "headless-runner: provider (a) ok run"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario provider --mode ok --kind commit"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const argv = o.log[0] && o.log[0].argv;
+        const flags = ['-p', 'stream-json', '--verbose', '--no-session-persistence', '--plugin-dir', '--max-budget-usd', '--allowedTools'];
+        const missing = flags.filter((f) => !(argv || []).includes(f));
+        return missing.length === 0 && o.log.length === 1 ? true : `FAIL argv missing ${missing}: ${JSON.stringify(o.log)}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const cwdBase = o.log[0].cwd.split('/').pop();
+        return o.log[0].claudecode === false && cwdBase.startsWith('sdlc-headless-')
+          ? true : `FAIL log: ${JSON.stringify(o.log[0])}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = o.result;
+        const t = r.toolUses[0] || {};
+        return r.toolUses.length === 1 && t.id === 't1' && t.name === 'Bash' && t.isError === false
+          && t.input.command === 'echo hi'
+          ? true : `FAIL toolUses: ${JSON.stringify(r.toolUses)}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = o.result;
+        return o.error === null && r.files.includes('stub-touched.txt') && r.files.includes('.git/HEAD')
+          && !r.files.some((f) => f.startsWith('.git/objects/'))
+          && r.contents['README.md'].endsWith('Second line.\n')
+          && r.costUsd === 0.0123 && r.resultSubtype === 'success' && r.exitCode === 0
+          && r.isError === false && r.timedOut === false && o.workspaceGone === true
+          ? true : `FAIL result: ${output}`;
+
+- description: "headless-runner: provider (b) error result"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario provider --mode error --kind commit"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = o.result;
+        return r.exitCode === 1 && r.isError === true && r.costUsd === 0.5
+          && r.resultSubtype === 'error_max_budget_usd' && r.toolUses.length === 0
+          && !r.files.includes('stub-touched.txt') && o.workspaceGone === true
+          ? true : `FAIL: ${output}`;
+
+- description: "headless-runner: provider (c) crash without result"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario provider --mode crash --kind commit"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = o.result;
+        return r.exitCode === 3 && r.isError === true && r.costUsd === null
+          && r.resultSubtype === null && r.stderrTail.includes('boom') && o.workspaceGone === true
+          ? true : `FAIL: ${output}`;
+
+- description: "headless-runner: provider (d) costly case is gated"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario provider --mode ok --kind commit --tier costly"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.result === null && typeof o.error === 'string' && o.error.includes('SDLC_HEADLESS_COSTLY')
+          && o.log.length === 0 && o.workspaceGone === true
+          ? true : `FAIL: ${output}`;
+
+- description: "headless-runner: provider (e) scaffold failure"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario provider --mode ok --kind nope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.result === null && typeof o.error === 'string' && o.error.startsWith('scaffold failed (exit 2)')
+          && o.log.length === 0 && o.workspaceGone === true
+          ? true : `FAIL: ${output}`;

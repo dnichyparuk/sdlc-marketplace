@@ -79,6 +79,7 @@
  *   --os-answer abort|result  (openspec) answer archive_openspec with results/os-abort.json or results/os-result.json
  *   --os-resume          (openspec) after the abort: --after confirm_pipeline (yes), then walk to the next archive_openspec
  *   --scope-asked        (stage-outside-files, with --fixes) first received-review call returns results/received-review-scope.json (keep/revert question)
+ *   --scope-result <rel>  (with --scope-asked) the canned received-review result to return first
  *   --write-after <csv>  (stage-outside-files) paths written after the scope stop, before the second received-review call
  *
  * A successful dispatch_commit / dispatch_commit_fixes result without artifacts.commit gets the fixture
@@ -600,7 +601,8 @@ switch (scenario) {
     if (process.argv.includes('--untrack-plan')) sh('git rm -q --cached plan.md && git commit -q -m "fixture: untrack plan"');
     if (process.argv.includes('--fixes') && process.argv.includes('--scope-asked')) {
       // R94: received-review stops on the scope question first; --write-after paths appear after that stop.
-      after('dispatch_received_review', 'results/received-review-scope.json');
+      const si = process.argv.indexOf('--scope-result');
+      after('dispatch_received_review', si >= 0 && process.argv[si + 1] ? process.argv[si + 1] : 'results/received-review-scope.json');
       snapshots.push(snap());
       for (const rel of csv('--write-after')) {
         fs.mkdirSync(path.dirname(path.join(projectRoot, rel)), { recursive: true });

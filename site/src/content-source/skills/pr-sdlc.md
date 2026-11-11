@@ -215,6 +215,10 @@ Existing labels on the PR are preserved. Only new labels are added — the skill
 
 If the repository has no labels defined or `gh` is unavailable, the inferred labeling step is skipped. Forced labels (via `--label`) still work — they are created in the repo if needed.
 
+### gh pr create warnings
+
+When `gh pr create` succeeds but writes to stderr (for example a notice about an unpushed commit or a deprecated flag), the skill prints that text after the line `gh pr create warnings:`. Nothing is printed when stderr is empty. Tracked in spec requirement E9.
+
 ---
 
 ## GitHub Multi-Account Support
@@ -249,10 +253,6 @@ Run `gh auth login --hostname github.com` to authenticate the account that owns 
 ```
 
 This recovery is one-shot per pipeline invocation — a second consecutive permission failure is terminal. Tracked in spec requirement E7 ([issue #184](https://github.com/rnagrodzki/sdlc-marketplace/issues/184)).
-
-### gh pr create warnings
-
-When `gh pr create` succeeds but writes to stderr (for example a notice about an unpushed commit or a deprecated flag), the skill prints that text after the line `gh pr create warnings:`. Nothing is printed when stderr is empty. Tracked in spec requirement E9.
 
 ---
 

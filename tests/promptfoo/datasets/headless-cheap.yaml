@@ -1,0 +1,136 @@
+# Cheap headless cases (#9346, #9179): run by default in promptfooconfig-headless.yaml.
+
+- description: "headless: commit-auto"
+  metadata: { tier: cheap }
+  vars:
+    prompt: "/sdlc:commit-sdlc --auto"
+    scaffold: commit
+    allowed_tools: "Read,Glob,Grep,Skill,Agent,Write,Bash"
+    timeout_seconds: 600
+    max_budget_usd: 2
+    tier: cheap
+    snapshot_files: [".git/logs/HEAD", ".git/COMMIT_EDITMSG"]
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const n = ((o.contents['.git/logs/HEAD'] || '').match(/\tcommit: /g) || []).length;
+        return n === 1 ? true : `FAIL: expected exactly one new commit, found ${n}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const msg = o.contents['.git/COMMIT_EDITMSG'] || '';
+        return /^(feat|fix|docs|chore)(\([a-z0-9-]+\))?: \S/.test(msg)
+          ? true : `FAIL: commit subject does not match the pattern: ${JSON.stringify(msg)}`;
+
+- description: "headless: crlf-checkout"
+  metadata: { tier: cheap }
+  vars:
+    prompt: "/sdlc:commit-sdlc --auto"
+    scaffold: commit-crlf
+    allowed_tools: "Read,Glob,Grep,Skill,Agent,Write,Bash"
+    timeout_seconds: 600
+    max_budget_usd: 2
+    tier: cheap
+    snapshot_files: [".git/logs/HEAD", ".git/COMMIT_EDITMSG"]
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const n = ((o.contents['.git/logs/HEAD'] || '').match(/\tcommit: /g) || []).length;
+        return n === 1 ? true : `FAIL: expected exactly one new commit, found ${n}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const msg = o.contents['.git/COMMIT_EDITMSG'] || '';
+        return /^(feat|fix|docs|chore)(\([a-z0-9-]+\))?: \S/.test(msg)
+          ? true : `FAIL: commit subject does not match the pattern: ${JSON.stringify(msg)}`;
+
+- description: "headless: commit-subject"
+  metadata: { tier: cheap }
+  vars:
+    prompt: '/sdlc:commit-sdlc --auto --subject "docs(readme): add the second fixture line" --expected-subject "docs(readme): add the second fixture line"'
+    scaffold: commit
+    allowed_tools: "Read,Glob,Grep,Skill,Agent,Write,Bash"
+    timeout_seconds: 600
+    max_budget_usd: 2
+    tier: cheap
+    snapshot_files: [".git/logs/HEAD", ".git/COMMIT_EDITMSG"]
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const n = ((o.contents['.git/logs/HEAD'] || '').match(/\tcommit: /g) || []).length;
+        return n === 1 ? true : `FAIL: expected exactly one new commit, found ${n}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const first = (o.contents['.git/COMMIT_EDITMSG'] || '').split('\n')[0];
+        const want = 'docs(readme): add the second fixture line';
+        return first === want ? true : `FAIL: subject ${JSON.stringify(first)} !== ${JSON.stringify(want)}`;
+
+- description: "headless: review-dry-run"
+  metadata: { tier: cheap }
+  vars:
+    prompt: "/sdlc:review-sdlc --dry-run --staged"
+    scaffold: review
+    allowed_tools: "Read,Glob,Grep,Skill,Bash"
+    timeout_seconds: 600
+    max_budget_usd: 2
+    tier: cheap
+    snapshot_files: []
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        return o.files.some((f) => /^\.sdlc\/execution\/out\/review-manifest-.*\.json$/.test(f))
+          ? true : 'FAIL: no review manifest under .sdlc/execution/out/';
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const bad = o.files.filter((f) => /^\.sdlc\/execution\/review-summary-/.test(f) || /^\.sdlc\/reviews\//.test(f) || /^docs\//.test(f));
+        return bad.length === 0 ? true : `FAIL: dry run wrote ${bad.join(', ')}`;
+
+- description: "headless: ship-dry-run"
+  metadata: { tier: cheap }
+  vars:
+    prompt: "/sdlc:ship-sdlc --dry-run --plan docs/plans/eval-plan.md --steps execute,commit,review --rebase skip --quality minimal"
+    scaffold: ship
+    allowed_tools: "Read,Glob,Grep,Skill,TodoWrite,Bash"
+    timeout_seconds: 600
+    max_budget_usd: 2
+    tier: cheap
+    snapshot_files: [".git/logs/HEAD"]
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        return o.files.some((f) => /^\.sdlc\/execution\/out\/ship-prepare-.*\.json$/.test(f))
+          ? true : 'FAIL: no ship-prepare output under .sdlc/execution/out/';
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const bad = o.files.filter((f) => /^\.sdlc\/execution\/ship-.*\.json$/.test(f));
+        return bad.length === 0 ? true : `FAIL: dry run wrote ship state ${bad.join(', ')}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        return /\tcommit: /.test(o.contents['.git/logs/HEAD'] || '')
+          ? 'FAIL: dry run created a commit' : true;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.isError) return `FAIL: run error ${o.resultSubtype} exit ${o.exitCode}`;
+        const bad = o.files.filter((f) => /^\.git\/refs\/tags\//.test(f));
+        return bad.length === 0 ? true : `FAIL: dry run created tags ${bad.join(', ')}`;

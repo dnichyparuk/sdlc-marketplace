@@ -5430,6 +5430,21 @@
         const e1 = o.calls[1].envelope;
         return e1.status === 'step' && e1.step.id === 'stage_fixes' ? true : `FAIL: call1 ${e1.status} ${e1.step && e1.step.id} ${e1.ext && JSON.stringify(e1.ext.pendingQuestion)}`;
 
+- description: "ship-scope-keep: (c) a kept path with punctuation is matched as a JSON string"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario stage-outside-files --seed frozen --fixes --plan-files in.txt --write in.txt,(g)/out.txt --scope-asked --scope-result results/received-review-scope-punct.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (JSON.stringify(o.snapshots[0].approvedScope) !== JSON.stringify({ round: 1, paths: ['(g)/out.txt'] })) return `FAIL: approvedScope ${JSON.stringify(o.snapshots[0].approvedScope)}`;
+        const e1 = o.calls[1].envelope;
+        return e1.status === 'step' && e1.step.id === 'stage_fixes' ? true : `FAIL: call1 ${e1.status} ${e1.step && e1.step.id} ${e1.ext && JSON.stringify(e1.ext.pendingQuestion)}`;
+
 - description: "ship-scope-keep: (b) a path written after the question is still refused"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
