@@ -256,13 +256,13 @@ Read the empty file once with the Read tool, then write the raw Phase 1–5 resu
 node "<PLUGIN_ROOT>/scripts/skill/jira.js" --output-file --project '<PROJECT_KEY>' --assemble --input '<RAW_PATH>' --save
 ```
 
-Read the output file. On a non-zero exit, show `errors[]` and stop. Show each `warnings[]` entry. Remove the raw file with one plain Bash call:
+Read the output file (exit 2 prints no output file: use the stderr text instead). Then remove the raw file with one plain Bash call, whatever the exit code:
 
 ```bash
 rm -f '<RAW_PATH>'
 ```
 
-Then load the cache with the `--load` block above.
+On exit 1, show `errors[]` and stop. On exit 2, show stderr and stop. Show each `warnings[]` entry. Then load the cache with the `--load` block above.
 
 Report: "Cache initialized for `[PROJECT_KEY]` — `[counts.issueTypes]` issue types, `[counts.workflowStates]` workflow states mapped."
 
@@ -377,7 +377,7 @@ Run this gate when a recovery path is exhausted: link-verification abort (R22), 
    node "<PLUGIN_ROOT>/scripts/lib/mcp-failure.js" --analyze --record --class '<CLASS>' --tool '<TOOL>' --site '<JIRA_SITE>' --project '<PROJECT_KEY>' --error '<ERROR>' --recovered no --r-path '<R_PATH>' --step '<STEP_LABEL>' --operation '<TOOL>'
    ```
 2. Show the `proposalText` field verbatim and ask with AskUserQuestion: `Y (file issue)` / `edit` / `skip`.
-3. On `Y`, dispatch `error-report-sdlc` with the `errorReportArgs` field, `--error-text` set to `errorText` (the edited text after `edit`), and labels `mcp-failure,class:<CLASS>`. On `skip`, stop.
+3. When the JSON has a non-null `duplicate` (`action` is `comment`), do not create a new issue (R28 e). On `Y`, post the `errorText` as a comment on the open issue with one plain Bash call: `gh issue comment '<DUPLICATE>' --body '<ERROR_TEXT>'`. Otherwise, on `Y`, dispatch `error-report-sdlc` with the `errorReportArgs` field, `--error-text` set to `errorText` (the edited text after `edit`), and labels `mcp-failure,class:<CLASS>`. On `skip`, stop.
 
 ---
 
