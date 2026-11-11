@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.1] - 2026-11-11
+
+### Fixed
+- jira-sdlc: the dead hook path is removed, the MCP availability gate and the cached assemble step work as specified (#9344).
+- jira-sdlc: assemble exit codes are handled (exit 2 reads stderr, the raw file is always removed); known duplicate MCP failure issues get a comment instead of a new issue (#9344).
+- jira-sdlc: check-payload exits 1 on bad input, load handles exit 1, R16 trigger tokens and the C7 constraint are restored (#9344).
+
 ## [0.51.0] - 2026-11-11
 
 ### Added
