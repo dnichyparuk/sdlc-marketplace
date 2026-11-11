@@ -286,3 +286,11 @@
       value: "HAS_WARNINGS"
     - type: regex
       value: '"total_errors":\s*0'
+
+- description: "schema-truth: review-dimension model matches D13"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-schema-truth.js"
+    script_args: "--surface review-dimension"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.rejectedValid.length === 0 && o.acceptedInvalid.length === 0"

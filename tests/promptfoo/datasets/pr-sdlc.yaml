@@ -235,14 +235,14 @@
     - type: icontains
       value: "--error-file"
     - type: regex
-      value: "(retry|retried|re-run|rerun).{0,40}(once|exactly one|single)"
+      value: "(retry|retries|retried|retrying|re-run|re-runs|rerun|reruns)[\\s\\S]{0,60}(once|exactly one|single)"
     - type: llm-rubric
       value: >
         The response describes the post-failure recovery flow accurately. It captures the
         failing `gh pr create` stderr to a temp file (mktemp). It invokes
-        `pr-recover-gh-account.js --error-file <tmp>` exactly once, using the standard
-        installed-first-then-local script lookup pattern (find under ~/.claude/plugins,
-        fallback to plugins/sdlc-utilities/scripts/skill/). It parses the returned JSON.
+        `pr-recover-gh-account.js --error-file <tmp>` exactly once, resolving the helper path
+        from the injected `<PLUGIN_ROOT>` (the `sdlc plugin root:` context line), with no `find`
+        lookup. It parses the returned JSON.
         On `recovered:true && switched:true`, it prints a single concise user-visible
         recovery line (something like "Switched gh account to Cleeng due to repo-permission
         mismatch — retrying"), not the raw GraphQL error. It re-runs `gh pr create` exactly

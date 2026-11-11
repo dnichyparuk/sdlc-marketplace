@@ -42,7 +42,10 @@
     },
     "model": {
       "type": "string",
-      "enum": ["haiku", "sonnet", "opus"]
+      "anyOf": [
+        { "enum": ["haiku", "sonnet", "opus", "fable"] },
+        { "pattern": "^claude-[a-z0-9][a-z0-9.-]*(\\[1m\\])?$" }
+      ]
     },
     "effort": {
       "type": "string",

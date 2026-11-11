@@ -4,7 +4,7 @@
 #
 # Fixture appropriateness:
 #   healthy-marketplace  -- CORRECT: all 16 checks should pass
-#   broken-marketplace   -- CORRECT: PD2(warning), PD9(error), PD11(error), PD15(error) should fail
+#   broken-marketplace   -- CORRECT: PD2(warning), PD16(warning), PD9(error), PD11(error), PD15(error) should fail
 #   overall fail because total_errors > 0
 
 - description: "sdlc-plugin-discovery: healthy marketplace passes all 16 checks"
@@ -47,6 +47,18 @@
     # Must reference PD15 (invalid hooks.json) — error severity
     - type: icontains
       value: '"id": "PD15"'
+    # Agent without description must be reported by PD16 (warning)
+    - type: icontains
+      value: 'no-description.md: frontmatter missing \"description\"'
+
+- description: "sdlc-plugin-discovery: PD16 passes an agent without tools"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-discovery.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/healthy-marketplace"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).checks.find(c => c.id === 'PD16').status === 'pass'"
 
 - description: "sdlc-plugin-discovery: markdown output contains report header and PASS"
   vars:

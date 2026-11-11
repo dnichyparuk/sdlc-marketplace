@@ -5412,6 +5412,40 @@
         const e = o.calls[0].envelope;
         return e.status === 'step' && e.step.id === 'stage_changes' ? true : `FAIL: ${e.status} ${e.step && e.step.id} ${e.ext && JSON.stringify(e.ext.pendingQuestion)}`;
 
+# R94: a path kept at received-review's scope question is staged; a later one is still refused.
+- description: "ship-scope-keep: (a) a kept outside path is staged without a second question"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario stage-outside-files --seed frozen --fixes --plan-files in.txt --write in.txt,out.txt --scope-asked"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e0 = o.calls[0].envelope;
+        if (e0.status !== 'done' || e0.ext.reason !== 'pending-question') return `FAIL: call0 ${e0.status} ${e0.ext && e0.ext.reason}`;
+        if (JSON.stringify(o.snapshots[0].approvedScope) !== JSON.stringify({ round: 1, paths: ['out.txt'] })) return `FAIL: approvedScope ${JSON.stringify(o.snapshots[0].approvedScope)}`;
+        const e1 = o.calls[1].envelope;
+        return e1.status === 'step' && e1.step.id === 'stage_fixes' ? true : `FAIL: call1 ${e1.status} ${e1.step && e1.step.id} ${e1.ext && JSON.stringify(e1.ext.pendingQuestion)}`;
+
+- description: "ship-scope-keep: (b) a path written after the question is still refused"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario stage-outside-files --seed frozen --fixes --plan-files in.txt --write in.txt,out.txt --scope-asked --write-after new.txt"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[1].envelope;
+        if (e.status !== 'done' || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.ext && e.ext.reason}`;
+        const q = e.ext.pendingQuestion;
+        return q.id === 'stageOutsideFiles' && JSON.stringify(q.paths) === JSON.stringify(['new.txt']) ? true : `FAIL: ${JSON.stringify(q)}`;
+
 # R87: stage_changes is decided from the ledger, so a run resumed after the outside-files stop still stages, once.
 - description: "ship-lean: (resume) a resumed run after the outside-files stop emits stage_changes"
   vars:

@@ -202,6 +202,8 @@
   - Acceptance: exec cases whose descriptions start with `ship-rr-scope:`.
 - R83: The execute step's `args` carry `--strict-files` (execute A10). `stage_changes` and `stage_fixes` refuse to stage a changed path (from `git status --porcelain`, untracked included, `.sdlc/` excluded) that is not a plan Files path (`parseFilesEntries`, every kind). A refusal is a pending question (`id: 'stageOutsideFiles'`, listing the paths); no `git add` runs. The plan file (`flags.planFile`, compared as a path relative to the active worktree root) is always an allowed path, so a new or edited plan file is staged with the wave.
   - Acceptance: exec cases whose descriptions start with `ship-strict:`.
+- R94: Review-scope keep. When `--after dispatch_received_review` stops with a pending question whose options include `keep` (a received-review R30 scope failure, R82), `skill/ship.js` records `ledger.approvedScope = { round, paths }`: `round` is `ledger.round` (1 when unset), `paths` the changed paths outside the plan Files (the R83 rule) that the question's prompt names. Resuming without reverting them is the keep answer: in the same review round, `stage_fixes` treats those paths as allowed, so the run does not stop with `stageOutsideFiles` for them. A path the prompt did not name, a path changed later, and every path in a later round are still refused (R83). `stage_changes` ignores `approvedScope`. Ship asks nothing new, under `--auto` included (R85).
+  - Acceptance: exec cases whose descriptions start with `ship-scope-keep:`.
 - R84: With `flags.reviewRounds` n > 1, when commit-fixes is recorded `completed` in round k < n, ship.js appends `{ round: k, review, receivedReview, commitFixes }` (the step records) to `ledger.rounds[]`, sets `ledger.round = k + 1`, and resets review, received-review and commit-fixes to `pending`. The next emitted step is `dispatch_review`. A round whose commit-fixes is `skipped` ends the loop.
   - Acceptance: exec cases whose descriptions start with `ship-rounds:`.
 - R85: Under `--auto` ship asks nothing. Every AskUserQuestion site in ship and its sub-skills has an `--auto` branch that stops with a failure and a `pendingQuestion`, which ship maps to `pending-question`.
@@ -578,4 +580,5 @@ Reading P11: the initial call always emits `confirm_pipeline`, under `--dry-run`
 | R91 | gh preflight gated on gh steps, #9349 |
 | R92 | per-wave execute progress, #9349 |
 | R93 | mid-wave execute hand-back, #9349 |
+| R94 | review scope keep (ledger F-36), #9353 |
 | R85, C20, R86, the execute side of R80, the amended R77 order, the R11 refresh sentence | contract added in M9 wave R-b1 part 1 (#9319); implemented by part 2 of that wave (docs/plans/m9-wRb1-ship-chain-part2.md, Tasks 1-6), not by part 1. Until then ship.js still prefers the PR over the comment file in R77. |

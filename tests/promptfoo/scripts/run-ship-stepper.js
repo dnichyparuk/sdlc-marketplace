@@ -78,6 +78,8 @@
  *   --os-verify          (openspec) also make verify-openspec runnable
  *   --os-answer abort|result  (openspec) answer archive_openspec with results/os-abort.json or results/os-result.json
  *   --os-resume          (openspec) after the abort: --after confirm_pipeline (yes), then walk to the next archive_openspec
+ *   --scope-asked        (stage-outside-files, with --fixes) first received-review call returns results/received-review-scope.json (keep/revert question)
+ *   --write-after <csv>  (stage-outside-files) paths written after the scope stop, before the second received-review call
  *
  * A successful dispatch_commit / dispatch_commit_fixes result without artifacts.commit gets the fixture
  * repo's HEAD sha injected (W4.6: ship.js cross-checks the reported commit against HEAD).
@@ -257,6 +259,7 @@ function snap() {
     historyLength: (d.history || []).length,
     round: d.round === undefined ? null : d.round,
     rounds: d.rounds === undefined ? null : d.rounds,
+    approvedScope: d.approvedScope === undefined ? null : d.approvedScope,
     stepStatuses: Object.fromEntries((d.steps || []).map(s => [s.name, s.status])),
   };
 }
@@ -595,6 +598,15 @@ switch (scenario) {
     }
     if (process.argv.includes('--edit-plan')) fs.appendFileSync(path.join(projectRoot, 'plan.md'), '\nedited\n');
     if (process.argv.includes('--untrack-plan')) sh('git rm -q --cached plan.md && git commit -q -m "fixture: untrack plan"');
+    if (process.argv.includes('--fixes') && process.argv.includes('--scope-asked')) {
+      // R94: received-review stops on the scope question first; --write-after paths appear after that stop.
+      after('dispatch_received_review', 'results/received-review-scope.json');
+      snapshots.push(snap());
+      for (const rel of csv('--write-after')) {
+        fs.mkdirSync(path.dirname(path.join(projectRoot, rel)), { recursive: true });
+        fs.writeFileSync(path.join(projectRoot, rel), 'x\n');
+      }
+    }
     after(process.argv.includes('--fixes') ? 'dispatch_received_review' : 'dispatch_execute', 'results/generic-ok.json');
     if (process.argv.includes('--resume-after-fix')) {
       // R87: the user reverts the outside paths, then resumes; stage_changes must still be emitted (once).

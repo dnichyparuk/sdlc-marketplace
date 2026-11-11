@@ -1,8 +1,5 @@
 description: "Behavioral regression tests for sdlc-marketplace skills"
 
-evaluateOptions:
-  concurrency: 8
-
 providers:
   - id: file://providers/claude-cli.js
 

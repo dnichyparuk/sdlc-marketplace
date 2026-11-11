@@ -21,6 +21,23 @@
     - type: icontains
       value: 'Subagent/orchestrator template contains a plugin-script resolver'
 
+- description: "script-resolution: rule 1 message names the injected <PLUGIN_ROOT> path"
+  vars:
+    script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"
+    script_args: "--project-root {{project_root}} --json"
+    project_root: "file://fixtures-fs/resolution-validator-cases/cwd-first-project"
+  assert:
+    # Rule 1b also fires on this fixture and names <PLUGIN_ROOT>, so check the
+    # rule 1 finding specifically.
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const findings = Array.isArray(out) ? out : (out.findings || []);
+        const f = findings.find((x) => x.rule === 'script-resolution-order');
+        return !!f && f.message.includes('<PLUGIN_ROOT>');
+    - type: not-icontains
+      value: 'find ~/.claude/plugins first'
+
 - description: "script-resolution: validator passes 'sort -V | tail -1' (good case)"
   vars:
     script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"
