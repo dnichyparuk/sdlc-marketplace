@@ -1,0 +1,98 @@
+# Script execution tests for skill/jira.js --assemble (P6) and --check-payload (P7).
+# Runs the prepare script directly against the jira-assemble-raw fixture (no LLM).
+# Covers:
+#   (a) --assemble maps raw MCP phase results into the version-1 cache shape
+#   (b) --skip-workflow-discovery stores unsampled markers (no subtask entry)
+#   (c) --save writes the site-keyed home cache
+#   (d) missing --input file exits 1 with errors[]
+#   (e) --check-payload flags a placeholder and an invented heading
+#   (f) --check-payload passes a template-shaped payload
+
+- description: "jira-assemble: --assemble maps field types and merges phases"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-assemble-raw"
+    script_args: "--project PROJ --assemble --input {{project_root}}/raw-phases.json"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.assembled === true
+          && d.cache.fieldSchemas.Task.customfield_10050.type === 'multi-option'
+          && d.cache.fieldSchemas.Task.priority.type === 'priority'
+          && d.cache.workflows.Task.transitions['To Do'][0].id === '21'
+          && d.cache.cloudId === 'a1b2c3d4-0000-0000-0000-000000000001'
+          && d.counts.issueTypes === 3
+          && !('Sub-task' in d.cache.workflows);
+
+- description: "jira-assemble: --skip-workflow-discovery yields unsampled markers"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-assemble-raw"
+    script_args: "--project PROJ --assemble --input {{project_root}}/raw-phases.json --skip-workflow-discovery"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.cache.workflows.Task.unsampled === true
+          && d.cache.workflows.Bug.unsampled === true
+          && !('Sub-task' in d.cache.workflows);
+
+- description: "jira-assemble: --save writes the site-keyed cache"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-assemble-raw"
+    script_args: "--project PROJ --assemble --input {{project_root}}/raw-phases.json --save"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.saved === true
+          && d.cachePath.endsWith('.sdlc-cache/jira/acme_atlassian_net/PROJ.json');
+
+- description: "jira-assemble: missing --input file exits 1 with errors"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-assemble-raw"
+    script_args: "--project PROJ --assemble --input {{project_root}}/nope.json"
+  assert:
+    - type: icontains
+      value: "Cannot read --input"
+
+- description: "jira-assemble: --check-payload flags a placeholder and an invented heading"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-assemble-raw"
+    script_args: "--project PROJ --check-payload --type Task"
+    script_stdin: '{"description":"## Objective\n- {component_name} fails\n\n## Invented Section\n- x"}'
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.placeholders.some(p => p.marker === '{component_name}')
+          && d.unknownHeadings.includes('Invented Section')
+          && d.templateSource === 'shipped';
+
+- description: "jira-assemble: --check-payload passes a template-shaped payload"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-assemble-raw"
+    script_args: "--project PROJ --check-payload --type Task"
+    script_stdin: '{"description":"## Objective\n- ship it\n\n## Details\n- small change\n\n## Acceptance Criteria\n- [ ] works"}'
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return d.placeholders.length === 0 && d.unknownHeadings.length === 0;

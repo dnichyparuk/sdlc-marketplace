@@ -470,29 +470,12 @@
   assert:
     - type: llm-rubric
       value: >
-        The response describes jira-sdlc calling the mcp-failure.js helper with --telemetry
-        (class auth, recovered no) for both namespace attempts. After dual exhaustion, the
-        skill calls --analyze and presents the proposal title and body verbatim to the user,
+        The response describes jira-sdlc recording telemetry after the primary-namespace failure
+        (class auth, recovered no). After dual exhaustion, the skill runs the MCP-failure gate
+        (one `mcp-failure.js --analyze --record` call) and presents the proposal title and body verbatim to the user,
         requiring explicit Y/edit/skip approval (R28 gate). The gate fires exactly once, not
         per namespace attempt. The dispatch to error-report-sdlc only happens after user approval.
         Labels mcp-failure and class:auth are mentioned. The response cites R23 and R28.
-
-- description: "jira-sdlc R28 hook-block-class: count=2 dispatch gate fires (R21)"
-  vars:
-    skill_path: "plugins/sdlc-utilities/skills/jira-sdlc/SKILL.md"
-    project_context: "file://fixtures/jira-create-task.md"
-    user_request: >
-      During a /jira-sdlc create operation, the PreToolUse hook blocks twice in this session
-      with the same deny reason (hash mismatch). What does jira-sdlc do on the second block?
-  assert:
-    - type: llm-rubric
-      value: >
-        The response explains that on the first hook block the skill records telemetry via
-        mcp-failure.js --telemetry (class hook-block) and increments the occurrence counter.
-        On the second block with the same hash, HOOK_COUNT equals 2, triggering the --analyze
-        call and surfacing the R28 dispatch gate. The proposal is presented verbatim requiring
-        Y/edit/skip. The gate does NOT fire on the first block (count=1 does not trigger dispatch).
-        error-report-sdlc is dispatched only after user approval with labels mcp-failure,class:hook-block.
 
 - description: "jira-sdlc R28 link-verification-class: R22 abort triggers telemetry+gate immediately"
   vars:
@@ -506,8 +489,8 @@
     - type: llm-rubric
       value: >
         The response explains that R22 is always an exhausted path (no retry), so jira-sdlc
-        immediately calls mcp-failure.js --telemetry (class link-verification, recovered no)
-        and then --analyze to synthesize the dispatch proposal. The proposal is presented
+        immediately runs the MCP-failure gate (one `mcp-failure.js --analyze --record` call,
+        class link-verification, recovered no) to synthesize the dispatch proposal. The proposal is presented
         verbatim with Y/edit/skip gate before dispatching error-report-sdlc. The violation
         list itself is surfaced separately (Step 2.7 hard gate). The response cites R22 and R28.
 
@@ -521,9 +504,9 @@
   assert:
     - type: llm-rubric
       value: >
-        The response describes jira-sdlc calling mcp-failure.js --telemetry with class schema
-        (HTTP 400, field error, no workflow keywords) and recovered no. Then --analyze is called
-        to synthesize the dispatch proposal (R28). The proposal title and body are presented
+        The response describes jira-sdlc running the MCP-failure gate (one `mcp-failure.js --analyze --record`
+        call) with class schema (HTTP 400, field error, no workflow keywords) and recovered no,
+        which synthesizes the dispatch proposal (R28). The proposal title and body are presented
         verbatim. The user must approve (Y/edit/skip) before error-report-sdlc is dispatched
         with labels mcp-failure and class:schema. The response notes the existing direct
         error-report-sdlc invocation has been replaced by this gated path. Cites R9 and R28.
@@ -538,8 +521,8 @@
   assert:
     - type: llm-rubric
       value: >
-        The response describes jira-sdlc calling mcp-failure.js --telemetry with class workflow
-        (tool getTransitionsForJiraIssue) and recovered no. Then --analyze is called and the
+        The response describes jira-sdlc running the MCP-failure gate (one `mcp-failure.js --analyze --record`
+        call) with class workflow (tool getTransitionsForJiraIssue) and recovered no. The
         proposal is presented verbatim with Y/edit/skip gate (R28). Dispatch to error-report-sdlc
         happens only after user approval with labels mcp-failure and class:workflow.
         The response cites R14 and R28.

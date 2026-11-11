@@ -5,6 +5,8 @@ exact MCP tool parameter specs, field format tables, JQL patterns, markdown cont
 rules, and error recovery actions. Always check this file before constructing an MCP
 call — it eliminates guesswork and prevents the most common API errors.
 
+**Index:** create/edit → Section 1 (tool parameters) + Section 2 (field formats); search → Section 3 (JQL); comment → Section 4 (markdown rules); errors → Section 5.
+
 ---
 
 ## Section 0: Cache Schema
@@ -187,26 +189,29 @@ these fields:
 When `candidateSites` is non-empty, `exists` is always `false` and `cachePath` is `null`.
 The caller must re-run with `--site <host>` from `candidateSites` to disambiguate.
 
+### Raw phase file for `--assemble`
+
+Phase 6 writes the raw MCP results to a temp file in this shape; `jira.js --assemble` maps and merges them.
+
+```json
+{ "phase1": { "resources": [ {"id":"<cloudId>","url":"https://acme.atlassian.net"} ], "userInfo": {"accountId":"…","displayName":"…","emailAddress":"…"} },
+  "phase2": { "projects": { "values": [ {"key":"PROJ","name":"…","id":"10000"} ] }, "linkTypes": { "issueLinkTypes": [ {"name":"Blocks","inward":"is blocked by","outward":"blocks"} ] } },
+  "phase3": { "issueTypes": [ {"id":"10001","name":"Task","subtask":false,"hierarchyLevel":0} ] },
+  "phase4": { "Task": { "fields": [ {"fieldId":"priority","name":"Priority","required":false,"schema":{"type":"priority"},"allowedValues":[{"name":"High"}]} ] } },
+  "phase5": { "Task": { "statuses": ["To Do"], "transitions": { "To Do": { "transitions": [ {"id":"21","name":"Start","to":{"name":"In Progress"},"fields":{}} ] } } } } }
+```
+
+Accepted alternates: `phase1.resources` may be `{sites:[…]}`; `phase2.projects` may be a bare array; `phase3` may be a bare array or `{values:[…]}`; a `phase4[type]` may be `{values:[…]}` or a bare array, field key `fieldId` or `key`; a `phase5[type].transitions[status]` may be a bare array; a `phase5[type]` may be `{ unsampled: true }`.
+
 ---
 
 ## Section 1: MCP Tool Parameter Reference
 
 ### Universal Rules
 
-```
-ALWAYS:
-  Comments:     convert markdown to ADF via scripts/lib/markdown-to-adf.js,
-                then pass contentFormat: "adf" with the ADF JSON body
-  Descriptions: contentFormat: "markdown"  — on create/edit calls (no conversion needed)
-  Reading:      responseContentFormat: "markdown"   — on every call that returns content
+Always: send comments as ADF (convert markdown with scripts/lib/markdown-to-adf.js, contentFormat: "adf"); send descriptions as markdown (contentFormat: "markdown"); request responseContentFormat: "markdown" on every call that returns content.
 
-NEVER:
-  Post raw markdown comments without ADF conversion — always pipe through markdown-to-adf.js
-  Call getAccessibleAtlassianResources after cache init
-  Call getJiraIssueTypeMetaWithFields after cache init
-  Call getIssueLinkTypes after cache init
-  Guess field IDs, transition IDs, or accountIds
-```
+Never: post raw markdown comments, call getAccessibleAtlassianResources / getJiraIssueTypeMetaWithFields / getIssueLinkTypes after cache init, or guess field IDs, transition IDs or accountIds.
 
 ---
 
@@ -283,9 +288,9 @@ Returns all available fields for the issue type, including custom fields with th
 | `issueKey` | string | Yes | E.g., `"PROJ-123"` |
 
 Returns only the transitions available from the issue's **current** status — the list is
-context-sensitive. Use the returned `id` value when calling `transitionJiraIssue`. Do not
-rely on cached transition IDs if the issue may have been updated since the cache was
-written; call this fresh when transitioning.
+context-sensitive. Use this call when the cache has no entry for the issue's current status,
+or the type is marked `unsampled`; otherwise take the transition `id` from
+`cache.workflows[type].transitions[status]` and fall back to this call on a miss or a 400.
 
 ---
 
@@ -343,9 +348,9 @@ Example `fields` array: `["summary", "status", "assignee", "customfield_10016"]`
 | `transition` | object | Yes | `{ "id": "21" }` — object with `id` string, NOT the transition name |
 | `fields` | object | No | Required fields for the transition (e.g., `{ "resolution": { "name": "Done" } }`) |
 
-Always call `getTransitionsForJiraIssue` first to obtain the current valid transition IDs.
-Do not reuse a transition `id` from cache without verifying it is still in the live
-transitions list.
+Take the transition `id` from the cache (`cache.workflows[type].transitions[status]`). On a
+cache miss, an `unsampled` marker, or a 400/404 for a stale ID, call
+`getTransitionsForJiraIssue` for the live list and retry once.
 
 #### `mcp__atlassian__createIssueLink`
 
@@ -543,13 +548,14 @@ safe to use and what to avoid.
 | Table | `\| col \| col \|` with `\|---\|---\|` separator row | Standard markdown table |
 | Horizontal rule | `---` | Separates sections |
 | Blockquote (single level) | `> text` | `> Original requirement` |
+| Task list (descriptions only) | `- [ ] item` | Used for `## Acceptance Criteria` (R25); descriptions are submitted as markdown with `contentFormat: "markdown"`, which Jira renders as a checklist |
 
 ### Broken or Unsupported — Avoid
 
 | Element | Syntax | Problem |
 |---------|--------|---------|
 | HTML tags | `<b>`, `<br>`, `<details>` | Rendered as literal text, not interpreted |
-| Task lists | `- [ ] item` | Variable support; renders as literal `[ ]` in many Jira versions |
+| Task lists in comments | `- [ ] item` | `markdown-to-adf.js` emits no taskList nodes, so the item renders as literal `- [ ]` text. Use a plain `- ` bullet in comments. |
 | Nested blockquotes | `>> text` | Renders as literal `>` |
 | Footnotes | `[^1]: text` | Not supported |
 | Definition lists | `term\n: definition` | Not supported |

@@ -12,7 +12,7 @@ All read operations use `responseContentFormat: "markdown"`.
 
 ## 1. Cache Initialization
 
-Full 5-phase sequence — run once, then use cache for all operations.
+Full 6-phase sequence — run once, then use cache for all operations.
 
 ### Phase 1 — Identity (run both in parallel)
 
@@ -123,25 +123,13 @@ mcp__atlassian__getTransitionsForJiraIssue({
 // Repeat all of phase 5 for each non-subtask issue type (Bug, Story)
 ```
 
-### Phase 6 — Save cache
+### Phase 6 — Assemble and save
 
 ```bash
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
-# Write assembled cache JSON to disk via the prepare script (handles site-keyed path)
-cat << 'EOF' | node "<PLUGIN_ROOT>/scripts/skill/jira.js" --project PROJ --save
-{
-  "cloudId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "siteUrl": "https://mycompany.atlassian.net",
-  "project": { "key": "PROJ", "name": "My Project", "id": "10000" },
-  "currentUser": { "accountId": "5b10a2844c20165700ede21g", "displayName": "Jane Smith", "email": "jane@company.com" },
-  "issueTypes": { ... },
-  "fieldSchemas": { ... },
-  "workflows": { ... },
-  "linkTypes": [ ... ],
-  "userMappings": {}
-}
-EOF
+node "<PLUGIN_ROOT>/scripts/skill/jira.js" --output-file --project 'PROJ' --assemble --input '/tmp/tmp.Ab12Cd' --save
 ```
+
+`/tmp/tmp.Ab12Cd` is the `mktemp` path that holds the Phase 1–5 results in the REFERENCE.md §0 raw shape; the output file reports `counts`, `warnings` and `errors`.
 
 ---
 
@@ -156,8 +144,8 @@ mcp__atlassian__createJiraIssue({
   cloudId:      "a1b2c3d4-e5f6-7890-abcd-ef1234567890",  ← cache.cloudId
   projectKey:   "PROJ",                                    ← cache.project.key
   issueTypeName: "Task",                                   ← exact string from cache.issueTypes key
-  summary: "Implement OAuth2 token refresh",
-  description: "## Objective\nImplement automatic token refresh to prevent session expiry.\n\n## Approach\n1. Add refresh token storage\n2. Implement silent refresh logic\n\n## Done Criteria\n- Tokens refresh automatically before expiry",
+  summary: "Refresh OAuth2 tokens before expiry",
+  description: "## Objective\n- Refresh access tokens silently before they expire\n- Prevents mid-session logouts for long editor sessions\n\n## Details\n- Affects `src/auth/token-store.ts` and the API client interceptor\n- Current: the user is logged out when the access token expires; desired: silent refresh 60 s before expiry\n- Refresh tokens stay in the existing secure storage\n\n## Acceptance Criteria\n- [ ] Access token is refreshed silently before expiry\n- [ ] A failed refresh redirects to login with a clear message\n- [ ] The existing login flow is unaffected\n- [ ] Refresh failures are logged\n\n## Development Plan\n_To be defined by the development team._\n\n## How to Test\n1. **Prerequisites:** Test account; token lifetime set to 2 minutes\n2. **Steps:**\n   1. Sign in\n   2. Wait 90 seconds without interacting\n3. **Expected result:** The session stays active and one refresh call appears in the network log\n4. **Verification:**\n   - No `401` responses in the network log",
   contentFormat: "markdown",
   responseContentFormat: "markdown"
 })
@@ -175,7 +163,7 @@ mcp__atlassian__createJiraIssue({
   projectKey:    "PROJ",                                    ← cache.project.key
   issueTypeName: "Bug",                                     ← exact string from cache.issueTypes key
   summary: "Login fails with SSO users on Firefox",
-  description: "## Description\nSSO users receive a blank page after SAML callback on Firefox.\n\n## Steps to Reproduce\n1. Navigate to login page\n2. Click \"Sign in with SSO\"\n3. Complete SAML flow\n4. Observe blank page\n\n## Expected Behavior\nUser is redirected to dashboard.\n\n## Actual Behavior\nBlank white page, no error in UI.\n\n## Environment\n- **Version:** 2.4.1\n- **Browser/OS:** Firefox 122 / macOS 14\n- **Environment:** production",
+  description: "## Objective\n- SSO users get a blank page after the SAML callback on Firefox\n- Users cannot sign in with SSO on Firefox\n\n## Details\n### Current Behavior\n- Blank white page after the SAML callback, no error in the UI\n\n### Expected Behavior\n- The user is redirected to the dashboard\n\n### Reproduction Steps\n1. Navigate to the login page\n2. Click \"Sign in with SSO\"\n3. Complete the SAML flow\n4. Observe the blank page\n\n### Environment\n- **Environment:** production\n- **Affected version / release:** 2.4.1\n- **Frequency:** always on Firefox 122 / macOS 14\n\n## Acceptance Criteria\n- [ ] SSO sign-in on Firefox redirects to the dashboard\n- [ ] The empty `RelayState` case is handled\n- [ ] SSO sign-in on other browsers is unaffected\n\n## Development Plan\n_To be defined by the development team._\n\n## How to Test\n1. **Prerequisites:** SSO test account; Firefox 122\n2. **Reproduction (confirm the bug exists before fix):**\n   1. Sign in with SSO on Firefox\n3. **Verification (confirm the fix works):**\n   1. Sign in with SSO on Firefox\n4. **Regression check:**\n   - SSO sign-in on Chrome and Safari\n\n## Release Notes\nFixed a blank page after SSO sign-in on Firefox.",
   contentFormat: "markdown",
   assignee_account_id: "5b10a2844c20165700ede21g",          ← cache.userMappings["Jane Smith"]
   additional_fields: {
@@ -201,7 +189,7 @@ mcp__atlassian__createJiraIssue({
   projectKey:    "PROJ",                                    ← cache.project.key
   issueTypeName: "Sub-task",                               ← exact subtask type name from cache.issueTypes
   summary: "Write unit tests for token refresh",
-  description: "## Context\nParent: PROJ-147\n\n## Task\nWrite Jest unit tests for the token refresh logic.\n\n## Done Criteria\n- All refresh paths covered\n- Mock timer tests included",
+  description: "## Parent ticket\nPROJ-147\n\n## Objective\n- Cover the token refresh logic with unit tests\n- Advances PROJ-147 by guarding against refresh regressions\n\n## Details\n- Affects the token refresh module and its Jest suite\n- Uses mock timers for expiry paths\n\n## Acceptance Criteria\n- [ ] All refresh paths are covered\n- [ ] Existing tests still pass\n\n## How to Test\n1. **Prerequisites:** Project dependencies installed\n2. **Steps:**\n   1. Run the Jest suite\n3. **Expected result:** All token refresh tests pass",
   contentFormat: "markdown",
   parent: "PROJ-147",                                      // string key, NOT { key: "..." } object
   responseContentFormat: "markdown"
@@ -424,7 +412,6 @@ mcp__atlassian__transitionJiraIssue({
 COMMENT_MD="Reviewed the implementation. Token refresh is working in staging. Ready for QA sign-off."
 
 # Step 2: Convert to ADF
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 ADF_JSON=$(echo "$COMMENT_MD" | node "<PLUGIN_ROOT>/scripts/lib/markdown-to-adf.js")
 
 # Step 3: Post with ADF format
@@ -444,7 +431,6 @@ mcp__atlassian__addCommentToJiraIssue({
 COMMENT_MD="## Root Cause Analysis\n\nThe blank page is caused by the SAML callback handler returning early when \`RelayState\` is empty.\n\n\`\`\`js\n// Before fix:\nif (!relayState) return; // silently drops the response\n\n// After fix:\nif (!relayState) relayState = '/dashboard';\n\`\`\`\n\n## Test Results\n\n| Browser | Status |\n|---------|--------|\n| Chrome  | Pass   |\n| Firefox | Pass   |\n| Safari  | Pass   |"
 
 # Step 2: Convert to ADF
-# Substitute <PLUGIN_ROOT> from the `sdlc plugin root:` context line.
 ADF_JSON=$(echo -e "$COMMENT_MD" | node "<PLUGIN_ROOT>/scripts/lib/markdown-to-adf.js")
 
 # Step 3: Post with ADF format
@@ -607,49 +593,42 @@ mcp__atlassian__getJiraIssue({
 
 ## 11. Bulk Create
 
-Progress pattern for creating multiple issues in sequence.
+Independent creates go out in one parallel batch (several `createJiraIssue` calls in one message); report once after the batch. Create parents before children (for example the Epic before its Stories).
 
 ```
 // Notify user before starting: "Creating 3 issues..."
 
-// Issue 1 of 3
 mcp__atlassian__createJiraIssue({
   cloudId:       "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   projectKey:    "PROJ",
   issueTypeName: "Task",
   summary:       "Set up CI pipeline",
-  description:   "## Objective\nConfigure GitHub Actions CI for automated testing.\n\n## Done Criteria\n- Tests run on every PR\n- Coverage report published",
+  description:   "## Objective\nConfigure GitHub Actions CI for automated testing.\n\n## Acceptance Criteria\n- [ ] Tests run on every PR\n- [ ] Coverage report published",
   contentFormat:         "markdown",
   responseContentFormat: "markdown"
 })
-→ Created PROJ-150  (1/3)
 
-// Issue 2 of 3
 mcp__atlassian__createJiraIssue({
   cloudId:       "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   projectKey:    "PROJ",
   issueTypeName: "Task",
   summary:       "Add staging environment config",
-  description:   "## Objective\nCreate staging environment variables and deployment config.\n\n## Done Criteria\n- Staging env vars documented in .env.example\n- Deployment pipeline targets staging",
+  description:   "## Objective\nCreate staging environment variables and deployment config.\n\n## Acceptance Criteria\n- [ ] Staging env vars documented in .env.example\n- [ ] Deployment pipeline targets staging",
   contentFormat:         "markdown",
   responseContentFormat: "markdown"
 })
-→ Created PROJ-151  (2/3)
 
-// Issue 3 of 3
 mcp__atlassian__createJiraIssue({
   cloudId:       "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   projectKey:    "PROJ",
   issueTypeName: "Task",
   summary:       "Write smoke tests for release checklist",
-  description:   "## Objective\nWrite smoke tests that can run against staging after each deploy.\n\n## Done Criteria\n- 5 critical paths covered\n- Tests runnable from CI",
+  description:   "## Objective\nWrite smoke tests that can run against staging after each deploy.\n\n## Acceptance Criteria\n- [ ] 5 critical paths covered\n- [ ] Tests runnable from CI",
   contentFormat:         "markdown",
   responseContentFormat: "markdown"
 })
-→ Created PROJ-152  (3/3)
 
-// Final summary:
-// Created 3 issues: PROJ-150, PROJ-151, PROJ-152
+// Report after the batch: Created PROJ-150, PROJ-151, PROJ-152
 ```
 
 If any issue creation fails: record the failure with its error message, continue creating the remaining issues, and report all successes and failures together at the end. Do not abort the sequence on a single failure.
