@@ -1,6 +1,6 @@
 ---
 name: jira-sdlc
-description: "Use this skill to create, edit, read, search, transition, comment on, link, or log work on Jira issues via Atlassian MCP tools, with cached project metadata (fields, workflows, transitions, users) and multi-project support. Arguments: [--project <KEY>] [--force-refresh] [--init-templates] [--site <host>] [--skip-workflow-discovery]. Triggers on: jira issue, jira ticket, create or search jira, transition jira, jira comment, jira template."
+description: "Use this skill to create, edit, read, search, transition, comment on, link, or log work on Jira issues via Atlassian MCP tools, with cached project metadata (fields, workflows, transitions, users) and multi-project support. Arguments: [--project <KEY>] [--force-refresh] [--init-templates] [--site <host>] [--skip-workflow-discovery]. Triggers on: read jira, view jira, show jira, get jira, fetch jira, jira details, add comment, comment on jira, reply to jira, jira ticket, jira issue, create or search jira, transition jira, jira template."
 user-invocable: true
 argument-hint: "[--project <KEY>] [--force-refresh] [--init-templates] [--site <host>] [--skip-workflow-discovery]"
 model: sonnet
@@ -99,7 +99,7 @@ Load cache:
 node "<PLUGIN_ROOT>/scripts/skill/jira.js" --output-file --project '<PROJECT_KEY>' --load
 ```
 
-Run this as one plain Bash call. The path it prints is the cache file; read it. `<PROJECT_KEY>` is the resolved project key, written as a literal.
+Run this as one plain Bash call. The path it prints is an output file holding a copy of the cache. On exit 0, read it. On exit 1, read it for `errors[]` (and `candidateSites` when the key is cached under two or more sites): show the errors; when `candidateSites` is present, ask which site, then run the block again with `--site '<SITE>'`; when no cache exists, go to **Step 1**. Never use an output file from exit 1 as the cache. `<PROJECT_KEY>` is the resolved project key, written as a literal.
 
 ### Handle `--init-templates`
 
@@ -262,7 +262,7 @@ Read the output file (exit 2 prints no output file: use the stderr text instead)
 rm -f '<RAW_PATH>'
 ```
 
-On exit 1, show `errors[]` and stop. On exit 2, show stderr and stop. Show each `warnings[]` entry. Then load the cache with the `--load` block above.
+On exit 1, show `errors[]` and stop. On exit 2, show stderr and invoke error-report-sdlc (E2), then stop. Show each `warnings[]` entry. Then load the cache with the `--load` block above.
 
 Report: "Cache initialized for `[PROJECT_KEY]` — `[counts.issueTypes]` issue types, `[counts.workflowStates]` workflow states mapped."
 
@@ -377,7 +377,7 @@ Run this gate when a recovery path is exhausted: link-verification abort (R22), 
    node "<PLUGIN_ROOT>/scripts/lib/mcp-failure.js" --analyze --record --class '<CLASS>' --tool '<TOOL>' --site '<JIRA_SITE>' --project '<PROJECT_KEY>' --error '<ERROR>' --recovered no --r-path '<R_PATH>' --step '<STEP_LABEL>' --operation '<TOOL>'
    ```
 2. Show the `proposalText` field verbatim and ask with AskUserQuestion: `Y (file issue)` / `edit` / `skip`.
-3. When the JSON has a non-null `duplicate` (`action` is `comment`), do not create a new issue (R28 e). On `Y`, post the `errorText` as a comment on the open issue with one plain Bash call: `gh issue comment '<DUPLICATE>' --body '<ERROR_TEXT>'`. Otherwise, on `Y`, dispatch `error-report-sdlc` with the `errorReportArgs` field, `--error-text` set to `errorText` (the edited text after `edit`), and labels `mcp-failure,class:<CLASS>`. On `skip`, stop.
+3. When the JSON has a non-null `duplicate` (`action` is `comment`), do not create a new issue (R28 e). On `Y`, write `errorText` (the edited text after `edit`) to a temp path made with one plain `mktemp` call, using the Write tool (the text is untrusted and multi-line: never put it in a shell argument). Post it with one plain Bash call: `gh issue comment '<DUPLICATE>' --body-file '<ERROR_FILE>'`. Then remove the file with one plain `rm -f '<ERROR_FILE>'` call. Otherwise, on `Y`, dispatch `error-report-sdlc` with the `errorReportArgs` field, `--error-text` set to `errorText` (the edited text after `edit`), and labels `mcp-failure,class:<CLASS>`. On `skip`, stop.
 
 ---
 
@@ -402,6 +402,7 @@ Run this gate when a recovery path is exhausted: link-verification abort (R22), 
 2. Take `cloudId`, field schemas and link types from the cache after init; re-calling the discovery endpoints costs round-trips and returns nothing the cache lacks.
 3. Send IDs in the shapes the API requires — `{ id }` for transitions, `{ accountId }` for assignees — and take field keys, transition IDs and enum values from the cache or from the user; a guessed or invented value fails with a 400 or silently corrupts the ticket.
 4. Include a transition's `requiredFields` (for example `resolution` when closing); without them the call returns a 400.
+9. Retry a failed operation at most once, and diagnose the cause before any second retry; repeating an unchanged call returns the same failure (C7).
 
 ---
 

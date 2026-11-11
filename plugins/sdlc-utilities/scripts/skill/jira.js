@@ -894,7 +894,7 @@ function assembleCache({ projectKey, cacheDir, site, skipWorkflowDiscovery }, in
 function checkPayload({ templatesDir }, type, inputFile) {
   const input = readJsonInput(inputFile);
   if (input.error) {
-    writeOutput({ placeholders: [], unknownHeadings: [], templateSource: null, warnings: [], errors: [input.error] }, 'jira-context', 2);
+    writeOutput({ placeholders: [], unknownHeadings: [], templateSource: null, warnings: [], errors: [input.error] }, 'jira-context', 1);
     return;
   }
   const payload = input.data;

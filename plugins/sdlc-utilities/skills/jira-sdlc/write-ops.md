@@ -31,7 +31,7 @@ Skip this step for read operations (`search`, `view`). For every write operation
    node "<PLUGIN_ROOT>/scripts/skill/jira.js" --output-file --project '<PROJECT_KEY>' --check-payload --type '<IssueType>' --input '<PAYLOAD_PATH>'
    ```
 
-   Read the output file. Resolve every `placeholders[]` entry per R19 (low confidence → `AskUserQuestion`) and remove or rename every `unknownHeadings[]` entry to a template heading (R18). On exit 2, show stderr and invoke error-report-sdlc (E2). Remove the temp file with one plain Bash call: `rm -f '<PAYLOAD_PATH>'`.
+   Read the output file. Resolve every `placeholders[]` entry per R19 (low confidence → `AskUserQuestion`) and remove or rename every `unknownHeadings[]` entry to a template heading (R18). On exit 1, show `errors[]` (an unreadable or invalid payload file), fix the payload and run the check again. On exit 2, show stderr and invoke error-report-sdlc (E2). Remove the temp file with one plain Bash call: `rm -f '<PAYLOAD_PATH>'`.
 3. Run the critique checklist:
    - **Template completeness** (create / description-touching edit) — every `## ` heading in the payload description belongs to the resolved template; no invented sections.
    - **Field correctness** — issue type / project key / parent / components / labels match cached `allowedValues`.
