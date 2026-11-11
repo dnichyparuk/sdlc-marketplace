@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.49.1] - 2026-11-11
+
 ### Added
 - ship-sdlc: `ship.stepModels` in `.sdlc/local.json` overrides the model and effort of each ship step; invalid values stop prepare (#9341).
 - setup-sdlc: `setup.js --scan` and `--scan-prs`; the project scan runs in `scripts/lib/project-scan.js` (#9351).
