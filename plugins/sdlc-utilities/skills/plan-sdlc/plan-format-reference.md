@@ -194,6 +194,8 @@ concrete artifacts are rendered per `## Concrete Artifacts (render don't narrate
 - title: <verbatim-task-title-at-plan-time>
 ```
 
+List every file the task creates under **Files:**, fixtures and test data included (plan-sdlc R70): execute's `--strict-files` check fails a wave that writes an unlisted path.
+
 ---
 
 ## The `Contract:` block

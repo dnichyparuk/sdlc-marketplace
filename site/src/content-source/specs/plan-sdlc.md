@@ -288,6 +288,7 @@ Deterministic checks performed by `plugins/sdlc-utilities/scripts/ci/validate-pl
 - R68 (`**Fix commit:**` header field): A plan MAY carry one `` **Fix commit:** `<subject>` `` line in its header (the R66 header lines). `<subject>` is the exact subject of the commit-fixes commit a ship run makes after received-review. The field follows R66's rules: one backticked subject of 1–72 characters, matching `commit.subjectPattern` when set, with no `"`, backtick, `$` or `\`, and nothing but optional trailing whitespace after the closing backtick. plan-sdlc does not write the field; a plan author may add it. `validate-plan-format.js` checks it (PF14). Consumer: ship-sdlc R-plan-commit-subject.
 - R69 (validator usage): `scripts/ci/validate-plan-format.js --help` (or `-h`) prints a usage text to stdout that names `--file`, `--final`, `--template`, `--markdown`, `--json`, `--root` and `--project-root` and the exit codes 0, 1 and 2, then exits 0 before any other check runs.
   - Acceptance: exec cases whose descriptions start with `plan-format-lean:`.
+- R70 (created files are listed): Every file a task creates, fixtures and test data included, MUST appear under that task's `**Files:**` as `Create:` or `Test:`, because ship runs execute with `--strict-files` (execute A10) and an unlisted path fails the wave. A task whose Acceptance or Contract names a new fixture path lists that path.
 
 ## Integration
 
@@ -363,6 +364,7 @@ Deterministic checks performed by `plugins/sdlc-utilities/scripts/ci/validate-pl
 | R20, R21 | marker ownership, #9339 |
 | PF15 | parser agreement, #9339 |
 | R69 | validator --help, #9339 |
+| R70 | created files under Files (ledger F-30), #9358 |
 | R20, R21 | in-flight marker, #9271, #9278 |
 | R64, R67 | carry rerun and G17 carry, #9276, #9277 |
 | R26 | case-insensitive finding ids, #9301 |

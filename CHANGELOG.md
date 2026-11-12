@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.2] - 2026-11-11
+
+### Fixed
+- ship-sdlc, execute-plan-sdlc: a worker write guard hook keeps workers inside their allowed files; the ship, execute and plan specs, docs and worker agent definitions match (#9358).
+
 ## [0.51.1] - 2026-11-11
 
 ### Fixed

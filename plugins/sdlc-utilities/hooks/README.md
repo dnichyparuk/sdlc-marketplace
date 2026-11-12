@@ -2,6 +2,10 @@
 
 This directory contains the lifecycle hooks shipped by the `sdlc-utilities` plugin. Hooks are not user-invocable — they are wired by `hooks/hooks.json` and dispatched automatically by Claude Code.
 
+## Worker Write Guard
+
+`worker-write-guard.js` is a `PreToolUse` hook on `Bash` that implements execute-plan-sdlc R90. When the payload's `agent_type` is an execute worker (`execute-worker`, `-complex`, `-batch`, with or without a plugin prefix), it denies a command that changes files through the shell: `sed -i`, `perl -i`, `awk -i inplace`, `tee`, `>`/`>>` redirects and heredocs, and `python -c` / `node -e` file writes. Targets under `/dev/`, `/tmp/` and `$TMPDIR` are allowed, and characters inside quoted strings are ignored. It reads only the stdin payload, so it behaves the same in branch and worktree mode, and it always exits 0.
+
 ## Recovery After Compaction
 
 There is no compaction hook and no recovery file. A pipeline interrupted by context compaction or by Claude Code stopping mid-pipeline is resumed from the ledger (`<mainWorktree>/.sdlc/execution/ship-<branchSlug>-*.json`, `execute-<branchSlug>-*.json`) plus the SessionStart banner (`Active pipeline: ship-sdlc on <branch> (...)`, `Active execution (post-compact): ...`) that `session-start.js` derives from it.

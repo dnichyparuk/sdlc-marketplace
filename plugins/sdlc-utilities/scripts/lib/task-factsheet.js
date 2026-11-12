@@ -30,7 +30,7 @@ function assertSafeRunId(runId, callerName) {
 
 /**
  * Render a task as compact markdown.
- * @param {{ id: string, name: string, description: string, acceptanceCriteria: string[], files: string[], contract?: string }} task
+ * @param {{ id: string, name: string, description: string, acceptanceCriteria: string[], files: string[], contract?: string, verify?: string, planVerification?: string }} task
  * @param {{ filesAdded?: string[], filesModified?: string[], interfacesCreated?: string[], decisionsFromPriorWaves?: string[] }} [priorWaveSummary]
  * @param {string} [scratchDir]  absolute run TMPDIR; rendered as `## Scratch directory` (R-FACT-SHEET-DISPATCH)
  * @returns {string}
@@ -71,6 +71,15 @@ function renderFactSheet(task, priorWaveSummary, scratchDir) {
       lines.push(`- ${f}`);
     }
     lines.push('');
+  }
+
+  // R89: the plan's verification commands, verbatim; omitted when neither value is present.
+  const verify = typeof task.verify === 'string' ? task.verify.trim() : '';
+  const planVerification = typeof task.planVerification === 'string' ? task.planVerification.trim() : '';
+  if (verify || planVerification) {
+    lines.push('## Verification', '');
+    if (verify) lines.push(`Task check: ${verify}`, '');
+    if (planVerification) lines.push('Plan verification (run these commands exactly as written: same versions, same directory):', '', planVerification, '');
   }
 
   // R-WAVE-CONTEXT-PRODUCER (#506): prior-wave surfaces reach the worker through

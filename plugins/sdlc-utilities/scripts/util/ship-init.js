@@ -11,7 +11,7 @@
  * Options:
  *   --steps <csv>               Comma-separated pipeline steps to run (default: all six canonical steps).
  *                               Valid values: execute, commit, review, version, archive-openspec, pr.
- *   --bump patch|minor|major    Version bump type (default: patch)
+ *   --bump patch|minor|major    Version bump type (default: not written; ship resolves it from the plan commit type, else patch)
  *   --draft                     Mark PR as draft (default: false)
  *   --auto                      Skip interactive approval prompts (default: false)
  *   --threshold critical|high|medium  Review threshold (default: high)
@@ -44,7 +44,7 @@ function parseArgs(argv) {
   const args = argv.slice(2);
   let steps     = CANONICAL_STEPS.slice();
   let quick     = null; // undefined means "not provided"; null persists as "no quick profile"
-  let bump      = 'patch';
+  let bump      = null; // R96: written only when --bump is passed, so the plan commit type can decide
   let draft     = false;
   let auto      = false;
   let threshold = 'high';
@@ -121,7 +121,7 @@ function validate(parsed) {
     }
   }
 
-  if (!VALID_BUMPS.includes(parsed.bump)) {
+  if (parsed.bump !== null && !VALID_BUMPS.includes(parsed.bump)) {
     errors.push(`--bump must be one of: ${VALID_BUMPS.join(', ')}. Got: "${parsed.bump}"`);
   }
 
@@ -181,7 +181,7 @@ function main() {
     // Omitting the field entirely (not writing an empty array) is the correct
     // "no quick profile" state per R-quick-1.
     ...(Array.isArray(quick) && quick.length > 0 ? { quick } : {}),
-    bump,
+    ...(bump ? { bump } : {}),
     draft,
     auto,
     reviewThreshold: threshold,

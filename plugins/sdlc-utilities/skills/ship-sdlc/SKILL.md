@@ -100,7 +100,7 @@ Flag resolution (from skill/ship.js):
   auto:    true  (source: cli)
   steps:   [execute, commit, review, archive-openspec, pr]  (source: config)
   preset:  balanced  (source: cli, legacy sugar; expanded to steps)
-  bump:    patch (source: default)
+  bump:    minor (source: plan (Commit type))
   draft:   false (source: default)
 ```
 
@@ -202,7 +202,7 @@ The pipeline table is generated from the `steps` array in the `skill/ship.js` ou
 | 7b | await-remote-review (inline, opt-in) | conditional on `'await-remote-review' ∈ flags.steps` | `--timeout <N> --interval <N> --reviewers <csv>` | no |
 | 8 | learnings-commit | will_run | (none — inline shell, see the `learnings_commit` section of `./reference.md`) | no |
 
-Rows 3–5 repeat per round when `flags.reviewRounds` is above 1 (`--review-rounds <n>`, 1–3, default 1; implements A19, R84): after a completed commit-fixes in round k < n, `ship.js` records the round in `ledger.rounds[]`, resets the three steps to `pending` and emits `dispatch_review` again, with `review_gate`, `stage_fixes` and the confirm steps re-asked for the new round. A round whose commit-fixes is skipped ends the loop. Nothing changes in Step 5: run whatever step `ship.js` emits.
+Rows 3–5 repeat per round when `flags.reviewRounds` is above 1 (`--review-rounds <n>`, 1–3, default 1; implements A19, R84): after a completed commit-fixes in round k < n, `ship.js` records the round in `ledger.rounds[]`, resets the three steps to `pending` and emits `dispatch_review` again, with `review_gate`, `stage_fixes` and the confirm steps re-asked for the new round. A round whose commit-fixes is skipped ends the loop. After the last round's commit-fixes, `ship.js` emits `dispatch_review` once more on the fix commit only (`--committed --base <sha>`, R95); its findings start no new round and appear in the summary as `finalCheck`. A fix commit made by received-review itself is adopted as the commit-fixes commit (R97). Nothing changes in Step 5: run whatever step `ship.js` emits.
 
 ### --auto Mode Audit
 
@@ -277,6 +277,8 @@ Running a step and the `--after` call that records it are one uninterrupted sequ
    - decision steps (`confirm_*`, `execute_tier`, `execute_state`, `execute_gate`, `execute_handoff`): nothing to run; the answer from item 4 is the result (`success: true`, `output.answer`).
 6. Run `mktemp` and note the printed path; write `{step_id, success, output, error}` to that path with the Write tool (no shell quoting of agent text), then run `node "<PLUGIN_ROOT>/scripts/skill/ship.js" --after <step.id> --result-file <tmp> --state <state_file>`; set `ENVELOPE_FILE` to the path it prints (the path is printed also when the exit code is non-zero; a non-zero exit is handled like `status: "error"` in item 2); `rm -f <tmp>`; go to 2.
 
+**Stale hand-backs (R98).** A hand-back or task notification for a step whose ledger entry is already `completed`, `skipped` or `failed`, or from an agent of a step that is not the current `dispatch_*` step, is stale. Print one line `ignored stale hand-back for <step>` and do nothing else for it: no Agent call, no `--after` call, no re-run. Take the step status from the last envelope; do not read the ledger for it.
+
 Judgment sections (read only when the step id matches): `review_gate` interactive choice (defer = collect findings for the summary); `rebase_conflict` (the `rebase` step already ran `git rebase --abort`; pause → stop with state; skip → continue to version; merge → run `git merge origin/<default>`, on conflict abort and pause); `verify_pipeline`, `await_remote_review`, `learnings_commit`: read the matching section of `./reference.md`. When `verify_openspec`/`archive_openspec` is the current step → Read `./openspec-steps.md` and follow it. Do not read preemptively.
 
 ### After version — post-version ancestry HARD GATE (R-post-version-ancestry, fixes #349)
@@ -325,9 +327,11 @@ Step  Skill                 Result
 3     review-sdlc           [done] APPROVED WITH NOTES (2 medium)
 4     received-review-sdlc  — not triggered (no critical/high)
 5     commit-sdlc (fixes)   — not triggered
+3b    review-sdlc (final)   [done] <verdict> on <short sha>
 6     version-sdlc          — skipped (config default)
 7     pr-sdlc               [done] https://github.com/.../pull/42
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Print the 3b row only when `ext.summary.finalCheck` is non-null.
 
 Decisions log:
   - Steps resolved: [execute, commit, review, archive-openspec, pr] (from config default; --quality balanced forwarded to execute-plan-sdlc — chosen at execute_tier)

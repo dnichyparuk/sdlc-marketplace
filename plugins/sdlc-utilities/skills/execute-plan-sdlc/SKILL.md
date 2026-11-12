@@ -382,6 +382,8 @@ Subagents run in the background and notify on completion; the Agent tool has no 
 
 **No hand-back mid-wave (R86).** When you run as a subagent (ship's execute step), never end your turn while a worker or wave-runner you dispatched is still in flight: ending the turn returns you to ship with the wave unfinished. Wait with the `Monitor` poll of the wave deadline below until all N results are in. Return once: after Step 9, or at a stop that records a pending question or a failure.
 
+**Stale hand-backs (R91).** A worker or wave-runner hand-back for a wave that execute state already records `completed`, `partial` or `failed`, or for a task already recorded with `task-done` or `task-fail`, is stale. Print one line `ignored stale hand-back for wave <n> task <id>` and do nothing else for it: no dispatch, no state write, no re-run.
+
 **Wave deadline (direct mode; R-WAVE-DEADLINE).** The manifest carries `waveTimeout` (seconds). Enforce it here — the harness has no per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock). This is the procedure of `./wave-runner-template.md` §2b, run in main context:
 
 1. Record the dispatch time. All worker dispatches above run in the background, so each returns a task ID immediately rather than blocking. Keep a map from each returned task ID to the plan task IDs it covers (a batch covers several).
