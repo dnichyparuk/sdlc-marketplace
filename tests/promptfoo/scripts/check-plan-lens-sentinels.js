@@ -27,7 +27,7 @@ function has(rel, sentinels) {
 }
 
 const risk = has('agents/plan-lens-risk.md', ['Runtime semantics (R71']);
-const reviewer = has('agents/plan-reviewer.md', ['| Runtime semantics |']);
+const reviewer = has('agents/plan-reviewer.md', ['Runtime semantics (R71, under Verification strategy and Scope discipline)']);
 const skill = has('skills/plan-sdlc/SKILL.md', ['(implements R71)']);
 
 const ok = risk && reviewer && skill;
