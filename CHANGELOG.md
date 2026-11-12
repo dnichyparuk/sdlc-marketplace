@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.5] - 2026-11-12
+
+### Fixed
+- setup-sdlc: the project scan no longer follows symlinks out of the repository or reads device files, and detector reads are capped; `setup-init.js --dry-run` previews the exact merge the real write applies, with one diff row per changed field and its file; prompts default to the value already in the config; the scan runs once per run; a failing dry-run shows stderr and skips the write; a failing scan skips only the sections that need it; `--force` is marked deprecated (#9362).
+
 ## [0.51.4] - 2026-11-12
 
 ### Fixed
