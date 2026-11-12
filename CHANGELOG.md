@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.8] - 2026-11-12
+
+### Fixed
+- execute-plan-sdlc, ship-sdlc: the worker write guard detects redirects with an fd prefix (`2>`, `1>>`), `&>`, `&>>` and `>&file` as file writes (a `>&N` duplication is not a write) and normalises redirect and `tee` targets so a `..` escape is denied; a failed blocking `wave-progress --wait` call is retried once and then repeated until the deadline, when the tasks still in flight are stopped and the wave is marked `partial`; stale hand-backs are keyed to the current dispatch envelope; exec tests cover the guard, git-lib and ship prepare (#9364).
+
 ## [0.51.7] - 2026-11-12
 
 ### Fixed
