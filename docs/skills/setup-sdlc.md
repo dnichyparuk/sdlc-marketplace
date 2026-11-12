@@ -303,11 +303,11 @@ Each option can be individually skipped or accessed later via the `--dimensions`
 Before writing any config files, `/setup-sdlc` runs `util/setup-init.js --dry-run` with the answers from the session. It applies the same section-level merge as the real write to `.sdlc/config.json` and `.sdlc/local.json`, writes nothing, and shows the changed fields. Sections you did not touch are not shown. Each prompt in the config builder defaults to the value already in your config, so pressing Enter keeps it:
 
 ```
-| path                  | before    | after       |
-|-----------------------|-----------|-------------|
-| pr.defaultBranch      | (unset)   | develop     |
-| pr.expectedAccount    | (unset)   | rnagrodzki  |
-| version.tagPrefix     | v         | release/    |
+| file              | path               | before   | after       |
+|-------------------|--------------------|----------|-------------|
+| .sdlc/config.json | pr.defaultBranch   | (unset)  | develop     |
+| .sdlc/config.json | version.tagPrefix  | v        | release/    |
+| .sdlc/local.json  | pr.expectedAccount | (unset)  | rnagrodzki  |
 ```
 
 When no fields changed, the preview is replaced with `No changes — nothing to write.` and the write step is skipped.
