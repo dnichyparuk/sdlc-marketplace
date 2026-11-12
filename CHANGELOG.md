@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.6] - 2026-11-12
+
+### Fixed
+- jira-sdlc: `jira.js` rejects an invalid project key and a `--site` value holding `/`, `\`, `..` or a port before any cache path is built, so `--save` and `--clear` cannot touch files outside the Jira cache; a valid `--site` is normalised so a dotted host reaches the same folder (#9363, #9364).
+- jira-sdlc: `mcp-failure.js --analyze` single-quotes the error-report arguments, records an unknown `--class` as `unknown`, matches duplicate issues by exact tool name in the plugin repository, and `--check-payload` reads level-2 headings from an ADF description; SKILL.md, EXAMPLES.md, the spec and the docs match (#9363, #9364).
+
 ## [0.51.5] - 2026-11-12
 
 ### Fixed
