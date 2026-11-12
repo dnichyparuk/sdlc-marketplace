@@ -49,7 +49,7 @@ const workers = {};
 for (const name of ['execute-worker', 'execute-worker-complex', 'execute-worker-batch']) {
   workers[name] = has(`agents/${name}.md`, WORKER_SENTINELS);
 }
-const ARGS = 'put the args string from the task message there verbatim (ship-sdlc R99)';
+const ARGS = 'put the value of `args:` from the task message (the `step.data.args` string, without its enclosing double quotes) there verbatim (ship-sdlc R99)';
 const stepArgs = {};
 for (const s of ['commit', 'review', 'received-review', 'version', 'pr', 'execute']) {
   stepArgs[s] = has(`agents/ship-step-${s}.md`, [ARGS]);
