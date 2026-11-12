@@ -20,13 +20,19 @@ Renders the selective-section menu. All sections are pre-checked by default; `le
 /setup-sdlc --only jira,review
 ```
 
-Skip the menu, configure only `jira` and `review`. Useful for scripted runs or follow-up tweaks. Valid ids: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`.
+Skip the menu, configure only `jira` and `review`. Useful for scripted runs or follow-up tweaks. Valid ids: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`.
 
 ```text
 /setup-sdlc --force
 ```
 
-Pre-check every row in the menu and skip the per-field `keep` prompt — all configured values are reconfirmed rather than accepted with one keystroke.
+Keeps the default menu reply at `all` and wins over `--unset-only`. It currently has no other effect: the per-field `keep` prompt it is specified to skip does not exist in Step 3.G (spec A3 gap, tracked separately). Every row is pre-checked by default.
+
+```text
+/setup-sdlc --skip jira,commit
+```
+
+Show the menu as usual, but leave `jira` and `commit` out of the selection. Only config section ids are accepted; an unknown id stops setup with an error.
 
 ---
 
@@ -34,10 +40,10 @@ Pre-check every row in the menu and skip the per-field `keep` prompt — all con
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--migrate` | Run schema migration via `scripts/skill/migrate-config.js`: relocates legacy `.claude/sdlc.json` to `.sdlc/config.json`, walks the schema-version migration registry (`lib/config-migrations.js`) to bring both project + local configs to `schemaVersion: 3`, and consolidates legacy per-file configs (`.claude/version.json`, `.sdlc/ship-config.json`, etc.) via `lib/config.js::consolidateLegacyFiles`. Idempotent. Backups: legacy relocation writes to `.sdlc/sdlc.json.bak` (single, no timestamp); other in-place migrations write to `.sdlc/<file>.bak.<safe-iso>`. Setup sweeps to retain 3 newest per role. | — |
-| `--skip <section>` | Skip a config section during setup (version, ship, jira, review, received-review, commit, pr) | — |
-| `--force` | Skip the per-field `keep` prompt for every field — all values are reconfirmed rather than accepted with one keystroke. Does not change which rows are pre-checked (all rows are pre-checked by default). | — |
-| `--unset-only` | Pre-check only sections in `not-set` state. Legacy fast-path before #235 — the default flow now pre-checks all rows. | — |
+| `--migrate` | Run schema migration via `scripts/skill/migrate-config.js`: relocates legacy `.claude/sdlc.json` to `.sdlc/config.json`, walks the schema-version migration registry (`lib/config-migrations.js`) to bring both project + local configs to the current `schemaVersion` (4 at the time of writing), and consolidates legacy per-file configs (`.claude/version.json`, `.sdlc/ship-config.json`, etc.) via `lib/config.js::consolidateLegacyFiles`. Idempotent. Backups: legacy relocation writes to `.sdlc/sdlc.json.bak` (single, no timestamp); other in-place migrations write to `.sdlc/<file>.bak.<safe-iso>`. Setup sweeps to retain 3 newest per role. | — |
+| `--skip <section>` | Skip config sections, comma-separated or repeated (version, ship, jira, review, received-review, commit, pr). They are removed from the menu or `--only` selection; locked legacy sections stay. An unknown id stops setup with an error. | — |
+| `--force` | Currently no effect beyond winning over `--unset-only` (default menu reply stays `all`); the per-field `keep` prompt it is specified to skip does not exist yet (spec A3 gap). Does not skip the menu. | — |
+| `--unset-only` | Pre-check only sections in `not-set` state; the default menu reply becomes `not-set`. `--force` wins when both are passed. Legacy fast-path before #235 — the default flow now pre-checks all rows. | — |
 | `--only <ids>` | Comma-separated section ids to configure non-interactively (skips the menu). Valid: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block` | — |
 | `--dimensions` | Jump directly to review dimensions sub-flow (alias for `--only review-dimensions`) | — |
 | `--pr-template` | Jump directly to PR template sub-flow (skip config builder) | — |
@@ -144,7 +150,7 @@ Expansion mode: proposes only guardrails not already configured.
 ## Prerequisites
 
 - Must be inside a git repository
-- Node.js >= 16 (for `setup-prepare.js`)
+- Node.js >= 16 (for `scripts/skill/setup.js`)
 
 ---
 
@@ -155,9 +161,10 @@ Every section the menu can configure. The label, purpose, files modified, and co
 | Section id | Purpose | Files modified | Consumed by |
 |---|---|---|---|
 | `version` | Tells `/version-sdlc` and `/ship-sdlc` where the canonical version lives (file or git tags) and how releases are tagged. | `.sdlc/config.json` | `/version-sdlc`, `/ship-sdlc` |
-| `ship` | Developer-local pipeline preferences for `/ship-sdlc`: steps, default bump, draft PRs, auto-approve, workspace, rebase policy, review threshold. Stored in gitignored `.sdlc/local.json`. | `.sdlc/local.json` | `/ship-sdlc` |
+| `ship` | Developer-local pipeline preferences for `/ship-sdlc`: steps, quick mode, default bump, draft PRs, auto-approve, rebase policy, review threshold, and verify-pipeline / await-remote-review timings. Stored in gitignored `.sdlc/local.json`. | `.sdlc/local.json` | `/ship-sdlc` |
 | `jira` | Default Jira project key used by `/jira-sdlc`, `/commit-sdlc`, and `/pr-sdlc` when extracting or assigning ticket IDs. | `.sdlc/config.json` | `/jira-sdlc`, `/commit-sdlc`, `/pr-sdlc` |
 | `review` | Default scope for `/review-sdlc` (committed/staged/working/worktree/all). Local to each developer. | `.sdlc/local.json` | `/review-sdlc` |
+| `received-review` | Per-user severity allowlist for `/received-review-sdlc` auto-apply: "agree, will fix" findings at a listed severity skip the per-finding consent gate. Stored in `.sdlc/local.json` under `receivedReview.alwaysFixSeverities`; default `[]`. | `.sdlc/local.json` | `/received-review-sdlc` |
 | `commit` | Commit message validation rules used by `/commit-sdlc` (subject regex, allowed types/scopes, required trailers). | `.sdlc/config.json` | `/commit-sdlc` |
 | `pr` | PR title validation rules used by `/pr-sdlc` (title regex, allowed types/scopes, required trailers) plus `defaultBranch` — the target merge branch, auto-detected from the remote default and overridable for `develop`/`release/*` repos (issue #339). | `.sdlc/config.json` | `/pr-sdlc` |
 | `pr-labels` | PR label assignment policy under `pr.labels`. Mode `off` (default) adds no automatic labels — `--label` overrides still work. Mode `rules` evaluates user-defined deterministic rules (branch prefix, commit type, path glob, JIRA type, diff size). Mode `llm` opts into the legacy fuzzy match. Configured via `--only pr-labels`. | `.sdlc/config.json` | `/pr-sdlc` |
@@ -326,8 +333,8 @@ Plan guardrails    — [N configured via guardrails sub-flow | skipped]
 
 | File | Purpose |
 |------|---------|
-| `.sdlc/config.json` | Unified project config with `version`, `jira`, `commit`, `pr` sections, and optional `plan.guardrails`. Carries top-level `schemaVersion: 3` (issue #232). The `version` section may include an optional `preRelease` field (lowercase label matching `^[a-z][a-z0-9]*$`) — when set, `version-sdlc` and `ship-sdlc` produce a pre-release version (e.g. `1.2.4-rc.1`) on every default bump until an explicit `major\|minor\|patch` graduates the release. Configured interactively via the customize path of Step 3a (version section). The `version.preRelease` field is gated by a fileType-compatibility check at setup time (see spec R-version-prerelease-compat). |
-| `.sdlc/local.json` | User-local config with `review` scope preferences, and `ship` settings. Carries top-level `schemaVersion: 3`. Gitignored (selective `.sdlc/.gitignore` block). |
+| `.sdlc/config.json` | Unified project config with `version`, `jira`, `commit`, `pr` sections, and optional `plan.guardrails`. Carries the current top-level `schemaVersion` (4 at the time of writing; issue #232). The `version` section may include an optional `preRelease` field (lowercase label matching `^[a-z][a-z0-9]*$`) — when set, `version-sdlc` and `ship-sdlc` produce a pre-release version (e.g. `1.2.4-rc.1`) on every default bump until an explicit `major\|minor\|patch` graduates the release. Configured interactively via the customize path of Step 3a (version section). The `version.preRelease` field is gated by a fileType-compatibility check at setup time (see spec R-version-prerelease-compat). |
+| `.sdlc/local.json` | User-local config with `review` scope preferences, and `ship` settings. Carries the current top-level `schemaVersion`. Gitignored (selective `.sdlc/.gitignore` block). |
 | `.sdlc/.gitignore` | Selective managed block (issue #231) — committed: `config.json`, `review-dimensions/`. Ignored: `local.json`, `cache/`, `*.bak.*`, `.migration.lock`. Replaces the historical blanket `*\n` content. |
 | `.sdlc/review-dimensions/*.yaml` | Review dimensions created during dimensions sub-flow (via `--dimensions`). Committed to the repo. |
 | `.sdlc/pr-template.md` | PR template created during PR template sub-flow (via `--pr-template`). Legacy `.claude/pr-template.md` is read as a fallback during the deprecation window — issue #260. |

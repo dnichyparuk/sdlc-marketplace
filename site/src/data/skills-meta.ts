@@ -248,10 +248,10 @@ export const skillsMeta: SkillMeta[] = [
     userInvocable: true,
     tagline: 'Unified project setup — configures version, ship, review, and jira settings in one interactive flow.',
     pipeline: [
-      { id: 'detect', label: 'Detect current state', type: 'script', description: 'Runs setup-prepare.js to find existing configs and legacy files' },
+      { id: 'detect', label: 'Detect current state', type: 'script', description: 'Runs scripts/skill/setup.js to find existing configs and legacy files' },
       { id: 'migrate', label: 'Migrate legacy configs', type: 'llm', description: 'Consolidates legacy files into unified .sdlc/config.json' },
       { id: 'configure', label: 'Interactive config builder', type: 'user', description: 'Walks through version, ship, jira, and review settings' },
-      { id: 'validate', label: 'Validate written config', type: 'verify', description: 'Re-runs setup-prepare.js to confirm config is readable' },
+      { id: 'validate', label: 'Validate written config', type: 'verify', description: 'Re-runs scripts/skill/setup.js to confirm config is readable' },
       { id: 'content-setup', label: 'Content setup', type: 'dispatch', description: 'Runs dimensions, PR template, plan template, and guardrails sub-flows' },
       { id: 'summary', label: 'Show summary', type: 'llm', description: 'Reports what was created, migrated, and configured' },
     ],

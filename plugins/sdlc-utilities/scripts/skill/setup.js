@@ -475,12 +475,13 @@ function detect(projectRoot) {
  * Parse a minimal subset of CLI flags relevant to the prepare contract
  * (issue #235, issue #292). Style mirrors `version.js::parseArgs` for cross-script
  * consistency. Unknown flags are ignored — the wider flag surface (`--migrate`,
- * `--skip`, `--only`, sub-flow direct-entry flags) is parsed by SKILL.md.
+ * `--only`, sub-flow direct-entry flags) is parsed by SKILL.md. `--skip <ids>`
+ * fills `flags.skip` (A2, P-skip).
  * `--scan` adds the `scan` key (P-scan); `--scan-prs` (with `--scan`) also
  * fills `scan.recentPrs` (R10).
  *
  * @param {string[]} argv — process.argv
- * @returns {{ flags: { unsetOnly: boolean, force: boolean, steps: string[]|null, scan: boolean, scanPrs: boolean }, defaultSelectionMode: 'all' | 'unset-only' }}
+ * @returns {{ flags: { unsetOnly: boolean, force: boolean, steps: string[]|null, scan: boolean, scanPrs: boolean, skip: string[] }, defaultSelectionMode: 'all' | 'unset-only' }}
  */
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -489,6 +490,7 @@ function parseArgs(argv) {
   let steps = null; // null means "not provided via CLI"
   let scan = false;
   let scanPrs = false;
+  const skip = [];
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -500,6 +502,16 @@ function parseArgs(argv) {
       scan = true;
     } else if (a === '--scan-prs') {
       scanPrs = true;
+    } else if (a === '--skip') {
+      if (!args[i + 1] || args[i + 1].startsWith('--')) {
+        process.stderr.write('setup-prepare: --skip requires a section id\n');
+        process.exit(1);
+      }
+      // --skip <ids> — comma-separated config section ids, repeatable (A2, P-skip).
+      for (const id of args[i + 1].split(',').map(s => s.trim()).filter(Boolean)) {
+        if (!skip.includes(id)) skip.push(id);
+      }
+      i++;
     } else if (a === '--steps' && args[i + 1]) {
       // --steps <csv> — comma-separated step names; used by setup-sdlc to pass
       // the user's just-selected ship.steps[] so the when-evaluator can mark
@@ -514,7 +526,7 @@ function parseArgs(argv) {
   const defaultSelectionMode = force ? 'all' : (unsetOnly ? 'unset-only' : 'all');
 
   return {
-    flags: { unsetOnly, force, steps, scan, scanPrs },
+    flags: { unsetOnly, force, steps, scan, scanPrs, skip },
     defaultSelectionMode,
   };
 }
@@ -547,12 +559,28 @@ function applyWhenGates(fields, activeSteps) {
   });
 }
 
+/**
+ * Config section ids that --skip accepts (A2): rows without a setup-* sub-flow.
+ * @returns {string[]}
+ */
+function skippableSectionIds() {
+  return SETUP_SECTIONS
+    .filter(s => !String(s.delegatedTo || '').startsWith('setup-'))
+    .map(s => s.id);
+}
+
 if (require.main === module) {
   try {
     // C-projectroot (#360): route to the main worktree's .sdlc/ root.
     const projectRoot = resolveSdlcRoot();
     const result = detect(projectRoot);
     const parsed = parseArgs(process.argv);
+    const validSkip = skippableSectionIds();
+    const unknownSkip = parsed.flags.skip.filter(id => !validSkip.includes(id));
+    if (unknownSkip.length > 0) {
+      process.stderr.write(`setup-prepare: --skip: unknown section id(s): ${unknownSkip.join(', ')}. Valid: ${validSkip.join(', ')}\n`);
+      process.exit(1);
+    }
     result.flags = parsed.flags;
     result.defaultSelectionMode = parsed.defaultSelectionMode;
     // Apply when-gate evaluation to shipFields (issue #292 / P7).
@@ -562,7 +590,7 @@ if (require.main === module) {
     // Overlay menuInputContract with per-invocation defaultToken (#337)
     result.menuInputContract = {
       ...MENU_INPUT_CONTRACT,
-      defaultToken: parsed.flags.unsetOnly ? 'not-set' : 'all',
+      defaultToken: parsed.defaultSelectionMode === 'unset-only' ? 'not-set' : 'all',
     };
     // R10/R14 (P-scan): content reads the active worktree; review dimensions
     // read the main worktree (projectRoot).

@@ -266,6 +266,64 @@
         const out = JSON.parse(output);
         return out.menuInputContract && out.menuInputContract.defaultToken === 'not-set'
 
+- description: "setup-prepare (#9361): --unset-only --force → menuInputContract.defaultToken === 'all'"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_args: "--unset-only --force"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        return out.menuInputContract.defaultToken === 'all' && out.defaultSelectionMode === 'all'
+
+- description: "setup-prepare (#9361): --skip ship,jira --skip ship → flags.skip deduplicated"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_args: "--skip ship,jira --skip ship"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        return JSON.stringify(out.flags.skip) === '["ship","jira"]'
+
+- description: "setup-prepare (#9361): no --skip → flags.skip is []"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        return Array.isArray(out.flags.skip) && out.flags.skip.length === 0
+
+- description: "setup-prepare (#9361): --skip with a sub-flow id exits with an error naming it"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_args: "--skip plan-template"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: |
+        output.includes('unknown section id(s): plan-template') && output.includes('received-review')
+
+- description: "setup-prepare (#9361): ship purpose names real fields, no workspace"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const p = out.sections.find(s => s.id === 'ship').purpose;
+        return !/workspace/i.test(p) && p.includes('rebase policy')
+
 # ---------------------------------------------------------------------------
 # Workspace + hooks sections removed (#378, #379, #370, #372): workspace is
 # auto-detected (no placement wizard) and the agentIsolationGuard hook is deleted.

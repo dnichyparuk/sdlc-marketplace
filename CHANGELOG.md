@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.4] - 2026-11-12
+
+### Fixed
+- setup-sdlc: `--skip <section>` is implemented and fails fast when no section id follows it; `--force` is documented as skipping the per-field keep prompt and still winning over `--unset-only`; with `--unset-only --force` the menu default is `all`; the spec and user doc match the code (schema version, received-review) (#9361).
+
 ## [0.51.3] - 2026-11-12
 
 ### Fixed

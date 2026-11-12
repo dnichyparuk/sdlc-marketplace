@@ -353,7 +353,7 @@
       value: >
         When a legacy `.claude/sdlc.json` is detected, the skill mentions that
         a migration is needed and that running `/setup-sdlc --migrate` will
-        relocate the file to `.sdlc/config.json` and stamp `schemaVersion: 3`.
+        relocate the file to `.sdlc/config.json` and stamp the current `schemaVersion`.
         The skill MUST NOT silently overwrite either file.
 
 # ---------------------------------------------------------------------------
@@ -409,6 +409,21 @@
         The skill MUST ask the user about verifyPipelineTimeout (or its label) and
         awaitRemoteReviewers (or its label). This demonstrates that when skip is false,
         gated fields surface correctly in the prompt loop per R15 and P7.
+
+- description: "setup-sdlc (#9361): --skip ids from prepare flags.skip are removed from the selection"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/setup-sdlc/SKILL.md"
+    project_context: "file://fixtures/setup-clean-project.md"
+    user_request: >
+      Run /setup-sdlc --only jira,review,commit --skip jira. The prepare script has returned
+      flags.skip = ["jira"] and no section is locked. List the section ids you will configure,
+      in order, before asking any field question.
+  assert:
+    - type: llm-rubric
+      value: >
+        The skill resolves selectedIds from --only (jira, review, commit), then removes the ids
+        in prepare.flags.skip, so it configures review and commit only. It MUST NOT ask any
+        jira question. It does not parse --skip from the arguments itself (A2, P-skip).
 
 # ---------------------------------------------------------------------------
 # Issues #337 + #338 — numbered-list menu redesign + preRelease compat check
