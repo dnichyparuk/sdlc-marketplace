@@ -66,7 +66,7 @@ for (const s of ['commit', 'review', 'received-review', 'version', 'pr', 'execut
   stepArgs[s] = has(`agents/ship-step-${s}.md`, [ARGS]);
 }
 
-const shipStaleKey = has('skills/ship-sdlc/SKILL.md', ['the Agent task you start for each `dispatch_*` envelope'])
+const shipStaleKey = has('skills/ship-sdlc/SKILL.md', ['the Agent task you start for the current `dispatch_*` envelope'])
   && lacks('skills/ship-sdlc/SKILL.md', ['ledger entry is already']);
 const waitNoReadPoll = lacks('skills/execute-plan-sdlc/wave-runner-template.md', ['`wave-progress --read` poll', 'keep waiting for the worker returns'])
   && lacks('skills/execute-plan-sdlc/SKILL.md', ['keep waiting for the worker returns']);
