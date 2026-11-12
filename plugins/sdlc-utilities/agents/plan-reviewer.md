@@ -49,6 +49,7 @@ Skip `## OpenSpec Appendix` content when evaluating any gate.
 | File paths | All paths are relative to project root (no absolute paths) |
 | Verification strategy | Each task has an appropriate verification method (not TDD forced on config/docs tasks) |
 | Scope discipline | No tasks beyond stated requirements; no gold-plating |
+| Runtime semantics | The R71 checks: Write needs a prior Read; one shell per Bash call; escaped `|` in regex assertions; quote-aware command rules; every copy of a changed literal under Files; environment sources named |
 | Buildability | An agent with no codebase context could execute each task using only its description |
 | Decision documentation | Key Decisions section present for plans with 5+ tasks; each rationale references codebase evidence, not preference; no obvious decisions included |
 | Plan completeness | All header fields (Goal, Architecture, Source, Verification) are filled in — no placeholders like "[TBD]"; no leftover working sections (e.g., `## Requirements` scaffolding); task numbering is sequential with no gaps |
@@ -62,6 +63,7 @@ Skip `## OpenSpec Appendix` content when evaluating any gate.
 Only flag issues that would cause real problems during execution:
 - A task so vague an agent would hallucinate → flag it
 - A missing dependency that would cause a wave conflict → flag it
+- A step that would fail at run time (Write without Read, bare `|` in a not-regex) or a missed copy of a changed literal → flag it
 - A wrong file path → flag it
 - A stylistic preference about task ordering → do NOT flag
 

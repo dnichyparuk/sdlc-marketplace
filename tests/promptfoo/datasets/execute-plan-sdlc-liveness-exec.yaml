@@ -63,6 +63,50 @@
     - type: equals
       value: '{"tasks":{}}'
 
+- description: "execute-plan-sdlc/liveness/wave-progress: --wait returns once every listed task reports, after the grace"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "wave-progress --wave 3 --run-id 20250101T000000 --wait --tasks T5,T6 --grace 1"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: equals
+      value: '{"wave":3,"reported":["T5","T6"],"inFlight":[],"timedOut":false}'
+
+- description: "execute-plan-sdlc/liveness/wave-progress: --wait times out with unreported tasks still in flight"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "wave-progress --wave 1 --run-id 20250101T000000 --wait --tasks T1,T2 --interval 1 --timeout 2"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: equals
+      value: '{"wave":1,"reported":[],"inFlight":["T1","T2"],"timedOut":true}'
+
+- description: "execute-plan-sdlc/liveness/wave-progress: --wait without --tasks is rejected"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "wave-progress --wave 3 --run-id 20250101T000000 --wait"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: contains
+      value: "Error: --wait requires --tasks"
+
+- description: "execute-plan-sdlc/liveness/wave-progress: a non-integer --grace is rejected"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "wave-progress --wave 3 --run-id 20250101T000000 --wait --tasks T5 --grace abc"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-state-mid-wave"
+    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
+  assert:
+    - type: contains
+      value: "Error: --grace requires an integer >= 0"
+
 # --- wave / task liveness flags (Tasks 14, 15) -----------------------------
 
 - description: "execute-plan-sdlc/liveness/wave-done: --status bogus is rejected and lists the valid statuses"

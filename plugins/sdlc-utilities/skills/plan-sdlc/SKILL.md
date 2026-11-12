@@ -214,6 +214,7 @@ Wait for answer.
 - Each task = one independently completable unit with a clear deliverable
 - Each task touches 1–5 files (more than 5 → split)
 - Every file a task creates, fixtures and test data included, is listed under its **Files:** as `Create:` or `Test:`. Ship runs execute with `--strict-files`, so an unlisted path fails the wave (implements R70).
+- A task that changes a pattern, name, flag, constant or value lists every file holding its literal text (Grep the repository: specs, skill companions such as `reference.md`, docs, site copies, tests); prose it writes follows the tool contracts of R71: Read before Write on an existing file, one shell per Bash call, escaped `|` in regex assertions, quote-aware command rules (implements R71).
 - Order: foundations → features → integration → polish
 - Dependencies explicit (task B names task A if it needs A's output)
 

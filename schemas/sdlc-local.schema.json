@@ -131,7 +131,7 @@
           "minimum": 60,
           "maximum": 3600,
           "default": 1800,
-          "description": "DEPRECATED: legacy fallback read by execute-plan-sdlc's skill/execute.js below execute.waveTimeout in .sdlc/config.json; ship-sdlc no longer forwards it. Maximum seconds a single execute wave may run before stalled tasks are terminated. The maximum restates MAX_WAVE_TIMEOUT_SECONDS in plugins/sdlc-utilities/scripts/lib/ship-fields.js, which is the single enforcement point (Monitor.timeout_ms caps at 3600000 ms). (R57, R-WAVE-DEADLINE)"
+          "description": "DEPRECATED: legacy fallback read by execute-plan-sdlc's skill/execute.js below execute.waveTimeout in .sdlc/config.json; ship-sdlc no longer forwards it. Maximum seconds a single execute wave may run before stalled tasks are terminated. The maximum restates MAX_WAVE_TIMEOUT_SECONDS in plugins/sdlc-utilities/scripts/lib/ship-fields.js, which is the single enforcement point. (R57, R-WAVE-DEADLINE)"
         },
         "executeWaveInterval": {
           "type": "integer",

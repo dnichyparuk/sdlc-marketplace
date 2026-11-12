@@ -30,7 +30,7 @@ const RESERVED_STEPS = ['cleanup'];
 // legacy `ship.executeWaveTimeout`; R57, R-WAVE-DEADLINE). Single enforcement
 // point, imported by scripts/skill/execute.js; the JSON Schema `maximum` and
 // the user docs restate this number and name this constant as their source.
-const MAX_WAVE_TIMEOUT_SECONDS = 3600; // Monitor.timeout_ms caps at 3600000 ms
+const MAX_WAVE_TIMEOUT_SECONDS = 3600; // one wave; the wait repeats wave-progress --wait calls (execute R92)
 
 const SHIP_FIELDS = [
   {

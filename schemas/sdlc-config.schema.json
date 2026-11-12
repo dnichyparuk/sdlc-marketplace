@@ -314,7 +314,7 @@
           "type": "integer",
           "minimum": 10,
           "default": 60,
-          "description": "Wave-runner Monitor poll interval in seconds (R-WAVE-LIVENESS)."
+          "description": "Poll interval in seconds of the blocking wave-progress --wait call (R92)."
         },
         "rebase": {
           "type": "string",

@@ -910,3 +910,11 @@
   assert:
     - type: icontains
       value: "unknown lane nope"
+
+- description: "plan-sdlc/lens-sentinels: R71 runtime-semantics sentinels present in the risk lens, the reviewer and SKILL.md"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-plan-lens-sentinels.js"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.ok === true"

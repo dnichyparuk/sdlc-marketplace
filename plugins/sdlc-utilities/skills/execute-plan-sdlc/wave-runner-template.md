@@ -19,7 +19,7 @@ qualityTier      — "full" | "balanced" | "minimal"
 escalationBudget — integer (max 2 retries per task; see §4)
 waveTimeout      — integer (seconds) wall-clock budget for this wave, from ship config
                    `executeWaveTimeout`; you enforce it yourself (see §2b)
-waveInterval     — integer (seconds) `Monitor` poll interval, from ship config
+waveInterval     — integer (seconds) poll interval of `wave-progress --wait`, from ship config
                    `executeWaveInterval`
 runId            — string (returned by `wave-start`, derived from the state file's `startedAt`)
 stateScript      — absolute path to state/execute.js
@@ -81,24 +81,23 @@ Send all Agent dispatches in one message — one per `agentFiles` entry, with it
 
 ### 2b. Enforce the wave deadline (R-WAVE-DEADLINE, #506)
 
-**No hand-back mid-wave (R86).** You run as a subagent: never end your turn while a worker you dispatched is still in flight; keep polling with Monitor until every worker has returned or the deadline has passed.
+**No hand-back mid-wave (R86).** You run as a subagent: never end your turn while a worker you dispatched is still in flight; wait only with the blocking `wave-progress --wait` call below (R92) until every worker has returned or the deadline has passed. Never start `Monitor`, a background `sleep` or any other timer to wait, and never poll with `git status` or `wave-progress --read` between waits. Before you return, call `TaskStop` on every background task you started that is still running.
 
-**Stale hand-backs (R91).** A worker hand-back for a task you already recorded, or that arrives after you returned the wave, is stale. Print one line `ignored stale hand-back for wave <n> task <id>` and do nothing else for it.
+**Stale hand-backs (R91).** A worker hand-back for a task you already recorded, or that arrives after you returned the wave, is stale. Print one line `ignored stale hand-back for wave <n> task <id>` and make no tool call for it: no dispatch, no state write, no re-run, no new report.
 
 You received `waveTimeout` (seconds) in your manifest. Enforce it yourself — the harness has no
 per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).
 
 1. Record the dispatch time. All per-task dispatches from §2 run in the background, so
    each returns a task ID immediately rather than blocking.
-2. Poll with `Monitor`, using an interval of `executeWaveInterval` seconds and a `timeout_ms` no
-   greater than the remaining budget. `Monitor.timeout_ms` caps at 3600000, which is why
-   `executeWaveTimeout` caps at 3600 seconds.
-3. On each poll, read the progress markers to learn which tasks are still in flight:
-   `node {STATE_SCRIPT} wave-progress --wave {WAVE} --run-id {RUN_ID} --read`
-   A task whose marker `phase` is not yet `reporting` is in flight. Use this set — not your own
-   memory of the dispatch list — as the termination target in step 4; a worker may have finished
-   and reported between two polls.
-4. When the deadline expires, call `TaskStop` on every task still in flight per step 3.
+2. Wait with one foreground Bash call (Bash `timeout` parameter 600000):
+   `node {STATE_SCRIPT} wave-progress --wave {WAVE} --run-id {RUN_ID} --wait --tasks <plan task ids of the wave, comma-separated> --interval <waveInterval> --timeout <min(540, remaining budget in seconds)>`.
+   Repeat the call while fewer than N returns have arrived and the deadline has not passed.
+3. Use the call's `inFlight` list as the termination target in step 4; a returned task ID is in
+   flight while any plan task ID it covers is in `inFlight`. A task whose marker `phase` is not
+   yet `reporting` is in flight. Do not rely on your own memory of the dispatch list; a worker
+   may have finished and reported between two waits.
+4. When the deadline expires, call `TaskStop` on every task still in flight per `inFlight`.
    Terminate only overrun workers — a worker that has already reported is left alone.
 5. Report each terminated task with `status: "FAILED"` and `errorCode: "TIMEOUT"`, and set the
    wave `status` to `partial` (not `failed` — completed tasks in the same wave are still valid).
