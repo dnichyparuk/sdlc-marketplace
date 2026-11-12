@@ -196,6 +196,14 @@
     - type: javascript
       value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
 
+- description: "worker-write-guard: (k2b) echo x >&src/a.js denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x >&src/a.js"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout.includes('deny')"
+
 - description: "worker-write-guard: (k3) grep double-quoted a > b allowed"
   vars:
     script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"

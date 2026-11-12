@@ -62,8 +62,8 @@ function isAllowedTarget(target) {
 }
 
 function redirectDenied(cmd, masked) {
-  // Also catches `&>`, `&>>`, and fd redirects such as `2>` and `1>>`; `2>&1` and `>&2` stay allowed.
-  const re = /(^|[^>&0-9])(?:&|[0-9]+)?>>?(?!&)[ \t]*(\S*)/g;
+  // Also catches `&>`, `&>>`, and fd redirects such as `2>` and `1>>`; `2>&1` and `>&2` (fd duplication, `>&N` or `>&-`) stay allowed; `>&file` is checked like `&>file`.
+  const re = /(^|[^>&0-9])(?:&|[0-9]+)?>>?(?!&(?:[0-9]+|-)(?:[\s;&|)]|$))&?[ \t]*(\S*)/g;
   let m;
   while ((m = re.exec(masked)) !== null) {
     const end = m.index + m[0].length;
