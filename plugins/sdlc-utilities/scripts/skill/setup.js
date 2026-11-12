@@ -502,7 +502,11 @@ function parseArgs(argv) {
       scan = true;
     } else if (a === '--scan-prs') {
       scanPrs = true;
-    } else if (a === '--skip' && args[i + 1]) {
+    } else if (a === '--skip') {
+      if (!args[i + 1] || args[i + 1].startsWith('--')) {
+        process.stderr.write('setup-prepare: --skip requires a section id\n');
+        process.exit(1);
+      }
       // --skip <ids> — comma-separated config section ids, repeatable (A2, P-skip).
       for (const id of args[i + 1].split(',').map(s => s.trim()).filter(Boolean)) {
         if (!skip.includes(id)) skip.push(id);

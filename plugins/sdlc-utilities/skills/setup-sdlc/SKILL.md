@@ -22,8 +22,8 @@ delegates content creation to specialized skills.
 |------|-------------|---------|
 | `--migrate` | Force migration of legacy config files even if no legacy files are auto-detected | off |
 | `--skip <section>` | Skip config sections (comma-separated or repeated). Valid values: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`. `skill/setup.js` validates them into `prepare.flags.skip`; Step 0 removes them from the resolved selection. Locked legacy rows are not removed | none |
-| `--force` | Skip the per-field `keep` prompt so every value is reconfirmed. Does not change menu pre-selection and does not skip the menu | off |
-| `--unset-only` | Pre-check only `not-set` rows; the default menu reply becomes `not-set` (`prepare.menuInputContract.defaultToken`). `--force` wins when both are passed | off |
+| `--force` | Currently no effect beyond precedence: it wins over `--unset-only` for the default menu reply. Step 3.G has no per-field `keep` prompt for it to skip (spec A3 gap, tracked separately). Does not skip the menu | off |
+| `--unset-only` | The default menu reply (`prepare.menuInputContract.defaultToken`) becomes `not-set` instead of `all`. `--force` wins when both are passed | off |
 | `--only <ids>` | Comma-separated section ids to configure non-interactively (skips the menu). Valid ids match `prepare.sections[].id`: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`, `plan-template` | none |
 | `--dimensions` | Jump directly to review dimensions sub-flow (alias for `--only review-dimensions`) | off |
 | `--pr-template` | Jump directly to PR template sub-flow (skip config builder) | off |
@@ -511,7 +511,7 @@ Only show sections that were actually created, updated, or migrated. Omit sectio
 
 ## Idempotency
 
-This skill is safe to re-run. Every run offers every section again: all rows are pre-checked by default, and `--unset-only` pre-checks only `not-set` rows. `--force` only skips the per-field `keep` prompt. The `writeProjectConfig` and `writeLocalConfig` functions use read-merge-write, so re-running does not clobber existing config written by other skills.
+This skill is safe to re-run. Every run offers every section again: the default menu reply (`prepare.menuInputContract.defaultToken`) is `all`, or `not-set` with `--unset-only`. `--force` currently only takes precedence over `--unset-only`. The `writeProjectConfig` and `writeLocalConfig` functions use read-merge-write, so re-running does not clobber existing config written by other skills.
 
 ---
 

@@ -26,7 +26,7 @@ Skip the menu, configure only `jira` and `review`. Useful for scripted runs or f
 /setup-sdlc --force
 ```
 
-Pre-check every row in the menu and skip the per-field `keep` prompt — all configured values are reconfirmed rather than accepted with one keystroke.
+Keeps the default menu reply at `all` and wins over `--unset-only`. It currently has no other effect: the per-field `keep` prompt it is specified to skip does not exist in Step 3.G (spec A3 gap, tracked separately). Every row is pre-checked by default.
 
 ```text
 /setup-sdlc --skip jira,commit
@@ -42,8 +42,8 @@ Show the menu as usual, but leave `jira` and `commit` out of the selection. Only
 |------|-------------|---------|
 | `--migrate` | Run schema migration via `scripts/skill/migrate-config.js`: relocates legacy `.claude/sdlc.json` to `.sdlc/config.json`, walks the schema-version migration registry (`lib/config-migrations.js`) to bring both project + local configs to the current `schemaVersion` (4 at the time of writing), and consolidates legacy per-file configs (`.claude/version.json`, `.sdlc/ship-config.json`, etc.) via `lib/config.js::consolidateLegacyFiles`. Idempotent. Backups: legacy relocation writes to `.sdlc/sdlc.json.bak` (single, no timestamp); other in-place migrations write to `.sdlc/<file>.bak.<safe-iso>`. Setup sweeps to retain 3 newest per role. | — |
 | `--skip <section>` | Skip config sections, comma-separated or repeated (version, ship, jira, review, received-review, commit, pr). They are removed from the menu or `--only` selection; locked legacy sections stay. An unknown id stops setup with an error. | — |
-| `--force` | Skip the per-field `keep` prompt for every field — all values are reconfirmed rather than accepted with one keystroke. Does not change which rows are pre-checked (all rows are pre-checked by default). | — |
-| `--unset-only` | Pre-check only sections in `not-set` state. Legacy fast-path before #235 — the default flow now pre-checks all rows. | — |
+| `--force` | Currently no effect beyond winning over `--unset-only` (default menu reply stays `all`); the per-field `keep` prompt it is specified to skip does not exist yet (spec A3 gap). Does not skip the menu. | — |
+| `--unset-only` | Pre-check only sections in `not-set` state; the default menu reply becomes `not-set`. `--force` wins when both are passed. Legacy fast-path before #235 — the default flow now pre-checks all rows. | — |
 | `--only <ids>` | Comma-separated section ids to configure non-interactively (skips the menu). Valid: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block` | — |
 | `--dimensions` | Jump directly to review dimensions sub-flow (alias for `--only review-dimensions`) | — |
 | `--pr-template` | Jump directly to PR template sub-flow (skip config builder) | — |
