@@ -419,13 +419,13 @@ Run the project scan once per run, just before the first `setup-dimensions` or `
 
 #### Diff preview
 <!-- implements R-walk-3, P9, E6 -->
-Before the write, preview it with the same script in dry-run mode. Never put config JSON into a shell command: it holds user answers. Create one file per slice you will write: run `mktemp` for each, Read the empty file, then Write the JSON object into it with the Write tool. Pass exactly the `--project-config-file` and `--local-config-file` arguments the write step will pass (leave out a slice you do not write):
+Before the write, preview it with the same script in dry-run mode. Never put config JSON into a shell command: it holds user answers. Create one file per slice you will write: run `mktemp` for each (an exception to the no-`mktemp` rule: these are input files that only the Write tool can fill, not script output), call the paths `SETUP_PROJECT_CONFIG_FILE` and `SETUP_LOCAL_CONFIG_FILE` from here on, Read each empty file, then Write the JSON object into it with the Write tool. Pass exactly the `--project-config-file` and `--local-config-file` arguments the write step will pass (leave out a slice you do not write):
 
 ```bash
-node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --dry-run --project-config-file "<PROJECT_CONFIG_FILE>" --local-config-file "<LOCAL_CONFIG_FILE>"
+node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --dry-run --project-config-file "<SETUP_PROJECT_CONFIG_FILE>" --local-config-file "<SETUP_LOCAL_CONFIG_FILE>"
 ```
 
-Run this as one plain Bash call. Take the output path the command prints on stdout as `DRYRUN_OUTPUT_FILE`, and the exit code from the tool result. If the exit code is non-zero, show the command's stderr verbatim (and `errors[]` from the JSON when a path was printed), print `Write cancelled — no changes made.` and skip the write step. Otherwise read the JSON at the literal path and require `dryRun === true`; when it is not `true` (an older script that ignores `--dry-run` would have written the config), print `Write cancelled — setup-init.js did not run in dry-run mode.` and skip the write step. The script writes nothing.
+Run this as one plain Bash call. Take the output path the command prints on stdout as `DRYRUN_OUTPUT_FILE`, and the exit code from the tool result. If the exit code is non-zero, show the command's stderr verbatim (and `errors[]` from the JSON when a path was printed), print `Write cancelled — no changes made.` and skip the write step. Otherwise read the JSON at the literal path and require `dryRun === true` and, for every slice you passed, `inputs.projectConfig === true` / `inputs.localConfig === true`; when either check fails (an older script that ignores `--dry-run` or the file flags would report no change and drop the answers), print `Write cancelled — setup-init.js is out of date (it did not acknowledge the preview inputs).` and skip the write step. The script writes nothing.
 
 Render `diff.projectConfig.changed` and `diff.localConfig.changed` (a `null` entry means no change for that file: contribute no rows) as one markdown table. Object values are shown as compact JSON. A row without a `before` key shows `(unset)`; a row without an `after` key (a removed field) shows `(deleted)`:
 
@@ -440,21 +440,21 @@ When every entry is `null` or has an empty `changed` list, skip the preview and 
 
 Otherwise, ask the user to confirm the diff via AskUserQuestion. On rejection, print `Write cancelled — no changes made.` and skip the write step.
 
+**Cleanup (every path).** Whatever the outcome of the diff preview — no changes, a dry-run error, a failed `dryRun`/`inputs` check, a rejection, or the write step having run — finish it with one plain Bash call that removes the files created for it: `rm -f "<SETUP_PROJECT_CONFIG_FILE>" "<SETUP_LOCAL_CONFIG_FILE>"` (name only the files you created).
+
 #### Writing config files
 
 After collecting all answers AND confirming the diff preview above, write project config and local config via `util/setup-init.js`:
 
 ```bash
-# <PROJECT_CONFIG_FILE> and <LOCAL_CONFIG_FILE> are the files written for the diff preview,
+# <SETUP_PROJECT_CONFIG_FILE> and <SETUP_LOCAL_CONFIG_FILE> are the files written for the diff preview,
 # holding the config objects assembled from Step 3 (only sections that were configured).
-node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --project-config-file "<PROJECT_CONFIG_FILE>" --local-config-file "<LOCAL_CONFIG_FILE>"
+node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --project-config-file "<SETUP_PROJECT_CONFIG_FILE>" --local-config-file "<SETUP_LOCAL_CONFIG_FILE>"
 ```
 
 Run this as one plain Bash call. Take the output path the command prints on stdout as `INIT_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 Read the JSON at the literal `INIT_OUTPUT_FILE` path.
-
-Once the write step has run or the user has cancelled, remove the config files created for the preview and the write with `rm -f`.
 
 Display created files, check for errors. The `setup-init.js` script deterministically creates `.sdlc/` directory, `.sdlc/.gitignore`, writes config files via `writeProjectConfig` and `writeLocalConfig` (read-merge-write, so existing sections are preserved), and ensures a managed `.gitignore` block exists in the project root listing transient skill artifact patterns (`*-context-*.json`, `*-manifest-*.json`, `*-prepare-*.json`). The managed block is delimited by sentinel comments (`# >>> sdlc-utilities managed`/`# <<< sdlc-utilities managed`) and is idempotent — re-running setup-sdlc replaces the block contents in place rather than duplicating. Existing user content in `.gitignore` is preserved.
 

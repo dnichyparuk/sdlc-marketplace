@@ -77,11 +77,12 @@ function parseArgs(argv) {
 // Validation
 // ---------------------------------------------------------------------------
 
-function validate(parsed) {
+/**
+ * Resolve the file forms into the inline fields (pure of validation). A file's content
+ * is never echoed into an error message: only the flag and the path are named.
+ */
+function resolveConfigFiles(parsed) {
   const errors = [];
-
-  // A config given as a file is read into the same string field, so the JSON checks
-  // below cover both forms. The file form avoids shell quoting of the JSON.
   for (const [flag, fileKey, valueKey] of [
     ['--project-config', 'projectConfigFile', 'projectConfig'],
     ['--local-config',   'localConfigFile',   'localConfig'],
@@ -94,19 +95,30 @@ function validate(parsed) {
     try {
       parsed[valueKey] = fs.readFileSync(parsed[fileKey], 'utf8');
     } catch (e) {
-      errors.push(`${flag}-file cannot be read: ${e.message}`);
+      errors.push(`${flag}-file cannot be read: ${parsed[fileKey]} (${e.code || 'error'})`);
     }
   }
+  return errors;
+}
 
-  for (const [flag, key] of [['--project-config', 'projectConfig'], ['--local-config', 'localConfig']]) {
+function validate(parsed) {
+  const errors = [];
+
+  for (const [flag, key, fileKey] of [
+    ['--project-config', 'projectConfig', 'projectConfigFile'],
+    ['--local-config',   'localConfig',   'localConfigFile'],
+  ]) {
     if (parsed[key] === null) continue;
+    const fromFile = parsed[fileKey] !== null && parsed[fileKey] !== undefined;
     try {
       const value = JSON.parse(parsed[key]);
       if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-        errors.push(`${flag} must be a JSON object`);
+        errors.push(`${flag}${fromFile ? '-file' : ''} must be a JSON object`);
       }
     } catch (e) {
-      errors.push(`${flag} is not valid JSON: ${e.message}`);
+      errors.push(fromFile
+        ? `${flag}-file is not valid JSON: ${parsed[fileKey]}`
+        : `${flag} is not valid JSON: ${e.message}`);
     }
   }
 
@@ -182,7 +194,7 @@ function main() {
   const warnings = [];
 
   // Validate inputs
-  const validationErrors = validate(cli);
+  const validationErrors = [...resolveConfigFiles(cli), ...validate(cli)];
   if (validationErrors.length > 0) {
     errors.push(...validationErrors);
     writeOutput({ errors, warnings }, 'setup-init', 1);
@@ -199,7 +211,11 @@ function main() {
       const { existing, merged } = merge(projectRoot, config);
       return { path: rel, ...computeConfigDiff(existing, merged) };
     };
-    writeOutput({ errors, warnings, dryRun: true, diff: {
+    // `inputs` acknowledges which slices this script received, so the skill can detect an
+    // older script that ignores the file flags (its null diff would look like "no change").
+    writeOutput({ errors, warnings, dryRun: true,
+      inputs: { projectConfig: cli.projectConfig !== null, localConfig: cli.localConfig !== null },
+      diff: {
       projectConfig: entry(cli.projectConfig, mergeProjectConfig, '.sdlc/config.json'),
       localConfig:   entry(cli.localConfig,   mergeLocalConfig,   '.sdlc/local.json'),
     } }, 'setup-init', 0);
@@ -272,4 +288,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseArgs, validate };
+module.exports = { parseArgs, resolveConfigFiles, validate };

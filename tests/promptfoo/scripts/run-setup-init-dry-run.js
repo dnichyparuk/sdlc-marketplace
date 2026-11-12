@@ -13,7 +13,7 @@
  *   node run-setup-init-dry-run.js
  *
  * Output:
- *   { "exit": 0, "treeUnchanged": true, "secondRunSame": true, "dryRun": true,
+ *   { "exit": 0, "treeUnchanged": true, "secondRunSame": true, "dryRun": true, "inputsAcked": true,
  *     "fileFormSame": true, "fileFormRoundTrip": true,
  *     "projectPaths": [...], "localPaths": [...] }
  */
@@ -57,7 +57,20 @@ function dryRun(cwd, extra) {
   return { exit: res.status, manifest };
 }
 
+// Run an invalid invocation; report its exit code and the errors[] text (manifest path on stdout).
+function failing(cwd, args) {
+  const res = spawnSync(process.execPath, [setupInit, ...args], { cwd, encoding: 'utf8' });
+  let errors = [];
+  const manifestPath = (res.stdout || '').trim().split('\n').pop();
+  try {
+    errors = JSON.parse(fs.readFileSync(manifestPath, 'utf8')).errors || [];
+    fs.rmSync(manifestPath, { force: true });
+  } catch (_) { /* no manifest */ }
+  return { exit: res.status, errors: errors.join(' | ') };
+}
+
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-init-dry-run-'));
+const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-init-cfg-'));
 try {
   fs.cpSync(fixture, tmp, { recursive: true });
   const before = snapshot(tmp);
@@ -65,7 +78,6 @@ try {
   const second = dryRun(tmp);
   // File form: the same configs read from files (no shell quoting), plus a value with a
   // single quote and shell metacharacters that must round-trip untouched.
-  const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-init-cfg-'));
   const projFile = path.join(cfgDir, 'project.json');
   const localFile = path.join(cfgDir, 'local.json');
   fs.writeFileSync(projFile, PROJECT_JSON);
@@ -74,22 +86,32 @@ try {
   const nastyValue = "it's $(touch pwned); `id` \"x\"";
   fs.writeFileSync(projFile, JSON.stringify({ pr: { expectedAccount: nastyValue } }));
   const nasty = dryRun(tmp, ['--project-config-file', projFile]);
-  fs.rmSync(cfgDir, { recursive: true, force: true });
   const nastyRow = ((nasty.manifest.diff || {}).projectConfig || { changed: [] }).changed
     .find((c) => c.path === 'pr.expectedAccount' || c.path === 'pr');
+  // Error paths: each must exit 1 (not 2); a non-JSON file's content must not be echoed.
+  fs.writeFileSync(projFile, 'SECRET-TOKEN-123 not json');
+  const badFile = failing(tmp, ['--dry-run', '--project-config-file', projFile]);
+  const missing = failing(tmp, ['--dry-run', '--project-config-file', path.join(cfgDir, 'nope.json')]);
+  const nonObject = failing(tmp, ['--dry-run', '--project-config', 'null']);
+  const badInline = failing(tmp, ['--dry-run', '--project-config', 'not-json']);
   const after = snapshot(tmp);
   const paths = (d) => (d ? d.changed.map((c) => c.path) : null);
   const diff = first.manifest.diff || {};
   process.stdout.write(JSON.stringify({
-    exit: first.exit !== 0 ? first.exit : second.exit,
+    exit: [first, second, viaFile, nasty].map((r) => r.exit).find((e) => e !== 0) || 0,
     treeUnchanged: JSON.stringify(before) === JSON.stringify(after),
     secondRunSame: JSON.stringify(first.manifest.diff) === JSON.stringify(second.manifest.diff),
     dryRun: first.manifest.dryRun === true,
+    inputsAcked: !!first.manifest.inputs && first.manifest.inputs.projectConfig === true && first.manifest.inputs.localConfig === true,
     fileFormSame: JSON.stringify(first.manifest.diff) === JSON.stringify(viaFile.manifest.diff),
     fileFormRoundTrip: !!nastyRow && JSON.stringify(nastyRow.after).includes(JSON.stringify(nastyValue).slice(1, -1)),
+    errorExits: { badFile: badFile.exit, missing: missing.exit, nonObject: nonObject.exit, badInline: badInline.exit },
+    missingNamed: /cannot be read/.test(missing.errors),
+    fileContentNotEchoed: !/SECRET-TOKEN/.test(badFile.errors) && /not valid JSON/.test(badFile.errors),
     projectPaths: paths(diff.projectConfig),
     localPaths: paths(diff.localConfig),
   }) + '\n');
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
+  fs.rmSync(cfgDir, { recursive: true, force: true });
 }

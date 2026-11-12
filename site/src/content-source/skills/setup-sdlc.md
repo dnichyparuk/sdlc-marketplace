@@ -263,6 +263,8 @@ After selection, the skill writes the configuration to `.sdlc/config.json` and s
 
 After configuration sections are complete, `/setup-sdlc` offers to set up content assets using built-in sub-flows:
 
+The review-dimensions and PR-template sub-flows share one project scan per run. When that scan fails, `/setup-sdlc` prints `Project scan failed — skipping the sections that need it.`, skips those two sub-flows and continues with the other selected sections.
+
 #### Review Dimensions
 
 Scans your project's tech stack, dependencies, and directory structure to propose review dimensions (e.g., security, performance, type safety, documentation). Each dimension defines a set of review checks to apply during `/review-sdlc`. Dimensions are stored in `.sdlc/review-dimensions/*.yaml`.
@@ -300,7 +302,7 @@ Each option can be individually skipped or accessed later via the `--dimensions`
 
 ### Diff Preview and Confirmation
 
-Before writing any config files, `/setup-sdlc` runs `util/setup-init.js --dry-run` with the answers from the session. It applies the same section-level merge as the real write to `.sdlc/config.json` and `.sdlc/local.json`, writes nothing, and shows the changed fields. Sections you did not touch are not shown. Each prompt in the config builder defaults to the value already in your config, so pressing Enter keeps it:
+Before writing any config files, `/setup-sdlc` runs `util/setup-init.js --dry-run` with the answers from the session. It applies the same section-level merge as the real write to `.sdlc/config.json` and `.sdlc/local.json`, writes nothing, and shows the changed fields. Sections you did not touch are not shown. Each prompt in the config builder defaults to the value already in your config, so accepting the default keeps it (for an optional field, an empty answer removes the value):
 
 ```
 | file              | path               | before   | after       |
@@ -310,7 +312,7 @@ Before writing any config files, `/setup-sdlc` runs `util/setup-init.js --dry-ru
 | .sdlc/local.json  | pr.expectedAccount | (unset)  | rnagrodzki  |
 ```
 
-A removed field shows `(deleted)` in the `after` column. The answers are passed to the script as JSON files (`--project-config-file`, `--local-config-file`), never inside a shell command, and the preview is trusted only when the script reports `dryRun: true`.
+A removed field shows `(deleted)` in the `after` column. The answers are passed to the script as JSON files (`--project-config-file`, `--local-config-file`), never inside a shell command, and the preview is trusted only when the script reports `dryRun: true` and acknowledges the inputs it received. The files are removed whatever the outcome.
 
 When no fields changed, the preview is replaced with `No changes — nothing to write.` and the write step is skipped.
 
