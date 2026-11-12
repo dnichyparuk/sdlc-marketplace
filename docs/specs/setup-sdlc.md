@@ -2,7 +2,7 @@
 
 > Unified setup skill: detect existing configuration, migrate legacy files, interactively configure missing sections, and delegate content creation (review dimensions, PR template, guardrails). Safe to re-run (idempotent).
 >
-> **Layout:** Project SDLC config lives at `<project>/.sdlc/config.json` (was `<project>/.claude/sdlc.json`). Local developer config remains at `<project>/.sdlc/local.json`. Review dimensions live at `<project>/.sdlc/review-dimensions/`. Learnings live at `<project>/.sdlc/learnings/log.md`. Both project and local config files carry a top-level `schemaVersion` integer (current value: `3`) verified on every skill load via `lib/config-version.js::verifyAndMigrate`. Legacy `.claude/sdlc.json` is read transparently as a fallback during the deprecation window with a single stderr deprecation warning per process.
+> **Layout:** Project SDLC config lives at `<project>/.sdlc/config.json` (was `<project>/.claude/sdlc.json`). Local developer config remains at `<project>/.sdlc/local.json`. Review dimensions live at `<project>/.sdlc/review-dimensions/`. Learnings live at `<project>/.sdlc/learnings/log.md`. Both project and local config files carry a top-level `schemaVersion` integer (the current `CURRENT_SCHEMA_VERSION` from `scripts/lib/config-version.js`; 4 at the time of writing) verified on every skill load via `lib/config-version.js::verifyAndMigrate`. Legacy `.claude/sdlc.json` is read transparently as a fallback during the deprecation window with a single stderr deprecation warning per process.
 
 **User-invocable:** yes
 **Prepare script:** `skill/setup.js`
@@ -10,8 +10,8 @@
 ## Inputs and flags
 
 - A1: `--migrate` — force migration of legacy config files even if none auto-detected (default: false)
-- A2: `--skip <section>` — skip a config section during setup; valid: version, ship, jira, review, commit, pr, content (default: none)
-- A3: `--force` — skip the per-field `keep` prompt so every field is explicitly reconfirmed; does not change default row pre-selection (all rows are pre-checked by default) (default: false)
+- A2: `--skip <section>` — skip config sections during setup; comma-separated or repeated. Valid values are the config section ids: the `prepare.sections[]` ids whose `delegatedTo` is not a `setup-*` sub-flow (`version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`). `skill/setup.js` validates them and emits them as `flags.skip` (P-skip); an unknown id makes the script exit non-zero (E1). The ids are subtracted from `selectedIds` after the Step 1 menu or `--only` resolves; a locked legacy row (R-menu-3) is not subtracted (default: none)
+- A3: `--force` — skip the per-field `keep` prompt so every field is explicitly reconfirmed; does not change default row pre-selection (all rows are pre-checked by default) and does not bypass the Step 1 menu (default: false)
 - A4: `--dimensions` — jump directly to review dimensions sub-flow (default: false)
 - A5: `--pr-template` — jump directly to PR template sub-flow (default: false)
 - A6: `--guardrails` — jump directly to plan guardrails sub-flow (default: false)
@@ -27,7 +27,7 @@
 - R2: Flag routing: `--dimensions`, `--pr-template`, `--guardrails`, `--execution-guardrails` each bypass main flow and enter their sub-flow directly after pre-flight
 - R20: `--openspec-enrich` flag provides direct entry to the openspec enrichment sub-flow, bypassing the main config builder (same pattern as `--dimensions`, `--pr-template`)
 - R21: `--remove-openspec` flag removes the managed block (restores user-authored content verbatim) and exits
-- R-walk-1: Default selection mode is `all` — every section row is pre-checked by the menu. The legacy `unset-only` mode (only `state === 'not-set'` rows pre-checked) is gated behind the `--unset-only` flag. The selection mode resolves into a single `flags.unsetOnly` boolean in the prepare output, and SKILL.md cites that field by name (per `flag-coherence-cross-skill`).
+- R-walk-1: Default selection mode is `all` — every section row is pre-checked by the menu. The legacy `unset-only` mode (only `state === 'not-set'` rows pre-checked) is gated behind the `--unset-only` flag. The selection mode resolves into a single `defaultSelectionMode` field (`all` | `unset-only`) in the prepare output, where `--force` wins over `--unset-only` (R-walk-2); `flags.unsetOnly` keeps the raw flag value. `menuInputContract.defaultToken` is derived from `defaultSelectionMode`, and SKILL.md cites `menuInputContract.defaultToken` by name (per `flag-coherence-cross-skill`).
 - R-walk-2: A8a `--unset-only` — explicit opt-in to legacy fast-path. Skips already-set sections in the default-selection list. Mutually compatible with `--force`; when both are passed, `--force` wins (selection mode is `all`).
 
 ## State model
@@ -38,7 +38,7 @@
 - R23: Setup writes a managed gitignore block to the consumer project root `.gitignore` listing all transient skill artifact patterns (`*-context-*.json`, `*-manifest-*.json`, `*-prepare-*.json`). The block is delimited by `# >>> sdlc-utilities managed (do not edit) — transient skill artifacts` / `# <<< sdlc-utilities managed` markers and is idempotent — re-runs replace the contents in place rather than duplicating. Existing user-authored content in `.gitignore` is preserved; the block is appended (creating `.gitignore` if absent) or updated in place if already present. The block is project-agnostic and ships to every consumer of the plugin. Implementation: `lib/config.js::ensureRootGitignore`, called from `util/setup-init.js`.
   - Acceptance: `ensureRootGitignore(<empty dir>)` returns `'created'` and writes a `.gitignore` containing all three patterns; a second call returns `'unchanged'`; calling against an existing `.gitignore` preserves user content (e.g., `node_modules/`) and appends the block; `git check-ignore commit-context-abc.json pr-context-x.json review-manifest-y.json ship-prepare-z.json` exits 0 in any consumer project that ran setup-sdlc.
 - R-layout-1: Project config writes target `.sdlc/config.json`. Direct writes to `.sdlc/config.json` are obsolete. `util/setup-init.js` creates the `.sdlc/` directory if missing and writes `.sdlc/config.json`. The pre-existing requirement R6 ("Config writes go through `util/setup-init.js` which calls `lib/config.js` functions") is preserved; only the on-disk path target changes.
-- R-layout-2: Initial project-config write stamps `schemaVersion: 3` (the current `CURRENT_SCHEMA_VERSION` exported from `scripts/lib/config-version.js`). Initial local-config write stamps `schemaVersion: 3` (replacing the legacy top-level `version: 2` integer; the field is renamed as part of the v2→v3 migration step).
+- R-layout-2: Initial project-config write stamps `schemaVersion: CURRENT_SCHEMA_VERSION` (exported from `scripts/lib/config-version.js`; 4 at the time of writing). Initial local-config write stamps the same `schemaVersion` (the legacy top-level `version: 2` integer was renamed to `schemaVersion` by the v2→v3 migration step).
 - R-layout-3: During Phase 3 (Migration), setup-sdlc invokes `consolidateLegacyFiles()` (renamed from `migrateConfig()`) for legacy file consolidation, then invokes `scripts/skill/migrate-config.js` (which calls `verifyAndMigrate(projectRoot, 'project')` and `verifyAndMigrate(projectRoot, 'local')`) for schema migration. The two operations are distinct: `consolidateLegacyFiles()` merges historical separate config files (version.json, ship-config.json, review.json) into the unified config; `verifyAndMigrate()` walks the schema-version migration registry. They run in this order during setup; `verifyAndMigrate()` runs on every skill load thereafter.
 - R-layout-4: `.sdlc/.gitignore` content is selective. The managed block lists explicit ignore patterns: `local.json`, `cache/`, `*.bak.*`, `.migration.lock`. Files committed to the repo (under `.sdlc/`): `config.json`, `review-dimensions/`. The historical `*\n` blanket-ignore content is replaced. Implementation: `lib/config.js::ensureSdlcGitignore`.
 - R-layout-5: Root `.gitignore` managed block (existing R23) is extended with the following patterns alongside existing transient artifacts: `.sdlc/local.json`, `.sdlc/cache/`, `.sdlc/*.bak.*`, `.sdlc/.migration.lock`. The block version marker is bumped to `v2` so existing v1 blocks are replaced cleanly. Implementation: `lib/config.js::ensureRootGitignore`.
@@ -68,7 +68,7 @@
    - `delegatedTo: null` → generic field loop (one AskUserQuestion per `section.fields[]` entry, optionally gated by `section.confirmDetected`)
    - `delegatedTo: 'inline-commit-builder' | 'inline-pr-builder'` → conditional inline pattern builders for `commit` / `pr` sections
    - `delegatedTo: 'setup-<sub>'` → invoke the sub-flow document (review-dimensions, pr-template, plan-guardrails, execution-guardrails, openspec-block)
-   - **Output:** config files written to `.sdlc/config.json` and `.sdlc/local.json` via `lib/config.js::writeProjectConfig`/`writeLocalConfig` (each write stamps `schemaVersion: 3`); content artifacts written by sub-flows
+   - **Output:** config files written to `.sdlc/config.json` and `.sdlc/local.json` via `lib/config.js::writeProjectConfig`/`writeLocalConfig` (each write stamps `schemaVersion: CURRENT_SCHEMA_VERSION`, R-layout-2); content artifacts written by sub-flows
 5. SUMMARY — display what was created, updated, or migrated
    - **Script:** `skill/setup.js` (re-run for G2 validation)
    - **Params:** none
@@ -78,12 +78,12 @@
 
 - R1: 5-step workflow: Pre-flight → Status Report → Migration → Config Builder → Content Setup → Summary
 - R3: Migration logic: detect legacy config files (version.json, ship-config.json, review.json), offer merge into unified config, optionally delete originals
-- R4: Config builder walks through missing sections interactively: version, ship, jira, review, commit patterns, PR title patterns
+- R4: Config builder walks through missing sections interactively: version, ship, jira, review, received-review (per-user auto-apply severities), commit patterns, PR title patterns
 - R7: Default flow walks every configurable field. For each field the user is presented `keep | change | unset` actions. The legacy "early exit when everything is configured" behavior is preserved as an opt-in via `--unset-only` (see R-walk-1 / R-walk-2). `--force` no longer gates re-prompting (default already re-prompts) but retains its semantic of skipping the per-field "keep" prompt and reconfirming all values.
 - R10: Project scan phase: `skill/setup.js --scan` emits `prepare.scan` (signals, files, hosting, ciFiles, git, jiraEvidence, recentPrs) before content sub-flows
 - R11: Version section requires `mode` field (required by schema): `"file"` when version file detected, `"tag"` when not. Optional fields include `versionFile`, `fileType`, `tagPrefix`, `changelog`, `changelogFile`, `ticketPrefix`, and `preRelease`. The `preRelease` field, when set, is a string matching `^[a-z][a-z0-9]*$` that supplies a default pre-release label to version-sdlc when the user runs `version-sdlc` without an explicit base bump or `--pre`. Empty / skipped answers omit the field; the schema (`schemas/sdlc-config.schema.json`) does not require it.
 - R14: The scan is implemented in `scripts/lib/project-scan.js` (Node `fs` and non-shell git/gh calls); the model does not run Glob or shell globs for it
-- R15: Ship config field enumeration (Step 3b) is authoritative from prepare script output P7 (`shipFields`). The skill MUST iterate every entry in `shipFields` and dispatch one `AskUserQuestion` per field — it MUST NOT hand-enumerate the field list or short-circuit the loop. Entries where `skip: true` (set by the prepare script when a `when.stepInActiveSteps` gate is unsatisfied) MUST be skipped at prompt-time but MUST remain in the `shipFields` array (array order and length are stable so downstream order assertions hold). Ship config writes use answers collected in this loop plus defaults for any field the user explicitly deferred. The `shipFields` contract emits a `steps` multi-select field (canonical step list) and the resulting config write is persisted at top-level schema `version: 2`. The contract MUST NOT emit a `preset` field or a `skip` field — those are legacy CLI-only sugar handled at parse time, not config-level fields.
+- R15: Ship config field enumeration (Step 3b) is authoritative from prepare script output P7 (`shipFields`). The skill MUST iterate every entry in `shipFields` and dispatch one `AskUserQuestion` per field — it MUST NOT hand-enumerate the field list or short-circuit the loop. Entries where `skip: true` (set by the prepare script when a `when.stepInActiveSteps` gate is unsatisfied) MUST be skipped at prompt-time but MUST remain in the `shipFields` array (array order and length are stable so downstream order assertions hold). Ship config writes use answers collected in this loop plus defaults for any field the user explicitly deferred. The `shipFields` contract emits a `steps` multi-select field (canonical step list) and the resulting config write carries the top-level `schemaVersion` stamp (R-layout-2). The contract MUST NOT emit a `preset` field or a `skip` field — those are legacy CLI-only sugar handled at parse time, not config-level fields.
 - R16: When `openspec/config.yaml` is detected during full-interactive setup (Step 4 content menu), prompt the user to apply managed-block enrichment (default: yes). Detection uses prepare script output field `openspecConfig.exists`.
 - R17: Enrichment uses a string-delimited managed block (`# BEGIN MANAGED BY sdlc-utilities (vN)` … `# END MANAGED BY sdlc-utilities (vN)`) with a plugin-owned version marker. The block is appended, updated, or left unchanged by `scripts/util/openspec-enrich.js`.
 - R18: Re-running setup on an already-enriched config at the current plugin version is a no-op (exit 0, action: `"unchanged"`)
@@ -152,11 +152,11 @@
 - P4: `content` (object) — `{ reviewDimensions: { count, path }, prTemplate: { exists, path }, jiraTemplates: { count, path } }`
 - P5: `detected` (object) — `{ versionFile, fileType, tagPrefix, defaultBranch }` auto-detected project settings
 - P6: `needsMigration` (boolean) — true when any legacy file exists, any misplaced section found, OR `.sdlc/local.json` has a v1 ship section (`localIsV1` is true)
-- P6a: `localIsV1` (boolean) — true when `.sdlc/local.json` ship section has legacy `preset`/`skip` keys, or lacks a top-level `version: 2` stamp
+- P6a: `localIsV1` (boolean) — true when `.sdlc/local.json` ship section has legacy `preset`/`skip` keys, or lacks both a top-level `schemaVersion` and a legacy top-level `version` stamp while a `ship` section exists
 - P7: `shipFields` (array) — authoritative list of interactive ship-config fields sourced from `scripts/lib/ship-fields.js`. Each entry: `{ name, label, type, options, default, description, when?, skip }`. `name` is the local-config key; `options` is an array of valid values; `default` is the value applied if the user accepts the default answer. Optional `when: { stepInActiveSteps: <ship-step-name> }` declares a gate: the prepare script evaluates it against the `steps[]` selection and sets `skip: true` when the referenced step is absent, `skip: false` otherwise. Entries without `when` always have `skip: false`. The array order and length are always stable — skipped entries remain in the array; they are only excluded from prompting (see R15).
 - P8: `openspecConfig` (object) — `{ exists: boolean, path: string, managedBlockVersion: number|null }` state of `openspec/config.yaml` and its managed block
 - P-sections: `sections` (array) — joined view of `SETUP_SECTIONS` (manifest) × `detect()` state. Drives the Step 1 selective menu and the Step 3 verbose dispatch loop. Each row has shape:
-  - `id` (string) — canonical section id (used by `--only`); one of `version`, `ship`, `jira`, `review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`
+  - `id` (string) — canonical section id (used by `--only`); one of `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`
   - `label` (string) — human-readable section name
   - `state` (string) — `'set'` (configured) | `'not-set'` (no config) | `'legacy'` (legacy file present, `localIsV1`, or managed-block-version below current)
   - `summary` (string) — one-line summary of the current configuration (empty for `not-set`)
@@ -172,7 +172,8 @@
   - `fields` (array) — entries with shape `{ name, label, type, options, default, description, validate? }` matching the `SHIP_FIELDS` shape; empty for delegated and inline-builder sections
 - P-preReleaseCompat — static map keyed by every supported `fileType`; values are `{ level, message }`. Map content is data-only (no detection-time inputs); SKILL.md cites the resolved level by name.
 - P-scan: `scan` (object, present only with `--scan`) — `{ signals: { languages, frameworks, hasDatabase, dbType, hasApi, apiFormat, hasTests, testFramework, hasCi, ciPlatform, hasMonorepo, hasOpenSpec, directories, reviewDimensions, claudeMdRules, structure: { "<glob>": { label, count, samples, truncated } } }, files: { "<rel path>": { content, truncated } }, hosting: { github, via }, ciFiles: [], git: { branch, recentCommits }, jiraEvidence: { keys, ambiguous }, recentPrs: [] }`; `recentPrs` is filled only with `--scan-prs` and GitHub hosting. `signals.reviewDimensions` reads the main worktree; every other field reads the active worktree.
-- P-menuInputContract — object describing the accepted free-text patterns for Step 1's numbered-list reply: `{ tokens: { all, notSet, none, cancel }, allowsNumbers: true, allowsRanges: true, separators: [',', ' '], defaultToken: 'all' | 'not-set' (resolved from flags.unsetOnly) }`. SKILL.md cites this object verbatim when constructing the prompt and when parsing the user's reply — no inline LLM-derived grammar.
+- P-menuInputContract — object describing the accepted free-text patterns for Step 1's numbered-list reply: `{ tokens: { all, notSet, none, cancel }, allowsNumbers: true, allowsRanges: true, separators: [',', ' '], defaultToken: 'all' | 'not-set' (resolved from defaultSelectionMode: 'unset-only' gives 'not-set', otherwise 'all') }`. SKILL.md cites this object verbatim when constructing the prompt and when parsing the user's reply — no inline LLM-derived grammar.
+- P-skip: `flags.skip` (string[]) — the validated `--skip` ids (A2), deduplicated, in argument order; `[]` when `--skip` is absent. SKILL.md subtracts it from `selectedIds` and never parses `--skip` from its arguments itself.
 
 ## Failure handling and resume
 
@@ -200,7 +201,7 @@
 
 - I1: `skill/setup.js` — detects current config state and legacy files
 - I2: `lib/config.js` — `writeProjectConfig`, `writeLocalConfig`, `consolidateLegacyFiles` (renamed from `migrateConfig`), `ensureRootGitignore`, `ensureSdlcGitignore`, `cleanupLegacyClaudeFiles` functions
-- I2a: `lib/config-version.js` — `CURRENT_SCHEMA_VERSION` (current value 3), `verifyAndMigrate(projectRoot, role, opts)` returning `{ schemaVersion, migrated, backupPath, stepsApplied }`. Throws `ConfigVersionTooNewError`, `ConfigMigrationError`, `ConfigMigrationLocked` on failure modes.
+- I2a: `lib/config-version.js` — `CURRENT_SCHEMA_VERSION` (4 at the time of writing), `verifyAndMigrate(projectRoot, role, opts)` returning `{ schemaVersion, migrated, backupPath, stepsApplied }`. Throws `ConfigVersionTooNewError`, `ConfigMigrationError`, `ConfigMigrationLocked` on failure modes.
 - I2b: `lib/config-migrations.js` — `PROJECT_MIGRATIONS` and `LOCAL_MIGRATIONS` ordered arrays of `{ from, to, run, rollback? }` step objects.
 - I2c: `scripts/skill/migrate-config.js` — standalone wrapper around `verifyAndMigrate`, invoked by `setup-sdlc --migrate` and by setup-sdlc's migration phase. Accepts `--dry-run`. Returns 0 on success, non-zero on migration failure.
 - I3: `setup-dimensions.md` — sub-flow for review dimension configuration
@@ -238,6 +239,7 @@
 | R-layout-1 … R-layout-7 | (issue #231) |
 | R-version-1 | (issue #232) |
 | R-walk-1 … R-walk-3 | (issue #235) |
+| A2, R-walk-1, P-skip | (#9361) |
 | R-SCRIPT-VERSIONS | (issue #424) |
 | R-pr-expected-account | (issue #234) |
 | R-pr-template-scaffold | (issue #260) |

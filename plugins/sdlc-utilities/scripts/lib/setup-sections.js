@@ -312,7 +312,7 @@ const SETUP_SECTIONS = [
   {
     id: 'ship',
     label: 'ship',
-    purpose: 'Developer-local pipeline preferences for /ship-sdlc: which steps run by default, default version bump, draft-PR mode, auto-approve, workspace isolation, rebase policy, and review-failure threshold. Stored in .sdlc/local.json (gitignored) so each developer can tune the pipeline without affecting teammates.',
+    purpose: 'Developer-local pipeline preferences for /ship-sdlc: which steps run by default, quick mode, default version bump, draft-PR mode, auto-approve, rebase policy, review-failure threshold, and the verify-pipeline and await-remote-review timings. Stored in .sdlc/local.json (gitignored) so each developer can tune the pipeline without affecting teammates.',
     configFile: '.sdlc/local.json',
     configPath: 'ship',
     consumedBy: ['ship-sdlc'],

@@ -1,8 +1,8 @@
 ---
 name: setup-sdlc
-description: "Use this skill when setting up the SDLC plugin for a project, initializing configuration, or when any skill reports missing config. Renders a selective-section menu so users choose which sections to configure; each selected section prints a verbose header (purpose, files-modified, consuming skills, per-option description) before any prompt. Supports direct sub-flow entry via --only, --dimensions, --pr-template, --guardrails, --execution-guardrails, --openspec-enrich, --plan-template. Arguments: [--migrate] [--skip <section>] [--force] [--only <ids>] [--dimensions] [--pr-template] [--guardrails] [--execution-guardrails] [--openspec-enrich] [--remove-openspec] [--plan-template] [--add] [--no-copilot]"
+description: "Use this skill when setting up the SDLC plugin for a project, initializing configuration, or when any skill reports missing config. Renders a selective-section menu so users choose which sections to configure; each selected section prints a verbose header (purpose, files-modified, consuming skills, per-option description) before any prompt. Supports direct sub-flow entry via --only, --dimensions, --pr-template, --guardrails, --execution-guardrails, --openspec-enrich, --plan-template. Arguments: [--migrate] [--skip <section>] [--force] [--unset-only] [--only <ids>] [--dimensions] [--pr-template] [--guardrails] [--execution-guardrails] [--openspec-enrich] [--remove-openspec] [--plan-template] [--add] [--no-copilot]"
 user-invocable: true
-argument-hint: "[--migrate] [--skip <section>] [--force] [--only <ids>] [--dimensions] [--pr-template] [--guardrails] [--execution-guardrails] [--openspec-enrich] [--remove-openspec] [--plan-template] [--add] [--no-copilot]"
+argument-hint: "[--migrate] [--skip <section>] [--force] [--unset-only] [--only <ids>] [--dimensions] [--pr-template] [--guardrails] [--execution-guardrails] [--openspec-enrich] [--remove-openspec] [--plan-template] [--add] [--no-copilot]"
 model: sonnet
 ---
 
@@ -21,8 +21,9 @@ delegates content creation to specialized skills.
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--migrate` | Force migration of legacy config files even if no legacy files are auto-detected | off |
-| `--skip <section>` | Skip a config section during setup. Valid values: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr` | none |
-| `--force` | Pre-check every menu row (reconfigure everything) instead of selecting only `not-set` rows | off |
+| `--skip <section>` | Skip config sections (comma-separated or repeated). Valid values: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`. `skill/setup.js` validates them into `prepare.flags.skip`; Step 0 removes them from the resolved selection. Locked legacy rows are not removed | none |
+| `--force` | Skip the per-field `keep` prompt so every value is reconfirmed. Does not change menu pre-selection and does not skip the menu | off |
+| `--unset-only` | Pre-check only `not-set` rows; the default menu reply becomes `not-set` (`prepare.menuInputContract.defaultToken`). `--force` wins when both are passed | off |
 | `--only <ids>` | Comma-separated section ids to configure non-interactively (skips the menu). Valid ids match `prepare.sections[].id`: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`, `plan-template` | none |
 | `--dimensions` | Jump directly to review dimensions sub-flow (alias for `--only review-dimensions`) | off |
 | `--pr-template` | Jump directly to PR template sub-flow (skip config builder) | off |
@@ -59,7 +60,7 @@ node "<PLUGIN_ROOT>/scripts/skill/setup.js" --output-file $ARGUMENTS
 
 Run this as one plain Bash call. Take the manifest path the command prints on stdout as `PREPARE_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
-Read the JSON at the literal `PREPARE_OUTPUT_FILE` path. If exit code != 0, display the error and stop.
+If exit code != 0 and the command printed no output path on stdout (for example an unknown `--skip` value), show the command's stderr verbatim and stop without reading a JSON file. Otherwise read the JSON at the literal `PREPARE_OUTPUT_FILE` path; if exit code != 0, display the error and stop.
 
 **Outdated CI scripts warning:** After parsing, check `prepare.scriptVersions.outdatedCount`. If `outdatedCount > 0`, print a visible warning before continuing: <!-- implements R-SCRIPT-VERSIONS -->
 
@@ -86,6 +87,8 @@ The legacy direct-entry flags map onto `--only` (which now drives Step 3 directl
 
 If any of those flags is passed (and `--only` is not), translate it into `--only <id>`. If `--only <ids>` is passed (directly or via translation), skip Step 1's menu and proceed to Step 2 → Step 3 with `selectedIds = <ids>`. Pass through `--add`, `--no-copilot`, and `--remove-openspec` to the relevant sub-flow when invoked.
 
+**Skip subtraction (implements A2, P-skip):** After `selectedIds` resolves (from `--only` here, or from Step 1 Phase 4), remove every id in `prepare.flags.skip` whose row has `section.locked === false`. For a locked id, print one line: `--skip <id> ignored — section is locked (migration required).` If `selectedIds` is then empty, print `No sections selected — no changes made.` and jump to Step 4. Do not parse `--skip` from the arguments yourself; `prepare.flags.skip` is the only source.
+
 If none of the direct-entry flags or `--only` were passed: continue with the full interactive flow (Steps 1 → 2 → 3 → 3b → 4).
 
 The JSON contains these top-level keys:
@@ -104,7 +107,7 @@ The JSON contains these top-level keys:
 
 <!-- Implements R-menu-1, R-menu-4. Step 1 is plain chat output; AskUserQuestion is intentionally NOT used here. -->
 
-**Direct-entry flag bypass (preserved):** When `--only`, `--force`, `--dimensions`, `--pr-template`, `--guardrails`, `--execution-guardrails`, `--openspec-enrich`, or `--plan-template` was passed, `selectedIds` are resolved before Step 1 by the flag-alias routing table in Step 0. Skip the entire menu (no numbered list, no chat prompt) and jump to Step 2/3 with the resolved id set.
+**Direct-entry flag bypass (preserved):** When `--only`, `--dimensions`, `--pr-template`, `--guardrails`, `--execution-guardrails`, `--openspec-enrich`, or `--plan-template` was passed, `selectedIds` are resolved before Step 1 by the flag-alias routing table in Step 0. Skip the entire menu (no numbered list, no chat prompt) and jump to Step 2/3 with the resolved id set.
 
 **Phase 1 — Render the status block.** Print the status block as before, using `section.label` and `section.summary` verbatim:
 
@@ -167,7 +170,7 @@ Do NOT wrap this in `AskUserQuestion`. It is a literal chat output followed by a
 - **Always-include rule:** rows where `section.locked === true` are added to the resolved id list regardless of reply content (preserves R-menu-3). If the only resolved ids are locked rows and the user replied `none`, the no-changes guard does NOT fire (locked rows still enter Step 3).
 - **Invalid input:** if any token is unknown or out of range, print one line: `Invalid input: "<token>" is not a number, range, or known keyword. Try again.` Then re-print the numbered list and the prompt; wait for a new reply. Maximum 3 retries; after that, exit with `No valid input after 3 attempts — no changes made.` and a one-line note.
 
-Store the resolved section ids as `selectedIds`. Defer migration and field collection to Step 2 / Step 3.
+Store the resolved section ids as `selectedIds`, then apply the Step 0 skip subtraction. Defer migration and field collection to Step 2 / Step 3.
 
 ---
 
@@ -178,7 +181,7 @@ Store the resolved section ids as `selectedIds`. Defer migration and field colle
 `needsMigration` is true when ANY of these conditions hold:
 - A legacy config file exists (`.claude/version.json`, `.sdlc/ship-config.json`, `.sdlc/jira-config.json`, `.sdlc/review.json`, `.claude/review.json`)
 - `.sdlc/config.json` contains misplaced sections (e.g. `ship` in the project config)
-- `.sdlc/local.json` is v1 schema — has legacy `ship.preset` or `ship.skip` keys, or lacks the top-level `version: 2` stamp (`localIsV1` from prepare output). Auto-migrated by `lib/config.js::readLocalConfig` on next read; `--migrate` triggers it explicitly with a banner.
+- `.sdlc/local.json` is v1 schema — has legacy `ship.preset` or `ship.skip` keys, or has a `ship` section but neither a top-level `schemaVersion` nor a legacy `version` stamp (`localIsV1` from prepare output). Auto-migrated by `lib/config.js::readLocalConfig` on next read; `--migrate` triggers it explicitly with a banner.
 - `legacy.jiraTemplates.exists` is true (`.claude/jira-templates/` detected — implements R-LEGACY-DETECT)
 
 If legacy files exist or `projectConfig.misplaced` is non-empty, use AskUserQuestion:
@@ -187,7 +190,7 @@ If legacy files exist or `projectConfig.misplaced` is non-empty, use AskUserQues
 
 If `localIsV1` is true but no legacy files and no misplaced sections exist, use AskUserQuestion:
 
-> Ship config at `.sdlc/local.json` uses a v1 schema (missing `version: 2`, or has legacy `preset`/`skip` keys). Migrate to v2 format?
+> Ship config at `.sdlc/local.json` uses a v1 schema (no `schemaVersion` stamp, or legacy `preset`/`skip` keys). Migrate to the current schema?
 
 Options:
 - **yes** -- migrate now (recommended)
@@ -508,7 +511,7 @@ Only show sections that were actually created, updated, or migrated. Omit sectio
 
 ## Idempotency
 
-This skill is safe to re-run. Already-configured sections are skipped unless `--force` is passed. The `writeProjectConfig` and `writeLocalConfig` functions use read-merge-write, so re-running does not clobber existing config written by other skills.
+This skill is safe to re-run. Every run offers every section again: all rows are pre-checked by default, and `--unset-only` pre-checks only `not-set` rows. `--force` only skips the per-field `keep` prompt. The `writeProjectConfig` and `writeLocalConfig` functions use read-merge-write, so re-running does not clobber existing config written by other skills.
 
 ---
 
