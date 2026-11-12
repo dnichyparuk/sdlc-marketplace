@@ -239,7 +239,14 @@ function resolveStepModels(raw) {
       errors.push(`ship.stepModels.${k}: unknown step; expected one of ${STEP_MODEL_KEYS.join(', ')}.`);
       continue;
     }
-    if (v === null || typeof v !== 'object' || Array.isArray(v) || Object.keys(v).length === 0) {
+    if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+      errors.push(`ship.stepModels.${k} must be an object with model and/or effort.`);
+      continue;
+    }
+    for (const key of Object.keys(v)) {
+      if (key !== 'model' && key !== 'effort') errors.push(`ship.stepModels.${k}.${key}: unknown key; expected model or effort.`);
+    }
+    if (v.model === undefined && v.effort === undefined) {
       errors.push(`ship.stepModels.${k} must be an object with model and/or effort.`);
       continue;
     }
@@ -1883,7 +1890,9 @@ function unmetCondition(name, ledger) {
   if (name === 'commit-fixes') {
     const rr = ledger.steps.find(s => s.name === 'received-review');
     if (!rr || rr.status !== 'completed') return 'received-review did not run';
-    return exec('git status --porcelain', { cwd: process.cwd() }) ? null : 'no working-tree changes after received-review';
+    const status = exec('git status --porcelain', { cwd: process.cwd() });
+    if (status === null) return 'git status failed after received-review';
+    return status ? null : 'no working-tree changes after received-review';
   }
   return null; // archive-openspec: met whenever computeSteps returns it conditional
 }
@@ -2705,7 +2714,7 @@ function runAfter(stepArgs) {
   if (after === 'dispatch_received_review' && result.success === true) {
     const rr = ledger.steps.find(s => s.name === 'received-review');
     const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
-    if (rr && rr.fixBaseHead && head && head !== rr.fixBaseHead && !exec('git status --porcelain', { cwd: resolveActiveWorktreeSafe() })) {
+    if (rr && rr.fixBaseHead && head && head !== rr.fixBaseHead && exec('git status --porcelain', { cwd: resolveActiveWorktreeSafe() }) === '') {
       const cf = ledger.steps.find(s => s.name === 'commit-fixes');
       if (cf) Object.assign(cf, { status: 'completed', reason: 'adopted: received-review committed its fixes', artifacts: { commit: head } });
       warnings.push(`received-review committed ${head} itself; adopted as the commit-fixes commit (R97)`);

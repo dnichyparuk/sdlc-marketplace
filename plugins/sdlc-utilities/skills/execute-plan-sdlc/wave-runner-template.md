@@ -95,9 +95,9 @@ per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).
    Repeat the call while fewer than N returns have arrived and the deadline has not passed.
    Compute the remaining budget in whole seconds; when it is below 1, skip the call and go to
    step 4 with the last `inFlight` list (the full task list when there is none). When the call
-   exits non-zero or prints no JSON, it is a failed call, not a timeout: read its stderr, retry it
-   once with corrected arguments, and when it fails again keep waiting for the worker returns until
-   the deadline; go to step 4 only when the deadline has passed. When some workers have already
+   exits non-zero or prints no JSON, it is a failed call, not a timeout: read its stderr and retry it
+   once with corrected arguments, then repeat the call as above (each failed call is retried
+   once); when the deadline has passed, go to step 4. When some workers have already
    returned, pass `--timeout` of at most 60 so the call does not block on a marker a returned
    worker never wrote.
 3. Use the call's `inFlight` list as the termination target in step 4; a returned task ID is in
@@ -204,7 +204,7 @@ The bounded schema enables `lib/wave-summary.js parseWaveSummary` in main contex
 
 The following are main-context responsibilities. Wave-runner MUST NOT perform them:
 
-- **Never call a `state/execute.js` write verb** — main context owns the state file, and a second writer corrupts resume. The only `state/execute.js` call you make is the `wave-progress --read` poll in §2b; the workers you dispatch write their own `wave-progress` heartbeats, which is expected. Report a timeout as `status: "partial"` in `WAVE_SUMMARY`; main context writes `wave-done --status partial --timed-out` (R-main-context-steps).
+- **Never call a `state/execute.js` write verb** — main context owns the state file, and a second writer corrupts resume. The only `state/execute.js` call you make is the blocking `wave-progress --wait` call in §2b; the workers you dispatch write their own `wave-progress` heartbeats, which is expected. Report a timeout as `status: "partial"` in `WAVE_SUMMARY`; main context writes `wave-done --status partial --timed-out` (R-main-context-steps).
 - **Never prompt the user** — there is no user in your context. Persistent failures go back in `WAVE_SUMMARY` with `status: FAILED`, and main context decides what to do (harden, escalate, break the task, cancel).
 - **Never alter `guardrails` or `expectedFiles`** (or `verificationHint`) — they are wave-level invariants that main context sets at wave-build time; every dispatch, retries included, carries them verbatim (R33).
 

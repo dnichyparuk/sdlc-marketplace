@@ -172,7 +172,14 @@ const stubDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'ship-stepper-g
 fs.writeFileSync(path.join(stubDir, 'gh'), '#!/bin/sh\nif [ "$1" = "pr" ] && [ "$2" = "view" ]; then\n  if [ -n "$STUB_PR_URL" ]; then echo "{\\"number\\":${STUB_PR_NUMBER:-1},\\"title\\":\\"fixture\\",\\"url\\":\\"$STUB_PR_URL\\",\\"state\\":\\"OPEN\\",\\"labels\\":[]}"; exit 0; fi\n  exit 1\nfi\nif [ "$1" = "repo" ] && [ "$2" = "view" ] && [ -n "$STUB_PR_URL" ]; then echo "{\\"owner\\":{\\"login\\":\\"fixture\\"},\\"name\\":\\"fixture\\"}"; exit 0; fi\necho "Logged in to github.com account fixture"\nexit 0\n', { mode: 0o755 });
 const ghPrIdx = args.indexOf('--gh-pr-url');
 const ghPrNumIdx = args.indexOf('--gh-pr-number');
-const env = { ...process.env, PATH: stubDir + path.delimiter + (process.env.PATH || ''), ...(ghPrIdx >= 0 ? { STUB_PR_URL: args[ghPrIdx + 1] } : {}), ...(ghPrNumIdx >= 0 ? { STUB_PR_NUMBER: args[ghPrNumIdx + 1] } : {}) };
+// --git-status-fail: a git shim whose `status` fails while the flag file exists (set around the received-review call).
+const gitStatusFail = args.includes('--git-status-fail');
+const statusFailFlag = path.join(stubDir, 'fail-status');
+if (gitStatusFail) {
+  const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  fs.writeFileSync(path.join(stubDir, 'git'), `#!/bin/sh\nif [ "$1" = "status" ] && [ -e "$STUB_GIT_STATUS_FAIL" ]; then echo "fatal: stub git status failure" >&2; exit 128; fi\nexec ${realGit} "$@"\n`, { mode: 0o755 });
+}
+const env = { ...process.env, ...(gitStatusFail ? { STUB_GIT_STATUS_FAIL: statusFailFlag } : {}), PATH: stubDir + path.delimiter + (process.env.PATH || ''), ...(ghPrIdx >= 0 ? { STUB_PR_URL: args[ghPrIdx + 1] } : {}), ...(ghPrNumIdx >= 0 ? { STUB_PR_NUMBER: args[ghPrNumIdx + 1] } : {}) };
 delete env.SDLC_STATE_DIR_OVERRIDE;
 
 const calls = [];
@@ -299,7 +306,9 @@ function reviewRound(fixLine, { reviewResult = 'results/generic-ok.json', selfCo
     sh('git add fix.txt && git commit -q -m "fixture: received-review commits its fixes"');
     headAfter = sh('git rev-parse HEAD').stdout.trim();
   }
+  if (gitStatusFail) fs.writeFileSync(statusFailFlag, '');
   c = after('dispatch_received_review', 'results/generic-ok.json');
+  fs.rmSync(statusFailFlag, { force: true });
   if (selfCommit) snapshots.push(snap());
   if (is(c, 'stage_fixes')) {
     for (const cmd of c.step.data.commands) sh(cmd); // the main context runs them
@@ -592,7 +601,9 @@ switch (scenario) {
       setPlanFiles(['fix.txt']); // the fix is inside the plan Files (R83)
       fs.writeFileSync(path.join(projectRoot, 'fix.txt'), 'review fix\n');
     }
+    if (gitStatusFail) fs.writeFileSync(statusFailFlag, '');
     const c = after('dispatch_received_review', 'results/generic-ok.json');
+    fs.rmSync(statusFailFlag, { force: true });
     if (c.status === 'step' && c.step.id === 'stage_fixes') {
       for (const cmd of c.step.data.commands) sh(cmd); // the main context runs them
       after('stage_fixes', 'results/generic-ok.json');

@@ -3,7 +3,7 @@
   "skill": "execute-plan-sdlc",
   "startedAt": "2025-01-01T00:00:00Z",
   "branch": "fix/ctx-alpha",
-  "planPath": "/tmp/ctx-alpha-plan.md",
+  "planPath": "docs/plans/ctx-alpha-missing.md",
   "planHash": "ctxalpha0000000000000000000000000000000000000000000000000000000a",
   "preset": "B",
   "totalTasks": 60,

@@ -3,7 +3,7 @@
   "skill": "execute-plan-sdlc",
   "startedAt": "2025-01-04T00:00:00Z",
   "branch": "fix/resume-idem",
-  "planPath": "/tmp/resume-idem-plan.md",
+  "planPath": "docs/plans/resume-idem-missing.md",
   "planHash": "resumeidem000000000000000000000000000000000000000000000000000d",
   "preset": "B",
   "totalTasks": 4,

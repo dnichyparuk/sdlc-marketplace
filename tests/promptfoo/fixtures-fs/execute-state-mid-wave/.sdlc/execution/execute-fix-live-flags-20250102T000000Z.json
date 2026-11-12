@@ -3,7 +3,7 @@
   "skill": "execute-plan-sdlc",
   "startedAt": "2025-01-02T00:00:00Z",
   "branch": "fix/live-flags",
-  "planPath": "/tmp/live-flags-plan.md",
+  "planPath": "docs/plans/live-flags-missing.md",
   "planHash": "liveflags000000000000000000000000000000000000000000000000000000b",
   "preset": "B",
   "totalTasks": 3,

@@ -83,3 +83,155 @@
   assert:
     - type: javascript
       value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (j1) echo x &> src/a.js denied by redirect"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x &> src/a.js"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: redirect\./.test(o.permissionDecisionReason) || 'FAIL: not denied by redirect';
+
+- description: "worker-write-guard: (j2) echo x &>> src/a.js denied by redirect"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x &>> src/a.js"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: redirect\./.test(o.permissionDecisionReason) || 'FAIL: not denied by redirect';
+
+- description: "worker-write-guard: (j3) echo x 1>src/a denied by redirect"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x 1>src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: redirect\./.test(o.permissionDecisionReason) || 'FAIL: not denied by redirect';
+
+- description: "worker-write-guard: (j4) node t.js 2> src/err.txt denied by redirect"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "node t.js 2> src/err.txt"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: redirect\./.test(o.permissionDecisionReason) || 'FAIL: not denied by redirect';
+
+- description: "worker-write-guard: (j5) echo x > /tmp/../home/a.js denied by redirect"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x > /tmp/../home/a.js"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: redirect\./.test(o.permissionDecisionReason) || 'FAIL: not denied by redirect';
+
+- description: "worker-write-guard: (j6) echo x >> /dev/../a denied by redirect"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x >> /dev/../a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: redirect\./.test(o.permissionDecisionReason) || 'FAIL: not denied by redirect';
+
+- description: "worker-write-guard: (j7) echo x > quoted TMPDIR/../src/a denied by redirect"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x > \"$TMPDIR/../src/a\""}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: redirect\./.test(o.permissionDecisionReason) || 'FAIL: not denied by redirect';
+
+- description: "worker-write-guard: (j8) echo x | tee /tmp/../src/a denied by tee"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x | tee /tmp/../src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (k1) node t.js 2>&1 allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "node t.js 2>&1"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (k2) echo x >&2 allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x >&2"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (k2b) echo x >&src/a.js denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo x >&src/a.js"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout.includes('deny')"
+
+- description: "worker-write-guard: (k3) grep double-quoted a > b allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "grep \"a > b\" f"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (k4) quoted &> in echo allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "echo \"x &> y\""}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (k5) cmd &> /tmp/o.txt allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "cmd &> /tmp/o.txt"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (k6) cmd 2>/dev/null allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "cmd 2>/dev/null"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"

@@ -651,7 +651,7 @@ To opt out, omit the field (or set it to `false`) in `.sdlc/config.json`. There 
 
 ### Step models
 
-`ship.stepModels` lives in `.sdlc/local.json`, keyed by step name (`execute`, `commit`, `review`, `received-review`, `commit-fixes`, `version`, `pr`), with values `{ model?, effort? }` that override the step agent's default model and effort at dispatch (R90). `model` is an alias (`haiku`, `sonnet`, `opus`, `fable`) or a `claude-*` model id; `effort` is `low`, `medium`, `high`, `xhigh` or `max`. An unknown step or an invalid value stops prepare.
+`ship.stepModels` lives in `.sdlc/local.json`, keyed by step name (`execute`, `commit`, `review`, `received-review`, `commit-fixes`, `version`, `pr`), with values `{ model?, effort? }` that override the step agent's default model and effort at dispatch (R90). `model` is an alias (`haiku`, `sonnet`, `opus`, `fable`) or a `claude-*` model id; `effort` is `low`, `medium`, `high`, `xhigh` or `max`. An unknown step, an unknown key in an entry, an entry with neither `model` nor `effort`, or an invalid value stops prepare.
 
 ```json
 {
