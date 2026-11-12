@@ -197,6 +197,11 @@ function deriveWorkspace({ inLinkedWorktree, currentBranch, defaultBranch }) {
  * @returns {void}
  */
 function fetchBaseRef(base, projectRoot) {
+  // review-sdlc R19: a sha base is not a branch; `<sha>:<sha>` would create refs/heads/<sha>.
+  if (/^[0-9a-f]{7,40}$/.test(base)) {
+    const isBranch = spawnSync('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${base}`], { cwd: projectRoot, encoding: 'utf8' });
+    if (isBranch.status !== 0) return;
+  }
   spawnSync(
     'git',
     ['fetch', '--quiet', 'origin', `${base}:${base}`],
@@ -984,6 +989,12 @@ function getRemoteState(projectRoot) {
     { cwd: projectRoot }
   );
   if (!upstream) return { hasUpstream: false, remoteBranch: null, isAhead: false, isBehind: false };
+
+  // pr-sdlc R19: an upstream counts only when its branch name equals the current branch.
+  const current = exec('git branch --show-current', { cwd: projectRoot });
+  const slashAt = upstream.indexOf('/');
+  const upstreamBranch = slashAt > 0 ? upstream.slice(slashAt + 1) : upstream;
+  if (!current || upstreamBranch !== current) return { hasUpstream: false, remoteBranch: null, isAhead: false, isBehind: false };
 
   // Best-effort fetch so isAhead/isBehind reflect actual remote state.
   // Upstream form is "<remote>/<branch>"; fetch only that branch from that remote.

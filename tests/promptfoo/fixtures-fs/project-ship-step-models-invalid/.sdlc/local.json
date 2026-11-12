@@ -4,7 +4,8 @@
     "steps": ["execute", "commit", "review", "pr"],
     "stepModels": {
       "deploy": { "model": "opus" },
-      "review": { "effort": "huge" }
+      "review": { "effort": "huge" },
+      "version": { "modle": "opus" }
     }
   }
 }

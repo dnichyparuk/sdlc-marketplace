@@ -5743,6 +5743,24 @@
         if (!cf || cf.status !== 'completed') return `FAIL: commit-fixes ${JSON.stringify(cf)}`;
         return /^[0-9a-f]{40}$/.test(o.headAfter || '') && cf.artifacts && cf.artifacts.commit === o.headAfter ? true : `FAIL: commit ${JSON.stringify(cf.artifacts)} head ${o.headAfter}`;
 
+- description: "ship-self-commit: (b) a failed git status adopts nothing"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-self-commit --seed frozen --summary high-1.json --git-status-fail"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        for (const c of o.calls) {
+          const e = c.envelope;
+          if (((e.ext && e.ext.warnings) || []).some(w => w.includes('adopted as the commit-fixes commit'))) return `FAIL: adopted ${JSON.stringify(e.ext.warnings)}`;
+          if (e.step && e.step.id === 'dispatch_commit_fixes') return 'FAIL: dispatch_commit_fixes emitted';
+        }
+        return JSON.stringify(o).includes('git status failed after received-review') ? true : 'FAIL: no failure reason';
+
 # #9228 / R11: --resume rewrites the ledger's non-frozen flags and their sources from the run's
 # merged CLI > config > default values. The fixture ledger holds auto: true, bump: "patch",
 # quality: "full"; planFile, openspecContext, steps and tasks follow their own rules.
@@ -5899,6 +5917,21 @@
         const o = JSON.parse(output);
         const want = 'ship.stepModels.review.effort "huge" must be one of low, medium, high, xhigh, max.';
         return o.errors.filter(e => e === want).length === 1;
+
+- description: "ship-step-models: (g) unknown entry key and an entry with neither key are errors"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --plan {{repo_root}}/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks.md"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-step-models-invalid"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const w1 = 'ship.stepModels.version.modle: unknown key; expected model or effort.';
+        const w2 = 'ship.stepModels.version must be an object with model and/or effort.';
+        return o.errors.filter(e => e === w1).length === 1 && o.errors.filter(e => e === w2).length === 1;
 
 - description: "ship-step-models: (f) no stepModels gives an empty map"
   vars:

@@ -10,6 +10,11 @@
  * $TMPDIR) are allowed. Characters inside quoted strings are ignored by the
  * sed/perl/awk/tee/redirect rules, so `grep 'a > b' f` is not denied.
  *
+ * Best-effort guard, not a sandbox. Redirects covered: `>`, `>>`, `&>`, `&>>`
+ * and fd forms (`2>`, `1>>`); `2>&1` and `>&2` are allowed. A target is
+ * normalized (`path.posix.normalize`) before the scratch-prefix test, so
+ * `/tmp/../src/a` and `$TMPDIR/../src/a` are denied (tee shares this check).
+ *
  * The stdin payload is the only input: no state read, same in branch and
  * worktree mode. Every other path (no stdin, bad JSON, other agent, main
  * session, non-Bash tool) exits 0 silently.
@@ -21,10 +26,11 @@
 'use strict';
 
 const fs = require('node:fs');
+const path = require('node:path');
 
 const WORKER_RE = /(^|:)execute-worker(-complex|-batch)?$/;
 
-const ALLOWED_TARGET_RE = /^["']?(\/dev\/|\/tmp\/|\$TMPDIR|\$\{TMPDIR\})/;
+const ALLOWED_TARGET_RE = /^(\/dev\/|\/tmp\/|\$TMPDIR\/|\$\{TMPDIR\}\/)/;
 
 /** Replace the interior of quoted strings with `_`, keeping length and quote marks. */
 function maskQuotes(cmd) {
@@ -40,7 +46,7 @@ function maskQuotes(cmd) {
         quote = null;
         out += ch;
       } else {
-        out += ch === '\n' ? '_' : '_';
+        out += '_';
       }
     } else {
       if (ch === '"' || ch === "'") quote = ch;
@@ -51,11 +57,13 @@ function maskQuotes(cmd) {
 }
 
 function isAllowedTarget(target) {
-  return ALLOWED_TARGET_RE.test(target);
+  const unquoted = target.replace(/^["']/, '').replace(/["']$/, '');
+  return ALLOWED_TARGET_RE.test(path.posix.normalize(unquoted));
 }
 
 function redirectDenied(cmd, masked) {
-  const re = /(^|[^0-9&>])>>?(?!&)[ \t]*(\S*)/g;
+  // Also catches `&>`, `&>>`, and fd redirects such as `2>` and `1>>`; `2>&1` and `>&2` stay allowed.
+  const re = /(^|[^>&0-9])(?:&|[0-9]+)?>>?(?!&)[ \t]*(\S*)/g;
   let m;
   while ((m = re.exec(masked)) !== null) {
     const end = m.index + m[0].length;

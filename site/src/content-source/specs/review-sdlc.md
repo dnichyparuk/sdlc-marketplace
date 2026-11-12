@@ -39,6 +39,8 @@
   - Acceptance: in a non-rebased branch where `base_branch` has commits added since divergence (e.g., another developer merged to `main`), running `skill/review.js` produces a manifest whose `git.changed_files_count` and per-dimension `.diff` content reflect only the files modified by the feature branch's own commits — not files modified solely by the post-divergence base commits.
 - R-base-ref-fetch: Before computing branch-contribution diffs, `skill/review.js` MUST attempt a best-effort `git fetch origin <base>:<base>` to fast-forward the local copy of the base branch. The fetch failure (offline, no remote configured, auth denied, non-fast-forward) is non-fatal — the skill proceeds with whatever the local ref reports. The fetch is implemented as a single `lib/git.js::fetchBaseRef(base, projectRoot)` helper modelled on the existing fetch pattern in `getRemoteState`.
   - Acceptance: with `origin` unreachable or absent, `skill/review.js` still exits successfully and produces a manifest; with a stale local base ref behind `origin/<base>`, the local ref is refreshed before the diff is computed.
+- R19: A sha base skips the base fetch. When `--base` matches `^[0-9a-f]{7,40}$` and no local branch `refs/heads/<base>` exists, `lib/git.js::fetchBaseRef` runs no fetch, so no `refs/heads/<sha>` branch is created; the diff uses the commit as given.
+  - Acceptance: exec case `git-lib: fetchBaseRef with a sha base creates no branch`.
 
 ## State model
 
@@ -181,6 +183,7 @@
 | R17 | (issue #363) |
 | R-common-prompt | (issue #519) |
 | R-base-ref-fetch | (issue #239) |
+| R19 | sha base skips the base fetch, #9364 |
 | R-manifest-index-slices | (issue #447) |
 | R-orchestrator-await | (issue #487) |
 | R-security-owasp | (issue #272) |

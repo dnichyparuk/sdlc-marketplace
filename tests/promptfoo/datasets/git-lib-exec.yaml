@@ -179,3 +179,21 @@
   assert:
     - type: contains
       value: 'RESULT: PASS'
+
+- description: "git-lib: fetchBaseRef with a sha base creates no branch"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
+    script_args: "--op fetchBaseRefSha"
+    project_root: "file://fixtures-fs/project-openspec-baseline"
+  assert:
+    - type: contains
+      value: 'RESULT: PASS'
+
+- description: "git-lib: getRemoteState ignores an upstream with another branch name"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
+    script_args: "--op remoteStateTracking"
+    project_root: "file://fixtures-fs/project-openspec-baseline"
+  assert:
+    - type: contains
+      value: 'RESULT: PASS'

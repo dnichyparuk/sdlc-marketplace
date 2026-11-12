@@ -4,7 +4,7 @@ This directory contains the lifecycle hooks shipped by the `sdlc-utilities` plug
 
 ## Worker Write Guard
 
-`worker-write-guard.js` is a `PreToolUse` hook on `Bash` that implements execute-plan-sdlc R90. When the payload's `agent_type` is an execute worker (`execute-worker`, `-complex`, `-batch`, with or without a plugin prefix), it denies a command that changes files through the shell: `sed -i`, `perl -i`, `awk -i inplace`, `tee`, `>`/`>>` redirects and heredocs, and `python -c` / `node -e` file writes. Targets under `/dev/`, `/tmp/` and `$TMPDIR` are allowed, and characters inside quoted strings are ignored. It reads only the stdin payload, so it behaves the same in branch and worktree mode, and it always exits 0.
+`worker-write-guard.js` is a `PreToolUse` hook on `Bash` that implements execute-plan-sdlc R90. When the payload's `agent_type` is an execute worker (`execute-worker`, `-complex`, `-batch`, with or without a plugin prefix), it denies a command that changes files through the shell: `sed -i`, `perl -i`, `awk -i inplace`, `tee`, `>`/`>>` redirects and heredocs, and `python -c` / `node -e` file writes. The redirect rule also covers `&>`, `&>>` and fd forms such as `2>` and `1>>` (`2>&1` and `>&2` stay allowed). Targets under `/dev/`, `/tmp/` and `$TMPDIR/` are allowed after path normalization, so `/tmp/../src/a` is denied (the `tee` rule shares this check), and characters inside quoted strings are ignored. The guard is best-effort, not a sandbox. It reads only the stdin payload, so it behaves the same in branch and worktree mode, and it always exits 0.
 
 ## Recovery After Compaction
 

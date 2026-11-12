@@ -28,6 +28,17 @@ function has(rel, sentinels) {
   return sentinels.every((s) => content.includes(s));
 }
 
+function lacks(rel, strings) {
+  let content;
+  try {
+    content = fs.readFileSync(path.join(REPO_ROOT, PLUGIN, rel), 'utf8');
+  } catch (err) {
+    process.stderr.write(`Script error reading ${rel}: ${err.message}\n`);
+    process.exit(2);
+  }
+  return strings.every((s) => !content.includes(s));
+}
+
 const skill = has('skills/execute-plan-sdlc/SKILL.md', [HANDBACK]);
 const waveRunner = has('skills/execute-plan-sdlc/wave-runner-template.md', [HANDBACK]);
 const shipStepExecute = has('agents/ship-step-execute.md', [
@@ -55,9 +66,14 @@ for (const s of ['commit', 'review', 'received-review', 'version', 'pr', 'execut
   stepArgs[s] = has(`agents/ship-step-${s}.md`, [ARGS]);
 }
 
-const ok = skill && waveRunner && shipStepExecute && shipStepReview && shipStepReceivedReview && shipSkill && shipStale && executeStale && waveRunnerStale && waitSkill && waitWaveRunner && waitShipStepExecute && Object.values(workers).every(Boolean) && Object.values(stepArgs).every(Boolean);
+const shipStaleKey = has('skills/ship-sdlc/SKILL.md', ['the Agent task you start for each `dispatch_*` envelope'])
+  && lacks('skills/ship-sdlc/SKILL.md', ['ledger entry is already']);
+const waitNoReadPoll = lacks('skills/execute-plan-sdlc/wave-runner-template.md', ['`wave-progress --read` poll', 'keep waiting for the worker returns'])
+  && lacks('skills/execute-plan-sdlc/SKILL.md', ['keep waiting for the worker returns']);
 
-process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipStepReview, shipStepReceivedReview, shipSkill, shipStale, executeStale, waveRunnerStale, waitSkill, waitWaveRunner, waitShipStepExecute, workers, stepArgs }) + '\n');
+const ok = shipStaleKey && waitNoReadPoll && skill && waveRunner && shipStepExecute && shipStepReview && shipStepReceivedReview && shipSkill && shipStale && executeStale && waveRunnerStale && waitSkill && waitWaveRunner && waitShipStepExecute && Object.values(workers).every(Boolean) && Object.values(stepArgs).every(Boolean);
+
+process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipStepReview, shipStepReceivedReview, shipSkill, shipStale, executeStale, waveRunnerStale, waitSkill, waitWaveRunner, waitShipStepExecute, shipStaleKey, waitNoReadPoll, workers, stepArgs }) + '\n');
 if (!ok) {
   process.exit(1);
 }

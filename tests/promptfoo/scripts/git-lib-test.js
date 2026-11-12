@@ -28,6 +28,8 @@
  *   execNormalFailure          — proves non-overflow failures still return null (throwOnError=false).
  *   execGhTimeoutApplied       — proves every gh call through exec() carries GH_TIMEOUT_MS and other commands none (#9188).
  *   probeGhAuthTimeout         — proves a timed-out gh auth status reports timedOut, a plain failure reports "Not logged in" (#9237).
+ *   fetchBaseRefSha            — proves fetchBaseRef with a sha base creates no refs/heads/<sha> branch (review-sdlc R19).
+ *   remoteStateTracking        — proves getRemoteState ignores an upstream whose branch name differs from the current branch (pr-sdlc R19).
  */
 'use strict';
 
@@ -241,6 +243,69 @@ switch (op) {
         console.log('RESULT: PASS');
       } else {
         console.log(`RESULT: FAIL allTags=${JSON.stringify(allTags)} stableTags=${JSON.stringify(stableTags)}`);
+        process.exitCode = 1;
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+    break;
+  }
+
+  case 'fetchBaseRefSha': {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'git-lib-sha-'));
+    const run = (cmd, cwd) => cp.execSync(cmd, { cwd: cwd || tmp, stdio: 'pipe' }).toString().trim();
+    try {
+      run('git init -q --bare -b main origin.git');
+      run('git init -q -b main work');
+      const work = path.join(tmp, 'work');
+      run('git config user.email test@example.com', work);
+      run('git config user.name Test', work);
+      run('git config commit.gpgsign false', work);
+      run('git commit -q --allow-empty -m one', work);
+      run('git commit -q --allow-empty -m two', work);
+      run('git remote add origin ../origin.git', work);
+      run('git push -q origin main', work);
+      const sha = run('git rev-parse HEAD~1', work);
+      let threw = false;
+      try { lib.fetchBaseRef(sha, work); lib.fetchBaseRef('main', work); } catch (_) { threw = true; }
+      let branchExists = true;
+      try { run(`git show-ref --verify --quiet refs/heads/${sha}`, work); } catch (_) { branchExists = false; }
+      if (!threw && !branchExists) {
+        console.log('RESULT: PASS');
+      } else {
+        console.log(`RESULT: FAIL threw=${threw} branchExists=${branchExists}`);
+        process.exitCode = 1;
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+    break;
+  }
+
+  case 'remoteStateTracking': {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'git-lib-upstream-'));
+    const run = (cmd, cwd) => cp.execSync(cmd, { cwd: cwd || tmp, stdio: 'pipe' }).toString().trim();
+    try {
+      run('git init -q --bare -b main origin.git');
+      run('git init -q -b main work');
+      const work = path.join(tmp, 'work');
+      run('git config user.email test@example.com', work);
+      run('git config user.name Test', work);
+      run('git config commit.gpgsign false', work);
+      run('git commit -q --allow-empty -m one', work);
+      run('git commit -q --allow-empty -m two', work);
+      run('git remote add origin ../origin.git', work);
+      run('git push -q origin main', work);
+      run('git checkout -q -b feat --track origin/main', work);
+      const feat = lib.getRemoteState(work);
+      run('git checkout -q -b same', work);
+      run('git push -q -u origin same', work);
+      const same = lib.getRemoteState(work);
+      if (feat.hasUpstream === false && feat.remoteBranch === null &&
+          same.hasUpstream === true && same.remoteBranch === 'origin/same') {
+        console.log('RESULT: PASS');
+      } else {
+        console.log(`RESULT: FAIL feat=${JSON.stringify(feat)} same=${JSON.stringify(same)}`);
         process.exitCode = 1;
       }
     } finally {
