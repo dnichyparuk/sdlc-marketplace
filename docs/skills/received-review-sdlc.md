@@ -38,6 +38,10 @@ When `--plan` or `--min-severity` is set, Step 4 applies the scope and threshold
 
 When `--plan` is set, the manifest also carries `planFile`. A finding whose fix would reverse a decision recorded in the plan (Key Decisions, Decisions taken without the owner, Deviations & assumptions) gets the verdict "disagree" and the reply cites the decision. It is never fixed, also under `--auto` or the always-fix bypass.
 
+### Doc-versus-spec findings
+
+A finding that says a doc disagrees with the spec is checked against the code first (R34). When the code matches the doc, received-review keeps the doc true: it documents the gap, or names the spec/code mismatch in its reply, and never rewrites the doc to claim behaviour the code lacks. When the code matches the spec, the doc is fixed.
+
 ---
 
 ## Configuration

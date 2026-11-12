@@ -1497,7 +1497,8 @@ function stageOutsidePending(outside) {
   };
 }
 
-const LEARNINGS_COMMIT_COMMAND ='git diff --quiet -- .sdlc/learnings/log.md || { git add .sdlc/learnings/log.md && git commit -m "chore(ship-sdlc): capture pipeline learnings" && { git push || echo "push failed (non-fatal)" >&2; }; }';
+// ship R36: push to the current branch's own name, also when its upstream names another branch (pr-sdlc R19).
+const LEARNINGS_COMMIT_COMMAND ='git diff --quiet -- .sdlc/learnings/log.md || { git add .sdlc/learnings/log.md && git commit -m "chore(ship-sdlc): capture pipeline learnings" && { git push --set-upstream origin HEAD || echo "push failed (non-fatal)" >&2; }; }';
 
 /**
  * W44-R2 (a): the archive_openspec prompt and --decision are fixed at emission, from fresh

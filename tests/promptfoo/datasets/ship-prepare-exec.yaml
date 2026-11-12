@@ -2589,7 +2589,7 @@
         if (o.ledger.stepStatuses['learnings-commit'] !== 'skipped') return `FAIL: learnings-commit ${o.ledger.stepStatuses['learnings-commit']}`;
         return o.ledger.stepReasons['learnings-commit'] === 'learnings log is git-ignored' ? true : `FAIL: reason ${o.ledger.stepReasons['learnings-commit']}`;
 
-- description: "ship-lean: (learnings) b a tracked learnings log still emits learnings_commit after dispatch_pr"
+- description: "ship-lean: (learnings) b a tracked learnings log still emits learnings_commit after dispatch_pr, pushing with --set-upstream origin HEAD"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
@@ -2601,7 +2601,11 @@
       value: |
         const o = JSON.parse(output);
         const e = o.calls[0].envelope;
-        return e.status === 'step' && e.step.id === 'learnings_commit' ? true : `FAIL: ${e.status} ${e.step && e.step.id} ${e.error || ''}`;
+        if (e.status !== 'step' || e.step.id !== 'learnings_commit') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.error || ''}`;
+        const cmd = e.step.data.commands[0];
+        if (!cmd.includes('git push --set-upstream origin HEAD')) return `FAIL: push form ${cmd}`;
+        if (/git push \|\|/.test(cmd)) return `FAIL: bare push ${cmd}`;
+        return true;
 
 - description: "ship-step: (w46) --after dispatch_pr whose URL gh cannot confirm returns error and records pr failed"
   vars:

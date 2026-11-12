@@ -259,6 +259,19 @@
         if (!('planFile' in o.manifest) || o.manifest.planFile !== null) return `FAIL: planFile ${JSON.stringify(o.manifest.planFile)}`;
         return true;
 
+- description: "rr-verify: (a) SKILL.md Step 3 carries the R34 doc-versus-spec rule"
+  vars:
+    script_path: "-e"
+    script_args: '((fs)=>console.log(fs.readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8")))(require("fs"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        if (!output.includes('Doc-versus-spec findings (R34)')) return 'FAIL: R34 label missing from received-review SKILL.md';
+        if (!output.includes('never rewrite the doc to claim behaviour the code lacks')) return 'FAIL: R34 rule text missing from received-review SKILL.md';
+        return true;
+
 - description: "rr-scope: (c) invalid --min-severity is an error (and an unreadable --plan)"
   vars:
     script_path: "-e"
