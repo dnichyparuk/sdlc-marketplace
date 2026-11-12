@@ -21,15 +21,39 @@ const path = require('path');
  * @param {string} markdown
  * @returns {Set<string>}
  */
-function extractHeadings(markdown) {
+function extractHeadings(input) {
   const headings = new Set();
-  if (typeof markdown !== 'string' || markdown.length === 0) return headings;
-  const lines = markdown.split(/\r?\n/);
+  let doc = input;
+  if (typeof input === 'string' && input.trim().startsWith('{')) {
+    try { doc = JSON.parse(input); } catch (_) { doc = input; }
+  }
+  if (doc && typeof doc === 'object') { collectAdfHeadings(doc, headings); return headings; }
+  if (typeof input !== 'string' || input.length === 0) return headings;
+  const lines = input.split(/\r?\n/);
   for (const line of lines) {
     const m = /^##\s+(.+?)\s*$/.exec(line);
     if (m) headings.add(m[1].trim());
   }
   return headings;
+}
+
+// Walk an ADF tree; add the trimmed text of every heading node with attrs.level === 2.
+function collectAdfHeadings(node, out) {
+  if (Array.isArray(node)) { for (const n of node) collectAdfHeadings(n, out); return; }
+  if (!node || typeof node !== 'object') return;
+  if (node.type === 'heading' && node.attrs && node.attrs.level === 2) {
+    const text = adfText(node).trim();
+    if (text) out.add(text);
+    return;
+  }
+  collectAdfHeadings(node.content, out);
+}
+
+function adfText(node) {
+  if (Array.isArray(node)) return node.map(adfText).join('');
+  if (!node || typeof node !== 'object') return '';
+  if (node.type === 'text' && typeof node.text === 'string') return node.text;
+  return adfText(node.content);
 }
 
 /**

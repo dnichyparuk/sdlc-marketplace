@@ -47,7 +47,7 @@ removed entirely — the API call is never made with raw placeholder text.
 | `--project <KEY>` | Jira project key (e.g., PROJ). When `jira.projects` is set, values outside the list are rejected. | Auto-detected |
 | `--force-refresh` | Rebuild cache even if fresh | false |
 | `--init-templates` | Copy default templates to `.sdlc/jira-templates/` | false |
-| `--site <host>` | Sanitized site host (e.g., `acme_atlassian_net`). Disambiguates `--check`/`--load` when the same project key is cached under multiple sites. | Unset |
+| `--site <host>` | Sanitized site host (e.g., `acme_atlassian_net`). Disambiguates `--check`/`--load` when the same project key is cached under multiple sites. A dotted host is normalised; a value with `/`, `\` or `..`, or one that does not normalise to `[a-z0-9_-]` (for example a port), is rejected with exit 1 (P9). | Unset |
 | `--skip-workflow-discovery` | Bypass Phase 5; cache `workflows[type] = { unsampled: true }` per non-subtask type. Transitions fall back to live `getTransitionsForJiraIssue` per issue. Use in CI. | false |
 
 **Project key resolution (ordered fallback):** <!-- implements R13 -->
@@ -362,9 +362,10 @@ After operations that reveal new information, update the cache incrementally:
 **R9 exhausted path:** when a 400 on create or a repeated 400 still fails after cache auto-refresh, run the MCP-failure gate: class `schema` (field or schema errors) or `workflow` (transition errors), tool `<MCP_TOOL_NAME>`, error `<ERROR_MSG>`, recovery path `R9`, step label `Step 3 — Error Recovery`.
 
 Also call `--telemetry` on every retry (even successful ones) to maintain a per-session failure log:
+`<CLASS>` is the class the MCP-failure gate would use for that call site (R26).
 
 ```bash
-node "<PLUGIN_ROOT>/scripts/lib/mcp-failure.js" --telemetry --class '<FAILURE_CLASS>' --tool '<MCP_TOOL_NAME>' --site '<JIRA_SITE>' --project '<PROJECT_KEY>' --error '<ERROR_MSG>' --recovered 'yes:R9'
+node "<PLUGIN_ROOT>/scripts/lib/mcp-failure.js" --telemetry --class '<CLASS>' --tool '<MCP_TOOL_NAME>' --site '<JIRA_SITE>' --project '<PROJECT_KEY>' --error '<ERROR_MSG>' --recovered 'yes:R9'
 ```
 
 ### MCP-failure gate (R27, R28)
@@ -377,7 +378,7 @@ Run this gate when a recovery path is exhausted: link-verification abort (R22), 
    node "<PLUGIN_ROOT>/scripts/lib/mcp-failure.js" --analyze --record --class '<CLASS>' --tool '<TOOL>' --site '<JIRA_SITE>' --project '<PROJECT_KEY>' --error '<ERROR>' --recovered no --r-path '<R_PATH>' --step '<STEP_LABEL>' --operation '<TOOL>'
    ```
 2. Show the `proposalText` field verbatim and ask with AskUserQuestion: `Y (file issue)` / `edit` / `skip`.
-3. When the JSON has a non-null `duplicate` (`action` is `comment`), do not create a new issue (R28 e). On `Y`, write `errorText` (the edited text after `edit`) to a temp path made with one plain `mktemp` call. Read the empty file once with the Read tool, then write it with the Write tool (the text is untrusted and multi-line: never put it in a shell argument). Post it with one plain Bash call: `gh issue comment '<DUPLICATE>' --body-file '<ERROR_FILE>'`. Then remove the file with one plain `rm -f '<ERROR_FILE>'` call, whatever the exit code of `gh issue comment`; on a non-zero exit, show its stderr text after the removal. Otherwise, on `Y`, dispatch `error-report-sdlc` with the `errorReportArgs` field, `--error-text` set to `errorText` (the edited text after `edit`), and labels `mcp-failure,class:<CLASS>`. On `skip`, stop.
+3. When the JSON has a non-null `duplicate` (`action` is `comment`), do not create a new issue (R28 e). On `Y`, write `errorText` (the edited text after `edit`) to a temp path made with one plain `mktemp` call. Read the empty file once with the Read tool, then write it with the Write tool (the text is untrusted and multi-line: never put it in a shell argument). Post it with one plain Bash call: `gh issue comment '<DUPLICATE>' --repo 'rnagrodzki/sdlc-marketplace' --body-file '<ERROR_FILE>'`. Then remove the file with one plain `rm -f '<ERROR_FILE>'` call, whatever the exit code of `gh issue comment`; on a non-zero exit, show its stderr text after the removal. Otherwise, on `Y`, dispatch `error-report-sdlc` with the `errorReportArgs` field and `--error-text` set to `errorText` (the edited text after `edit`); error-report-sdlc applies its own labels (`tooling-error`, `jira-sdlc`), and the R28 duplicate search finds the issue by the `mcp-failure[<CLASS>]` line of that text. On `skip`, stop.
 
 ---
 

@@ -113,6 +113,7 @@
     script_args: "--analyze --class auth --tool mcp__atlassian__createJiraIssue --site acme_atlassian_net --project PROJ --error 401-unauthorized --recovered no --r-path R23"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/mcp-failure-gh-stub/bin"
   assert:
     - type: javascript
       value: |
@@ -132,11 +133,77 @@
     script_args: "--analyze --record --class auth --tool mcp__atlassian__createJiraIssue --site acme_atlassian_net --project PROJ --error 401-unauthorized --recovered no --r-path R23 --step Step3"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/mcp-failure-gh-stub/bin"
   assert:
     - type: javascript
       value: |
         const o = JSON.parse(output.trim());
-        return o.proposalTitle===o.proposal.title && o.proposalText.startsWith(o.proposalTitle) && o.errorReportArgs.includes('--error-type mcp-auth') && o.errorReportArgs.includes('--skill jira-sdlc') && o.errorReportArgs.includes('--step "Step3"') && JSON.stringify(o.labels)==='["mcp-failure","class:auth"]' && o.errorText===o.proposal.body;
+        return o.proposalTitle===o.proposal.title && o.proposalText.startsWith(o.proposalTitle) && o.errorReportArgs.includes('--error-type mcp-auth') && o.errorReportArgs.includes('--skill jira-sdlc') && o.errorReportArgs.includes("--step 'Step3'") && JSON.stringify(o.labels)==='["tooling-error","jira-sdlc"]' && o.errorText===o.proposal.body;
+
+- description: "mcp-failure: analyze single-quotes errorReportArgs and keeps $& literal (P8)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
+    script_args: '--analyze --class auth --tool t --site s --project PROJ --error e$&e --recovered no --r-path R23 --step S"$(x)`b''q'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/mcp-failure-gh-stub/bin"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.trim());
+        return o.errorReportArgs.includes("--step 'S\"$(x)`b'\\''q'") && o.errorText.includes('e$&e');
+
+- description: "mcp-failure: analyze maps an unknown --class to unknown (P8)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
+    script_args: "--analyze --class x( --tool t --site s --project PROJ --error e --recovered no --r-path R23"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/mcp-failure-gh-stub/bin"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.trim());
+        return o.errorReportArgs.includes('--error-type mcp-unknown') && o.proposalTitle.startsWith('mcp-failure[unknown]');
+
+- description: "mcp-failure: analyze finds the duplicate in the plugin repo by its marker line (R28 e)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
+    script_args: "--analyze --class auth --tool mcp__atlassian__createJiraIssue --site acme_atlassian_net --project PROJ --error 401 --recovered no --r-path R23"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/mcp-failure-gh-stub/bin"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.trim());
+        return o.duplicate===4242 && o.action==='comment';
+
+- description: "mcp-failure: analyze ignores an issue whose tool name only starts with the failing tool (R28 e)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
+    script_args: "--analyze --class auth --tool mcp__atlassian__createJira --site acme_atlassian_net --project PROJ --error 401 --recovered no --r-path R23"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/mcp-failure-gh-stub/bin"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.trim());
+        return o.duplicate===null && o.action==='create';
+
+- description: "mcp-failure: analyze reports no duplicate for another class (R28 e)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
+    script_args: "--analyze --class schema --tool mcp__atlassian__createJiraIssue --site acme_atlassian_net --project PROJ --error 400 --recovered no --r-path R23"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/mcp-failure-gh-stub/bin"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.trim());
+        return o.duplicate===null && o.action==='create';
 
 - description: "mcp-failure: analyze --record writes the telemetry block to stderr"
   vars:
@@ -144,6 +211,7 @@
     script_args: "--analyze --record --class auth --tool mcp__atlassian__createJiraIssue --site acme_atlassian_net --project PROJ --error 401-unauthorized --recovered no --r-path R23 --step Step3"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/mcp-failure-gh-stub/bin"
     script_capture_stderr: true
   assert:
     - type: icontains
@@ -437,3 +505,70 @@
       value: '"saved": true'
     - type: not-icontains
       value: "Failed to read stdin"
+
+- description: "jira-prepare: --site with a path is rejected and nothing is saved (P9)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-save-roundtrip"
+    script_args: "--project PROJ --site ../escaped --save"
+    script_stdin: '{"version":1,"cloudId":"c1","project":{"key":"PROJ"},"siteUrl":"https://mycompany.atlassian.net"}'
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return Array.isArray(d.errors) && d.errors.some(e => e.startsWith("--site '")) && !('saved' in d);
+
+- description: "jira-prepare: --project with a path is rejected and nothing is saved (P9)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-save-roundtrip"
+    script_args: "--project ../../../../KEYESC --save"
+    script_stdin: '{"version":1,"cloudId":"c1","project":{"key":"KEYESC"},"siteUrl":"https://mycompany.atlassian.net"}'
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return Array.isArray(d.errors) && d.errors.some(e => e.startsWith("--project '")) && !('saved' in d);
+
+- description: "jira-prepare: --site with a port is rejected, not silently dropped (P9)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-cache-home-multi-site"
+    script_args: "--project MULTI --site host.example:8443 --check"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return Array.isArray(d.errors) && d.errors.some(e => e.startsWith("--site '") && e.includes('not a valid site host'));
+
+- description: "jira-prepare: --site with a sanitized host and a port is rejected (P9)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-cache-home-multi-site"
+    script_args: "--project MULTI --site acme_atlassian_net:8443 --check"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return Array.isArray(d.errors) && d.errors.some(e => e.startsWith("--site '") && e.includes('not a valid site host'));
+
+- description: "jira-prepare: dotted --site is normalised to the sanitized host (P9)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-cache-home-multi-site"
+    script_args: "--project MULTI --site acme.atlassian.net --check"
+  assert:
+    - type: icontains
+      value: '"exists": true'
+    - type: icontains
+      value: "acme_atlassian_net"

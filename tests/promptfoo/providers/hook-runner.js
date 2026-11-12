@@ -15,7 +15,7 @@
  *                  ~/.sdlc-cache/... layouts.
  *   script_env   — (optional) JSON string or object of extra env vars. Useful for
  *                  per-test TMPDIR isolation when the hook writes diagnostic files
- *                  to `os.tmpdir()` (e.g., jira-sdlc-debug dumps per R21.2).
+ *                  to `os.tmpdir()`.
  */
 const path = require('path');
 const { spawn } = require('child_process');
