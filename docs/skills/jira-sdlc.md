@@ -382,7 +382,7 @@ On exhausted-recovery paths (R23 dual-namespace exhausted, R9 retry-exhausted, R
 4. On approval, dispatches `error-report-sdlc` with `--error-type mcp-<class>`; the issue gets the `tooling-error` and `jira-sdlc` labels.
 5. When a duplicate is found, proposes commenting on the existing issue (`gh issue comment <n> --repo rnagrodzki/sdlc-marketplace`) rather than creating a new one.
 
-To act on a filed `mcp-failure` issue with hardening proposals, use:
+To act on a filed MCP-failure issue (identified by its `mcp-failure[<class>]` line; it carries no `mcp-failure` label) with hardening proposals, use:
 
 ```text
 /harden-sdlc --from-issue <issue-number> --skill jira-sdlc
@@ -396,5 +396,5 @@ See [`/harden-sdlc`](harden-sdlc.md) for the `--from-issue` flag documentation.
 
 - [`/plan-sdlc`](plan-sdlc.md) — write an implementation plan from a Jira ticket
 - [`/execute-plan-sdlc`](execute-plan-sdlc.md) — execute an existing plan
-- [`/harden-sdlc`](harden-sdlc.md) — consume `mcp-failure`-labeled issues as hardening input via `--from-issue`
+- [`/harden-sdlc`](harden-sdlc.md) — consume filed MCP-failure issues (the `mcp-failure[<class>]` line, not a label) as hardening input via `--from-issue`
 - [`/error-report-sdlc`](error-report-sdlc.md) — receives MCP failure dispatches after R28 user approval

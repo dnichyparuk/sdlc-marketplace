@@ -179,6 +179,19 @@
         const o = JSON.parse(output.trim());
         return o.duplicate===4242 && o.action==='comment';
 
+- description: "mcp-failure: analyze ignores an issue whose tool name only starts with the failing tool (R28 e)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
+    script_args: "--analyze --class auth --tool mcp__atlassian__createJira --site acme_atlassian_net --project PROJ --error 401 --recovered no --r-path R23"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-commit-no-config"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/mcp-failure-gh-stub/bin"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.trim());
+        return o.duplicate===null && o.action==='create';
+
 - description: "mcp-failure: analyze reports no duplicate for another class (R28 e)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
@@ -520,6 +533,19 @@
       value: |
         const d = JSON.parse(output);
         return Array.isArray(d.errors) && d.errors.some(e => e.startsWith("--project '")) && !('saved' in d);
+
+- description: "jira-prepare: --site with a port is rejected, not silently dropped (P9)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-cache-home-multi-site"
+    script_args: "--project MULTI --site host.example:8443 --check"
+  assert:
+    - type: javascript
+      value: |
+        const d = JSON.parse(output);
+        return Array.isArray(d.errors) && d.errors.some(e => e.startsWith("--site '") && e.includes('not a valid site host'));
 
 - description: "jira-prepare: dotted --site is normalised to the sanitized host (P9)"
   vars:

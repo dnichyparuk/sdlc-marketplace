@@ -274,7 +274,12 @@ function parseArgs(argv) {
     if (site === '' || /[\/\\]|\.\./.test(site)) {
       errors.push(`--site '${site}' must be a sanitized site host without '/', '\\' or '..'`);
     } else {
-      site = sanitizeSiteHost(site);
+      const normalised = sanitizeSiteHost(site);
+      if (normalised === null) {
+        errors.push(`--site '${site}' is not a valid site host`);
+      } else {
+        site = normalised;
+      }
     }
   }
 

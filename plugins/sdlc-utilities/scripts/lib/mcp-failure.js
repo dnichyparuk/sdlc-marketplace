@@ -325,7 +325,9 @@ function analyzeForDispatch(failure, root) {
     if (ghRes.status === 0 && ghRes.stdout) {
       const issues = JSON.parse(ghRes.stdout.trim() || '[]');
       for (const issue of issues) {
-        const marker = `mcp-failure[${cls}]: ${tool}`;
+        // Anchor on the ` on ` the template renders after the tool name, so a
+        // tool name that is a prefix of a longer one does not match.
+        const marker = `mcp-failure[${cls}]: ${tool} on `;
         if (`${issue.title || ''}\n${issue.body || ''}`.includes(marker)) {
           duplicate = issue.number;
           action    = 'comment';

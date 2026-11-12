@@ -60,12 +60,12 @@ mcp__atlassian__getJiraProjectIssueTypesMetadata({
   projectKey: "PROJ"
 })
 → Keep raw as phase3 (--assemble maps it to cache.issueTypes)
-   e.g. issueTypes = {
-    "Task":     { "id": "10001", "subtask": false, "hierarchyLevel": 0  },
-    "Bug":      { "id": "10002", "subtask": false, "hierarchyLevel": 0  },
-    "Story":    { "id": "10003", "subtask": false, "hierarchyLevel": 0  },
-    "Sub-task": { "id": "10004", "subtask": true,  "hierarchyLevel": -1 }
-  }
+   e.g. issueTypes = [
+    { "id": "10001", "name": "Task",     "subtask": false, "hierarchyLevel": 0  },
+    { "id": "10002", "name": "Bug",      "subtask": false, "hierarchyLevel": 0  },
+    { "id": "10003", "name": "Story",    "subtask": false, "hierarchyLevel": 0  },
+    { "id": "10004", "name": "Sub-task", "subtask": true,  "hierarchyLevel": -1 }
+  ]
 ```
 
 ### Phase 4 — Field schemas (one call per issue type, run in parallel)
@@ -77,14 +77,14 @@ mcp__atlassian__getJiraIssueTypeMetaWithFields({
   issueTypeId: "10001"  ← cache.issueTypes["Task"].id
 })
 → Keep raw as phase4["Task"] (--assemble maps it to cache.fieldSchemas["Task"])
-   e.g. fields = {
-    "summary":           { "required": true,  "type": "string" },
-    "description":       { "required": false, "type": "string" },
-    "priority":          { "required": false, "type": "priority",
-                           "allowedValues": ["Highest","High","Medium","Low","Lowest"] },
-    "labels":            { "required": false, "type": "array<string>" },
-    "customfield_10016": { "required": false, "name": "Story Points", "type": "number" }
-  }
+   e.g. fields = [
+    { "fieldId": "summary",           "name": "Summary",      "required": true,  "schema": { "type": "string" } },
+    { "fieldId": "description",       "name": "Description",  "required": false, "schema": { "type": "string" } },
+    { "fieldId": "priority",          "name": "Priority",     "required": false, "schema": { "type": "priority" },
+      "allowedValues": [ {"name":"Highest"}, {"name":"High"}, {"name":"Medium"}, {"name":"Low"}, {"name":"Lowest"} ] },
+    { "fieldId": "labels",            "name": "Labels",       "required": false, "schema": { "type": "array" } },
+    { "fieldId": "customfield_10016", "name": "Story Points", "required": false, "schema": { "type": "number" } }
+  ]
 
 // Repeat for Bug, Story, Sub-task — each call uses cache.issueTypes[name].id
 ```
@@ -117,11 +117,11 @@ mcp__atlassian__getTransitionsForJiraIssue({
 })
 → Keep raw as phase5["Task"].transitions["In Progress"] (--assemble maps it to cache.workflows["Task"].transitions["In Progress"])
    e.g. transitions = [
-    { "id": "11", "name": "Stop Progress",     "to": "To Do",     "requiredFields": {} },
-    { "id": "41", "name": "Submit for Review", "to": "In Review", "requiredFields": {} },
-    { "id": "51", "name": "Done",              "to": "Done",
-      "requiredFields": {
-        "resolution": { "required": true, "allowedValues": ["Done", "Won't Do"] }
+    { "id": "11", "name": "Stop Progress",     "to": { "name": "To Do" },     "fields": {} },
+    { "id": "41", "name": "Submit for Review", "to": { "name": "In Review" }, "fields": {} },
+    { "id": "51", "name": "Done",              "to": { "name": "Done" },
+      "fields": {
+        "resolution": { "required": true, "allowedValues": [ {"name":"Done"}, {"name":"Won't Do"} ] }
       }
     }
   ]
