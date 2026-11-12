@@ -214,6 +214,8 @@
   - Acceptance: `execute-plan-sdlc/handback:` sentinel case; exec cases whose descriptions start with `ship-self-commit:`.
 - R98: Stale hand-backs. A hand-back report or task notification that arrives for a step whose ledger entry is already `completed`, `skipped` or `failed`, or from an agent of a step that is not the current `dispatch_*` step, is stale: the ship session prints one line `ignored stale hand-back for <step>` and makes no Agent call, no `--after` call and no re-run for it. Stale reports come from harness delivery, which the plugin does not control.
   - Acceptance: `execute-plan-sdlc/handback:` sentinel case (ship SKILL.md carries the rule).
+- R99: Step agent arguments. Each `agents/ship-step-<step>.md` (commit, review, received-review, version, pr, execute) preloads its skill with `skills: [sdlc:<skill>]` and no arguments, so the preloaded skill text shows `$ARGUMENTS` as an empty string. Each of the six agent files tells the agent to put the args string from the task message (the `step.data.invocation` ship sends) verbatim wherever the skill's commands or rules use `$ARGUMENTS`. Example: the R95 final check runs `review.js --output-file --committed --base <sha> --auto --plan "<planFile>" --json`, not `review.js --output-file  --json`.
+  - Acceptance: `execute-plan-sdlc/handback:` sentinel case (all six agent files carry the sentence).
 - R85: Under `--auto` ship asks nothing. Every AskUserQuestion site in ship and its sub-skills has an `--auto` branch that stops with a failure and a `pendingQuestion`, which ship maps to `pending-question`.
   - Acceptance: the C20 rule and exec cases whose descriptions start with `ask-auto-branch:`.
 - R88: The review step's `args` are `--committed`, then `--auto` when `flags.auto`, then `--plan "<planFile>"` when a plan is set (review-sdlc A11).
@@ -593,4 +595,5 @@ Reading P11: the initial call always emits `confirm_pipeline`, under `--dry-run`
 | R96 | bump from plan commit type (ledger F-37), #9358 |
 | R97 | review step agent rules (ledger F-38), #9358 |
 | R98 | stale hand-backs dropped (ledger F-48), #9358 |
+| R99 | step agents substitute task args for $ARGUMENTS (ledger F-63), #9366 |
 | R85, C20, R86, the execute side of R80, the amended R77 order, the R11 refresh sentence | contract added in M9 wave R-b1 part 1 (#9319); implemented by part 2 of that wave (docs/plans/m9-wRb1-ship-chain-part2.md, Tasks 1-6), not by part 1. Until then ship.js still prefers the PR over the comment file in R77. |

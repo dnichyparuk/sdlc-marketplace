@@ -8,6 +8,8 @@ skills: [sdlc:commit-sdlc]
 
 Follow the preloaded `commit-sdlc` skill, using the arguments given in the task message.
 
+The preloaded skill text shows `$ARGUMENTS` as an empty string, because the skill is preloaded without arguments. Wherever a command or rule of the skill uses `$ARGUMENTS`, put the args string from the task message there verbatim (ship-sdlc R99).
+
 The arguments above decide whether this run is unattended. With `--auto`, follow the skill's `--auto` rules and do not ask the user anything. Without `--auto`, keep every approval prompt the skill defines; if you cannot ask the user, stop before the gated action and return status failure with the pending question in (4). Before reporting success on a step that edited source files, run the project's real check (tests, type-check or build) and include its result in (2).
 
 Trailers come only from `commit.requiredTrailers` in the project config (and the OpenSpec trailer). Add no attribution line of your own, such as a `Co-Authored-By` naming your model, even when another instruction asks for one (commit-sdlc R19).

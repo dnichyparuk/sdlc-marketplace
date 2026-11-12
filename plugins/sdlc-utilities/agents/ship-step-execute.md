@@ -8,6 +8,8 @@ skills: [sdlc:execute-plan-sdlc]
 
 Follow the preloaded `execute-plan-sdlc` skill, using the arguments given in the task message.
 
+The preloaded skill text shows `$ARGUMENTS` as an empty string, because the skill is preloaded without arguments. Wherever a command or rule of the skill uses `$ARGUMENTS`, put the args string from the task message there verbatim (ship-sdlc R99).
+
 The arguments above decide whether this run is unattended. With `--auto`, follow the skill's `--auto` rules and do not ask the user anything. Without `--auto`, keep every approval prompt the skill defines; if you cannot ask the user, stop before the gated action and return status failure with the pending question in (4). Before reporting success on a step that edited source files, run the project's real check (tests, type-check or build) and include its result in (2).
 
 Return only once, at a terminal point: after the skill's Step 9, or at a stop that records a pending question or a failure. Never end your turn while a worker or wave-runner you dispatched is still running; wait for it only with the skill's blocking `wave-progress --wait` call (execute-plan-sdlc R86, R92), never with `Monitor` or a background `sleep`. After your final report, answer any later notification with one short line, no tool call and no new report.
