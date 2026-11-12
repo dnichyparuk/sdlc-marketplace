@@ -94,6 +94,8 @@
 - R32: When `manifest.pr` is null, Step 11.6 writes `PR: none (comment-file <basename of manifest.comment_file>)`, and its dedup matches prior entries by `surface=`, `targetFile=` and that same `PR:` line.
 - R33: When `planFile` is non-null, a finding whose fix would reverse a decision recorded in the plan's `## Key Decisions`, `## Decisions taken without the owner` or `## Deviations & assumptions` section gets the verdict "disagree", with the decision cited in the reply, and is never fixed, also under `--auto` and the R18 bypass.
   - Acceptance: exec cases whose descriptions start with `rr-plan:`.
+- R34: Doc-versus-spec findings. In Step 3, a finding that says a doc or skill text disagrees with the spec is first checked against the code. When the code does what the doc says, the status is "partially correct": the fix documents the gap between spec and code, or the reply names the spec/code mismatch, and the doc is never rewritten to claim behaviour the code does not have. When the code does what the spec says, the doc is wrong and the doc fix goes ahead. This holds also under `--auto` and the R18 bypass.
+  - Acceptance: exec case `rr-verify: (a)` (SKILL.md Step 3 carries the R34 rule).
 
 ### Step-emitter contract
 
@@ -222,6 +224,7 @@ Critique 2 (responses):
 | R28 | (issue #9319); key decision: received-review owns the fix scope, ship only forwards `--plan` and `--min-severity` |
 | R31 | (issue #9302) |
 | R32 | (issue #9302) |
+| R34 | doc-versus-spec findings checked against the code (ledger F-58), #9365 |
 | R22 | per issue #429 table |
 | P8 | (issue #233) |
 | P9 | (issue #233) |

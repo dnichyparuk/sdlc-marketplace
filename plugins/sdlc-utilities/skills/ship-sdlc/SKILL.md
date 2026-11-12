@@ -331,7 +331,6 @@ Step  Skill                 Result
 6     version-sdlc          — skipped (config default)
 7     pr-sdlc               [done] https://github.com/.../pull/42
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Print the 3b row only when `ext.summary.finalCheck` is non-null.
 
 Decisions log:
   - Steps resolved: [execute, commit, review, archive-openspec, pr] (from config default; --quality balanced forwarded to execute-plan-sdlc — chosen at execute_tier)
@@ -346,6 +345,8 @@ Deferred review findings (2 medium):
 
 State file cleaned up: .sdlc/execution/ship-<branch>-<epoch>.json deleted
 ```
+
+Print the 3b row only when `ext.summary.finalCheck` is non-null.
 
 An `execute` row whose summary entry has `source: "user-attested"` is reported as `[done] finished outside the pipeline (user-attested)`.
 

@@ -159,8 +159,9 @@ If the `learnings-commit` step has `status: "will_run"`, execute it inline (no A
    ```bash
    git add .sdlc/learnings/log.md
    git commit -m "chore(ship-sdlc): capture pipeline learnings"
-   git push
+   git push --set-upstream origin HEAD
    ```
+   The push goes to the branch's own name, also when its upstream names another branch, such as a worktree branch that tracks `origin/main` (ship R36).
    On push failure (offline, auth), report the error but do **not** halt the pipeline — the local commit still lands and a follow-up `git push` will deliver it.
 4. After the step, `git status --porcelain` MUST be empty.
 
