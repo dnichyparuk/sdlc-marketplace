@@ -209,7 +209,7 @@ Determine the verification status:
 - **partially correct** — some aspects correct, some not
 - **cannot verify** — would need runtime data or external context
 
-**Doc-versus-spec findings (R34):** When a finding says a doc or skill text disagrees with the spec, read the code before you decide. If the code does what the doc says, the status is **partially correct**: the doc is true and the spec is ahead of the code. The fix documents that gap, or the reply names the spec/code mismatch; never rewrite the doc to claim behaviour the code lacks. If the code does what the spec says, the status is **confirmed** and the doc fix goes ahead.
+**Doc-versus-spec findings (R34):** When a finding says a doc or skill text disagrees with the spec, read the code before you decide. If the code does what the doc says, the status is **partially correct**: the doc is true and the spec is ahead of the code. The fix documents that gap, or the reply names the spec/code mismatch; never rewrite the doc to claim behaviour the code lacks, also under `--auto` or the R18 bypass. If the code does what the spec says, the status is **confirmed** and the doc fix goes ahead.
 
 For "cannot verify" items: state the limitation explicitly, ask the user for direction.
 **Under `--auto`:** when `flags.auto` is true (the boolean resolved in Step 1), ask nothing; give the item the verdict "needs discussion" (C19).
