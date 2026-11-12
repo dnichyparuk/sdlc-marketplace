@@ -268,8 +268,8 @@ For each id selected in Step 1 (call this list `selectedIds`), in `prepare.secti
    | `null` | Generic field-loop (3.G below) — dispatch one AskUserQuestion per `section.fields[]` entry, optionally gated by `section.confirmDetected`. |
    | `'inline-commit-builder'` | Inline commit-pattern builder (3.commit below) |
    | `'inline-pr-builder'` | Inline PR-pattern builder (3.pr below) |
-   | `'setup-dimensions'` | Run scan phase (Step 3.S below), then read and follow `@setup-dimensions.md` passing scan results as "Scan Input". Pass through `--add` and `--no-copilot` modifiers if present. |
-   | `'setup-pr-template'` | Run scan phase (Step 3.S), then read and follow `@setup-pr-template.md` passing scan results. Pass through `--add` if present. |
+   | `'setup-dimensions'` | Run scan phase (Step 3.S below); when it failed, skip this section, otherwise read and follow `@setup-dimensions.md` passing scan results as "Scan Input". Pass through `--add` and `--no-copilot` modifiers if present. |
+   | `'setup-pr-template'` | Run scan phase (Step 3.S); when it failed, skip this section, otherwise read and follow `@setup-pr-template.md` passing scan results. Pass through `--add` if present. |
    | `'setup-pr-labels'` | Read and follow `@setup-pr-labels.md` (it runs `gh label list` itself; no scan input from parent required). |
    | `'setup-guardrails'` | Read and follow `@setup-guardrails.md` with `target=plan`. Pass through `--add` if present. <!-- R9 --> |
    | `'setup-execution-guardrails'` | Read and follow `@setup-guardrails.md` with `target=execute`. Pass through `--add` if present. <!-- R9, I6 --> |
@@ -419,15 +419,15 @@ Run the project scan once per run, just before the first `setup-dimensions` or `
 
 #### Diff preview
 <!-- implements R-walk-3, P9, E6 -->
-Before the write, preview it with the same script in dry-run mode. Pass exactly the `--project-config` and `--local-config` arguments the write step will pass:
+Before the write, preview it with the same script in dry-run mode. Never put config JSON into a shell command: it holds user answers. Create one file per slice you will write: run `mktemp` for each, Read the empty file, then Write the JSON object into it with the Write tool. Pass exactly the `--project-config-file` and `--local-config-file` arguments the write step will pass (leave out a slice you do not write):
 
 ```bash
-node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --dry-run --project-config '<PROJECT_CONFIG_JSON>' --local-config '<LOCAL_CONFIG_JSON>'
+node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --dry-run --project-config-file "<PROJECT_CONFIG_FILE>" --local-config-file "<LOCAL_CONFIG_FILE>"
 ```
 
-Run this as one plain Bash call. Take the output path the command prints on stdout as `DRYRUN_OUTPUT_FILE`, and the exit code from the tool result. If the exit code is non-zero, show the command's stderr verbatim (and `errors[]` from the JSON when a path was printed), print `Write cancelled — no changes made.` and skip the write step. Otherwise read the JSON at the literal path. The script writes nothing.
+Run this as one plain Bash call. Take the output path the command prints on stdout as `DRYRUN_OUTPUT_FILE`, and the exit code from the tool result. If the exit code is non-zero, show the command's stderr verbatim (and `errors[]` from the JSON when a path was printed), print `Write cancelled — no changes made.` and skip the write step. Otherwise read the JSON at the literal path and require `dryRun === true`; when it is not `true` (an older script that ignores `--dry-run` would have written the config), print `Write cancelled — setup-init.js did not run in dry-run mode.` and skip the write step. The script writes nothing.
 
-Render `diff.projectConfig.changed` and `diff.localConfig.changed` (skip a `null` entry) as one markdown table (object values are shown as compact JSON):
+Render `diff.projectConfig.changed` and `diff.localConfig.changed` (a `null` entry means no change for that file: contribute no rows) as one markdown table. Object values are shown as compact JSON. A row without a `before` key shows `(unset)`; a row without an `after` key (a removed field) shows `(deleted)`:
 
 ```text
 | file               | path                 | before   | after       |
@@ -436,7 +436,7 @@ Render `diff.projectConfig.changed` and `diff.localConfig.changed` (skip a `null
 | .sdlc/local.json   | ship.bump            | patch    | minor       |
 ```
 
-When both `changed` lists are empty, skip the preview and print `No changes — nothing to write.`; bypass the write step (`util/setup-init.js` invocation) and proceed directly to Step 3b validation (which is now a no-op confirmation).
+When every entry is `null` or has an empty `changed` list, skip the preview and print `No changes — nothing to write.`; bypass the write step (`util/setup-init.js` invocation) and proceed directly to Step 3b validation (which is now a no-op confirmation).
 
 Otherwise, ask the user to confirm the diff via AskUserQuestion. On rejection, print `Write cancelled — no changes made.` and skip the write step.
 
@@ -445,14 +445,16 @@ Otherwise, ask the user to confirm the diff via AskUserQuestion. On rejection, p
 After collecting all answers AND confirming the diff preview above, write project config and local config via `util/setup-init.js`:
 
 ```bash
-# Replace <PROJECT_CONFIG_JSON> and <LOCAL_CONFIG_JSON> with the actual config objects
-# assembled from Step 3. Only include sections that were configured (not skipped).
-node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --project-config '<PROJECT_CONFIG_JSON>' --local-config '<LOCAL_CONFIG_JSON>'
+# <PROJECT_CONFIG_FILE> and <LOCAL_CONFIG_FILE> are the files written for the diff preview,
+# holding the config objects assembled from Step 3 (only sections that were configured).
+node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --project-config-file "<PROJECT_CONFIG_FILE>" --local-config-file "<LOCAL_CONFIG_FILE>"
 ```
 
 Run this as one plain Bash call. Take the output path the command prints on stdout as `INIT_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
 
 Read the JSON at the literal `INIT_OUTPUT_FILE` path.
+
+Once the write step has run or the user has cancelled, remove the config files created for the preview and the write with `rm -f`.
 
 Display created files, check for errors. The `setup-init.js` script deterministically creates `.sdlc/` directory, `.sdlc/.gitignore`, writes config files via `writeProjectConfig` and `writeLocalConfig` (read-merge-write, so existing sections are preserved), and ensures a managed `.gitignore` block exists in the project root listing transient skill artifact patterns (`*-context-*.json`, `*-manifest-*.json`, `*-prepare-*.json`). The managed block is delimited by sentinel comments (`# >>> sdlc-utilities managed`/`# <<< sdlc-utilities managed`) and is idempotent — re-running setup-sdlc replaces the block contents in place rather than duplicating. Existing user content in `.gitignore` is preserved.
 

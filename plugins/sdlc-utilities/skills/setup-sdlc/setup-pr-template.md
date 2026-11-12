@@ -8,7 +8,7 @@ tailored template, guides the user through customization section by section, the
 
 ## Scan Input
 
-This sub-flow expects the parent to provide the scan in `prepare.scan` as "Scan Input":
+This sub-flow expects the parent to provide the single Step 3.S project scan as "Scan Input" (never look for `.scan` in the Step 0 manifest):
 
 - **GitHub PR template content**: `files[".github/PULL_REQUEST_TEMPLATE.md"]` and
   `files[".github/PULL_REQUEST_TEMPLATE/"]`

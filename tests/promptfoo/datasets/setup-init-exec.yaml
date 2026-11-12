@@ -90,6 +90,8 @@
         const checks = {
           exit0: r.exit === 0, dryRun: r.dryRun === true, noWrite: r.treeUnchanged === true,
           idempotent: r.secondRunSame === true,
+          fileFormSame: r.fileFormSame === true,
+          fileFormRoundTrip: r.fileFormRoundTrip === true,
           modeChanged: r.projectPaths.includes('version.mode'),
           untouchedHidden: !r.projectPaths.some(outside),
           tagPrefixSame: !r.projectPaths.includes('version.tagPrefix'),
@@ -122,3 +124,13 @@
   assert:
     - type: icontains
       value: "not valid JSON"
+
+- description: "setup-init (#9362): --dry-run with a non-object config exits 1, not 2"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/util/setup-init.js"
+    script_args: "--dry-run --project-config null"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: icontains
+      value: "must be a JSON object"

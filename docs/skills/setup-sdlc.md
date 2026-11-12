@@ -310,6 +310,8 @@ Before writing any config files, `/setup-sdlc` runs `util/setup-init.js --dry-ru
 | .sdlc/local.json  | pr.expectedAccount | (unset)  | rnagrodzki  |
 ```
 
+A removed field shows `(deleted)` in the `after` column. The answers are passed to the script as JSON files (`--project-config-file`, `--local-config-file`), never inside a shell command, and the preview is trusted only when the script reports `dryRun: true`.
+
 When no fields changed, the preview is replaced with `No changes — nothing to write.` and the write step is skipped.
 
 Otherwise, you are prompted to confirm before the write proceeds. Reject to discard all accumulated answers without touching the config files.

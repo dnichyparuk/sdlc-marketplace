@@ -11,6 +11,8 @@
  * Options:
  *   --project-config '<json>'  JSON object for .sdlc/config.json sections
  *   --local-config '<json>'    JSON object for .sdlc/local.json sections
+ *   --project-config-file <p>  Same as --project-config, read from a JSON file (no shell quoting)
+ *   --local-config-file <p>    Same as --local-config, read from a JSON file (no shell quoting)
  *   --dry-run                  Print the per-file diff of the merged write; write nothing (P9)
  *   --output-file             Write JSON to temp file (path on stdout)
  *
@@ -50,6 +52,8 @@ function parseArgs(argv) {
   let projectConfig = null;
   let localConfig   = null;
   let dryRun        = false;
+  let projectConfigFile = null;
+  let localConfigFile   = null;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -57,12 +61,16 @@ function parseArgs(argv) {
       projectConfig = args[++i];
     } else if (a === '--local-config' && args[i + 1]) {
       localConfig = args[++i];
+    } else if (a === '--project-config-file' && args[i + 1]) {
+      projectConfigFile = args[++i];
+    } else if (a === '--local-config-file' && args[i + 1]) {
+      localConfigFile = args[++i];
     } else if (a === '--dry-run') {
       dryRun = true;
     }
   }
 
-  return { projectConfig, localConfig, dryRun };
+  return { projectConfig, localConfig, dryRun, projectConfigFile, localConfigFile };
 }
 
 // ---------------------------------------------------------------------------
@@ -72,19 +80,33 @@ function parseArgs(argv) {
 function validate(parsed) {
   const errors = [];
 
-  if (parsed.projectConfig !== null) {
+  // A config given as a file is read into the same string field, so the JSON checks
+  // below cover both forms. The file form avoids shell quoting of the JSON.
+  for (const [flag, fileKey, valueKey] of [
+    ['--project-config', 'projectConfigFile', 'projectConfig'],
+    ['--local-config',   'localConfigFile',   'localConfig'],
+  ]) {
+    if (parsed[fileKey] === null || parsed[fileKey] === undefined) continue;
+    if (parsed[valueKey] !== null) {
+      errors.push(`${flag} and ${flag}-file are mutually exclusive`);
+      continue;
+    }
     try {
-      JSON.parse(parsed.projectConfig);
+      parsed[valueKey] = fs.readFileSync(parsed[fileKey], 'utf8');
     } catch (e) {
-      errors.push(`--project-config is not valid JSON: ${e.message}`);
+      errors.push(`${flag}-file cannot be read: ${e.message}`);
     }
   }
 
-  if (parsed.localConfig !== null) {
+  for (const [flag, key] of [['--project-config', 'projectConfig'], ['--local-config', 'localConfig']]) {
+    if (parsed[key] === null) continue;
     try {
-      JSON.parse(parsed.localConfig);
+      const value = JSON.parse(parsed[key]);
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+        errors.push(`${flag} must be a JSON object`);
+      }
     } catch (e) {
-      errors.push(`--local-config is not valid JSON: ${e.message}`);
+      errors.push(`${flag} is not valid JSON: ${e.message}`);
     }
   }
 

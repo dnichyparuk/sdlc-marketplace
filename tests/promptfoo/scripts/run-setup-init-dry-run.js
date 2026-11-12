@@ -14,6 +14,7 @@
  *
  * Output:
  *   { "exit": 0, "treeUnchanged": true, "secondRunSame": true, "dryRun": true,
+ *     "fileFormSame": true, "fileFormRoundTrip": true,
  *     "projectPaths": [...], "localPaths": [...] }
  */
 
@@ -40,12 +41,15 @@ function snapshot(root) {
   return files;
 }
 
+const PROJECT_JSON = '{"version":{"mode":"tag","tagPrefix":"v"}}';
+const LOCAL_JSON = '{"ship":{"bump":"minor"}}';
+
 // Run setup-init --dry-run in `cwd`; read and remove the manifest it prints.
-function dryRun(cwd) {
+// `extra` replaces the inline config arguments (used for the file form).
+function dryRun(cwd, extra) {
   const res = spawnSync(process.execPath, [
     setupInit, '--dry-run',
-    '--project-config', '{"version":{"mode":"tag","tagPrefix":"v"}}',
-    '--local-config', '{"ship":{"bump":"minor"}}',
+    ...(extra || ['--project-config', PROJECT_JSON, '--local-config', LOCAL_JSON]),
   ], { cwd, encoding: 'utf8' });
   const manifestPath = (res.stdout || '').trim().split('\n').pop();
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -59,6 +63,20 @@ try {
   const before = snapshot(tmp);
   const first = dryRun(tmp);
   const second = dryRun(tmp);
+  // File form: the same configs read from files (no shell quoting), plus a value with a
+  // single quote and shell metacharacters that must round-trip untouched.
+  const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-init-cfg-'));
+  const projFile = path.join(cfgDir, 'project.json');
+  const localFile = path.join(cfgDir, 'local.json');
+  fs.writeFileSync(projFile, PROJECT_JSON);
+  fs.writeFileSync(localFile, LOCAL_JSON);
+  const viaFile = dryRun(tmp, ['--project-config-file', projFile, '--local-config-file', localFile]);
+  const nastyValue = "it's $(touch pwned); `id` \"x\"";
+  fs.writeFileSync(projFile, JSON.stringify({ pr: { expectedAccount: nastyValue } }));
+  const nasty = dryRun(tmp, ['--project-config-file', projFile]);
+  fs.rmSync(cfgDir, { recursive: true, force: true });
+  const nastyRow = ((nasty.manifest.diff || {}).projectConfig || { changed: [] }).changed
+    .find((c) => c.path === 'pr.expectedAccount' || c.path === 'pr');
   const after = snapshot(tmp);
   const paths = (d) => (d ? d.changed.map((c) => c.path) : null);
   const diff = first.manifest.diff || {};
@@ -67,6 +85,8 @@ try {
     treeUnchanged: JSON.stringify(before) === JSON.stringify(after),
     secondRunSame: JSON.stringify(first.manifest.diff) === JSON.stringify(second.manifest.diff),
     dryRun: first.manifest.dryRun === true,
+    fileFormSame: JSON.stringify(first.manifest.diff) === JSON.stringify(viaFile.manifest.diff),
+    fileFormRoundTrip: !!nastyRow && JSON.stringify(nastyRow.after).includes(JSON.stringify(nastyValue).slice(1, -1)),
     projectPaths: paths(diff.projectConfig),
     localPaths: paths(diff.localConfig),
   }) + '\n');
