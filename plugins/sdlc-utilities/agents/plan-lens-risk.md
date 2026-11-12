@@ -44,6 +44,8 @@ Skip `## OpenSpec Appendix` content when evaluating any gate.
 
 **Guardrail compliance:** When `{GUARDRAILS}` is not `"none configured"`: evaluate whether the plan (as written) satisfies each guardrail's `description`. Error-severity (`severity: error`) violations are blocking. Warning-severity (`severity: warning`) violations are advisory. Report each as PASS or FAIL with a one-line rationale. Skip this check when `{GUARDRAILS}` is `"none configured"`.
 
+**Runtime semantics (R71, under Verification strategy and Scope discipline):** For every procedure, command, regex and test assertion a task writes into skill prose, agent prose or a dataset, check: (a) tool contracts: the Write tool refuses an existing file it has not read, so a write after `mktemp` or onto an existing file reads it first; each Bash call is its own shell, so no variable, `cd` or trap crosses calls; (b) regex escaping: a literal `|` in a `regex`, `not-regex` or alternation is escaped; (c) quote handling: a rule that scans command text ignores text inside quotes; (d) every copy: a task that changes a pattern, name, flag, constant or value lists every file that holds its literal text (Grep for it: specs, skill companions such as `reference.md`, docs, `site/src/content-source/` copies, tests), and a task that changes a dispatch or model rule lists every companion of that skill that states it; (e) environment: a value read from an environment variable, the working directory or a path says where it comes from. A step that would fail at run time, or a copy left contradicting the change, is blocking.
+
 ---
 
 ## Calibration
@@ -53,6 +55,8 @@ Only flag issues that would cause real problems during execution within your foc
 - A missing Verify field on a non-docs task → flag as blocking
 - A task adding unrequested features → flag as advisory
 - An error-severity guardrail violation → flag as blocking
+- A procedure that writes with the Write tool onto an existing or `mktemp` file without a Read first, or a `not-regex` with a bare `|` → flag as blocking
+- A changed literal whose other copies (Grep hits) are not under Files → flag as blocking
 - Stylistic preferences → do NOT flag
 
 Approve unless there are genuine blockers in your focus areas.

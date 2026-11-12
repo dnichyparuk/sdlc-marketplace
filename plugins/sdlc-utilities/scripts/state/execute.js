@@ -21,6 +21,7 @@
  *   node execute-state.js verify-completeness --run-id <id>
  *   node execute-state.js wave-progress --wave <n> --run-id <id> --task <id> --phase <started|reading|editing|verifying|reporting>  (write)
  *   node execute-state.js wave-progress --wave <n> --run-id <id> --read                                                             (read; prints JSON)
+ *   node execute-state.js wave-progress --wave <n> --run-id <id> --wait --tasks <id,id> [--grace <s>] [--interval <s>] [--timeout <s>]   (blocking; prints JSON)
  *   node execute-state.js resume-reset [--branch <b>]
  *   node execute-state.js wave-watch   [--branch <b>] [--interval <s>] [--timeout <s>] [--once]
  *
@@ -166,6 +167,17 @@ function parseArgs(argv) {
       result[a.slice(2)] = val;
     } else if (a === '--once') {
       result.once = true;
+    } else if (a === '--wait') {
+      result.wait = true;
+    } else if (a === '--tasks' && args[i + 1]) {
+      result.tasks = args[++i];
+    } else if (a === '--grace' && args[i + 1]) {
+      const raw = args[++i];
+      if (!/^\d+$/.test(raw)) {
+        process.stderr.write('Error: --grace requires an integer >= 0\n');
+        process.exit(2);
+      }
+      result.grace = parseInt(raw, 10);
     }
   }
 
@@ -1279,6 +1291,51 @@ function cmdSummarizePriorWaveContext(opts) {
 // --phase, independent of the library's thrown error message (R-WAVE-LIVENESS).
 const VALID_WAVE_PROGRESS_PHASES = ['started', 'reading', 'editing', 'verifying', 'reporting'];
 
+// Bounds keep the worst case (540 s timeout + 30 s grace = 570 s) under the
+// 600-second Bash limit (R92). Do not raise without checking that margin.
+const WAIT_MAX_TIMEOUT_SECONDS = 540;
+const WAIT_MAX_GRACE_SECONDS = 30;
+
+/**
+ * `wave-progress --wait` — block until every task in --tasks has reached the
+ * `reporting` phase (then keep blocking --grace seconds) or --timeout elapses,
+ * and print one JSON line {wave, reported, inFlight, timedOut}. A task with no
+ * marker entry counts as in flight. Implements R92.
+ */
+function waitForWaveProgress(opts, stateDir) {
+  const taskIds = (opts.tasks || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (taskIds.length === 0) {
+    process.stderr.write('Error: --wait requires --tasks\n');
+    process.exit(2);
+  }
+  const intervalMs = (opts.interval || 5) * 1000;
+  const timeoutMs = Math.min(opts.timeout || 300, WAIT_MAX_TIMEOUT_SECONDS) * 1000;
+  const graceMs = Math.min(opts.grace == null ? WAIT_MAX_GRACE_SECONDS : opts.grace, WAIT_MAX_GRACE_SECONDS) * 1000;
+  const startedAt = Date.now();
+
+  const snapshot = () => {
+    const tasks = (readProgress({ runId: opts.runId, wave: opts.wave, stateDir }) || {}).tasks || {};
+    const reported = taskIds.filter(id => tasks[id] && tasks[id].phase === 'reporting');
+    return { reported, inFlight: taskIds.filter(id => !reported.includes(id)) };
+  };
+  const finish = (timedOut) => {
+    const { reported, inFlight } = snapshot();
+    process.stdout.write(JSON.stringify({ wave: opts.wave, reported, inFlight, timedOut }) + '\n');
+    process.exit(0);
+  };
+
+  const tick = () => {
+    if (snapshot().inFlight.length === 0) {
+      setTimeout(() => finish(false), graceMs);
+      return;
+    }
+    if (Date.now() - startedAt >= timeoutMs) { finish(true); return; }
+    const remaining = timeoutMs - (Date.now() - startedAt);
+    setTimeout(tick, Math.min(intervalMs, remaining));
+  };
+  tick();
+}
+
 /**
  * `wave-progress` — thin CLI surface over lib/wave-progress.js's writeProgress
  * / readProgress. Workers cannot `require()` a lib directly, so this verb is
@@ -1299,6 +1356,11 @@ function cmdWaveProgress(opts) {
   }
 
   const stateDir = resolveStateDir();
+
+  if (opts.wait) {
+    waitForWaveProgress(opts, stateDir);
+    return;
+  }
 
   if (opts.read) {
     const progress = readProgress({ runId: opts.runId, wave: opts.wave, stateDir });

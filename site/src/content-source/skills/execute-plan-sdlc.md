@@ -44,7 +44,7 @@ The plan must contain at least 2 tasks with clear deliverables (files to create 
 | `--tasks <ids>` | Run only these plan tasks: comma-separated task numbers from the `### Task N:` headings (for example `--tasks 3,4`). The waves are built from them alone; a selected task whose dependency is not selected still runs, with a warning. Cannot be combined with `--from-wave`. On `--resume` the selection recorded at the start of the run is used; a different one stops the run. | Every task |
 | `--from-wave <n>` | Start at wave `n` of the waves the run prints for its quality tier and config; earlier waves are skipped and wave numbers stay the same. Cannot be combined with `--tasks`. | Every wave |
 | `--wave-timeout <seconds>` | Wall-clock deadline for a single wave (R-WAVE-DEADLINE). Once it elapses, the enforcing layer — main context in direct mode, the wave-runner in runner mode — terminates any task still in flight and reports it with `errorCode: TIMEOUT`; see [Wave Timeout and Liveness](#wave-timeout-and-liveness-506) below. Source order: this flag, else `execute.waveTimeout` in `.sdlc/config.json`, else the legacy `ship.executeWaveTimeout` in `.sdlc/local.json`, else the default. ship-sdlc does not forward it. Unit: seconds (60–3600). | 1800 (`execute.waveTimeout`) |
-| `--wave-interval <seconds>` | `Monitor` poll interval the enforcing layer (main context in direct mode, the wave-runner in runner mode) uses to check in-flight task liveness while enforcing `--wave-timeout` (R-WAVE-LIVENESS). Same source order as `--wave-timeout`, with `execute.waveInterval` and the legacy `ship.executeWaveInterval`. Unit: seconds (minimum 10). | 60 (`execute.waveInterval`) |
+| `--wave-interval <seconds>` | Poll interval of the blocking `wave-progress --wait` call the enforcing layer (main context in direct mode, the wave-runner in runner mode) uses to check in-flight task liveness while enforcing `--wave-timeout` (R-WAVE-LIVENESS). Same source order as `--wave-timeout`, with `execute.waveInterval` and the legacy `ship.executeWaveInterval`. Unit: seconds (minimum 10). | 60 (`execute.waveInterval`) |
 
 ---
 
@@ -55,7 +55,7 @@ Keys under `execute` in `.sdlc/config.json` (schema: `schemas/sdlc-config.schema
 | Key | Description | Default |
 |---|---|---|
 | `waveTimeout` | Per-wave wall-clock deadline in seconds (60–3600); the `--wave-timeout` default. Legacy fallback: `ship.executeWaveTimeout` in `.sdlc/local.json`. | 1800 |
-| `waveInterval` | `Monitor` poll interval in seconds (minimum 10); the `--wave-interval` default. Legacy fallback: `ship.executeWaveInterval` in `.sdlc/local.json`. | 60 |
+| `waveInterval` | Poll interval in seconds of `wave-progress --wait` (minimum 10); the `--wave-interval` default. Legacy fallback: `ship.executeWaveInterval` in `.sdlc/local.json`. | 60 |
 | `commitWaves` | Commit each completed wave as a `wip(execute)` commit; the `--commit-waves` default. Legacy fallback: `ship.execute.commitWaves` in `.sdlc/local.json`. | false |
 | `rebase` | Rebase onto the default branch before execution: `auto`, `skip` or `prompt`; the `--rebase` default. | skip |
 | `waveRunnerMinPlanTasks` | Plans with at least this many tasks dispatch workers through one wave-runner Agent per wave (runner mode); smaller plans dispatch them from the main context (direct mode). No CLI flag. | 9 |
@@ -447,7 +447,7 @@ The pipeline **halts before the commit step** on exit 65 — it does not silentl
 
 ## Wave Timeout and Liveness (#506)
 
-Each wave is bounded by a wall-clock deadline, resolved from the `--wave-timeout` / `--wave-interval` flags (see Flags above). The harness provides no per-Agent wall-clock deadline of its own (`maxTurns` is a turn budget, not a clock), so the enforcing layer does it itself — main context in direct mode, the wave-runner Agent in runner mode: the workers run in the background, the layer polls their liveness with `Monitor`, and it terminates any overrun worker with `TaskStop`. There is no separate watchdog subagent — in runner mode the per-task layer already sits at the documented spawn-depth limit.
+Each wave is bounded by a wall-clock deadline, resolved from the `--wave-timeout` / `--wave-interval` flags (see Flags above). The harness provides no per-Agent wall-clock deadline of its own (`maxTurns` is a turn budget, not a clock), so the enforcing layer does it itself — main context in direct mode, the wave-runner Agent in runner mode: the workers run in the background, the layer waits for them with blocking `wave-progress --wait` calls (R92) and starts no timers, and it terminates any overrun worker with `TaskStop`. There is no separate watchdog subagent — in runner mode the per-task layer already sits at the documented spawn-depth limit.
 
 ### In-flight progress markers
 
@@ -460,6 +460,7 @@ node state/execute.js wave-progress --wave <N> --run-id <run-id> --task <id> --p
 - **Phase enum** is exactly `started | reading | editing | verifying | reporting` — any other value is rejected.
 - **Exit codes:** `0` on a successful write; `2` when `--wave`, `--run-id`, or `--task` is missing, or `--phase` is not one of the five values above.
 - **Read mode** (used by the enforcing layer — main context in direct mode, the wave-runner in runner mode — to observe a running wave from outside): `node state/execute.js wave-progress --wave <N> --run-id <run-id> --read` prints the marker JSON to stdout and exits `0`; an absent marker is not an error — it prints `{"tasks":{}}`.
+- **Wait mode** (used by the enforcing layer to block until a wave's workers have reported, R92): `node state/execute.js wave-progress --wave <N> --run-id <run-id> --wait --tasks <id,id> [--grace <s>] [--interval <s>] [--timeout <s>]`. It blocks until every listed task has reached the `reporting` phase (then keeps blocking `--grace` more seconds, default and maximum 30, so a repeat call never returns at once) or `--timeout` seconds elapse (default 300, capped at 540). `--interval` is the poll interval (the resolved `waveInterval`). A task with no marker counts as in flight. It prints one JSON line `{"wave":<N>,"reported":[...],"inFlight":[...],"timedOut":<bool>}` and exits `0`; the `inFlight` list is the `TaskStop` target at the deadline. Exit `2` when `--wave`, `--run-id` or `--tasks` is missing, or `--interval`/`--timeout` is below 1 or not a number (nothing is printed on stdout).
 - **Location:** `<stateDir>/<runId>/progress-wave-<N>.json`, where `stateDir` is `resolveStateDir()`'s return value (already ends in `.sdlc/execution` — there is no extra `execution/` segment). The marker sits directly in the per-run directory, alongside that run's per-task fact sheets (`task-<id>.md`). See [`plugins/sdlc-utilities/skills/execute-plan-sdlc/state-format.md`](../../plugins/sdlc-utilities/skills/execute-plan-sdlc/state-format.md) for the full marker JSON shape.
 
 ### TIMEOUT verdict

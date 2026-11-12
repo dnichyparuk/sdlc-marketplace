@@ -245,18 +245,18 @@
         const r = JSON.parse(output); const c = k => r.e.filter(e => e.batch === k).length;
         return r.n === 3 && r.ok === true && r.e.length === 17 && c(1) === 8 && c(2) === 8 && c(3) === 1 && r.e.filter(e => e.severity === "high").every(e => e.batch === 1) && r.e.find(e => e.name === "cap-d17").batch === 3;
 
-- description: "review-cap: (c) the repo's hook-readiness dimension matches plugins/sdlc-utilities/hooks/session-start.js"
+- description: "review-cap: (c) the repo's code-quality dimension matches plugins/sdlc-utilities/hooks/session-start.js"
   vars:
     script_path: "-e"
-    script_args: '(({loadAndMatchDimensions:l})=>{const[h]=[l("{{repo_root}}",["plugins/sdlc-utilities/hooks/session-start.js"],null).find(x=>x.name==="hook-readiness")];console.log(JSON.stringify({status:h&&h.status,matched:h&&h.matched_count}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"))'
+    script_args: '(({loadAndMatchDimensions:l})=>{const[h]=[l("{{repo_root}}",["plugins/sdlc-utilities/hooks/session-start.js"],null).find(x=>x.name==="code-quality")];console.log(JSON.stringify({status:h&&h.status,matched:h&&h.matched_count}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"))'
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.status === 'ACTIVE' && r.matched === 1"
 
-- description: "review-dimension-globs: runtime-contract and hook-readiness match scripts/skill/ and scripts/ci/ files"
+- description: "review-dimension-globs: runtime-contract and code-quality match scripts/skill/ and scripts/ci/ files"
   vars:
     script_path: "-e"
-    script_args: '(({loadAndMatchDimensions:l})=>{const[d]=[l("{{repo_root}}",["plugins/sdlc-utilities/scripts/skill/review.js","plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"],null)];const[f]=[n=>d.find(x=>x.name===n)];console.log(JSON.stringify({rc:f("runtime-contract"),hr:f("hook-readiness")}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"))'
+    script_args: '(({loadAndMatchDimensions:l})=>{const[d]=[l("{{repo_root}}",["plugins/sdlc-utilities/scripts/skill/review.js","plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"],null)];const[f]=[n=>d.find(x=>x.name===n)];console.log(JSON.stringify({rc:f("runtime-contract"),hr:f("code-quality")}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"))'
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.rc.status === 'ACTIVE' && r.rc.matched_count === 2 && r.hr.status === 'ACTIVE' && r.hr.matched_count === 2"

@@ -705,7 +705,7 @@
         consolidates on a partial or absent set. A response that assigns run_in_background
         true or false to any dispatch fails.
 
-- description: "execute-plan-sdlc (R-WAVE-DEADLINE, #506): the dispatching context polls with Monitor and terminates with TaskStop"
+- description: "execute-plan-sdlc (R-WAVE-DEADLINE, R92): the dispatching context waits with wave-progress --wait and terminates with TaskStop"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/execute-plan-ready.md"
@@ -716,20 +716,20 @@
       running, and what it does to the ones that overrun.
   assert:
     - type: icontains
-      value: "Monitor"
+      value: "wave-progress --wait"
     - type: icontains
       value: "TaskStop"
     - type: llm-rubric
       value: >
         In direct mode main context enforces the deadline; in runner mode the wave-runner
         enforces it inside its own context, by the same procedure. The dispatching context
-        polls with `Monitor` on a non-blocking loop using the manifest's poll interval and a
-        `timeout_ms` no greater than the remaining budget. On each poll it re-reads the
-        progress markers (`wave-progress ... --read`) to learn which tasks are still in
-        flight — a task whose marker phase is not yet `reporting` — rather than relying on its
-        own memory of the dispatch list. When the deadline expires it calls `TaskStop` on ONLY
+        waits with a blocking foreground `wave-progress --wait` call, repeated while results
+        are missing, each bounded by the remaining budget and using the manifest's poll
+        interval. It takes the in-flight tasks from that call's `inFlight` list (a task whose
+        marker phase is not yet `reporting`) rather than its own memory of the dispatch list,
+        and it starts no `Monitor` or background timer. When the deadline expires it calls `TaskStop` on ONLY
         those still-in-flight tasks; workers that already reported are left alone. The
-        response must NOT describe spawning a separate watchdog Agent or a blocking sleep. It
+        response must NOT describe spawning a separate watchdog Agent, a `Monitor` loop or a background sleep. It
         must not restate a numeric default for the timeout — the value arrives in the
         manifest.
 

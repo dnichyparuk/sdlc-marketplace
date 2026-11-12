@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.3] - 2026-11-12
+
+### Fixed
+- execute-plan-sdlc: the orchestrator and wave-runner wait for workers with a blocking `state/execute.js wave-progress --wait` call instead of Monitor, so they no longer loop for hundreds of turns; a failed or non-JSON wait is retried once, a short remaining budget skips the wait, and a worker that already returned is never stopped (#9359).
+- plan-sdlc: the plan review lenses, the single plan reviewer and the planner check runtime semantics (tool contracts, regex escaping, quoting, every copy of a changed literal, environment sources) (#9359).
+
+### Changed
+- review: four low-yield review dimensions (script-resolution, hook-readiness, release-consistency, type-safety-review) and their Copilot mirrors are dropped (#9359).
+
 ## [0.51.2] - 2026-11-11
 
 ### Fixed

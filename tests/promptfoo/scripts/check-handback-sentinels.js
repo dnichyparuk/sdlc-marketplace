@@ -40,14 +40,19 @@ const shipSkill = has('skills/ship-sdlc/SKILL.md', ['wave-watch']);
 const shipStale = has('skills/ship-sdlc/SKILL.md', ['**Stale hand-backs (R98).**']);
 const executeStale = has('skills/execute-plan-sdlc/SKILL.md', ['**Stale hand-backs (R91).**']);
 const waveRunnerStale = has('skills/execute-plan-sdlc/wave-runner-template.md', ['**Stale hand-backs (R91).**']);
+const WAIT = 'wave-progress --wait';
+const NO_MONITOR = 'Never start `Monitor`';
+const waitSkill = has('skills/execute-plan-sdlc/SKILL.md', [WAIT, '--wait --tasks', NO_MONITOR]);
+const waitWaveRunner = has('skills/execute-plan-sdlc/wave-runner-template.md', [WAIT, '--wait --tasks', NO_MONITOR]);
+const waitShipStepExecute = has('agents/ship-step-execute.md', [WAIT]);
 const workers = {};
 for (const name of ['execute-worker', 'execute-worker-complex', 'execute-worker-batch']) {
   workers[name] = has(`agents/${name}.md`, WORKER_SENTINELS);
 }
 
-const ok = skill && waveRunner && shipStepExecute && shipStepReview && shipStepReceivedReview && shipSkill && shipStale && executeStale && waveRunnerStale && Object.values(workers).every(Boolean);
+const ok = skill && waveRunner && shipStepExecute && shipStepReview && shipStepReceivedReview && shipSkill && shipStale && executeStale && waveRunnerStale && waitSkill && waitWaveRunner && waitShipStepExecute && Object.values(workers).every(Boolean);
 
-process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipStepReview, shipStepReceivedReview, shipSkill, shipStale, executeStale, waveRunnerStale, workers }) + '\n');
+process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipStepReview, shipStepReceivedReview, shipSkill, shipStale, executeStale, waveRunnerStale, waitSkill, waitWaveRunner, waitShipStepExecute, workers }) + '\n');
 if (!ok) {
   process.exit(1);
 }
