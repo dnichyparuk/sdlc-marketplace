@@ -49,10 +49,15 @@ const workers = {};
 for (const name of ['execute-worker', 'execute-worker-complex', 'execute-worker-batch']) {
   workers[name] = has(`agents/${name}.md`, WORKER_SENTINELS);
 }
+const ARGS = 'put the value of `args:` from the task message (the `step.data.args` string, without its enclosing double quotes) there verbatim (ship-sdlc R99)';
+const stepArgs = {};
+for (const s of ['commit', 'review', 'received-review', 'version', 'pr', 'execute']) {
+  stepArgs[s] = has(`agents/ship-step-${s}.md`, [ARGS]);
+}
 
-const ok = skill && waveRunner && shipStepExecute && shipStepReview && shipStepReceivedReview && shipSkill && shipStale && executeStale && waveRunnerStale && waitSkill && waitWaveRunner && waitShipStepExecute && Object.values(workers).every(Boolean);
+const ok = skill && waveRunner && shipStepExecute && shipStepReview && shipStepReceivedReview && shipSkill && shipStale && executeStale && waveRunnerStale && waitSkill && waitWaveRunner && waitShipStepExecute && Object.values(workers).every(Boolean) && Object.values(stepArgs).every(Boolean);
 
-process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipStepReview, shipStepReceivedReview, shipSkill, shipStale, executeStale, waveRunnerStale, waitSkill, waitWaveRunner, waitShipStepExecute, workers }) + '\n');
+process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipStepReview, shipStepReceivedReview, shipSkill, shipStale, executeStale, waveRunnerStale, waitSkill, waitWaveRunner, waitShipStepExecute, workers, stepArgs }) + '\n');
 if (!ok) {
   process.exit(1);
 }
