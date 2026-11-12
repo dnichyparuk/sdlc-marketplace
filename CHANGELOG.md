@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.7] - 2026-11-12
+
+### Fixed
+- ship-sdlc: the six ship step agents (and the received-review agent) take the args string from `step.data.args` and substitute it verbatim wherever the preloaded skill text shows an empty `$ARGUMENTS` (a doubled space, empty backticks, or a prepare command ending right after `--output-file`); spec R99, the site spec copy and an R99 sentinel check match (#9366).
+
 ## [0.51.6] - 2026-11-12
 
 ### Fixed
