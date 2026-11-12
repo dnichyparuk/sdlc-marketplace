@@ -18,13 +18,15 @@ Full 6-phase sequence — run once, then use cache for all operations.
 
 ```
 mcp__atlassian__getAccessibleAtlassianResources()
-→ Extract: sites[0].id  → cache.cloudId  = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-           sites[0].url → cache.siteUrl  = "mycompany.atlassian.net"
+→ Keep raw as phase1.resources (--assemble maps it to cache.cloudId, cache.siteUrl)
+   e.g. sites[0].id  = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        sites[0].url = "mycompany.atlassian.net"
 
 mcp__atlassian__atlassianUserInfo()
-→ Extract: accountId    → cache.currentUser.accountId    = "5b10a2844c20165700ede21g"
-           displayName  → cache.currentUser.displayName  = "Jane Smith"
-           emailAddress → cache.currentUser.email        = "jane@company.com"
+→ Keep raw as phase1.userInfo (--assemble maps it to cache.currentUser)
+   e.g. accountId    = "5b10a2844c20165700ede21g"
+        displayName  = "Jane Smith"
+        emailAddress = "jane@company.com"
 ```
 
 ### Phase 2 — Project metadata (run both in parallel, needs cloudId)
@@ -34,14 +36,16 @@ mcp__atlassian__getVisibleJiraProjects({
   cloudId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   searchString: "PROJ"
 })
-→ Extract: values[0].key  → cache.project.key  = "PROJ"
-           values[0].name → cache.project.name = "My Project"
-           values[0].id   → cache.project.id   = "10000"
+→ Keep raw as phase2.projects (--assemble maps it to cache.project)
+   e.g. values[0].key  = "PROJ"
+        values[0].name = "My Project"
+        values[0].id   = "10000"
 
 mcp__atlassian__getIssueLinkTypes({
   cloudId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 })
-→ Extract: issueLinkTypes array → cache.linkTypes = [
+→ Keep raw as phase2.linkTypes (--assemble maps it to cache.linkTypes)
+   e.g. issueLinkTypes = [
     { "name": "Blocks",  "inward": "is blocked by", "outward": "blocks"   },
     { "name": "Cloners", "inward": "is cloned by",  "outward": "clones"   },
     { "name": "Relates", "inward": "relates to",    "outward": "relates to" }
@@ -55,7 +59,8 @@ mcp__atlassian__getJiraProjectIssueTypesMetadata({
   cloudId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   projectKey: "PROJ"
 })
-→ Extract: issueTypes array → cache.issueTypes = {
+→ Keep raw as phase3 (--assemble maps it to cache.issueTypes)
+   e.g. issueTypes = {
     "Task":     { "id": "10001", "subtask": false, "hierarchyLevel": 0  },
     "Bug":      { "id": "10002", "subtask": false, "hierarchyLevel": 0  },
     "Story":    { "id": "10003", "subtask": false, "hierarchyLevel": 0  },
@@ -71,7 +76,8 @@ mcp__atlassian__getJiraIssueTypeMetaWithFields({
   projectKey: "PROJ",
   issueTypeId: "10001"  ← cache.issueTypes["Task"].id
 })
-→ Extract all fields → cache.fieldSchemas["Task"] = {
+→ Keep raw as phase4["Task"] (--assemble maps it to cache.fieldSchemas["Task"])
+   e.g. fields = {
     "summary":           { "required": true,  "type": "string" },
     "description":       { "required": false, "type": "string" },
     "priority":          { "required": false, "type": "priority",
@@ -93,7 +99,7 @@ mcp__atlassian__searchJiraIssuesUsingJql({
   fields: ["status"],
   maxResults: 100
 })
-→ Extract unique status names: ["To Do", "In Progress", "In Review", "Done"]
+→ Keep raw as phase5["Task"].statuses (status list), e.g. unique status names: ["To Do", "In Progress", "In Review", "Done"]
 
 // Step 5b: For each status, find one representative issue key
 mcp__atlassian__searchJiraIssuesUsingJql({
@@ -109,7 +115,8 @@ mcp__atlassian__getTransitionsForJiraIssue({
   cloudId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   issueKey: "PROJ-42"
 })
-→ Extract → cache.workflows["Task"].transitions["In Progress"] = [
+→ Keep raw as phase5["Task"].transitions["In Progress"] (--assemble maps it to cache.workflows["Task"].transitions["In Progress"])
+   e.g. transitions = [
     { "id": "11", "name": "Stop Progress",     "to": "To Do",     "requiredFields": {} },
     { "id": "41", "name": "Submit for Review", "to": "In Review", "requiredFields": {} },
     { "id": "51", "name": "Done",              "to": "Done",

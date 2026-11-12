@@ -67,6 +67,8 @@ function runAutoMigration() {
 // Home-cache path helpers
 // ---------------------------------------------------------------------------
 
+const PROJECT_KEY_RE = /^[A-Z][A-Z0-9_]{1,254}$/;
+
 function getHomeCacheRoot() {
   return path.join(os.homedir(), '.sdlc-cache', 'jira');
 }
@@ -263,6 +265,17 @@ function parseArgs(argv) {
 
   if (!projectKey && subcommand !== 'validate-body' && subcommand !== 'check-payload') {
     errors.push('--project <KEY> is required');
+  }
+  // P9: reject path-like values before any cache path is built.
+  if (projectKey && !PROJECT_KEY_RE.test(projectKey)) {
+    errors.push(`--project '${projectKey}' is not a valid Jira project key (${PROJECT_KEY_RE.source})`);
+  }
+  if (site !== null) {
+    if (site === '' || /[\/\\]|\.\./.test(site)) {
+      errors.push(`--site '${site}' must be a sanitized site host without '/', '\\' or '..'`);
+    } else {
+      site = sanitizeSiteHost(site);
+    }
   }
 
   const assembleSave = subcommand === 'assemble' && saveSeen;

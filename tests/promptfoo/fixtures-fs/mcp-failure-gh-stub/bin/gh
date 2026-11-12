@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Stub `gh` for mcp-failure.js --analyze (jira-sdlc R28 duplicate search).
+# Answers `gh issue list` with one open issue only when the call names the plugin repo and the
+# labels error-report-sdlc applies; any other issue list gets []. Other calls fail.
+if [[ "$1 $2" == "issue list" ]]; then
+  if [[ " $* " == *" -R rnagrodzki/sdlc-marketplace "* && " $* " == *" --label tooling-error "* && " $* " == *" --label jira-sdlc "* ]]; then
+    echo '[{"number":4242,"title":"[jira-sdlc] createJiraIssue fails with 401","body":"mcp-failure[auth]: mcp__atlassian__createJiraIssue on acme_atlassian_net"}]'
+  else
+    echo '[]'
+  fi
+  exit 0
+fi
+echo "STUB-GH-UNEXPECTED $*" >&2
+exit 1

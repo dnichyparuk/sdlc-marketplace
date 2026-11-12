@@ -45,6 +45,20 @@ const { resolveSdlcRoot } = require(path.join(LIB, 'config'));
 /** Closed set of failure classes (R26). */
 const CLASSES = ['transport', 'auth', 'schema', 'workflow', 'hook-block', 'link-verification', 'unknown'];
 
+/** Repository the failure report is filed to (same as error-report-sdlc). */
+const REPORT_REPO = 'rnagrodzki/sdlc-marketplace';
+
+/** Map any value outside the closed class set to 'unknown'. */
+function normalizeClass(value) {
+  const c = String(value || 'unknown');
+  return CLASSES.includes(c) ? c : 'unknown';
+}
+
+/** POSIX single-quote a value for a shell command line. */
+function sq(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
 /** Redactor patterns — must run before any persistence or presentation. */
 const REDACTORS = [
   { re: /Bearer [A-Za-z0-9._-]+/g,                              sub: 'Bearer [REDACTED]' },
@@ -144,7 +158,7 @@ function classify(signal = {}) {
  */
 function appendTelemetry(failure, root) {
   const today   = new Date().toISOString().slice(0, 10);
-  const cls     = String(failure.class || 'unknown');
+  const cls     = normalizeClass(failure.class);
   const tool    = redact(String(failure.tool    || ''));
   const site    = redact(String(failure.site    || ''));
   const project = redact(String(failure.project || ''));
@@ -248,7 +262,7 @@ function recordOccurrence(cls, key, root) {
  * log scan, template rendering) with a duplicate-detection lookup.
  *
  * @remarks **Network side effect.** This function invokes the `gh` CLI
- * (`gh issue list --label mcp-failure`) which performs an HTTPS call to
+ * (`gh issue list -R rnagrodzki/sdlc-marketplace --label tooling-error --label jira-sdlc`) which performs an HTTPS call to
  * github.com. The lookup is bounded by a 10-second timeout and failures
  * are swallowed (duplicate is set to `null`). Callers running in offline
  * or hermetic CI contexts should be aware that the network call still
@@ -273,7 +287,7 @@ function recordOccurrence(cls, key, root) {
  * }}
  */
 function analyzeForDispatch(failure, root) {
-  const cls     = String(failure.class || 'unknown');
+  const cls     = normalizeClass(failure.class);
   const tool    = redact(String(failure.tool    || ''));
   const site    = redact(String(failure.site    || ''));
   const project = redact(String(failure.project || ''));
@@ -301,18 +315,18 @@ function analyzeForDispatch(failure, root) {
   try {
     const ghRes = spawnSync(
       'gh',
-      ['issue', 'list',
+      ['issue', 'list', '-R', REPORT_REPO,
        '--state', 'open',
-       '--label', 'mcp-failure',
+       '--label', 'tooling-error', '--label', 'jira-sdlc',
        '--search', tool,
-       '--json', 'number,title,labels'],
+       '--json', 'number,title,body'],
       { stdio: ['ignore', 'pipe', 'pipe'], timeout: 10000, shell: false, encoding: 'utf8' }
     );
     if (ghRes.status === 0 && ghRes.stdout) {
       const issues = JSON.parse(ghRes.stdout.trim() || '[]');
       for (const issue of issues) {
-        const labels = (issue.labels || []).map(l => l.name || l);
-        if (labels.some(l => l === `class:${cls}`)) {
+        const marker = `mcp-failure[${cls}]: ${tool}`;
+        if (`${issue.title || ''}\n${issue.body || ''}`.includes(marker)) {
           duplicate = issue.number;
           action    = 'comment';
           break;
@@ -354,15 +368,10 @@ function analyzeForDispatch(failure, root) {
     ? `#${duplicate} (open) — propose comment rather than new issue`
     : 'none found';
 
-  const body = templateContent
-    .replace(/\{CLASS\}/g,          cls)
-    .replace(/\{TOOL\}/g,           tool)
-    .replace(/\{SITE\}/g,           site)
-    .replace(/\{PROJECT\}/g,        project)
-    .replace(/\{ERROR\}/g,          error)
-    .replace(/\{R_PATH\}/g,         rPath || 'unknown')
-    .replace(/\{PRIOR_COUNT\}/g,    String(priorCount))
-    .replace(/\{DUPLICATE_HINT\}/g, duplicateHint);
+  const values = { CLASS: cls, TOOL: tool, SITE: site, PROJECT: project, ERROR: error,
+    R_PATH: rPath || 'unknown', PRIOR_COUNT: String(priorCount), DUPLICATE_HINT: duplicateHint };
+  const body = templateContent.replace(
+    /\{(CLASS|TOOL|SITE|PROJECT|ERROR|R_PATH|PRIOR_COUNT|DUPLICATE_HINT)\}/g, (_, k) => values[k]);
 
   const title = `mcp-failure[${cls}]: ${tool} on ${site}`;
 
@@ -439,7 +448,7 @@ if (require.main === module) {
 
   // ---- --analyze
   if (hasFlag('analyze')) {
-    const cls       = getArg('class')     || 'unknown';
+    const cls       = normalizeClass(getArg('class'));
     const tool      = getArg('tool')      || '';
     const site      = getArg('site')      || '';
     const project   = getArg('project')   || '';
@@ -455,7 +464,6 @@ if (require.main === module) {
         process.stderr.write(appendTelemetry({ class: cls, tool, site, project, error, recovered }));
       }
       const result = analyzeForDispatch({ class: cls, tool, site, project, error, recovered, rPath });
-      const esc = (s) => String(s).replace(/"/g, '\\"');
       const { title, body } = result.proposal;
       // Stable key order
       const out = {
@@ -467,8 +475,8 @@ if (require.main === module) {
         proposalText:    `${title}\n\n${body}` + (result.duplicate != null
           ? `\n\nAn open issue #${result.duplicate} already tracks this failure class; the proposed action is to comment on it instead of filing a new issue.`
           : ''),
-        errorReportArgs: `--error-type mcp-${cls} --skill jira-sdlc --step "${esc(step)}" --operation "${esc(operation)}"`,
-        labels:          ['mcp-failure', `class:${cls}`],
+        errorReportArgs: `--error-type mcp-${cls} --skill jira-sdlc --step ${sq(step)} --operation ${sq(operation)}`,
+        labels:          ['tooling-error', 'jira-sdlc'],
         errorText:       body,
       };
       process.stdout.write(JSON.stringify(out) + '\n');

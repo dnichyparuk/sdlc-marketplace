@@ -508,7 +508,7 @@
         call) with class schema (HTTP 400, field error, no workflow keywords) and recovered no,
         which synthesizes the dispatch proposal (R28). The proposal title and body are presented
         verbatim. The user must approve (Y/edit/skip) before error-report-sdlc is dispatched
-        with labels mcp-failure and class:schema. The response notes the existing direct
+        with `--error-type mcp-schema`. The response notes the existing direct
         error-report-sdlc invocation has been replaced by this gated path. Cites R9 and R28.
 
 - description: "jira-sdlc R28 workflow-class: R14 unsampled live-call failure triggers gate"
@@ -524,7 +524,7 @@
         The response describes jira-sdlc running the MCP-failure gate (one `mcp-failure.js --analyze --record`
         call) with class workflow (tool getTransitionsForJiraIssue) and recovered no. The
         proposal is presented verbatim with Y/edit/skip gate (R28). Dispatch to error-report-sdlc
-        happens only after user approval with labels mcp-failure and class:workflow.
+        happens only after user approval with `--error-type mcp-workflow`.
         The response cites R14 and R28.
 
 - description: "jira-sdlc R28 transport-class: HTTP 503 on MCP call should classify as transport"
@@ -592,14 +592,13 @@
     skill_path: "plugins/sdlc-utilities/skills/jira-sdlc/SKILL.md"
     project_context: "file://fixtures/jira-cloudid-auth-error.md"
     user_request: >
-      During the R28 analyze step, gh issue list finds an open issue #99 with label mcp-failure
-      and label class:auth matching the current failure. What action does jira-sdlc propose?
+      During the R28 analyze step, gh issue list finds an open issue #99 in rnagrodzki/sdlc-marketplace whose body holds mcp-failure[auth]: <tool>
+      matching the current failure. What action does jira-sdlc propose?
   assert:
     - type: llm-rubric
       value: >
-        The response explains that when a duplicate open issue is found (matching class label
-        and tool name in title), the analyzeForDispatch helper returns action: "comment" and
+        The response explains that when a duplicate open issue is found (matching `mcp-failure[auth]: <tool>` in title or body), the analyzeForDispatch helper returns action: "comment" and
         duplicate: 99. The R28 gate presents the proposal as a comment-on-existing suggestion
-        (not create-new). User approval is still required. On Y, error-report-sdlc is dispatched
-        to add a comment to issue #99 rather than create a new issue. The response cites KD6
-        or the dedup query shape (--state open --label mcp-failure --search).
+        (not create-new). User approval is still required. On Y, the skill posts a comment with
+        `gh issue comment 99 --repo rnagrodzki/sdlc-marketplace` rather than create a new issue. The response cites KD6
+        or the dedup query shape (-R rnagrodzki/sdlc-marketplace --label tooling-error --label jira-sdlc --search).

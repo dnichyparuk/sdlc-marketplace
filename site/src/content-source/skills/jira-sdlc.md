@@ -21,7 +21,7 @@ Manages Jira issues via the Atlassian MCP with a project metadata cache that eli
 | `--project <KEY>` | Jira project key to use (e.g., `PROJ`). Auto-detected from git branch or `.sdlc/config.json` → `jira.defaultProject`. When `jira.projects` is set (≥2 entries), values outside the list are rejected. | Auto |
 | `--force-refresh` | Rebuild the project cache from scratch (cache is permanent by default; use when project metadata has changed) | — |
 | `--init-templates` | Copy the skill's default issue type templates to `.sdlc/jira-templates/` for customization | — |
-| `--site <host>` | Sanitized site host (lowercased, `.` → `_`, e.g., `acme_atlassian_net`). Disambiguates `--check`/`--load` when the same project key is cached under multiple site subdirectories. | Unset |
+| `--site <host>` | Sanitized site host (lowercased, `.` → `_`, e.g., `acme_atlassian_net`). Disambiguates `--check`/`--load` when the same project key is cached under multiple site subdirectories. A dotted host is normalised; a value with `/`, `\` or `..` is rejected. | Unset |
 | `--skip-workflow-discovery` | Bypass Phase 5; cache marks each non-subtask issue type `{ unsampled: true }`. Transitions fall back to a live `getTransitionsForJiraIssue` per issue. Use in CI and other pre-seeded environments. | false |
 
 ---
@@ -349,9 +349,9 @@ Every observed MCP failure is assigned exactly one class:
 |-------|---------|
 | `transport` | HTTP 5xx, `ECONNREFUSED`, `ETIMEDOUT`, `fetch failed` |
 | `auth` | HTTP 401/403 or response contains `cloudId`/`unauthorized` |
-| `schema` | HTTP 400 with field/shape error, or hook deny citing R19/C13/R18/R25/G15 |
+| `schema` | HTTP 400 with field/shape error |
 | `workflow` | HTTP 400 with `transition`/`workflow`/`invalid status` in error message |
-| `hook-block` | PreToolUse hook deny citing R20/R21 |
+| `hook-block` | Retained for completeness; no jira-sdlc path emits it since R21 |
 | `link-verification` | R22 link verification abort |
 | `unknown` | No deterministic signal matches |
 
@@ -376,11 +376,11 @@ Sensitive values (bearer tokens, cookies, cloudIds, email addresses) are redacte
 
 On exhausted-recovery paths (R23 dual-namespace exhausted, R9 retry-exhausted, R14 unsampled-fallback failure, R22 link-verification abort), the telemetry and the proposal come from one `mcp-failure.js --analyze --record` call. The skill:
 
-1. Searches for duplicate open issues (`gh issue list --state open --label mcp-failure`).
+1. Searches the plugin repository for duplicate open issues (`gh issue list -R rnagrodzki/sdlc-marketplace --state open --label tooling-error --label jira-sdlc`) and matches the `mcp-failure[<class>]: <tool>` line.
 2. Synthesizes a proposal (title + body) using the `McpFailure.md` template.
 3. Presents the proposal verbatim — you must explicitly approve (`Y`), edit, or skip.
-4. On approval, dispatches `error-report-sdlc` with labels `mcp-failure` and `class:<x>`.
-5. When a duplicate is found, proposes commenting on the existing issue rather than creating a new one.
+4. On approval, dispatches `error-report-sdlc` with `--error-type mcp-<class>`; the issue gets the `tooling-error` and `jira-sdlc` labels.
+5. When a duplicate is found, proposes commenting on the existing issue (`gh issue comment <n> --repo rnagrodzki/sdlc-marketplace`) rather than creating a new one.
 
 To act on a filed `mcp-failure` issue with hardening proposals, use:
 
