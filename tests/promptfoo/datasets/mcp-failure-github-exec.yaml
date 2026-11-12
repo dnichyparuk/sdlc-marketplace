@@ -1,0 +1,108 @@
+# Script execution tests for `mcp-failure.js --source github` (github-sdlc R26, R32, P14, C13).
+# Same runner and C17 conventions as github-sdlc-exec.yaml (stub gh, no network).
+
+- description: "mcp-failure github: validation analyze gives proposal, labels and the duplicate search call"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--script plugins/sdlc-utilities/scripts/lib/mcp-failure.js -- --analyze --record --source github --class validation --operation create --repo acme/widgets --error 'HTTP 422' --recovered no --step R26"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const j = o.json;
+        const argv = o.calls.length === 1 ? o.calls[0].argv.join(' ') : '';
+        const ok = o.exit === 0 && j && j.shouldDispatch === true && j.action === 'create' && j.duplicate === null
+          && j.proposalTitle === 'gh-failure[validation]: create on acme/widgets'
+          && JSON.stringify(j.labels) === '["tooling-error","github-sdlc"]'
+          && j.errorReportArgs === "--error-type gh-validation --skill github-sdlc --step 'R26' --operation 'create'"
+          && argv.startsWith('issue list -R rnagrodzki/sdlc-marketplace')
+          && argv.includes('--label tooling-error --label github-sdlc');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "mcp-failure github: an open issue with the gh-failure title gives duplicate.url and show-duplicate"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--script plugins/sdlc-utilities/scripts/lib/mcp-failure.js -- --analyze --source github --class validation --operation create --repo acme/widgets --error 'HTTP 422' --recovered no --step R26"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_DATA": "report-duplicate"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const j = o.json;
+        const ok = o.exit === 0 && j && j.action === 'show-duplicate' && j.shouldDispatch === true
+          && j.duplicate.number === 77 && j.duplicate.url === 'https://github.com/rnagrodzki/sdlc-marketplace/issues/77';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "mcp-failure github: environment classes give shouldDispatch false and no issue list call"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--script plugins/sdlc-utilities/scripts/lib/mcp-failure.js -- --analyze --source github --class rate-limit --operation view --repo acme/widgets --error 'HTTP 403' --recovered no --step R31"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const j = o.json;
+        const ok = o.exit === 0 && j && j.shouldDispatch === false && j.proposal === null
+          && o.calls.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "mcp-failure github: auth class gives shouldDispatch false and no issue list call"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--script plugins/sdlc-utilities/scripts/lib/mcp-failure.js -- --analyze --source github --class auth --operation view --repo acme/widgets --error 'HTTP 401' --recovered no --step R31"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json && o.json.shouldDispatch === false && o.json.proposal === null
+          && o.calls.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "mcp-failure github: capability class gives shouldDispatch false and no issue list call"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--script plugins/sdlc-utilities/scripts/lib/mcp-failure.js -- --analyze --source github --class capability --operation create --repo acme/widgets --error unsupported --recovered no --step R29"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json && o.json.shouldDispatch === false && o.json.proposal === null
+          && o.calls.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "mcp-failure github: --record writes the R32 block and redacts GitHub tokens (C13)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--script plugins/sdlc-utilities/scripts/lib/mcp-failure.js --dump .sdlc/learnings/log.md -- --analyze --record --source github --class validation --operation create --repo acme/widgets --error github_pat_11ABC,ghp_abc --recovered no --step R26"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const log = o.dumps['.sdlc/learnings/log.md'] || '';
+        const lines = log.split('\n');
+        const ok = o.exit === 0
+          && /^## \d{4}-\d{2}-\d{2} — github-sdlc gh-failure\[validation\]: create$/.test(lines[0])
+          && lines[1] === '- operation: create' && lines[2] === '- repo: acme/widgets'
+          && lines[3] === '- class: validation' && lines[4] === '- error: [REDACTED],[REDACTED]'
+          && lines[5] === '- recovered: no'
+          && !log.includes('github_pat_') && !log.includes('ghp_')
+          && o.json.errorText.includes('[REDACTED],[REDACTED]')
+          && !o.stdout.includes('github_pat_') && !o.stdout.includes('ghp_');
+        return ok ? true : `FAIL ${output}`;

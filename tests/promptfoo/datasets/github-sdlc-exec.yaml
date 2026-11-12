@@ -1,0 +1,1248 @@
+# Script execution tests for github-sdlc (no LLM, no live gh, no network).
+# Every case runs scripts/run-github-case.js with the stub gh in
+# fixtures-fs/stub-bin-gh-issues (scenario data: scenarios/default.json) first on PATH.
+# C17 (checked by the github-sdlc/c17-dataset-check case): every case sets
+#   script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"  (except descriptions with E11)
+#   script_home                                             (every case)
+#   SDLC_LINKS_OFFLINE=1 in script_env                      (except descriptions with "online G8")
+# Stub self-tests use the stub fixture itself as home: they read nothing from it.
+
+# ── stub gh self-tests (--raw-gh) ─────────────────────────────────────────────
+
+- description: "github-sdlc/stub routes: repo answer from default.json and one call-log line"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--raw-gh -- api repos/acme/widgets --hostname=github.com"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json && o.json.full_name === 'acme/widgets' && o.json.node_id === 'R_1'
+          && o.calls.length === 1 && o.calls[0].tokenHash === null
+          && o.calls[0].argv.join(' ') === 'api repos/acme/widgets --hostname=github.com';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/stub routes: graphql contains-match answers issue 7 links"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--raw-gh -- api graphql --hostname=github.com --raw-field=query=query{issue{subIssues}} --field=owner=acme --field=name=widgets --field=number=7"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const issue = o.json && o.json.data.repository.issue;
+        const item = issue && issue.projectItems.nodes[0];
+        const ok = o.exit === 0 && issue.issueType.name === 'Bug' && issue.parent === null
+          && issue.subIssues.nodes[0].number === 12 && issue.blockedBy.nodes[0].number === 4
+          && item.project.number === 2 && item.project.owner.login === 'acme'
+          && item.fieldValues.nodes[0].name === 'Todo' && item.fieldValues.nodes[0].field.name === 'Status';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/stub routes: unmatched call prints STUB-GH-UNEXPECTED and exits 1"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--raw-gh -- api repos/nobody/none --hostname=github.com"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.stdout === ''
+          && o.stderr.includes('STUB-GH-UNEXPECTED api repos/nobody/none --hostname=github.com')
+          && o.calls.length === 1;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/stub GH_STUB_FAIL: rate-limit on the 1st matching call"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--raw-gh -- api repos/acme/widgets --hostname=github.com"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_FAIL": "404@api repos/acme/other;rate-limit@api repos/acme/widgets#1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.stdout === ''
+          && o.stderr.includes('HTTP 403: API rate limit exceeded') && o.stderr.includes('reset 1767225600');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/stub GH_STUB_AUTH: expired token fails auth status"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--raw-gh -- auth status --hostname github.com"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_AUTH": "expired"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.stderr.includes('Failed to log in to github.com account alice')
+          && o.stderr.includes('expired') && !o.stderr.includes('Logged in to');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/stub GH_STUB_ACCOUNTS: two accounts in auth status --json=hosts"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--raw-gh -- auth status --hostname=github.com --json=hosts"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_ACCOUNTS": "alice*,acme"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const list = o.json && o.json.hosts['github.com'];
+        const ok = o.exit === 0 && list.length === 2
+          && list[0].login === 'alice' && list[0].active === true
+          && list[1].login === 'acme' && list[1].active === false
+          && list.every((a) => a.state === 'success' && a.host === 'github.com');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/stub GH_STUB_SCOPES: none in the Token scopes line"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--raw-gh -- auth status --hostname github.com"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_SCOPES": "none", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.stdout.includes('Logged in to github.com account alice (keyring)')
+          && o.stdout.includes('- Token scopes: none') && !o.stdout.includes("'repo'");
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/stub GH_STUB_SEQ: first call of state12 answers the first listed variant"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--raw-gh -- api repos/acme/widgets/issues/12 --hostname=github.com"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_SEQ": "state12=closed,open"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json && o.json.number === 12 && o.json.state === 'closed'
+          && o.json.state_reason === 'completed';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/stub auth token: known token value and GH_TOKEN hash in the call log"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--raw-gh -- auth token --user=alice --hostname=github.com"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "abc"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        // sha256("abc") starts ba7816bf8f01
+        const ok = o.exit === 0 && o.stdout.trim() === 'stub-token-alice-S3CR3T'
+          && o.calls.length === 1 && o.calls[0].tokenHash === 'ba7816bf8f01';
+        return ok ? true : `FAIL ${output}`;
+
+# ── run-github-case.js options ────────────────────────────────────────────────
+
+- description: "github-sdlc/stub-runner: --origin, --config, --sub, --break-cache, --dump and arg tokens"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--origin https://github.com/acme/widgets.git --config {"github":{"cacheMaxAgeHours":1}} --sub pkg/app --break-cache --dump .sdlc/config.json --dump .git/config --dump ~/.sdlc-cache/github --raw-gh -- api @WS@ @HOME@ @OUT@ @FIX:stub-bin-gh-issues/scenarios@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const argv = o.calls[0] && o.calls[0].argv;
+        const ok = o.exit === 1 && argv.length === 5
+          && argv.slice(1).every((a) => a.startsWith('/') && !a.includes('@'))
+          && argv[1].endsWith('/ws') && argv[2].endsWith('/home') && argv[3] === o.outputFile.path
+          && argv[4].endsWith('tests/promptfoo/fixtures-fs/stub-bin-gh-issues/scenarios')
+          && o.outputFile.content === null
+          && o.dumps['.sdlc/config.json'] === '{"github":{"cacheMaxAgeHours":1}}'
+          && o.dumps['.git/config'].includes('url = https://github.com/acme/widgets.git')
+          && o.dumps['~/.sdlc-cache/github'] === '';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/stub-runner: --no-git and --no-gh-path leave gh off PATH"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--no-git --no-gh-path --dump .git/config --raw-gh -- --version"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === null && o.stderr.includes('ENOENT') && o.calls.length === 0
+          && o.dumps['.git/config'] === null;
+        return ok ? true : `FAIL ${output}`;
+
+# ── github.js --check: arguments and repository resolution (A1, R1, R3) ──────
+
+- description: "github-sdlc/check A1: --repo wins over origin (source flag)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--origin https://github.com/acme/other.git -- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = o.json && o.json.repo;
+        const ok = o.exit === 0 && r.slug === 'acme/widgets' && r.source === 'flag' && r.host === 'github.com'
+          && r.owner === 'acme' && r.name === 'widgets' && o.json.errors.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check A1: --repo bad//x exits 1 naming --repo, no gh call, no cache read"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--break-cache -- --check --repo bad//x"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        // --break-cache: any cache read would crash (exit 2), so exit 1 proves none happened.
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.calls.length === 0
+          && o.json.errors.some((e) => e.includes('--repo') && e.includes('bad//x'));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/clear A1: --repo acme/.. exits 1 naming --repo, no gh call, cache untouched"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --clear --repo acme/.."
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.calls.length === 0
+          && o.json.errors.some((e) => e.includes('--repo') && e.includes('acme/..'))
+          && o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json'].includes('"fetchedBy": "alice"');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R1: github.defaultRepo resolves with source config"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--no-git --config {"github":{"defaultRepo":"acme/widgets"}} -- --check'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.repo.slug === 'acme/widgets' && o.json.repo.source === 'config';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R1: origin remote resolves with source origin"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--origin git@github.com:acme/widgets.git -- --check"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.repo.slug === 'acme/widgets' && o.json.repo.source === 'origin'
+          && o.json.warnings.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R1: no origin, no defaultRepo, two github.repos gives source none and candidates"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--no-git --config {"github":{"repos":["a/x","b/y"]}} -- --check'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.repo.source === 'none' && o.json.repo.slug === null
+          && JSON.stringify(o.json.candidateRepos) === '["a/x","b/y"]' && o.json.cache === null;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R3: SSH alias origin host resolves to github.com with a warning"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--origin git@github-work:acme/widgets.git -- --check"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const w = o.json.warnings.filter((x) => x.includes('github-work'));
+        const ok = o.exit === 0 && o.json.repo.host === 'github.com' && o.json.repo.slug === 'acme/widgets'
+          && o.json.repo.source === 'origin' && w.length === 1;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check C-projectroot: from a sub-directory the workspace config resolves"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--origin https://github.com/acme/other.git --config {"github":{"defaultRepo":"acme/widgets"}} --sub pkg/app -- --check'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.repo.slug === 'acme/widgets' && o.json.repo.source === 'config'
+          && o.json.config.github.defaultRepo === 'acme/widgets';
+        return ok ? true : `FAIL ${output}`;
+
+# ── github.js --check: config, flags and migration (R4, R-config-version, A5) ─
+
+- description: "github-sdlc/check R4: config.github is echoed with defaults applied"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"repos":["acme/widgets"]}} -- --check --repo acme/widgets'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const g = o.json.config.github;
+        const ok = o.exit === 0 && JSON.stringify(g)
+          === '{"defaultRepo":null,"repos":["acme/widgets"],"projects":[],"cacheMaxAgeHours":0}';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R4: github.unknownKey exits 1 naming the key"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"unknownKey":1}} -- --check --repo acme/widgets'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.errors.some((e) => e.includes('unknownKey')) && o.calls.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R4: github.unknownKey still exits 1 with --skip-config-check"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"unknownKey":1}} -- --check --repo acme/widgets --skip-config-check'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.errors.some((e) => e.includes('unknownKey'))
+          && o.json.flags.skipConfigCheck === true && o.json.migration === null;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R-config-version/A5: --skip-config-check and --auto reach flags, migration null"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets --skip-config-check --auto"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const f = o.json.flags;
+        const ok = o.exit === 0 && f.skipConfigCheck === true && f.auto === true && o.json.migration === null
+          && f.skipProjects === false && f.forceRefresh === false && f.initTemplates === false;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R-config-version/A5: default run has a migration block and flags.auto false"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.flags.skipConfigCheck === false && o.json.flags.auto === false
+          && o.json.migration !== null && typeof o.json.migration === 'object';
+        return ok ? true : `FAIL ${output}`;
+
+# ── github.js --check: auth and acting account (P3, R20, R30, G2, E3, E11) ───
+
+- description: "github-sdlc/check R30: owner-matching second account acts by token, no auth switch"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_ACCOUNTS": "alice*,acme"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.json.auth;
+        const lines = o.calls.map((c) => c.argv.join(' '));
+        const at = lines.indexOf('auth token --user=acme --hostname=github.com');
+        const later = o.calls.slice(at + 1);
+        const ok = o.exit === 0 && a.authenticated === true && a.accountSwitch.switched === true
+          && a.accountSwitch.account === 'acme' && a.actingAccount === 'acme' && a.activeAccount === 'alice'
+          && a.repoAccessible === true && at >= 0 && !lines.some((l) => l.startsWith('auth switch'))
+          && later.length > 0 && later.every((c) => c.tokenHash && c.tokenHash === later[0].tokenHash)
+          && !output.includes('S3CR3T');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R20: read:project only gives scopes.project false, readProject true"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_SCOPES": "read:project"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const s = o.json.auth.scopes;
+        const ok = o.exit === 0 && s.project === false && s.readProject === true;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R20: GH_TOKEN in the environment gives both scopes null"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "env-token"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const s = o.json.auth.scopes;
+        const ok = o.exit === 0 && s.project === null && s.readProject === null;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check G2: not logged in exits 1 with the probeGhAuth message"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_AUTH": "logged-out"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.auth.authenticated === false && o.json.auth.expired === false
+          && o.json.errors.some((e) => e.includes('Not logged in') && e.includes('gh auth login'));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check E3: expired token gives auth.expired true, exit 1 and the refresh hint"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_AUTH": "expired"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.auth.authenticated === false && o.json.auth.expired === true
+          && o.json.errors.some((e) => e.includes('gh auth refresh --hostname github.com'));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check E11: gh not on PATH exits 1 with an errors entry naming gh"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--no-gh-path -- --check --repo acme/widgets"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.calls.length === 0
+          && o.json.errors.includes('gh CLI not found: install it from https://cli.github.com');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check P3: inaccessible repository exits 1 with repoAccessible false"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo a/x"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.auth.authenticated === true && o.json.auth.repoAccessible === false
+          && o.json.errors.some((e) => e.includes('Cannot access: a/x'));
+        return ok ? true : `FAIL ${output}`;
+
+# ── github.js --check: cache status (P4, G1, A2, R6) ──────────────────────────
+
+- description: "github-sdlc/check P4: a complete cache needs no refresh"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.json.cache;
+        const ok = o.exit === 0 && c.exists === true && c.refreshNeeded === false && c.reason === null
+          && c.fresh === true && c.missing.length === 0
+          && c.path.endsWith('/home/.sdlc-cache/github/github_com/acme/widgets.json');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check G1: a cache without labels is incomplete"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--drop-key .sdlc-cache/github/github_com/acme/widgets.json:labels -- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.json.cache;
+        const ok = o.exit === 0 && c.exists === true && JSON.stringify(c.missing) === '["labels"]'
+          && c.refreshNeeded === true && c.reason === 'incomplete';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check A2: --force-refresh needs a refresh of a complete cache"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets --force-refresh"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.json.cache;
+        const ok = o.exit === 0 && c.refreshNeeded === true && c.reason === 'force-refresh'
+          && o.json.flags.forceRefresh === true;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check R6: cacheMaxAgeHours 1 with an old fetchedAt is expired"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"cacheMaxAgeHours":1}} -- --check --repo acme/widgets'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.json.cache;
+        const ok = o.exit === 0 && c.fresh === false && c.refreshNeeded === true && c.reason === 'expired';
+        return ok ? true : `FAIL ${output}`;
+
+# ── github.js --clear / --load (A6, A7, P8, P15) ──────────────────────────────
+
+- description: "github-sdlc/clear A6: deletes only the target repository cache"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--dump ~/.sdlc-cache/github/github_com/acme/widgets.json --dump ~/.sdlc-cache/github/github_com/acme/other.json -- --clear --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const other = o.dumps['~/.sdlc-cache/github/github_com/acme/other.json'];
+        const ok = o.exit === 0 && o.json.cleared === true
+          && o.json.cachePath.endsWith('/.sdlc-cache/github/github_com/acme/widgets.json')
+          && o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json'] === null
+          && other !== null && other.includes('other-only') && o.calls.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/clear A6: no cache reports cleared false with exit 0"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --clear --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.cleared === false && o.json.errors.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/load A7: prints every R5 key with no gh call"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --load --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const keys = ['schemaVersion', 'fetchedAt', 'fetchedBy', 'repo', 'labels', 'milestones', 'assignableUsers',
+          'issueTemplates', 'templateConfig', 'issueTypes', 'projects', 'capabilities'];
+        const ok = o.exit === 0 && keys.every((k) => k in o.json) && !('currentUser' in o.json)
+          && o.json.labels.length === 3 && o.calls.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/load A7: no cache exits 1 with an errors entry"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --load --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.errors.length === 1 && o.calls.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+# ── github.js --refresh (R5, R11, R20, R29, A4, A8, P7, C15) ──────────────────
+
+- description: "github-sdlc/refresh R5/P7: full refresh writes every R5 key, fetchedBy is the acting account"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_ACCOUNTS": "alice*,acme"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const raw = o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json'];
+        const c = raw && JSON.parse(raw);
+        const keys = ['schemaVersion', 'fetchedAt', 'fetchedBy', 'repo', 'labels', 'milestones', 'assignableUsers',
+          'issueTemplates', 'templateConfig', 'issueTypes', 'projects', 'capabilities'];
+        const n = o.json && o.json.counts;
+        const ok = o.exit === 0 && o.json.saved === true
+          && o.json.cachePath.endsWith('/home/.sdlc-cache/github/github_com/acme/widgets.json')
+          && c && JSON.stringify(Object.keys(c)) === JSON.stringify(keys) && !('currentUser' in c)
+          && c.schemaVersion === 1 && c.fetchedBy === 'acme' && !Number.isNaN(Date.parse(c.fetchedAt))
+          && JSON.stringify(c.repo) === '{"id":"R_1","nameWithOwner":"acme/widgets","hasIssuesEnabled":true,"visibility":"public"}'
+          && c.milestones[0].dueOn === null && c.assignableUsers[1].login === 'bob'
+          && c.projects[0].id === 'PVT_2' && c.projects[0].fields[0].options[1].id === 'OPT_2'
+          && c.projects[0].fields[4].iterations[0].id === 'IT_A'
+          && n.labels === 3 && n.milestones === 1 && n.assignableUsers === 2 && n.issueTemplates === 2
+          && n.issueTypes === 2 && n.projectFields === 5
+          && o.json.warnings.length === 0 && o.json.errors.length === 0 && !raw.includes('S3CR3T');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh R11: repository templates give a markdown and a form entry and templateConfig"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets --sections issueTemplates"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = JSON.parse(o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json']);
+        const [bug, feature] = c.issueTemplates;
+        const ok = o.exit === 0 && c.issueTemplates.length === 2
+          && bug.file === 'bug.md' && bug.kind === 'markdown' && JSON.stringify(bug.labels) === '["bug"]'
+          && bug.title === '[BUG] ' && bug.source === 'repo'
+          && JSON.stringify(bug.headings.map((h) => h.text)) === '["Describe the bug","Steps","Acceptance Criteria"]'
+          && feature.file === 'feature.yml' && feature.kind === 'form'
+          && JSON.stringify(feature.sections.map((s) => s.label)) === '["Problem","Notes"]'
+          && JSON.stringify(feature.sections.map((s) => s.required)) === '[true,false]'
+          && c.templateConfig.blank_issues_enabled === false;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh R11: no repository templates and a private <owner>/.github skip the .github templates"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets --sections issueTemplates"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "404@api repos/acme/widgets/contents"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = JSON.parse(o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json']);
+        const lines = o.calls.map((x) => x.argv.join(' '));
+        // Shipped defaults (R11 step 3) or none while that directory is absent; never the .github ones.
+        const ok = o.exit === 0 && o.json.warnings.length === 0
+          && lines.includes('api repos/acme/.github --hostname=github.com --jq=.visibility')
+          && !lines.some((l) => l.startsWith('api repos/acme/.github/contents'))
+          && c.issueTemplates.every((t) => t.source === 'shipped');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh R29: default stub gives every client and host capability true"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets --sections capabilities'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const cap = JSON.parse(o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json']).capabilities;
+        const ok = o.exit === 0
+          && JSON.stringify(cap.client) === '{"subIssues":true,"blockedBy":true,"issueType":true,"duplicateOf":true}'
+          && JSON.stringify(cap.host) === '{"subIssues":true,"blockedBy":true,"issueType":true,"orgIssueTypes":true,"projectsV2":true}';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh R29: an old gh and host give client.subIssues false and host.blockedBy false"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets --sections capabilities"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "capabilities-old"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const cap = JSON.parse(o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json']).capabilities;
+        const ok = o.exit === 0 && cap.client.subIssues === false && cap.client.blockedBy === true
+          && cap.client.issueType === true && cap.host.blockedBy === false && cap.host.subIssues === true
+          && cap.host.issueType === true;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh A8: --sections labels makes only the label call and keeps the other sections"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets --sections labels"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = JSON.parse(o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json']);
+        const lines = o.calls.map((x) => x.argv.join(' '));
+        const repoCall = 'api repos/acme/widgets --hostname=github.com';
+        const auth = (l) => l === '--version' || l.startsWith('auth ') || l.startsWith('api user')
+          || l === repoCall || l === `${repoCall} --silent`;
+        const s = (v) => JSON.stringify(v);
+        // The fixture's (refresh-shaped) values survive for every section other than labels.
+        const ok = o.exit === 0 && o.json.saved === true
+          && s(lines.filter((l) => !auth(l))) === s(['api repos/acme/widgets/labels?per_page=100 --hostname=github.com --paginate --slurp'])
+          && lines.filter((l) => l === repoCall).length === 1
+          && c.fetchedAt !== '2026-11-01T10:00:00Z' && c.labels.length === 3
+          && s(c.repo) === '{"id":"R_1","nameWithOwner":"acme/widgets","hasIssuesEnabled":true,"visibility":"public"}'
+          && s(c.milestones) === '[{"number":1,"title":"v1.0","state":"open","dueOn":null}]'
+          && s(c.assignableUsers) === '[{"login":"alice","name":"Alice A"},{"login":"bob","name":"Bob B"}]'
+          && c.issueTemplates[0].headings[0].text === 'Describe the bug' && !('sections' in c.issueTemplates[0])
+          && s(c.templateConfig) === '{"blank_issues_enabled":false}'
+          && s(c.issueTypes) === '[{"id":"IT_1","name":"Bug"},{"id":"IT_2","name":"Task"}]'
+          && c.projects[0].fields.length === 5 && c.projects[0].fields[4].iterations[0].id === 'IT_A'
+          && s(c.capabilities) === '{"client":{"subIssues":true,"blockedBy":true,"issueType":true,"duplicateOf":true},"host":{"subIssues":true,"blockedBy":true,"issueType":true,"orgIssueTypes":true,"projectsV2":true}}';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh A8: --sections bogus exits 1 naming bogus, no gh call"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --refresh --repo acme/widgets --sections bogus"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.calls.length === 0 && o.json.errors.some((e) => e.includes('bogus'));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh A4: --skip-projects makes no projectV2 call and saves projects.skipped"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets --skip-projects'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = JSON.parse(o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json']);
+        const ok = o.exit === 0 && o.json.saved === true
+          && !o.calls.some((x) => x.argv.some((a) => a.includes('projectV2') || a === 'project'))
+          && JSON.stringify(c.projects) === '{"skipped":true}' && o.json.counts.projectFields === 0
+          && c.capabilities.host.projectsV2 === null;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh R20: a read:project token still reads the boards"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets --sections projects'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_SCOPES": "repo,read:project"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = JSON.parse(o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json']);
+        const ok = o.exit === 0 && o.json.warnings.length === 0
+          && o.calls.some((x) => x.argv.some((a) => a.includes('projectV2')))
+          && c.projects.length === 1 && c.projects[0].id === 'PVT_2' && c.projects[0].title === 'Roadmap'
+          && o.json.counts.projectFields === 5;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh P7: a failing labels call keeps the previous labels with a warning"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "404@api repos/acme/widgets/labels"}'
+  assert:
+    - type: javascript
+      value: |
+        // The labels call failed, so the saved labels can only come from the previous cache.
+        const o = JSON.parse(output);
+        const c = JSON.parse(o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json']);
+        const w = o.json.warnings.filter((x) => x.startsWith('labels:') && x.includes('404'));
+        const ok = o.exit === 0 && o.json.saved === true && w.length === 1 && o.json.warnings.length === 1
+          && JSON.stringify(c.labels.map((l) => l.name)) === '["bug","enhancement","documentation"]'
+          && c.fetchedAt !== '2026-11-01T10:00:00Z' && c.issueTemplates[0].kind === 'markdown'
+          && 'headings' in c.issueTemplates[0];
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh P7: a failing repository call exits 1 with failure.message and keeps the cache"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --refresh --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "422@api repos/acme/widgets --hostname=github.com#3"}'
+  assert:
+    - type: javascript
+      value: |
+        // Calls 1-2 with that prefix are the account and access probes; the 3rd is the repository read.
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.saved === false && o.json.failure.message.includes('HTTP 422')
+          && o.json.errors.length === 1
+          && o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json'].includes('"fetchedAt": "2026-11-01T10:00:00Z"');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/refresh C15: refresh acme/a then acme/b, then --load --repo acme/b returns only b-only"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,path,r)=>{const[h]=[fs.mkdtempSync(path.join(os.tmpdir(),"github-c15-"))];const[env]=[Object.assign({},process.env,{HOME:h})];const[run]=[(...a)=>{const[x]=[cp.spawnSync("node",[r+"/plugins/sdlc-utilities/scripts/skill/github.js",...a],{cwd:h,env,encoding:"utf8"})];try{return{exit:x.status,json:JSON.parse(x.stdout)}}catch(e){return{exit:x.status,json:null,stderr:x.stderr}}}];const[a,b,l]=[run("--refresh","--repo","acme/a"),run("--refresh","--repo","acme/b"),run("--load","--repo","acme/b")];const[f]=[(n)=>fs.existsSync(path.join(h,".sdlc-cache/github/github_com/acme",n))];const[out]=[{a,b,l,files:[f("a.json"),f("b.json")]}];fs.rmSync(h,{recursive:true,force:true});console.log(JSON.stringify(out))})(require("child_process"),require("fs"),require("os"),require("path"),"{{repo_root}}")'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.a.exit === 0 && o.b.exit === 0 && o.l.exit === 0
+          && o.a.json.cachePath !== o.b.json.cachePath && o.files[0] === true && o.files[1] === true
+          && JSON.stringify(o.l.json.labels.map((x) => x.name)) === '["b-only"]'
+          && o.l.json.repo.nameWithOwner === 'acme/b';
+        return ok ? true : `FAIL ${output}`;
+
+# ── github.js output and exit codes (A11, P17) and schema sync (R4) ───────────
+
+- description: "github-sdlc/check A11: --output-file writes the JSON to the file and nothing to stdout"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets --output-file @OUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const keys = ['repo', 'candidateRepos', 'auth', 'cache', 'config', 'flags', 'migration', 'warnings', 'errors'];
+        const file = o.outputFile.content && JSON.parse(o.outputFile.content);
+        const ok = o.exit === 0 && o.stdout === '' && file
+          && JSON.stringify(Object.keys(file)) === JSON.stringify(keys) && file.repo.slug === 'acme/widgets';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check P17: an unknown flag exits 1 with an errors entry"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets --bogus"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.calls.length === 0 && o.json.errors.some((e) => e.includes('--bogus'));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/check P17: an unreadable cache directory is a crash (exit 2)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--break-cache -- --check --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 2 && o.stdout === '' && o.stderr.includes('github.js error');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/schema-sync R4: GITHUB_CONFIG_KEYS and the cacheMaxAgeHours default match the schema"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--schema-sync"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.keysEqual === true && o.defaultEqual === true ? true : `FAIL ${output}`;
+
+# ── C17 dataset check ─────────────────────────────────────────────────────────
+
+- description: "github-sdlc/c17-dataset-check: every case sets the stub bin, a home and offline links"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--check-dataset datasets/github-sdlc-exec.yaml"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.ok === true && o.offenders.length === 0 ? true : `FAIL ${output}`;
+
+# ── view and search (R22, R24, R31, P9, P10) ──────────────────────────────────
+
+- description: "github-sdlc/view P9: issue 7 returns the issue, links, project values and three comments newest last"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 7 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const j = o.json;
+        const ok = o.exit === 0 && j.title === 'Widget crashes on save' && j.state === 'open' && j.stateReason === null
+          && JSON.stringify(j.labels) === '["bug"]' && j.milestone === 'v1.0' && JSON.stringify(j.assignees) === '["alice"]'
+          && j.type === 'Bug' && j.parent === null && JSON.stringify(j.subIssues) === '[12]'
+          && JSON.stringify(j.dependencies) === '{"blockedBy":[4],"blocking":[]}'
+          && j.projectFields.length === 1 && j.projectFields[0].field === 'Status' && j.projectFields[0].value === 'Todo'
+          && j.url === 'https://github.com/acme/widgets/issues/7' && j.isPullRequest === false
+          && j.comments.length === 3 && j.comments[0].createdAt < j.comments[2].createdAt && j.comments[2].body === 'Fix is in progress.';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view R24: issue 20 is a pull request"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 20 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 0 && o.json.isPullRequest === true && o.json.hint.includes('pr-sdlc') ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view R2: a read may target a repository outside github.repos"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"repos":["acme/widgets"]}} -- --view 1 --repo acme/other'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        // The stub has no acme/other issue route, so the call fails; the point is that R2 does not refuse before gh.
+        const o = JSON.parse(output);
+        const text = JSON.stringify(o.json);
+        return !/repoNotAllowed|not in github\.repos/.test(text) && o.calls.some((c) => c.argv.join(' ').startsWith('api repos/acme/other/issues/1')) ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view E6: issue 999 is not-found"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 999 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.failure.class === 'not-found' && o.json.failure.httpStatus === 404 ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view E9: a timeout is transport after exactly two issue-7 calls"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 7 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "SDLC_GH_TIMEOUT_MS": "500", "GH_STUB_FAIL": "timeout@api repos/acme/widgets/issues/7"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const n = o.calls.filter((c) => c.argv.join(' ').startsWith('api repos/acme/widgets/issues/7 ')).length;
+        return o.exit === 1 && o.json.failure.class === 'transport' && n === 2 ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view R31: rate-limit has resetAt"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 7 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "rate-limit@api repos/acme/widgets/issues/7"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const f = o.json.failure;
+        return o.exit === 1 && f.class === 'rate-limit' && f.resetAt === '2026-01-01T00:00:00.000Z' ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view R31: a secondary rate limit (403) is rate-limit, not permission"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 7 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "secondary-rate-limit@api repos/acme/widgets/issues/7"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.failure.class === 'rate-limit' && o.json.failure.httpStatus === 403 ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view R31: HTTP 403 is permission"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 7 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "403@api repos/acme/widgets/issues/7"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.failure.class === 'permission' ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view R31: HTTP 401 is auth"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 7 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "401@api repos/acme/widgets/issues/7"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.failure.class === 'auth' ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view R31: HTTP 422 is validation"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 7 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "422@api repos/acme/widgets/issues/7"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.failure.class === 'validation' ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view R31: a missing scope is auth with the refresh hint"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 7 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "scope@api repos/acme/widgets/issues/7"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const f = o.json.failure;
+        return o.exit === 1 && f.class === 'auth' && f.hint === 'gh auth refresh -s project' ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view C13: a token in the failure text is redacted"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --view 7 --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "pat@api repos/acme/widgets/issues/7"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.failure.message.includes('[REDACTED]') && !output.includes('github_pat_11') ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/view P7: a failing repository call in --refresh is classified not-found"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --refresh --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_FAIL": "404@api repos/acme/widgets --hostname=github.com#3"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.failure.class === 'not-found' ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/search A13: the query file is scoped to the repository and sent as one argv element"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --search --repo acme/widgets --query-file @FIX:github-sdlc-inputs/query-bug.txt@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const call = o.calls.find((c) => c.argv[1] === 'search/issues');
+        const j = o.json;
+        const ok = o.exit === 0 && call && call.argv.includes('--raw-field=q=label:bug repo:acme/widgets is:issue')
+          && j.query === 'label:bug repo:acme/widgets is:issue' && j.results.length === 2 && j.truncated === false
+          && j.results[0].number === 7 && j.results[0].url === 'https://github.com/acme/widgets/issues/7'
+          && JSON.stringify(j.results[0].labels) === '["bug"]';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/search C18: a query that starts with a flag reaches gh as query text"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --search --repo acme/widgets --query-file @FIX:github-sdlc-inputs/query-flag.txt@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const call = o.calls.find((c) => c.argv[1] === 'search/issues');
+        const ok = o.exit === 0 && call && call.argv.includes('--raw-field=q=--help label:bug repo:acme/widgets is:issue')
+          && !call.argv.includes('--help');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/search A13: --search without --query-file exits 1 naming the flag"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --search --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.errors.some((e) => e.includes('--query-file')) && o.calls.length === 0 ? true : `FAIL ${output}`;
+
+# ── validate-links (P12, G8) ──────────────────────────────────────────────────
+
+- description: "github-sdlc/links G8: offline, a github.com issue URL passes with no gh call"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --validate-links --repo acme/widgets --file @FIX:github-sdlc-inputs/links-gh.md@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 0 && o.json.ok === true && o.json.violations.length === 0 ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/links online G8: a 404 on the issue exits 1 and stderr names the URL"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --validate-links --repo acme/widgets --file @FIX:github-sdlc-inputs/links-gh.md@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"GH_TOKEN": "", "GH_STUB_FAIL": "404@api repos/acme/widgets/issues/4"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.ok === false && o.stderr.includes('https://github.com/acme/widgets/issues/4');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/links online G8: P12 an enterprise URL is checked on its own host"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --validate-links --repo ghe.acme.test/acme/widgets --file @FIX:github-sdlc-inputs/links-ghe.md@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const call = o.calls.find((c) => c.argv.join(' ') === 'api repos/acme/widgets/issues/4 --hostname=ghe.acme.test --silent');
+        return o.exit === 0 && call ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/links P17: --validate-links without --file exits 1 naming the flag"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --validate-links --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.errors.some((e) => e.includes('--file')) ? true : `FAIL ${output}`;

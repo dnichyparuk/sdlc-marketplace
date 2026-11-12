@@ -1,0 +1,12 @@
+{
+  "extends": "default",
+  "routes": [
+    { "match": "issue edit --help",
+      "stdout": "Edit one or more issues within the same repository.\n\nUSAGE\n  gh issue edit {<numbers> | <urls>} [flags]\n\nFLAGS\n      --add-assignee login       Add assigned users by their login\n      --add-blocked-by number    Mark the issue as blocked by another issue\n      --add-blocking number      Mark the issue as blocking another issue\n      --add-label name           Add labels by name\n      --add-project title        Add the issue to projects by title\n  -b, --body string              Set the new body\n  -m, --milestone name           Edit the milestone the issue belongs to by name\n      --remove-label name        Remove labels by name\n  -t, --title string             Set the new title\n" },
+    { "match": "api graphql --hostname=github.com", "contains": ["__type"],
+      "stdout": { "data": { "__type": { "fields": [
+        { "name": "id" }, { "name": "number" }, { "name": "title" }, { "name": "issueType" },
+        { "name": "parent" }, { "name": "subIssues" }
+      ] } } } }
+  ]
+}

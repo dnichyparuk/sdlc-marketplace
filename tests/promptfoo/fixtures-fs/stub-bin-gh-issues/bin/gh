@@ -1,0 +1,219 @@
+#!/usr/bin/env node
+'use strict';
+// Stub `gh` binary (fixtures-fs/stub-bin-gh-issues) for the github-sdlc exec cases,
+// put first on PATH by the script-runner provider's `script_stub_bin` var and driven
+// by scripts/run-github-case.js. It never reaches a live gh or the network.
+// - $GH_STUB_LOG (optional): appends {"argv":[...],"tokenHash":<sha256(GH_TOKEN) first 12 hex>|null} per call.
+// - $GH_STUB_DATA: scenario name in ../scenarios/ or absolute path (default: default).
+// - $GH_STUB_AUTH: ok (default) | expired | logged-out | timeout  (`auth status`).
+// - $GH_STUB_ACCOUNTS: comma list, `*` marks the active account (default alice*).
+// - $GH_STUB_SCOPES: comma list | none (default repo,read:org,project,read:project).
+// - $GH_STUB_FAIL: <kind>@<argv prefix>[#<n>], several joined by `;`.
+// - $GH_STUB_SEQ: <route key>=<v1>,<v2>,..., several joined by `;` (counter file $GH_STUB_LOG.seq).
+// - $GH_STUB_SLEEP_MS: sleep for the timeout answers (default 3000).
+// Built-ins (--version, auth status, auth token, api user) answer before the scenario
+// routes; an unmatched call prints "STUB-GH-UNEXPECTED <argv>" on stderr and exits 1.
+// Scenario file: { "extends": "<name>", "routes": [{ "match", "contains", "stdout", "stderr",
+// "exit" }] }; the first route whose `match` prefixes the argv line and whose `contains`
+// strings each appear in some argv element answers; object `stdout` prints as JSON. A route
+// with `key` + `variants` ({ name: { stdout, stderr, exit } }) answers its first variant
+// unless GH_STUB_SEQ names that key. `extends` routes come after this file's routes.
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+const SCENARIOS = path.resolve(__dirname, '..', 'scenarios');
+const env = process.env;
+const argv = process.argv.slice(2);
+const line = argv.join(' ');
+const SLEEP_MS = Number(env.GH_STUB_SLEEP_MS) || 3000;
+const TIMEOUT = ['', 'STUB-GH-TIMEOUT', 1];
+
+const FAILS = {
+  'rate-limit': 'HTTP 403: API rate limit exceeded for user ID 1 (x-ratelimit-reset 1767225600)',
+  'secondary-rate-limit': 'HTTP 403: You have exceeded a secondary rate limit. Please wait a few minutes before you try again.',
+  '401': 'HTTP 401: Bad credentials (https://api.github.com/graphql)',
+  '403': 'HTTP 403: Resource not accessible by integration',
+  '404': 'HTTP 404: Not Found',
+  '422': 'HTTP 422: Validation Failed',
+  scope: "HTTP 403: This API operation requires the 'project' scope",
+  pat: 'HTTP 401: Bad credentials for token github_pat_11ABCDEFG0123456789_secret',
+};
+
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// Value of `--name value` or `--name=value`.
+function opt(name) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === name) return argv[i + 1];
+    if (argv[i].startsWith(`${name}=`)) return argv[i].slice(name.length + 1);
+  }
+  return undefined;
+}
+
+// Per-run call counter in $GH_STUB_LOG.seq, guarded by a mkdir lock (calls may run in parallel).
+function nextCount(key) {
+  if (!env.GH_STUB_LOG) return 1;
+  const file = `${env.GH_STUB_LOG}.seq`;
+  const lock = `${file}.lock`;
+  for (let i = 0; ; i++) {
+    try { fs.mkdirSync(lock); break; } catch (err) {
+      if (err.code !== 'EEXIST' || i > 400) throw err;
+      sleep(5);
+    }
+  }
+  try {
+    let counts = {};
+    try { counts = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { /* first call */ }
+    counts[key] = (counts[key] || 0) + 1;
+    fs.writeFileSync(file, JSON.stringify(counts));
+    return counts[key];
+  } finally {
+    fs.rmdirSync(lock);
+  }
+}
+
+function accounts() {
+  return (env.GH_STUB_ACCOUNTS || 'alice*').split(',').filter(Boolean)
+    .map((a) => ({ login: a.replace(/\*$/, ''), active: a.endsWith('*') }));
+}
+
+function activeLogin() {
+  const list = accounts();
+  return (list.find((a) => a.active) || list[0]).login;
+}
+
+function injectedFailure() {
+  for (const entry of (env.GH_STUB_FAIL || '').split(';').filter(Boolean)) {
+    const at = entry.indexOf('@');
+    if (at < 0) return ['', `STUB-GH-BAD-FAIL ${entry}`, 2];
+    const kind = entry.slice(0, at);
+    let prefix = entry.slice(at + 1);
+    let nth = null;
+    const m = prefix.match(/#(\d+)$/);
+    if (m) { nth = Number(m[1]); prefix = prefix.slice(0, m.index); }
+    if (!line.startsWith(prefix)) continue;
+    if (nth !== null && nextCount(`fail:${entry}`) !== nth) continue;
+    if (kind === 'timeout') { sleep(SLEEP_MS); return TIMEOUT; }
+    if (!(kind in FAILS)) return ['', `STUB-GH-BAD-FAIL ${entry}`, 2];
+    return ['', FAILS[kind], 1];
+  }
+  return null;
+}
+
+function authStatus() {
+  const host = opt('--hostname') || 'github.com';
+  const mode = env.GH_STUB_AUTH || 'ok';
+  if (mode === 'timeout') { sleep(SLEEP_MS); return TIMEOUT; }
+  const list = mode === 'logged-out' ? [] : accounts();
+  const source = (a) => (env.GH_TOKEN && a.active ? 'GH_TOKEN' : 'keyring');
+  const failed = (a) => mode === 'expired' && a.active;
+  if (opt('--json') === 'hosts') {
+    const hosts = list.length === 0 ? {} : {
+      [host]: list.map((a) => ({
+        state: failed(a) ? 'error' : 'success', active: a.active, host, login: a.login,
+        tokenSource: source(a), gitProtocol: 'https',
+      })),
+    };
+    return [`${JSON.stringify({ hosts })}\n`, '', 0];
+  }
+  if (mode === 'logged-out') {
+    return ['', 'You are not logged into any GitHub hosts. To log in, run: gh auth login', 1];
+  }
+  const scopes = env.GH_STUB_SCOPES || 'repo,read:org,project,read:project';
+  const scopesText = scopes === 'none' ? 'none' : scopes.split(',').map((s) => `'${s}'`).join(', ');
+  const out = [host];
+  for (const a of list) {
+    if (failed(a)) {
+      out.push(`  X Failed to log in to ${host} account ${a.login} (${source(a)})`,
+        `  - Active account: ${a.active}`,
+        `  - The token in ${source(a)} is invalid or has expired.`,
+        `  - To re-authenticate, run: gh auth login -h ${host}`);
+      continue;
+    }
+    out.push(`  ✓ Logged in to ${host} account ${a.login} (${source(a)})`,
+      `  - Active account: ${a.active}`,
+      '  - Git operations protocol: https',
+      '  - Token: gho_************************************');
+    if (!env.GH_TOKEN) out.push(`  - Token scopes: ${scopesText}`);
+  }
+  const text = `${out.join('\n')}\n`;
+  return mode === 'expired' ? ['', text, 1] : [text, '', 0];
+}
+
+function authToken() {
+  const host = opt('--hostname') || 'github.com';
+  if (env.GH_STUB_AUTH === 'logged-out') return ['', `no oauth token found for ${host}`, 1];
+  const login = opt('--user') || activeLogin();
+  if (!accounts().some((a) => a.login === login)) {
+    return ['', `no oauth token found for ${host} account ${login}`, 1];
+  }
+  return [`stub-token-${login}-S3CR3T\n`, '', 0];
+}
+
+function apiUser() {
+  if (env.GH_STUB_AUTH === 'logged-out') return ['', 'To get started with GitHub CLI, please run:  gh auth login', 4];
+  if (env.GH_STUB_AUTH === 'expired') return ['', 'HTTP 401: Bad credentials (https://api.github.com/user)', 1];
+  const login = activeLogin();
+  return [opt('--jq') === '.login' ? `${login}\n` : `${JSON.stringify({ login })}\n`, '', 0];
+}
+
+function loadRoutes(name) {
+  const file = path.isAbsolute(name) ? name : path.join(SCENARIOS, name.endsWith('.json') ? name : `${name}.json`);
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  return [...(data.routes || []), ...(data.extends ? loadRoutes(data.extends) : [])];
+}
+
+function seqs() {
+  const map = {};
+  for (const entry of (env.GH_STUB_SEQ || '').split(';').filter(Boolean)) {
+    const eq = entry.indexOf('=');
+    map[entry.slice(0, eq)] = entry.slice(eq + 1).split(',');
+  }
+  return map;
+}
+
+function routeAnswer() {
+  const route = loadRoutes(env.GH_STUB_DATA || 'default').find((r) => line.startsWith(r.match)
+    && (r.contains || []).every((c) => argv.some((a) => a.includes(c))));
+  if (!route) return ['', `STUB-GH-UNEXPECTED ${line}`, 1];
+  let answer = route;
+  if (route.variants) {
+    // Without a GH_STUB_SEQ entry for the route key, the first variant answers.
+    const list = seqs()[route.key];
+    const name = list
+      ? list[Math.min(nextCount(`seq:${route.key}`), list.length) - 1]
+      : Object.keys(route.variants)[0];
+    answer = route.variants[name];
+    if (!answer) return ['', `STUB-GH-BAD-SEQ ${route.key}=${name}`, 2];
+  }
+  let stdout = '';
+  if (typeof answer.stdout === 'string') stdout = answer.stdout;
+  else if (answer.stdout !== undefined) stdout = `${JSON.stringify(answer.stdout)}\n`;
+  return [argv.includes('--silent') ? '' : stdout, answer.stderr || '', answer.exit ?? 0];
+}
+
+function answer() {
+  const failure = injectedFailure();
+  if (failure) return failure;
+  if (argv[0] === '--version') {
+    return ['gh version 2.83.0 (2026-01-01)\nhttps://github.com/cli/cli/releases/tag/v2.83.0\n', '', 0];
+  }
+  if (argv[0] === 'auth' && argv[1] === 'status') return authStatus();
+  if (argv[0] === 'auth' && argv[1] === 'token') return authToken();
+  if (argv[0] === 'api' && argv[1] === 'user') return apiUser();
+  return routeAnswer();
+}
+
+if (env.GH_STUB_LOG) {
+  const tokenHash = env.GH_TOKEN
+    ? crypto.createHash('sha256').update(env.GH_TOKEN).digest('hex').slice(0, 12)
+    : null;
+  fs.appendFileSync(env.GH_STUB_LOG, `${JSON.stringify({ argv, tokenHash })}\n`);
+}
+const [stdout, stderr, code] = answer();
+if (stdout) process.stdout.write(stdout);
+if (stderr) process.stderr.write(stderr.endsWith('\n') ? stderr : `${stderr}\n`);
+process.exitCode = code;

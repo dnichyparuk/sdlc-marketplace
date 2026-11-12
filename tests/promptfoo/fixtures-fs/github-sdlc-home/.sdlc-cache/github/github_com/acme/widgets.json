@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "fetchedAt": "2026-11-01T10:00:00Z",
+  "fetchedBy": "alice",
+  "repo": {
+    "id": "R_1",
+    "nameWithOwner": "acme/widgets",
+    "hasIssuesEnabled": true,
+    "visibility": "public"
+  },
+  "labels": [
+    {
+      "name": "bug",
+      "color": "d73a4a",
+      "description": "Something isn't working"
+    },
+    {
+      "name": "enhancement",
+      "color": "a2eeef",
+      "description": "New feature or request"
+    },
+    {
+      "name": "documentation",
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation"
+    }
+  ],
+  "milestones": [
+    {
+      "number": 1,
+      "title": "v1.0",
+      "state": "open",
+      "dueOn": null
+    }
+  ],
+  "assignableUsers": [
+    {
+      "login": "alice",
+      "name": "Alice A"
+    },
+    {
+      "login": "bob",
+      "name": "Bob B"
+    }
+  ],
+  "issueTemplates": [
+    {
+      "name": "Bug report",
+      "file": "bug.md",
+      "kind": "markdown",
+      "about": "Report something that does not work",
+      "title": "[BUG] ",
+      "labels": [
+        "bug"
+      ],
+      "assignees": [],
+      "type": null,
+      "projects": [],
+      "headings": [
+        {
+          "level": 2,
+          "text": "Describe the bug"
+        },
+        {
+          "level": 2,
+          "text": "Steps"
+        },
+        {
+          "level": 2,
+          "text": "Acceptance Criteria"
+        }
+      ],
+      "body": "## Describe the bug\n\n<!-- Describe the bug -->\n\n## Steps\n\n[Describe the steps]\n\n## Acceptance Criteria",
+      "source": "repo"
+    },
+    {
+      "name": "Feature",
+      "file": "feature.yml",
+      "kind": "form",
+      "about": "Propose a feature",
+      "title": null,
+      "labels": [],
+      "assignees": [],
+      "type": null,
+      "projects": [],
+      "headings": [
+        {
+          "level": 3,
+          "text": "Problem"
+        },
+        {
+          "level": 3,
+          "text": "Notes"
+        }
+      ],
+      "body": "### Problem\n\n### Notes\n\n",
+      "sections": [
+        {
+          "id": "problem",
+          "label": "Problem",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "id": "notes",
+          "label": "Notes",
+          "type": "textarea",
+          "required": false
+        }
+      ],
+      "source": "repo"
+    }
+  ],
+  "templateConfig": {
+    "blank_issues_enabled": false
+  },
+  "issueTypes": [
+    {
+      "id": "IT_1",
+      "name": "Bug"
+    },
+    {
+      "id": "IT_2",
+      "name": "Task"
+    }
+  ],
+  "projects": [
+    {
+      "owner": "acme",
+      "number": 2,
+      "id": "PVT_2",
+      "title": "Roadmap",
+      "fields": [
+        {
+          "id": "PVTSSF_1",
+          "name": "Status",
+          "dataType": "SINGLE_SELECT",
+          "options": [
+            {
+              "id": "OPT_1",
+              "name": "Todo"
+            },
+            {
+              "id": "OPT_2",
+              "name": "In Progress"
+            },
+            {
+              "id": "OPT_3",
+              "name": "Done"
+            }
+          ]
+        },
+        {
+          "id": "PVTF_2",
+          "name": "Notes",
+          "dataType": "TEXT"
+        },
+        {
+          "id": "PVTF_3",
+          "name": "Size",
+          "dataType": "NUMBER"
+        },
+        {
+          "id": "PVTF_4",
+          "name": "Due",
+          "dataType": "DATE"
+        },
+        {
+          "id": "PVTIF_1",
+          "name": "Iteration",
+          "dataType": "ITERATION",
+          "iterations": [
+            {
+              "id": "IT_A",
+              "title": "Sprint 1",
+              "startDate": "2026-11-02",
+              "duration": 14
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "client": {
+      "subIssues": true,
+      "blockedBy": true,
+      "issueType": true,
+      "duplicateOf": true
+    },
+    "host": {
+      "subIssues": true,
+      "blockedBy": true,
+      "issueType": true,
+      "orgIssueTypes": true,
+      "projectsV2": true
+    }
+  }
+}

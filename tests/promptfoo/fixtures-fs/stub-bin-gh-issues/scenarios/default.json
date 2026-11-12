@@ -1,0 +1,145 @@
+{
+  "routes": [
+    { "match": "api repos/acme/widgets --hostname=github.com",
+      "stdout": { "node_id": "R_1", "full_name": "acme/widgets", "has_issues": true, "visibility": "public" } },
+    { "match": "api repos/acme/other --hostname=github.com",
+      "stdout": { "node_id": "R_2", "full_name": "acme/other", "has_issues": true, "visibility": "public" } },
+    { "match": "api repos/acme/a --hostname=github.com",
+      "stdout": { "node_id": "R_3", "full_name": "acme/a", "has_issues": true, "visibility": "public" } },
+    { "match": "api repos/acme/b --hostname=github.com",
+      "stdout": { "node_id": "R_4", "full_name": "acme/b", "has_issues": true, "visibility": "public" } },
+    { "match": "api repos/acme/widgets --hostname=ghe.acme.test",
+      "stdout": { "node_id": "R_9", "full_name": "acme/widgets", "has_issues": true, "visibility": "internal" } },
+
+    { "match": "api repos/acme/widgets/labels?per_page=100 --hostname=github.com",
+      "stdout": [[
+        { "name": "bug", "color": "d73a4a", "description": "Something isn't working" },
+        { "name": "enhancement", "color": "a2eeef", "description": "New feature or request" },
+        { "name": "documentation", "color": "0075ca", "description": "Improvements or additions to documentation" }
+      ]] },
+    { "match": "api repos/acme/a/labels?per_page=100 --hostname=github.com",
+      "stdout": [[ { "name": "a-only", "color": "ededed", "description": "" } ]] },
+    { "match": "api repos/acme/b/labels?per_page=100 --hostname=github.com",
+      "stdout": [[ { "name": "b-only", "color": "ededed", "description": "" } ]] },
+
+    { "match": "api repos/acme/widgets/milestones?state=all&per_page=100 --hostname=github.com",
+      "stdout": [[ { "number": 1, "title": "v1.0", "state": "open", "due_on": null } ]] },
+
+    { "match": "api repos/acme/widgets/contents/.github/ISSUE_TEMPLATE --hostname=github.com",
+      "stdout": [
+        { "name": "bug.md", "path": ".github/ISSUE_TEMPLATE/bug.md", "type": "file" },
+        { "name": "feature.yml", "path": ".github/ISSUE_TEMPLATE/feature.yml", "type": "file" },
+        { "name": "config.yml", "path": ".github/ISSUE_TEMPLATE/config.yml", "type": "file" }
+      ] },
+    { "match": "api repos/acme/widgets/contents/.github/ISSUE_TEMPLATE/bug.md --hostname=github.com",
+      "stdout": "---\nname: Bug report\nabout: Report something that does not work\nlabels: [bug]\ntitle: \"[BUG] \"\n---\n\n## Describe the bug\n\n<!-- Describe the bug -->\n\n## Steps\n\n[Describe the steps]\n\n## Acceptance Criteria\n" },
+    { "match": "api repos/acme/widgets/contents/.github/ISSUE_TEMPLATE/feature.yml --hostname=github.com",
+      "stdout": "name: Feature\ndescription: Propose a feature\nbody:\n  - type: markdown\n    attributes:\n      value: Thanks for the idea.\n  - type: textarea\n    id: problem\n    attributes:\n      label: Problem\n    validations:\n      required: true\n  - type: textarea\n    id: notes\n    attributes:\n      label: Notes\n" },
+    { "match": "api repos/acme/widgets/contents/.github/ISSUE_TEMPLATE/config.yml --hostname=github.com",
+      "stdout": "blank_issues_enabled: false\n" },
+
+    { "match": "api repos/acme/.github --hostname=github.com --jq=.visibility",
+      "stdout": "private\n" },
+
+    { "match": "api graphql --hostname=github.com", "contains": ["subIssues", "--field=number=7"],
+      "stdout": { "data": { "repository": { "issue": {
+        "number": 7,
+        "issueType": { "name": "Bug" },
+        "parent": null,
+        "subIssues": { "nodes": [ { "number": 12 } ] },
+        "blockedBy": { "nodes": [ { "number": 4 } ] },
+        "blocking": { "nodes": [] },
+        "projectItems": { "nodes": [ {
+          "project": { "number": 2, "owner": { "login": "acme" } },
+          "fieldValues": { "nodes": [ { "name": "Todo", "field": { "name": "Status" } } ] }
+        } ] }
+      } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["subIssues", "--field=number=5"],
+      "stdout": { "data": { "repository": { "issue": {
+        "number": 5,
+        "issueType": null,
+        "parent": { "number": 3, "repository": { "nameWithOwner": "acme/widgets" } },
+        "subIssues": { "nodes": [] },
+        "blockedBy": { "nodes": [] },
+        "blocking": { "nodes": [] },
+        "projectItems": { "nodes": [] }
+      } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["assignableUsers", "--field=owner=acme", "--field=name=widgets"],
+      "stdout": { "data": { "repository": { "assignableUsers": {
+        "nodes": [ { "login": "alice", "name": "Alice A" }, { "login": "bob", "name": "Bob B" } ],
+        "pageInfo": { "hasNextPage": false, "endCursor": null }
+      } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["issueTypes", "--field=owner=acme"],
+      "stdout": { "data": { "repositoryOwner": { "issueTypes": { "nodes": [
+        { "id": "IT_1", "name": "Bug" }, { "id": "IT_2", "name": "Task" }
+      ] } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["projectV2", "--field=owner=acme", "--field=number=2"],
+      "stdout": { "data": { "repositoryOwner": { "projectV2": {
+        "id": "PVT_2",
+        "number": 2,
+        "title": "Roadmap",
+        "fields": { "nodes": [
+          { "id": "PVTSSF_1", "name": "Status", "dataType": "SINGLE_SELECT", "options": [
+            { "id": "OPT_1", "name": "Todo" }, { "id": "OPT_2", "name": "In Progress" }, { "id": "OPT_3", "name": "Done" }
+          ] },
+          { "id": "PVTF_2", "name": "Notes", "dataType": "TEXT" },
+          { "id": "PVTF_3", "name": "Size", "dataType": "NUMBER" },
+          { "id": "PVTF_4", "name": "Due", "dataType": "DATE" },
+          { "id": "PVTIF_1", "name": "Iteration", "dataType": "ITERATION", "configuration": { "iterations": [
+            { "id": "IT_A", "title": "Sprint 1", "startDate": "2026-11-02", "duration": 14 }
+          ] } }
+        ] }
+      } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["__type"],
+      "stdout": { "data": { "__type": { "fields": [
+        { "name": "id" }, { "name": "number" }, { "name": "title" }, { "name": "issueType" },
+        { "name": "parent" }, { "name": "subIssues" }, { "name": "blockedBy" }, { "name": "blocking" }
+      ] } } } },
+
+    { "match": "issue create --help",
+      "stdout": "Create an issue on GitHub.\n\nUSAGE\n  gh issue create [flags]\n\nFLAGS\n  -a, --assignee login       Assign people by their login\n  -b, --body string          Supply a body\n  -F, --body-file file       Read body text from file\n  -l, --label name           Add labels by name\n  -m, --milestone name       Add the issue to a milestone by name\n  -p, --project title        Add the issue to projects by title\n  -t, --title string         Supply a title\n      --type name            Set the issue type by name\n" },
+    { "match": "issue edit --help",
+      "stdout": "Edit one or more issues within the same repository.\n\nUSAGE\n  gh issue edit {<numbers> | <urls>} [flags]\n\nFLAGS\n      --add-assignee login       Add assigned users by their login\n      --add-blocked-by number    Mark the issue as blocked by another issue\n      --add-blocking number      Mark the issue as blocking another issue\n      --add-label name           Add labels by name\n      --add-project title        Add the issue to projects by title\n      --add-sub-issue number     Add a sub-issue\n  -b, --body string              Set the new body\n  -m, --milestone name           Edit the milestone the issue belongs to by name\n      --parent number            Set the parent issue\n      --remove-label name        Remove labels by name\n  -t, --title string             Set the new title\n" },
+    { "match": "issue close --help",
+      "stdout": "Close issue\n\nUSAGE\n  gh issue close {<number> | <url>} [flags]\n\nFLAGS\n  -c, --comment string       Leave a closing comment\n      --duplicate-of number  Close as a duplicate of another issue\n  -r, --reason string        Reason for closing: {completed|not planned}\n" },
+
+    { "match": "api repos/acme/widgets/issues/7/comments?per_page=100 --hostname=github.com",
+      "stdout": [[
+        { "id": 701, "user": { "login": "alice" }, "body": "I can reproduce this on main.", "created_at": "2026-11-01T10:00:00Z", "html_url": "https://github.com/acme/widgets/issues/7#issuecomment-701" },
+        { "id": 702, "user": { "login": "bob" }, "body": "Same here, after the last release.", "created_at": "2026-11-02T10:00:00Z", "html_url": "https://github.com/acme/widgets/issues/7#issuecomment-702" },
+        { "id": 703, "user": { "login": "alice" }, "body": "Fix is in progress.", "created_at": "2026-11-03T10:00:00Z", "html_url": "https://github.com/acme/widgets/issues/7#issuecomment-703" }
+      ]] },
+    { "match": "api repos/acme/widgets/issues/3/comments?per_page=100 --hostname=github.com", "stdout": [[]] },
+    { "match": "api repos/acme/widgets/issues/4/comments?per_page=100 --hostname=github.com", "stdout": [[]] },
+    { "match": "api repos/acme/widgets/issues/5/comments?per_page=100 --hostname=github.com", "stdout": [[]] },
+    { "match": "api repos/acme/widgets/issues/12/comments?per_page=100 --hostname=github.com", "stdout": [[]] },
+
+    { "match": "api repos/acme/widgets/issues/3 --hostname=github.com",
+      "stdout": { "number": 3, "node_id": "I_3", "title": "Widget epic", "body": "Parent work item.", "state": "open", "state_reason": null, "html_url": "https://github.com/acme/widgets/issues/3", "user": { "login": "alice" }, "labels": [], "assignees": [], "milestone": null, "comments": 0, "created_at": "2026-10-20T10:00:00Z", "updated_at": "2026-10-20T10:00:00Z", "closed_at": null } },
+    { "match": "api repos/acme/widgets/issues/4 --hostname=github.com",
+      "stdout": { "number": 4, "node_id": "I_4", "title": "Upgrade the parser", "body": "Blocks issue 7.", "state": "open", "state_reason": null, "html_url": "https://github.com/acme/widgets/issues/4", "user": { "login": "bob" }, "labels": [], "assignees": [], "milestone": null, "comments": 0, "created_at": "2026-10-21T10:00:00Z", "updated_at": "2026-10-21T10:00:00Z", "closed_at": null } },
+    { "match": "api repos/acme/widgets/issues/5 --hostname=github.com",
+      "stdout": { "number": 5, "node_id": "I_5", "title": "Widget settings page", "body": "Child of issue 3.", "state": "open", "state_reason": null, "html_url": "https://github.com/acme/widgets/issues/5", "user": { "login": "alice" }, "labels": [ { "name": "enhancement" } ], "assignees": [], "milestone": null, "comments": 0, "created_at": "2026-10-22T10:00:00Z", "updated_at": "2026-10-22T10:00:00Z", "closed_at": null } },
+    { "match": "api repos/acme/widgets/issues/7 --hostname=github.com",
+      "stdout": { "number": 7, "node_id": "I_7", "title": "Widget crashes on save", "body": "## Describe the bug\n\nSaving a widget crashes the editor.", "state": "open", "state_reason": null, "html_url": "https://github.com/acme/widgets/issues/7", "user": { "login": "alice" }, "labels": [ { "name": "bug" } ], "assignees": [ { "login": "alice" } ], "milestone": { "number": 1, "title": "v1.0" }, "comments": 3, "created_at": "2026-10-30T10:00:00Z", "updated_at": "2026-11-03T10:00:00Z", "closed_at": null } },
+    { "match": "api repos/acme/widgets/issues/12 --hostname=github.com", "key": "state12",
+      "variants": {
+        "open": { "stdout": { "number": 12, "node_id": "I_12", "title": "Add crash reporter", "body": "Sub-issue of issue 7.", "state": "open", "state_reason": null, "html_url": "https://github.com/acme/widgets/issues/12", "user": { "login": "bob" }, "labels": [], "assignees": [], "milestone": null, "comments": 0, "created_at": "2026-11-01T10:00:00Z", "updated_at": "2026-11-01T10:00:00Z", "closed_at": null } },
+        "closed": { "stdout": { "number": 12, "node_id": "I_12", "title": "Add crash reporter", "body": "Sub-issue of issue 7.", "state": "closed", "state_reason": "completed", "html_url": "https://github.com/acme/widgets/issues/12", "user": { "login": "bob" }, "labels": [], "assignees": [], "milestone": null, "comments": 0, "created_at": "2026-11-01T10:00:00Z", "updated_at": "2026-11-05T10:00:00Z", "closed_at": "2026-11-05T10:00:00Z" } }
+      } },
+    { "match": "api repos/acme/widgets/issues/20 --hostname=github.com",
+      "stdout": { "number": 20, "node_id": "PR_20", "title": "Fix widget save", "body": "Fixes #7", "state": "open", "state_reason": null, "html_url": "https://github.com/acme/widgets/pull/20", "user": { "login": "bob" }, "labels": [], "assignees": [], "milestone": null, "comments": 0, "created_at": "2026-11-04T10:00:00Z", "updated_at": "2026-11-04T10:00:00Z", "closed_at": null, "pull_request": { "url": "https://api.github.com/repos/acme/widgets/pulls/20", "html_url": "https://github.com/acme/widgets/pull/20" } } },
+    { "match": "api repos/acme/widgets/issues/999 --hostname=github.com",
+      "stderr": "HTTP 404: Not Found", "exit": 1 },
+    { "match": "api repos/acme/widgets/issues/4 --hostname=ghe.acme.test",
+      "stdout": { "number": 4, "node_id": "I_GHE_4", "title": "Enterprise issue", "body": "Lives on ghe.acme.test.", "state": "open", "state_reason": null, "html_url": "https://ghe.acme.test/acme/widgets/issues/4", "user": { "login": "alice" }, "labels": [], "assignees": [], "milestone": null, "comments": 0, "created_at": "2026-10-21T10:00:00Z", "updated_at": "2026-10-21T10:00:00Z", "closed_at": null } },
+
+    { "match": "api search/issues --hostname=github.com",
+      "stdout": { "total_count": 2, "incomplete_results": false, "items": [
+        { "number": 7, "title": "Widget crashes on save", "state": "open", "html_url": "https://github.com/acme/widgets/issues/7", "repository_url": "https://api.github.com/repos/acme/widgets", "labels": [ { "name": "bug" } ], "updated_at": "2026-11-03T10:00:00Z" },
+        { "number": 12, "title": "Add crash reporter", "state": "open", "html_url": "https://github.com/acme/widgets/issues/12", "repository_url": "https://api.github.com/repos/acme/widgets", "labels": [], "updated_at": "2026-11-01T10:00:00Z" }
+      ] } },
+
+    { "match": "issue list -R rnagrodzki/sdlc-marketplace", "stdout": [] }
+  ]
+}

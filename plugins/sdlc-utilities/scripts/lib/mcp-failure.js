@@ -48,10 +48,24 @@ const CLASSES = ['transport', 'auth', 'schema', 'workflow', 'hook-block', 'link-
 /** Repository the failure report is filed to (same as error-report-sdlc). */
 const REPORT_REPO = 'rnagrodzki/sdlc-marketplace';
 
-/** Map any value outside the closed class set to 'unknown'. */
-function normalizeClass(value) {
+/** GitHub failure classes (github-sdlc R31). */
+const GH_CLASSES = ['transport', 'auth', 'permission', 'rate-limit', 'not-found', 'validation', 'capability', 'link-verification', 'unknown'];
+
+/** Per-source settings (P14); jira keeps today's behaviour. */
+const SOURCES = {
+  jira: { classes: CLASSES, labels: ['tooling-error', 'jira-sdlc'] },
+  github: {
+    classes: GH_CLASSES,
+    envClasses: ['auth', 'permission', 'rate-limit', 'not-found', 'transport', 'capability'],
+    labels: ['tooling-error', 'github-sdlc'],
+    titlePrefix: 'gh-failure',
+  },
+};
+
+/** Map any value outside the source's closed class set to 'unknown'. */
+function normalizeClass(value, source = 'jira') {
   const c = String(value || 'unknown');
-  return CLASSES.includes(c) ? c : 'unknown';
+  return SOURCES[source].classes.includes(c) ? c : 'unknown';
 }
 
 /** POSIX single-quote a value for a shell command line. */
@@ -61,6 +75,8 @@ function sq(value) {
 
 /** Redactor patterns — must run before any persistence or presentation. */
 const REDACTORS = [
+  { re: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{1,255}\b/g,      sub: '[REDACTED]' },
+  { re: /\bgithub_pat_[A-Za-z0-9_]{1,255}\b/g,                  sub: '[REDACTED]' },
   { re: /Bearer [A-Za-z0-9._-]+/g,                              sub: 'Bearer [REDACTED]' },
   // Raw JWT (3 base64url segments separated by `.`) — must run before Bearer pattern
   // would have matched it, and catches JWTs that appear without a "Bearer " prefix
@@ -156,8 +172,25 @@ function classify(signal = {}) {
  * }} failure
  * @param {string} [root] — optional project root override
  */
-function appendTelemetry(failure, root) {
+function appendTelemetry(failure, root, source = 'jira') {
   const today   = new Date().toISOString().slice(0, 10);
+  if (source === 'github') {
+    const cls       = normalizeClass(failure.class, source);
+    const operation = redact(String(failure.operation || ''));
+    const block = [
+      `## ${today} — github-sdlc gh-failure[${cls}]: ${operation}`,
+      `- operation: ${operation}`,
+      `- repo: ${redact(String(failure.repo || ''))}`,
+      `- class: ${cls}`,
+      `- error: ${redact(String(failure.error || '').replace(/\n/g, ' ').slice(0, 300))}`,
+      `- recovered: ${String(failure.recovered || 'no')}`,
+      '',
+    ].join('\n');
+    const logPath = resolveLogPath(root);
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    fs.appendFileSync(logPath, block, 'utf8');
+    return block;
+  }
   const cls     = normalizeClass(failure.class);
   const tool    = redact(String(failure.tool    || ''));
   const site    = redact(String(failure.site    || ''));
@@ -254,6 +287,61 @@ function recordOccurrence(cls, key, root) {
 }
 
 // ---------------------------------------------------------------------------
+// analyzeGithub(failure) — github-sdlc R26 proposal (P14)
+// ---------------------------------------------------------------------------
+
+function analyzeGithub(failure) {
+  const cfg       = SOURCES.github;
+  const cls       = normalizeClass(failure.class, 'github');
+  const operation = redact(String(failure.operation || ''));
+  const repo      = redact(String(failure.repo || ''));
+  const error     = redact(String(failure.error || '').replace(/\n/g, ' ').slice(0, 300));
+
+  // Environment classes: user message only, no search, no proposal (R26).
+  if (cfg.envClasses.includes(cls)) {
+    return { shouldDispatch: false, duplicate: null, proposal: null, action: 'none' };
+  }
+
+  const prefix = `${cfg.titlePrefix}[${cls}]`;
+  let duplicate = null;
+  try {
+    const ghRes = spawnSync(
+      'gh',
+      ['issue', 'list', '-R', REPORT_REPO,
+       '--state', 'open',
+       '--label', cfg.labels[0], '--label', cfg.labels[1],
+       '--search', prefix,
+       '--json', 'number,title,body,url'],
+      { stdio: ['ignore', 'pipe', 'pipe'], timeout: 10000, shell: false, encoding: 'utf8' }
+    );
+    if (ghRes.status === 0 && ghRes.stdout) {
+      const issues = JSON.parse(ghRes.stdout.trim() || '[]');
+      const hit = issues.find((i) => String(i.title || '').includes(`${prefix}:`));
+      if (hit) duplicate = { number: hit.number, url: hit.url };
+    }
+  } catch (_) { /* gh unavailable or network failure — not fatal */ }
+
+  const title = `${prefix}: ${operation} on ${repo}`;
+  const body = [
+    '## Classification',
+    `- **Class**: \`${cls}\``,
+    '## Observed failure',
+    `- **Operation**: \`${operation}\``,
+    `- **Repository**: ${repo}`,
+    `- **Error**: ${error}`,
+    '## Root-cause hypothesis',
+    `${cls}-class failure on \`${operation}\`.`,
+  ].join('\n');
+
+  return {
+    shouldDispatch: true,
+    duplicate,
+    proposal: { title, body },
+    action: duplicate ? 'show-duplicate' : 'create',
+  };
+}
+
+// ---------------------------------------------------------------------------
 // analyzeForDispatch(failure) — synthesize R28 proposal
 // ---------------------------------------------------------------------------
 
@@ -286,7 +374,8 @@ function recordOccurrence(cls, key, root) {
  *   action: "create"|"comment"
  * }}
  */
-function analyzeForDispatch(failure, root) {
+function analyzeForDispatch(failure, root, source = 'jira') {
+  if (source === 'github') return analyzeGithub(failure);
   const cls     = normalizeClass(failure.class);
   const tool    = redact(String(failure.tool    || ''));
   const site    = redact(String(failure.site    || ''));
@@ -396,6 +485,8 @@ module.exports = {
   recordOccurrence,
   resolveLogPath,
   resolveSessionId,
+  redact,
+  GH_CLASSES,
 };
 
 // ---------------------------------------------------------------------------
@@ -449,6 +540,40 @@ if (require.main === module) {
   }
 
   // ---- --analyze
+  if (hasFlag('analyze') && getArg('source') === 'github') {
+    const cls       = normalizeClass(getArg('class'), 'github');
+    const operation = getArg('operation') || '';
+    const repo      = getArg('repo')      || '';
+    const error     = getArg('error')     || '';
+    const recovered = getArg('recovered') || 'no';
+    const step      = getArg('step')      || '';
+
+    try {
+      const failure = { class: cls, operation, repo, error, recovered };
+      if (hasFlag('record')) process.stderr.write(appendTelemetry(failure, undefined, 'github'));
+      const result = analyzeForDispatch(failure, undefined, 'github');
+      const p = result.proposal;
+      const out = {
+        shouldDispatch:  result.shouldDispatch,
+        duplicate:       result.duplicate,
+        proposal:        p,
+        action:          result.action,
+        proposalTitle:   p ? p.title : null,
+        proposalText:    p ? `${p.title}\n\n${p.body}` + (result.duplicate
+          ? `\n\nAn open issue ${result.duplicate.url} already tracks this failure class; it is shown instead of filing a new issue.`
+          : '') : null,
+        errorReportArgs: p ? `--error-type gh-${cls} --skill github-sdlc --step ${sq(step)} --operation ${sq(operation)}` : null,
+        labels:          SOURCES.github.labels,
+        errorText:       p ? p.body : redact(error.replace(/\n/g, ' ').slice(0, 300)),
+      };
+      process.stdout.write(JSON.stringify(out) + '\n');
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`mcp-failure --analyze error: ${err.message}\n`);
+      process.exit(2);
+    }
+  }
+
   if (hasFlag('analyze')) {
     const cls       = normalizeClass(getArg('class'));
     const tool      = getArg('tool')      || '';

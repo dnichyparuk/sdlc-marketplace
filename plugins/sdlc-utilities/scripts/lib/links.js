@@ -39,11 +39,15 @@ const { execFileSync } = require('child_process');
 const { readFileSync } = require('fs');
 
 let parseRemoteOwner;
+let execGh;
+let redactText = (s) => s;
+try { ({ redact: redactText } = require('./mcp-failure.js')); } catch (_) { /* identity fallback */ }
 try {
-  ({ parseRemoteOwner } = require('./git.js'));
+  ({ parseRemoteOwner, execGh } = require('./git.js'));
 } catch (_) {
   // git.js may be unavailable in some test contexts — fallback handled below
   parseRemoteOwner = null;
+  execGh = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,11 +96,44 @@ function extractUrls(text) {
   return [...seen.entries()].map(([url, line]) => ({ url, line }));
 }
 
+// Replace every match with spaces, keeping newlines so line numbers survive.
+function blank(s) {
+  return s.replace(/[^\n]/g, ' ');
+}
+
+// `owner/repo#N` and bare `#N` references outside code spans, fenced blocks,
+// HTML comments and URLs. Bare refs come back with owner/repo null.
+function extractIssueRefs(text) {
+  if (!text || typeof text !== 'string') return [];
+  const lines = text.replace(/<!--[\s\S]*?-->/g, blank).split(/\r?\n/);
+  const seen = new Set();
+  const refs = [];
+  const REF = /(?<![\w/&#.-])(?:([A-Za-z0-9][\w.-]*)\/([\w.-]+))?#(\d+)\b/g;
+  let fence = null;
+  for (let i = 0; i < lines.length; i++) {
+    const f = lines[i].match(/^ {0,3}(`{3,}|~{3,})/);
+    if (fence) {
+      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (f) { fence = f[1]; continue; }
+    const line = lines[i].replace(/(`+)[^`]*?\1/g, blank).replace(URL_REGEX, blank);
+    let m;
+    while ((m = REF.exec(line)) !== null) {
+      const key = `${m[1] || ''}/${m[2] || ''}#${m[3]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      refs.push({ ref: `${m[1] ? `${m[1]}/${m[2]}` : ''}#${m[3]}`, owner: m[1] || null, repo: m[2] || null, number: parseInt(m[3], 10), line: i + 1 });
+    }
+  }
+  return refs;
+}
+
 // ---------------------------------------------------------------------------
 // URL classification
 // ---------------------------------------------------------------------------
 
-function classifyUrl(url) {
+function classifyUrl(url, githubHost) {
   let parsed;
   try {
     parsed = new URL(url);
@@ -104,13 +141,14 @@ function classifyUrl(url) {
     return { kind: 'invalid', parsed: null };
   }
   const host = parsed.hostname.toLowerCase();
-  // GitHub issues/PRs
-  if (host === 'github.com' || host === 'www.github.com') {
+  // GitHub issues/PRs (githubHost: extra GitHub Enterprise host from ctx.github)
+  if (host === 'github.com' || host === 'www.github.com' || (githubHost && host === githubHost.toLowerCase())) {
     const m = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)\b/);
     if (m) {
       return {
         kind: 'github',
         parsed,
+        host: host === 'www.github.com' ? 'github.com' : host,
         owner: m[1],
         repo: m[2],
         type: m[3],     // "issues" | "pull"
@@ -145,7 +183,23 @@ function ghViewExists(owner, repo, type, number) {
   }
 }
 
+// Existence-only check through gh api (ctx.github set): the repository identity is
+// not compared, cross-repository links are allowed (spec github-sdlc P12, I4).
+function ghApiIssueExists(host, owner, repo, number, env) {
+  if (!execGh) return { ok: false, detail: 'gh helper unavailable' };
+  const r = execGh(
+    ['api', `repos/${owner}/${repo}/issues/${number}`, `--hostname=${host}`, '--silent'],
+    { env },
+  );
+  return r.ok ? { ok: true } : { ok: false, detail: redactText(r.stderr || 'gh lookup failed') };
+}
+
 function checkGithubUrl(c, ctx) {
+  if (ctx.github) {
+    if (ctx.offline) return { ok: true };
+    const ex = ghApiIssueExists(c.host, c.owner, c.repo, c.number, ctx.github.env);
+    return ex.ok ? { ok: true } : { ok: false, reason: 'github-not-found', detail: ex.detail };
+  }
   const expected = ctx.expectedRepo;
   if (!expected) {
     // Without an expected repo we can't verify identity — treat as identity unknown,
@@ -316,7 +370,7 @@ async function validateLinks(text, ctx = {}) {
   // Resolve context with defaults
   const offline = ctx.offline === true || process.env.SDLC_LINKS_OFFLINE === '1';
   let expectedRepo = ctx.expectedRepo || null;
-  if (!expectedRepo && parseRemoteOwner) {
+  if (!expectedRepo && !ctx.github && parseRemoteOwner) {
     try {
       expectedRepo = parseRemoteOwner(ctx.projectRoot || process.cwd());
     } catch (_) {
@@ -331,6 +385,7 @@ async function validateLinks(text, ctx = {}) {
     offline,
     expectedRepo,
     jiraSite: ctx.jiraSite || null,
+    github: ctx.github || null,
     skipHostsSet,
   };
 
@@ -339,7 +394,19 @@ async function validateLinks(text, ctx = {}) {
   const skipped = [];
 
   // Classify and partition
-  const classified = found.map(({ url, line }) => ({ url, line, c: classifyUrl(url) }));
+  const classified = found.map(({ url, line }) => ({ url, line, c: classifyUrl(url, resolvedCtx.github && resolvedCtx.github.host) }));
+
+  // Issue references (owner/repo#N, #N) — existence only, ctx.github opt-in
+  if (resolvedCtx.github) {
+    const g = resolvedCtx.github;
+    for (const r of extractIssueRefs(text)) {
+      if (offline) break;
+      const ex = ghApiIssueExists(g.host, r.owner || g.owner, r.repo || g.repo, r.number, g.env);
+      if (!ex.ok) {
+        violations.push({ url: r.ref, line: r.line, reason: 'github-ref-not-found', detail: ex.detail });
+      }
+    }
+  }
 
   // Synchronous (or sync-ish) checks — github needs gh exec, atlassian needs nothing network for host match
   for (const item of classified) {
@@ -425,7 +492,7 @@ function parseCliArgs(argv) {
         'Validates URLs in stdin (or --file) per issue #198 link verification.',
         'Exit 0 if ok, 1 if any violation, 2 on usage error.',
         '',
-        '--ctx accepts: { expectedRepo: {host,owner,repo}, jiraSite, offline, skipHosts[] }',
+        '--ctx accepts: { expectedRepo: {host,owner,repo}, github: {host,owner,repo,env}, jiraSite, offline, skipHosts[] }',
         '',
         'Env: SDLC_LINKS_OFFLINE=1 — skip network reachability checks',
       ].join('\n') + '\n');
@@ -480,6 +547,7 @@ if (require.main === module) {
     validateLinks,
     formatViolations,
     extractUrls,
+    extractIssueRefs,
     classifyUrl,
     BUILT_IN_SKIP_HOSTS,
   };

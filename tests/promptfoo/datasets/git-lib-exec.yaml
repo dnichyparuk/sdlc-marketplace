@@ -171,6 +171,46 @@
         if (l.authenticated !== false || l.timedOut !== false) return `FAIL: loggedOut ${JSON.stringify(l)}`;
         return l.errorMessage === 'Not logged in to github.com. Run: gh auth login --hostname github.com' ? true : `FAIL: loggedOut message ${l.errorMessage}`;
 
+- description: "git-lib: execGh passes argv without a shell and reports a timeout"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
+    script_args: "--op execGhArgvTimeout"
+    project_root: "file://fixtures-fs/project-openspec-baseline"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.meta.ok !== true || o.meta.stdout !== '$(echo injected)') return `FAIL: argv ${JSON.stringify(o.meta)}`;
+        return o.slow.ok === false && o.slow.timedOut === true ? true : `FAIL: slow ${JSON.stringify(o.slow)}`;
+
+- description: "git-lib: selectGhAccountForTarget reads the owner token without auth switch"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
+    script_args: "--op selectGhAccountForTarget"
+    project_root: "file://fixtures-fs/project-openspec-baseline"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.acme, w = o.own;
+        if (a.actingAccount !== 'acme' || a.activeAccount !== 'alice' || a.accountSwitch.switched !== true || a.token !== 'tok-acme') return `FAIL: acme ${JSON.stringify(a)}`;
+        if (!o.calls.includes('auth token --user=acme --hostname=github.com')) return `FAIL: calls ${JSON.stringify(o.calls)}`;
+        if (o.calls.some(c => c.includes('auth switch'))) return 'FAIL: auth switch ran';
+        return w.accountSwitch.switched === false && w.token === null && w.actingAccount === 'alice' ? true : `FAIL: own ${JSON.stringify(w)}`;
+
+- description: "git-lib: probeGhAuth passes --hostname to gh api user and returns tokenScopes"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
+    script_args: "--op probeGhAuthScopes"
+    project_root: "file://fixtures-fs/project-openspec-baseline"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (!o.cmds.includes('gh api user --hostname ghe.example.com --jq .login')) return `FAIL: cmds ${JSON.stringify(o.cmds)}`;
+        if (JSON.stringify(o.scopes) !== '["repo","read:org"]') return `FAIL: scopes ${JSON.stringify(o.scopes)}`;
+        return o.none === null && o.login === 'stub-user' ? true : `FAIL: none ${o.none}`;
+
 - description: "git-lib: getAllSemverTags includes pre-release tags; getTagList excludes them"
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"

@@ -1,0 +1,8 @@
+See https://github.com/acme/widgets/issues/3 and acme/widgets#5, also #7.
+Ignored: `#999` and `acme/widgets#998`.
+
+```
+#997 acme/widgets#996
+```
+
+<!-- #995 -->

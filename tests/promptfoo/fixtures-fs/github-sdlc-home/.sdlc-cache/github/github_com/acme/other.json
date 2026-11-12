@@ -1,0 +1,4 @@
+{
+  "repo": { "id": "R_2", "nameWithOwner": "acme/other", "hasIssuesEnabled": true, "visibility": "public" },
+  "labels": [{ "name": "other-only" }]
+}
