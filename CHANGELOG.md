@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.9] - 2026-11-12
+
+### Fixed
+- received-review-sdlc: a doc-versus-spec finding is checked against the code first, so a doc is never rewritten to claim behaviour the code lacks, also under `--auto` (#9365).
+- plan-sdlc: a task that changes a skill's behaviour lists every file that documents that skill for users (#9365).
+- ship-sdlc: the learnings commit pushes with `--set-upstream origin HEAD`, so a worktree branch tracking `origin/main` pushes to its own name; the wave-progress line and the Step 6 output fence are corrected, and the setup ship field count is 13 (#9365).
+
 ## [0.51.8] - 2026-11-12
 
 ### Fixed
