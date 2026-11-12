@@ -11,7 +11,10 @@
  * Options:
  *   --project-config '<json>'  JSON object for .sdlc/config.json sections
  *   --local-config '<json>'    JSON object for .sdlc/local.json sections
- *   --output-file              Write JSON to temp file (path on stdout)
+ *   --project-config-file <p>  Same as --project-config, read from a JSON file (no shell quoting)
+ *   --local-config-file <p>    Same as --local-config, read from a JSON file (no shell quoting)
+ *   --dry-run                  Print the per-file diff of the merged write; write nothing (P9)
+ *   --output-file             Write JSON to temp file (path on stdout)
  *
  * Exit codes:
  *   0 = success, JSON on stdout
@@ -32,6 +35,9 @@ const {
   readLocalConfig,
   writeProjectConfig,
   writeLocalConfig,
+  mergeProjectConfig,
+  mergeLocalConfig,
+  computeConfigDiff,
   ensureSdlcGitignore,
   ensureRootGitignore,
 } = require(path.join(LIB, 'config'));
@@ -45,6 +51,9 @@ function parseArgs(argv) {
   const args = argv.slice(2);
   let projectConfig = null;
   let localConfig   = null;
+  let dryRun        = false;
+  let projectConfigFile = null;
+  let localConfigFile   = null;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -52,32 +61,64 @@ function parseArgs(argv) {
       projectConfig = args[++i];
     } else if (a === '--local-config' && args[i + 1]) {
       localConfig = args[++i];
+    } else if (a === '--project-config-file' && args[i + 1]) {
+      projectConfigFile = args[++i];
+    } else if (a === '--local-config-file' && args[i + 1]) {
+      localConfigFile = args[++i];
+    } else if (a === '--dry-run') {
+      dryRun = true;
     }
   }
 
-  return { projectConfig, localConfig };
+  return { projectConfig, localConfig, dryRun, projectConfigFile, localConfigFile };
 }
 
 // ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve the file forms into the inline fields (pure of validation). A file's content
+ * is never echoed into an error message: only the flag and the path are named.
+ */
+function resolveConfigFiles(parsed) {
+  const errors = [];
+  for (const [flag, fileKey, valueKey] of [
+    ['--project-config', 'projectConfigFile', 'projectConfig'],
+    ['--local-config',   'localConfigFile',   'localConfig'],
+  ]) {
+    if (parsed[fileKey] === null || parsed[fileKey] === undefined) continue;
+    if (parsed[valueKey] !== null) {
+      errors.push(`${flag} and ${flag}-file are mutually exclusive`);
+      continue;
+    }
+    try {
+      parsed[valueKey] = fs.readFileSync(parsed[fileKey], 'utf8');
+    } catch (e) {
+      errors.push(`${flag}-file cannot be read: ${parsed[fileKey]} (${e.code || 'error'})`);
+    }
+  }
+  return errors;
+}
+
 function validate(parsed) {
   const errors = [];
 
-  if (parsed.projectConfig !== null) {
+  for (const [flag, key, fileKey] of [
+    ['--project-config', 'projectConfig', 'projectConfigFile'],
+    ['--local-config',   'localConfig',   'localConfigFile'],
+  ]) {
+    if (parsed[key] === null) continue;
+    const fromFile = parsed[fileKey] !== null && parsed[fileKey] !== undefined;
     try {
-      JSON.parse(parsed.projectConfig);
+      const value = JSON.parse(parsed[key]);
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+        errors.push(`${flag}${fromFile ? '-file' : ''} must be a JSON object`);
+      }
     } catch (e) {
-      errors.push(`--project-config is not valid JSON: ${e.message}`);
-    }
-  }
-
-  if (parsed.localConfig !== null) {
-    try {
-      JSON.parse(parsed.localConfig);
-    } catch (e) {
-      errors.push(`--local-config is not valid JSON: ${e.message}`);
+      errors.push(fromFile
+        ? `${flag}-file is not valid JSON: ${parsed[fileKey]}`
+        : `${flag} is not valid JSON: ${e.message}`);
     }
   }
 
@@ -153,10 +194,31 @@ function main() {
   const warnings = [];
 
   // Validate inputs
-  const validationErrors = validate(cli);
+  const validationErrors = [...resolveConfigFiles(cli), ...validate(cli)];
   if (validationErrors.length > 0) {
     errors.push(...validationErrors);
     writeOutput({ errors, warnings }, 'setup-init', 1);
+    return;
+  }
+
+  // P9: --dry-run reports the per-file diff of the merged write and writes nothing
+  // (no gitignore, no backup sweep, no config writes).
+  if (cli.dryRun) {
+    const entry = (raw, merge, rel) => {
+      if (raw === null) return null;
+      const config = JSON.parse(raw);
+      if (Object.keys(config).length === 0) return null;
+      const { existing, merged } = merge(projectRoot, config);
+      return { path: rel, ...computeConfigDiff(existing, merged) };
+    };
+    // `inputs` acknowledges which slices this script received, so the skill can detect an
+    // older script that ignores the file flags (its null diff would look like "no change").
+    writeOutput({ errors, warnings, dryRun: true,
+      inputs: { projectConfig: cli.projectConfig !== null, localConfig: cli.localConfig !== null },
+      diff: {
+      projectConfig: entry(cli.projectConfig, mergeProjectConfig, '.sdlc/config.json'),
+      localConfig:   entry(cli.localConfig,   mergeLocalConfig,   '.sdlc/local.json'),
+    } }, 'setup-init', 0);
     return;
   }
 
@@ -226,4 +288,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseArgs, validate };
+module.exports = { parseArgs, resolveConfigFiles, validate };

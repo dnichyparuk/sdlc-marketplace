@@ -162,6 +162,38 @@
         const ea = pr.fields.find(f => f.name === 'expectedAccount');
         return Boolean(ea) && ea.type === 'string' && ea.default === 'test-user'
 
+- description: "setup-prepare (#9362): fields carry current config values (R7, P-sections)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/setup-fully-configured"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const f = (id, name) => out.sections.find(s => s.id === id).fields.find(x => x.name === name);
+        const checks = {
+          tagPrefix: f('version', 'tagPrefix').current === 'v',
+          account: f('pr', 'expectedAccount').current === 'test-user',
+          unsetHasNoKey: !('current' in f('version', 'changelog')),
+          shipRow: f('ship', 'bump').current === 'patch',
+          shipFields: out.shipFields.find(x => x.name === 'bump').current === 'patch',
+        };
+        const failed = Object.keys(checks).filter(k => !checks[k]);
+        return failed.length === 0 ? true : 'FAIL: ' + failed.join(', ');
+
+- description: "setup-prepare (#9362): empty project emits no current keys"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        return out.sections.every(s => s.fields.every(f => !('current' in f))) &&
+               out.shipFields.every(f => !('current' in f))
+
 # ---------------------------------------------------------------------------
 # Issue #292 — when-gate evaluation: setup.js --steps <csv> marks gated entries
 # ---------------------------------------------------------------------------
@@ -378,6 +410,27 @@
           hosting: typeof s.hosting.github === 'boolean',
           ciFiles: Array.isArray(s.ciFiles),
           recentPrs: Array.isArray(s.recentPrs) && s.recentPrs.length === 0,
+        };
+        const failed = Object.keys(checks).filter(k => !checks[k]);
+        return failed.length === 0 ? true : 'FAIL: ' + failed.join(', ');
+
+- description: "setup-prepare (#9362): project-scan symlink and device files are not read (R26)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-project-scan-symlink.js"
+    script_args: ""
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const checks = {
+          noHang: r.timedOut === false && r.exit === 0,
+          noRules: Array.isArray(r.claudeMdRules) && r.claudeMdRules.length === 0,
+          noExpress: !r.frameworks.includes('express'),
+          control: r.frameworks.includes('flask'),
+          noJenkins: !r.ciFiles.includes('Jenkinsfile'),
+          noFiles: !r.files.includes('CLAUDE.md') && !r.files.includes('package.json'),
         };
         const failed = Object.keys(checks).filter(k => !checks[k]);
         return failed.length === 0 ? true : 'FAIL: ' + failed.join(', ');

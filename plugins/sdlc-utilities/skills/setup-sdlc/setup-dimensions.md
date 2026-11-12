@@ -26,7 +26,7 @@ those paths. Do not search for them with Glob: a search can return a stale cache
 
 ## Scan Input
 
-This sub-flow expects the parent skill (setup-sdlc) to have provided the scan in `prepare.scan` as "Scan Input":
+This sub-flow expects the parent skill (setup-sdlc) to have provided the single Step 3.S project scan as "Scan Input" (never look for `.scan` in the Step 0 manifest):
 
 - **Dependency manifests** — `signals.frameworks` and `signals.languages`, plus the manifest contents in `files`
 - **Directory structure** — `signals.structure`
@@ -151,7 +151,7 @@ Present the markdown output table. If any file has errors, show the error detail
 
 Check `gh auth status` first; if unauthenticated, skip this step with a one-line notice.
 
-**Skip this step if:** Step 7 reported any errors, or `copilotEnabled` is false (determined by the scan in `prepare.scan`).
+**Skip this step if:** Step 7 reported any errors, or `copilotEnabled` is false (determined by the Scan Input).
 
 **Check existing state:** Glob `.github/instructions/*.instructions.md`. If files exist with the same names as selected dimensions, confirm overwrite. In `--add` mode: when `_common.md` exists and contains new or changed content, regenerate ALL existing mirrors (not just newly added ones) to incorporate the common instructions; otherwise, only generate for newly added dimensions.
 
@@ -234,7 +234,7 @@ Check `gh auth status` first; if unauthenticated, skip this step with a one-line
 
 ## DO NOT
 
-- Do NOT create dimension files without first running the tech stack scan (the scan in `prepare.scan`)
+- Do NOT create dimension files without first running the tech stack scan (the Scan Input from Step 3.S)
 - Do NOT skip the validate-dimensions.js step — invalid dimensions cause review-sdlc to fail silently
 - Do NOT overwrite existing dimension files without explicit user consent
 - Do NOT propose more than 10 dimensions at once — offer expansion in follow-up runs with `--add`

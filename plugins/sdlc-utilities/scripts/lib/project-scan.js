@@ -35,16 +35,23 @@ function existsRel(projectRoot, ...parts) {
   return fs.existsSync(path.join(projectRoot, ...parts));
 }
 
-function readFileSafe(filePath) {
-  try {
-    return fs.readFileSync(filePath, 'utf8');
-  } catch (_) {
-    return null;
-  }
+function realRootOf(root) {
+  try { return fs.realpathSync(root); } catch (_) { return null; }
 }
 
-function parseJsonSafe(filePath) {
-  const raw = readFileSafe(filePath);
+/**
+ * Read a detector input: regular file, resolved inside realRoot, within the
+ * detector cap. Anything else (symlink out, device, oversize) reads as absent.
+ */
+function readWithinRoot(filePath, realRoot, maxBytes = DETECTOR_MAX_BYTES) {
+  if (!realRoot || !isFile(filePath) || !realPathWithin(filePath, realRoot)) return null;
+  const read = readCapped(filePath, maxBytes);
+  if (!read || read.truncated) return null;
+  return read.content;
+}
+
+function parseJsonSafe(filePath, realRoot) {
+  const raw = readWithinRoot(filePath, realRoot);
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -80,10 +87,10 @@ function anyFileMatches(dirPath, predicate) {
 // Language & framework detection
 // ---------------------------------------------------------------------------
 
-function detectLanguagesAndFrameworks(projectRoot, signals) {
+function detectLanguagesAndFrameworks(projectRoot, signals, realRoot = realRootOf(projectRoot)) {
   // JavaScript / TypeScript
   const pkgPath = path.join(projectRoot, 'package.json');
-  const pkg = parseJsonSafe(pkgPath);
+  const pkg = parseJsonSafe(pkgPath, realRoot);
   if (pkg) {
     const allDeps = {
       ...((pkg.dependencies) || {}),
@@ -154,7 +161,7 @@ function detectLanguagesAndFrameworks(projectRoot, signals) {
   // Go
   if (existsRel(projectRoot, 'go.mod')) {
     signals.languages.push('go');
-    const goMod = readFileSafe(path.join(projectRoot, 'go.mod')) || '';
+    const goMod = readWithinRoot(path.join(projectRoot, 'go.mod'), realRoot) || '';
     for (const fw of ['gin', 'echo', 'fiber']) {
       if (goMod.includes(fw)) signals.frameworks.push(fw);
     }
@@ -169,8 +176,8 @@ function detectLanguagesAndFrameworks(projectRoot, signals) {
   if (existsRel(projectRoot, 'pyproject.toml') || existsRel(projectRoot, 'requirements.txt')) {
     signals.languages.push('python');
     const pyFiles = [
-      readFileSafe(path.join(projectRoot, 'pyproject.toml')) || '',
-      readFileSafe(path.join(projectRoot, 'requirements.txt')) || '',
+      readWithinRoot(path.join(projectRoot, 'pyproject.toml'), realRoot) || '',
+      readWithinRoot(path.join(projectRoot, 'requirements.txt'), realRoot) || '',
     ].join('\n');
     for (const fw of ['django', 'flask', 'fastapi']) {
       if (pyFiles.toLowerCase().includes(fw)) signals.frameworks.push(fw);
@@ -187,7 +194,7 @@ function detectLanguagesAndFrameworks(projectRoot, signals) {
 // Structural signal detection
 // ---------------------------------------------------------------------------
 
-function detectStructure(projectRoot, signals) {
+function detectStructure(projectRoot, signals, realRoot = realRootOf(projectRoot)) {
   const dirs = signals.directories;
 
   // Key directories — check both root and src/
@@ -214,7 +221,7 @@ function detectStructure(projectRoot, signals) {
   } else {
     // Check for typeorm in package.json deps
     const pkgPath = path.join(projectRoot, 'package.json');
-    const pkg = parseJsonSafe(pkgPath);
+    const pkg = parseJsonSafe(pkgPath, realRoot);
     if (pkg) {
       const allDeps = { ...((pkg.dependencies) || {}), ...((pkg.devDependencies) || {}) };
       if ('typeorm' in allDeps) {
@@ -254,7 +261,7 @@ function detectStructure(projectRoot, signals) {
   // Serverless resources with DynamoDB table definitions
   if (!signals.hasDatabase) {
     const resourcesPath = path.join(projectRoot, 'serverless', 'resources.yml');
-    const resourcesContent = readFileSafe(resourcesPath);
+    const resourcesContent = readWithinRoot(resourcesPath, realRoot);
     if (resourcesContent && resourcesContent.includes('AWS::DynamoDB::Table')) {
       signals.hasDatabase = true;
       signals.dbType = 'dynamodb';
@@ -287,7 +294,7 @@ function detectStructure(projectRoot, signals) {
   // Lambda / Serverless HTTP API detection
   if (!signals.hasApi) {
     const pkgPath = path.join(projectRoot, 'package.json');
-    const pkg = parseJsonSafe(pkgPath);
+    const pkg = parseJsonSafe(pkgPath, realRoot);
     if (pkg) {
       const allDeps = { ...((pkg.dependencies) || {}), ...((pkg.devDependencies) || {}) };
       // @middy/http-* or http-status-codes → lambda-http
@@ -331,7 +338,7 @@ function detectStructure(projectRoot, signals) {
   }
   // Check test framework in package.json devDeps
   if (!signals.hasTests || !signals.testFramework) {
-    const pkg = parseJsonSafe(path.join(projectRoot, 'package.json'));
+    const pkg = parseJsonSafe(path.join(projectRoot, 'package.json'), realRoot);
     if (pkg) {
       const devDeps = (pkg.devDependencies) || {};
       const deps = (pkg.dependencies) || {};
@@ -405,14 +412,14 @@ function detectReviewDimensions(projectRoot, signals) {
 
 const CONSTRAINT_REGEX = /\b(must|never|always|require[sd]?|forbidden|prohibited)\b/i;
 
-function extractClaudeMdRules(projectRoot, signals) {
+function extractClaudeMdRules(projectRoot, signals, realRoot = realRootOf(projectRoot)) {
   const candidates = ['CLAUDE.md', 'AGENTS.md'];
   const seen = new Set();
   const rules = [];
 
   for (const filename of candidates) {
     const filePath = path.join(projectRoot, filename);
-    const content = readFileSafe(filePath);
+    const content = readWithinRoot(filePath, realRoot);
     if (!content) continue;
     for (const line of content.split('\n')) {
       const trimmed = line.trim();
@@ -608,6 +615,7 @@ const SCAN_FILES = [
 ];
 const PR_TEMPLATE_DIR = '.github/PULL_REQUEST_TEMPLATE/';
 const FILE_MAX_BYTES = 8 * 1024;
+const DETECTOR_MAX_BYTES = 256 * 1024;
 
 function isFile(p) {
   try { return fs.statSync(p).isFile(); } catch (_) { return false; }
@@ -617,14 +625,14 @@ function isDir(p) {
   try { return fs.statSync(p).isDirectory(); } catch (_) { return false; }
 }
 
-function readCapped(filePath) {
+function readCapped(filePath, maxBytes = FILE_MAX_BYTES) {
   let fd;
   try {
     fd = fs.openSync(filePath, 'r');
     const size = fs.fstatSync(fd).size;
-    const buf = Buffer.alloc(Math.min(size, FILE_MAX_BYTES));
+    const buf = Buffer.alloc(Math.min(size, maxBytes));
     const n = fs.readSync(fd, buf, 0, buf.length, 0);
-    return { content: buf.subarray(0, n).toString('utf8'), truncated: size > FILE_MAX_BYTES };
+    return { content: buf.subarray(0, n).toString('utf8'), truncated: size > maxBytes };
   } catch (_) {
     return null;
   } finally {
@@ -641,10 +649,9 @@ function realPathWithin(abs, realRoot) {
   }
 }
 
-function scanFiles(contentRoot) {
+function scanFiles(contentRoot, realRoot) {
   const files = {};
-  let realRoot;
-  try { realRoot = fs.realpathSync(contentRoot); } catch (_) { return files; }
+  if (!realRoot) return files;
   for (const rel of SCAN_FILES) {
     const abs = path.join(contentRoot, rel);
     if (!isFile(abs) || !realPathWithin(abs, realRoot)) continue;
@@ -660,11 +667,10 @@ function scanFiles(contentRoot) {
   return files;
 }
 
-function scanCiFiles(contentRoot) {
+function scanCiFiles(contentRoot, realRoot) {
   const ciFiles = [];
   const workflowsDir = path.join(contentRoot, '.github', 'workflows');
-  let realRoot;
-  try { realRoot = fs.realpathSync(contentRoot); } catch (_) { return ciFiles; }
+  if (!realRoot) return ciFiles;
   try {
     for (const f of fs.readdirSync(workflowsDir).sort()) {
       if ((f.endsWith('.yml') || f.endsWith('.yaml')) && isFile(path.join(workflowsDir, f)) && realPathWithin(path.join(workflowsDir, f), realRoot)) {
@@ -673,7 +679,8 @@ function scanCiFiles(contentRoot) {
     }
   } catch (_) { /* no workflows dir */ }
   for (const rel of ['Jenkinsfile', '.circleci/config.yml', '.gitlab-ci.yml']) {
-    if (isFile(path.join(contentRoot, rel))) ciFiles.push(rel);
+    const abs = path.join(contentRoot, rel);
+    if (isFile(abs) && realPathWithin(abs, realRoot)) ciFiles.push(rel);
   }
   return ciFiles;
 }
@@ -770,10 +777,11 @@ function scanRecentPrs(contentRoot) {
  */
 function scanProject(contentRoot, { projectRoot, prs = false } = {}) {
   const signals = createSignals();
-  detectLanguagesAndFrameworks(contentRoot, signals);
-  detectStructure(contentRoot, signals);
+  const realRoot = realRootOf(contentRoot);
+  detectLanguagesAndFrameworks(contentRoot, signals, realRoot);
+  detectStructure(contentRoot, signals, realRoot);
   detectReviewDimensions(projectRoot || contentRoot, signals);
-  extractClaudeMdRules(contentRoot, signals);
+  extractClaudeMdRules(contentRoot, signals, realRoot);
   signals.structure = scanStructure(contentRoot);
 
   const hosting = detectHosting(contentRoot);
@@ -781,9 +789,9 @@ function scanProject(contentRoot, { projectRoot, prs = false } = {}) {
 
   return {
     signals,
-    files: scanFiles(contentRoot),
+    files: scanFiles(contentRoot, realRoot),
     hosting,
-    ciFiles: scanCiFiles(contentRoot),
+    ciFiles: scanCiFiles(contentRoot, realRoot),
     git,
     jiraEvidence: scanJiraEvidence(git),
     recentPrs: prs && hosting.github ? scanRecentPrs(contentRoot) : [],

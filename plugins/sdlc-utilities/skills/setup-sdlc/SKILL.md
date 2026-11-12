@@ -22,7 +22,7 @@ delegates content creation to specialized skills.
 |------|-------------|---------|
 | `--migrate` | Force migration of legacy config files even if no legacy files are auto-detected | off |
 | `--skip <section>` | Skip config sections (comma-separated or repeated). Valid values: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`. `skill/setup.js` validates them into `prepare.flags.skip`; Step 0 removes them from the resolved selection. Locked legacy rows are not removed | none |
-| `--force` | Currently no effect beyond precedence: it wins over `--unset-only` for the default menu reply. Step 3.G has no per-field `keep` prompt for it to skip (spec A3 gap, tracked separately). Does not skip the menu | off |
+| `--force` | Deprecated: only wins over `--unset-only` for the default menu reply (A3). No other effect; does not skip the menu | off |
 | `--unset-only` | The default menu reply (`prepare.menuInputContract.defaultToken`) becomes `not-set` instead of `all`. `--force` wins when both are passed | off |
 | `--only <ids>` | Comma-separated section ids to configure non-interactively (skips the menu). Valid ids match `prepare.sections[].id`: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block`, `plan-template` | none |
 | `--dimensions` | Jump directly to review dimensions sub-flow (alias for `--only review-dimensions`) | off |
@@ -99,7 +99,7 @@ The JSON contains these top-level keys:
 - `content` -- `{ reviewDimensions: { count, path }, prTemplate: { exists, path }, jiraTemplates: { count, path } }`
 - `detected` -- `{ versionFile, fileType, tagPrefix, defaultBranch }`
 - `needsMigration` -- boolean: `true` when any legacy file exists OR any misplaced section found in project config
-- `sections` -- array of section descriptors driving Steps 1 and 3 (selective menu + verbose dispatch). Each row: `{ id, label, state ('set'|'not-set'|'legacy'), summary, locked, purpose, configFile, configPath, consumedBy, filesModified, optional, delegatedTo, confirmDetected, fields[] }`. Source of truth: `scripts/lib/setup-sections.js`.
+- `sections` -- array of section descriptors driving Steps 1 and 3 (selective menu + verbose dispatch). Each row: `{ id, label, state ('set'|'not-set'|'legacy'), summary, locked, purpose, configFile, configPath, consumedBy, filesModified, optional, delegatedTo, confirmDetected, fields[] }`. Source of truth: `scripts/lib/setup-sections.js`. Each `fields[]` entry carries `current` when the config already holds a value (R7).
 
 ---
 
@@ -268,8 +268,8 @@ For each id selected in Step 1 (call this list `selectedIds`), in `prepare.secti
    | `null` | Generic field-loop (3.G below) — dispatch one AskUserQuestion per `section.fields[]` entry, optionally gated by `section.confirmDetected`. |
    | `'inline-commit-builder'` | Inline commit-pattern builder (3.commit below) |
    | `'inline-pr-builder'` | Inline PR-pattern builder (3.pr below) |
-   | `'setup-dimensions'` | Run scan phase (Step 3.S below), then read and follow `@setup-dimensions.md` passing scan results as "Scan Input". Pass through `--add` and `--no-copilot` modifiers if present. |
-   | `'setup-pr-template'` | Run scan phase (Step 3.S), then read and follow `@setup-pr-template.md` passing scan results. Pass through `--add` if present. |
+   | `'setup-dimensions'` | Run scan phase (Step 3.S below); when it failed, skip this section, otherwise read and follow `@setup-dimensions.md` passing scan results as "Scan Input". Pass through `--add` and `--no-copilot` modifiers if present. |
+   | `'setup-pr-template'` | Run scan phase (Step 3.S); when it failed, skip this section, otherwise read and follow `@setup-pr-template.md` passing scan results. Pass through `--add` if present. |
    | `'setup-pr-labels'` | Read and follow `@setup-pr-labels.md` (it runs `gh label list` itself; no scan input from parent required). |
    | `'setup-guardrails'` | Read and follow `@setup-guardrails.md` with `target=plan`. Pass through `--add` if present. <!-- R9 --> |
    | `'setup-execution-guardrails'` | Read and follow `@setup-guardrails.md` with `target=execute`. Pass through `--add` if present. <!-- R9, I6 --> |
@@ -298,7 +298,7 @@ For each entry `field` in `section.fields` (when iterating), dispatch one AskUse
 - **Question prompt:** `field.label`
 - **Helper text:** `field.description` (verbatim from manifest)
 - **Choices:** `field.options` (or free-text input when `options` is `null`)
-- **Default:** `field.default`
+- **Default:** `field.current` when the field carries it (the value already in the config), otherwise `field.default`. Accepting the default keeps the current value; an empty answer on an optional field unsets it (omit the key from the section object). <!-- implements R7 -->
 - **Validation:** if `field.validate` is defined, re-prompt on failure showing the regex/constraint inline
 
 Skip a field when an upstream answer makes it irrelevant: for `version`, skip `versionFile` and `fileType` if `mode === 'tag'`; skip `changelogFile` if `changelog === false`; omit `preRelease` from the written config when the user enters an empty string.
@@ -414,49 +414,42 @@ On **skip**: Do not write a pr section.
 Store the assembled `pr` config for use in the "Writing config files" step.
 
 #### 3.S. Scan phase (delegated content sections only)
-Before `setup-dimensions` or `setup-pr-template`, make sure the prepare output carries a scan. If `prepare.scan` is absent, re-run Step 0's command once with `--scan` (add `--scan-prs` for `setup-pr-template`) and read `.scan` from the new output file. The signals come from `prepare.scan` (`signals`, `files`, `hosting`, `ciFiles`, `git`, `jiraEvidence`, `recentPrs`); do not re-scan with Glob or Bash. Pass `prepare.scan` to the sub-flow as "Scan Input" and reuse it for every delegated section in the same run. <!-- R10, R14, P-scan -->
+<!-- implements R10, R14, R27, E5, P-scan -->
+Run the project scan once per run, just before the first `setup-dimensions` or `setup-pr-template` section in `selectedIds`. Decide the flags once, from `selectedIds` only: always `--scan`, and also `--scan-prs` when `pr-template` is in `selectedIds`. Never decide from `scan.recentPrs` — an empty list is normal on non-GitHub hosts. Run Step 0's command with those flags added, as one plain Bash call. Take the output path the command prints on stdout and the exit code from the tool result (when no path was printed, read no file). On a non-zero exit code, do NOT stop the run: show the command's stderr verbatim, print `Project scan failed — skipping the sections that need it.`, skip every delegated section that needs the scan in this run, and continue with the other selected sections. On exit 0, read `.scan` from the new output file (`signals`, `files`, `hosting`, `ciFiles`, `git`, `jiraEvidence`, `recentPrs`); do not re-scan with Glob or Bash. Pass that one scan to every delegated section as "Scan Input". Delegated sub-flows that refer to the scan as `prepare.scan` mean this scan, passed as Scan Input; never look for `.scan` in the Step 0 manifest.
 
 #### Diff preview
+<!-- implements R-walk-3, P9, E6 -->
+Before the write, preview it with the same script in dry-run mode. Never put config JSON into a shell command: it holds user answers. Create one file per slice you will write: run `mktemp` for each (an exception to the no-`mktemp` rule: these are input files that only the Write tool can fill, not script output), call the paths `SETUP_PROJECT_CONFIG_FILE` and `SETUP_LOCAL_CONFIG_FILE` from here on, Read each empty file, then Write the JSON object into it with the Write tool. Pass exactly the `--project-config-file` and `--local-config-file` arguments the write step will pass (leave out a slice you do not write):
 
-Before invoking `util/setup-init.js`, render an end-of-run diff preview comparing the in-memory snapshot of the project config as read at preflight (Step 0 prepare output) against the accumulated answers from Step 3. Use `lib/config.js::computeConfigDiff(before, after)` — pure helper, no I/O:
-
-1. Run `mktemp -d` as one plain Bash call and note the directory it prints as `<DIFF_DIR>`.
-2. With the Write tool, write `before.json` (the Step 0 snapshot) and `after.json` (the accumulated answers) into `<DIFF_DIR>`.
-3. Run one plain Bash call that prints the diff, and read it from the tool result:
-
-   ```bash
-   node -e "
-   const { computeConfigDiff } = require(process.argv[1]);
-   const fs = require('fs');
-   const before = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-   const after  = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
-   console.log(JSON.stringify(computeConfigDiff(before, after)));
-   " "<PLUGIN_ROOT>/scripts/lib/config.js" "<DIFF_DIR>/before.json" "<DIFF_DIR>/after.json"
-   ```
-
-4. Run `rm -rf "<DIFF_DIR>"` as its own call.
-
-Render the diff's `changed[]` as a markdown table:
-
-```text
-| path                      | before        | after         |
-|---------------------------|---------------|---------------|
-| pr.expectedAccount        | (unset)       | rnagrodzki    |
-| version.tagPrefix         | v             | release/      |
+```bash
+node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --dry-run --project-config-file "<SETUP_PROJECT_CONFIG_FILE>" --local-config-file "<SETUP_LOCAL_CONFIG_FILE>"
 ```
 
-When the diff's `changed` is empty, skip the preview and print `No changes — nothing to write.`; bypass the write step (`util/setup-init.js` invocation) and proceed directly to Step 3b validation (which is now a no-op confirmation).
+Run this as one plain Bash call. Take the output path the command prints on stdout as `DRYRUN_OUTPUT_FILE`, and the exit code from the tool result. If the exit code is non-zero, show the command's stderr verbatim (and `errors[]` from the JSON when a path was printed), print `Write cancelled — no changes made.` and skip the write step. Otherwise read the JSON at the literal path and require `dryRun === true` and, for every slice you passed, `inputs.projectConfig === true` / `inputs.localConfig === true`; when either check fails (an older script that ignores `--dry-run` or the file flags would report no change and drop the answers), print `Write cancelled — setup-init.js is out of date (it did not acknowledge the preview inputs).` and skip the write step. The script writes nothing.
+
+Render `diff.projectConfig.changed` and `diff.localConfig.changed` (a `null` entry means no change for that file: contribute no rows) as one markdown table. Object values are shown as compact JSON. A row without a `before` key shows `(unset)`; a row without an `after` key (a removed field) shows `(deleted)`:
+
+```text
+| file               | path                 | before   | after       |
+|--------------------|----------------------|----------|-------------|
+| .sdlc/config.json  | pr.expectedAccount   | (unset)  | rnagrodzki  |
+| .sdlc/local.json   | ship.bump            | patch    | minor       |
+```
+
+When every entry is `null` or has an empty `changed` list, skip the preview and print `No changes — nothing to write.`; bypass the write step (`util/setup-init.js` invocation) and proceed directly to Step 3b validation (which is now a no-op confirmation).
 
 Otherwise, ask the user to confirm the diff via AskUserQuestion. On rejection, print `Write cancelled — no changes made.` and skip the write step.
+
+**Cleanup (every path).** Whatever the outcome of the diff preview — no changes, a dry-run error, a failed `dryRun`/`inputs` check, a rejection, or the write step having run — finish it with one plain Bash call that removes the files created for it: `rm -f "<SETUP_PROJECT_CONFIG_FILE>" "<SETUP_LOCAL_CONFIG_FILE>"` (name only the files you created).
 
 #### Writing config files
 
 After collecting all answers AND confirming the diff preview above, write project config and local config via `util/setup-init.js`:
 
 ```bash
-# Replace <PROJECT_CONFIG_JSON> and <LOCAL_CONFIG_JSON> with the actual config objects
-# assembled from Step 3. Only include sections that were configured (not skipped).
-node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --project-config '<PROJECT_CONFIG_JSON>' --local-config '<LOCAL_CONFIG_JSON>'
+# <SETUP_PROJECT_CONFIG_FILE> and <SETUP_LOCAL_CONFIG_FILE> are the files written for the diff preview,
+# holding the config objects assembled from Step 3 (only sections that were configured).
+node "<PLUGIN_ROOT>/scripts/util/setup-init.js" --output-file --project-config-file "<SETUP_PROJECT_CONFIG_FILE>" --local-config-file "<SETUP_LOCAL_CONFIG_FILE>"
 ```
 
 Run this as one plain Bash call. Take the output path the command prints on stdout as `INIT_OUTPUT_FILE`, and the command's exit code from the tool result as `EXIT_CODE` (a tool result without an error is exit code 0). Use the literal path in every later step.
@@ -511,7 +504,13 @@ Only show sections that were actually created, updated, or migrated. Omit sectio
 
 ## Idempotency
 
-This skill is safe to re-run. Every run offers every section again: the default menu reply (`prepare.menuInputContract.defaultToken`) is `all`, or `not-set` with `--unset-only`. `--force` currently only takes precedence over `--unset-only`. The `writeProjectConfig` and `writeLocalConfig` functions use read-merge-write, so re-running does not clobber existing config written by other skills.
+This skill is safe to re-run. Every run offers every section again: the default menu reply (`prepare.menuInputContract.defaultToken`) is `all`, or `not-set` with `--unset-only`. `--force` is deprecated and only takes precedence over `--unset-only` (A3). The `writeProjectConfig` and `writeLocalConfig` functions use read-merge-write, so re-running does not clobber existing config written by other skills.
+
+---
+
+## Interaction rules
+
+- Use AskUserQuestion for every answer except the Step 1 menu reply, which is a plain chat prompt (R-menu-1, C5).
 
 ---
 
@@ -520,9 +519,8 @@ This skill is safe to re-run. Every run offers every section again: the default 
 - Delete legacy files without explicit user confirmation via AskUserQuestion
 - Invoke removed skills (`/review-init-sdlc`, `/pr-customize-sdlc`, `/guardrails-init-sdlc`) -- they no longer exist as standalone skills; use the sub-flows (`@setup-dimensions.md`, `@setup-pr-template.md`, `@setup-guardrails.md`) instead
 - Modify Jira templates directly -- delegate to `/jira-sdlc` via the Skill tool
-- Write config files using the Write or Edit tools directly -- always go through `lib/config.js` functions (`writeProjectConfig`, `writeLocalConfig`) via inline Node.js in Bash
+- Write config files using the Write or Edit tools directly -- every config write goes through `util/setup-init.js` (R6), which calls `writeProjectConfig` and `writeLocalConfig` from `lib/config.js`
 - Invoke sub-skills via the Agent tool -- use the Skill tool exclusively
-- Use AskUserQuestion for every answer *except* the Step 1 menu reply, which is a plain chat prompt.
 - Assume `mode` for the version section -- it is a required field, always ask or detect
 
 ---

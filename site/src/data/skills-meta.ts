@@ -250,9 +250,11 @@ export const skillsMeta: SkillMeta[] = [
     pipeline: [
       { id: 'detect', label: 'Detect current state', type: 'script', description: 'Runs scripts/skill/setup.js to find existing configs and legacy files' },
       { id: 'migrate', label: 'Migrate legacy configs', type: 'llm', description: 'Consolidates legacy files into unified .sdlc/config.json' },
-      { id: 'configure', label: 'Interactive config builder', type: 'user', description: 'Walks through version, ship, jira, and review settings' },
-      { id: 'validate', label: 'Validate written config', type: 'verify', description: 'Re-runs scripts/skill/setup.js to confirm config is readable' },
+      { id: 'configure', label: 'Interactive config builder', type: 'user', description: 'Walks through version, ship, jira, and review settings; each prompt defaults to the value already in your config' },
+      { id: 'scan', label: 'Project scan (once per run)', type: 'script', description: 'Runs the project scan once (with --scan-prs when the PR template is selected) and shares it with the dimensions and PR-template sub-flows; a failed scan skips only those sections' },
       { id: 'content-setup', label: 'Content setup', type: 'dispatch', description: 'Runs dimensions, PR template, plan template, and guardrails sub-flows' },
+      { id: 'diff-preview', label: 'Diff preview and confirm', type: 'user', description: 'Runs util/setup-init.js --dry-run, shows a file/path/before/after table of the changes and asks before any config file is written' },
+      { id: 'validate', label: 'Validate written config', type: 'verify', description: 'Re-runs scripts/skill/setup.js to confirm config is readable' },
       { id: 'summary', label: 'Show summary', type: 'llm', description: 'Reports what was created, migrated, and configured' },
     ],
     connections: [

@@ -75,3 +75,66 @@
     # Field NEVER appears in project config — local-only contract (R19, C15)
     - type: icontains
       value: '"projectHasField":false'
+
+- description: "setup-init (#9362): --dry-run writes nothing and diffs only touched sections (P9)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-setup-init-dry-run.js"
+    script_args: ""
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const outside = p => /^(jira|commit|pr)(\.|$)/.test(p);
+        const checks = {
+          exit0: r.exit === 0, dryRun: r.dryRun === true, noWrite: r.treeUnchanged === true,
+          idempotent: r.secondRunSame === true,
+          inputsAcked: r.inputsAcked === true,
+          errorExitsAre1: Object.values(r.errorExits).every(e => e === 1),
+          missingNamed: r.missingNamed === true,
+          fileContentNotEchoed: r.fileContentNotEchoed === true,
+          fileFormSame: r.fileFormSame === true,
+          fileFormRoundTrip: r.fileFormRoundTrip === true,
+          modeChanged: r.projectPaths.includes('version.mode'),
+          untouchedHidden: !r.projectPaths.some(outside),
+          tagPrefixSame: !r.projectPaths.includes('version.tagPrefix'),
+          localBump: r.localPaths.includes('ship.bump'),
+        };
+        const failed = Object.keys(checks).filter(k => !checks[k]);
+        return failed.length === 0 ? true : 'FAIL: ' + failed.join(', ');
+
+- description: "setup-init (#9362): --dry-run on an empty project reports only the new section"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/util/setup-init.js"
+    script_args: "--dry-run --project-config {\"version\":{\"mode\":\"tag\"}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    # computeConfigDiff recurses only when both sides are objects, so a section absent
+    # from the existing file is one row whose `after` is the whole new section.
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.dryRun === true && r.diff.localConfig === null &&
+               r.diff.projectConfig.changed.some(c => c.path === 'version' && c.after && c.after.mode === 'tag')
+
+- description: "setup-init (#9362): --dry-run with invalid JSON reports the error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/util/setup-init.js"
+    script_args: "--dry-run --project-config 'not-json'"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: icontains
+      value: "not valid JSON"
+
+- description: "setup-init (#9362): --dry-run with a non-object config reports the error (exit codes asserted by the dry-run harness case)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/util/setup-init.js"
+    script_args: "--dry-run --project-config null"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: icontains
+      value: "must be a JSON object"
