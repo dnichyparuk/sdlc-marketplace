@@ -95,11 +95,15 @@ per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).
    Repeat the call while fewer than N returns have arrived and the deadline has not passed.
    Compute the remaining budget in whole seconds; when it is below 1, skip the call and go to
    step 4 with the last `inFlight` list (the full task list when there is none). When the call
-   exits non-zero or prints no JSON, treat every task whose worker has not returned as in flight
-   and go to step 4.
+   exits non-zero or prints no JSON, it is a failed call, not a timeout: read its stderr, retry it
+   once with corrected arguments, and when it fails again keep waiting for the worker returns until
+   the deadline; go to step 4 only when the deadline has passed. When some workers have already
+   returned, pass `--timeout` of at most 60 so the call does not block on a marker a returned
+   worker never wrote.
 3. Use the call's `inFlight` list as the termination target in step 4; a returned task ID is in
    flight while any plan task ID it covers is in `inFlight`. A task whose marker `phase` is not
-   yet `reporting` is in flight. Do not rely on your own memory of the dispatch list; a worker
+   yet `reporting` is in flight unless its worker has already returned: the heartbeat is advisory,
+   so a returned worker is never a `TaskStop` or TIMEOUT target, whatever its marker says. Do not rely on your own memory of the dispatch list; a worker
    may have finished and reported between two waits.
 4. When the deadline expires, call `TaskStop` on every task still in flight per `inFlight`.
    Terminate only overrun workers — a worker that has already reported is left alone.
