@@ -700,3 +700,19 @@
         compat check is skipped entirely — it only fires when preRelease is non-empty after
         field collection. The idempotency contract is satisfied: a second invocation via the
         yes path never triggers the compat prompt.
+
+- description: "setup-sdlc (#9362): one scan with --scan-prs when pr-template is selected with review-dimensions"
+  vars:
+    skill_path: "plugins/sdlc-utilities/skills/setup-sdlc/SKILL.md"
+    project_context: "file://fixtures/setup-fully-configured.md"
+    user_request: >
+      Run /setup-sdlc --only review-dimensions,pr-template. Show the exact Bash command you run
+      for the project scan and say how many times you run it.
+  assert:
+    - type: icontains
+      value: "--scan-prs"
+    - type: llm-rubric
+      value: >
+        The response runs the setup.js scan exactly once, before the review-dimensions section,
+        with both --scan and --scan-prs, and reuses that one scan for the pr-template section.
+        It does not run a second scan for pr-template.

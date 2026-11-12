@@ -351,8 +351,28 @@ function readSection(projectRoot, section) {
 }
 
 // ---------------------------------------------------------------------------
-// writeProjectConfig
+// mergeProjectConfig / writeProjectConfig
 // ---------------------------------------------------------------------------
+
+/**
+ * Compute the read-merge result for the project config (.sdlc/config.json)
+ * without writing. Shared by writeProjectConfig and setup-init --dry-run (P9).
+ *
+ * @param {string} projectRoot
+ * @param {object} config — partial or full config to merge
+ * @returns {{ filePath: string, existing: object, merged: object }}
+ */
+function mergeProjectConfig(projectRoot, config) {
+  const filePath = path.join(projectRoot, PROJECT_CONFIG_PATH);
+  const existing = readJsonFile(filePath) || {};
+  const merged = {
+    ...existing,
+    ...config,
+    schemaVersion: config.schemaVersion != null ? config.schemaVersion : CURRENT_SCHEMA_VERSION,
+    $schema: PROJECT_SCHEMA_URL,
+  };
+  return { filePath, existing, merged };
+}
 
 /**
  * Write the unified project config (.sdlc/config.json).
@@ -364,14 +384,7 @@ function readSection(projectRoot, section) {
  * @param {object} config — partial or full config to merge
  */
 function writeProjectConfig(projectRoot, config) {
-  const filePath = path.join(projectRoot, PROJECT_CONFIG_PATH);
-  let existing = readJsonFile(filePath) || {};
-  const merged = {
-    ...existing,
-    ...config,
-    schemaVersion: config.schemaVersion != null ? config.schemaVersion : CURRENT_SCHEMA_VERSION,
-    $schema: PROJECT_SCHEMA_URL,
-  };
+  const { filePath, merged } = mergeProjectConfig(projectRoot, config);
   writeJsonFile(filePath, merged);
   _traceRead(path.resolve(filePath), 'write');
 }
@@ -439,19 +452,20 @@ function computeConfigDiff(before, after) {
 }
 
 // ---------------------------------------------------------------------------
-// writeLocalConfig
+// mergeLocalConfig / writeLocalConfig
 // ---------------------------------------------------------------------------
 
 /**
- * Write the local config (.sdlc/local.json).
- * Uses read-merge-write to avoid clobbering sections written by other skills.
+ * Compute the read-merge result for the local config (.sdlc/local.json)
+ * without writing. Shared by writeLocalConfig and setup-init --dry-run (P9).
  *
  * @param {string} projectRoot
  * @param {object} config — partial or full config to merge
+ * @returns {{ filePath: string, existing: object, merged: object }}
  */
-function writeLocalConfig(projectRoot, config) {
+function mergeLocalConfig(projectRoot, config) {
   const filePath = path.join(projectRoot, LOCAL_CONFIG_PATH);
-  let existing = readJsonFile(filePath) || {};
+  const existing = readJsonFile(filePath) || {};
   // Issue #232: stamp schemaVersion at the top level. Caller-supplied
   // overrides are honored (so an explicit schemaVersion: N still wins) but
   // the default is CURRENT_SCHEMA_VERSION. The legacy `version` field is
@@ -464,6 +478,18 @@ function writeLocalConfig(projectRoot, config) {
     schemaVersion: config.schemaVersion != null ? config.schemaVersion : CURRENT_SCHEMA_VERSION,
     $schema: LOCAL_SCHEMA_URL,
   };
+  return { filePath, existing, merged };
+}
+
+/**
+ * Write the local config (.sdlc/local.json).
+ * Uses read-merge-write to avoid clobbering sections written by other skills.
+ *
+ * @param {string} projectRoot
+ * @param {object} config — partial or full config to merge
+ */
+function writeLocalConfig(projectRoot, config) {
+  const { filePath, merged } = mergeLocalConfig(projectRoot, config);
   writeJsonFile(filePath, merged);
   _traceRead(path.resolve(filePath), 'write');
 }
@@ -1069,6 +1095,8 @@ module.exports = {
   readSection,
   writeProjectConfig,
   writeLocalConfig,
+  mergeProjectConfig,
+  mergeLocalConfig,
   writeSection,
   computeConfigDiff,
   consolidateLegacyFiles,

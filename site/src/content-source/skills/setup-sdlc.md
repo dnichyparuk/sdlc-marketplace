@@ -26,7 +26,7 @@ Skip the menu, configure only `jira` and `review`. Useful for scripted runs or f
 /setup-sdlc --force
 ```
 
-Keeps the default menu reply at `all` and wins over `--unset-only`. It currently has no other effect: the per-field `keep` prompt it is specified to skip does not exist in Step 3.G (spec A3 gap, tracked separately). Every row is pre-checked by default.
+Deprecated. Its only effect is to win over `--unset-only`, so the default menu reply stays `all`. Every row is pre-checked by default.
 
 ```text
 /setup-sdlc --skip jira,commit
@@ -42,7 +42,7 @@ Show the menu as usual, but leave `jira` and `commit` out of the selection. Only
 |------|-------------|---------|
 | `--migrate` | Run schema migration via `scripts/skill/migrate-config.js`: relocates legacy `.claude/sdlc.json` to `.sdlc/config.json`, walks the schema-version migration registry (`lib/config-migrations.js`) to bring both project + local configs to the current `schemaVersion` (4 at the time of writing), and consolidates legacy per-file configs (`.claude/version.json`, `.sdlc/ship-config.json`, etc.) via `lib/config.js::consolidateLegacyFiles`. Idempotent. Backups: legacy relocation writes to `.sdlc/sdlc.json.bak` (single, no timestamp); other in-place migrations write to `.sdlc/<file>.bak.<safe-iso>`. Setup sweeps to retain 3 newest per role. | — |
 | `--skip <section>` | Skip config sections, comma-separated or repeated (version, ship, jira, review, received-review, commit, pr). They are removed from the menu or `--only` selection; locked legacy sections stay. An unknown id stops setup with an error. | — |
-| `--force` | Currently no effect beyond winning over `--unset-only` (default menu reply stays `all`); the per-field `keep` prompt it is specified to skip does not exist yet (spec A3 gap). Does not skip the menu. | — |
+| `--force` | Deprecated: only wins over `--unset-only` (default menu reply stays `all`). Does not skip the menu. | — |
 | `--unset-only` | Pre-check only sections in `not-set` state; the default menu reply becomes `not-set`. `--force` wins when both are passed. Legacy fast-path before #235 — the default flow now pre-checks all rows. | — |
 | `--only <ids>` | Comma-separated section ids to configure non-interactively (skips the menu). Valid: `version`, `ship`, `jira`, `review`, `received-review`, `commit`, `pr`, `pr-labels`, `review-dimensions`, `pr-template`, `plan-template`, `plan-guardrails`, `execution-guardrails`, `openspec-block` | — |
 | `--dimensions` | Jump directly to review dimensions sub-flow (alias for `--only review-dimensions`) | — |
@@ -300,7 +300,7 @@ Each option can be individually skipped or accessed later via the `--dimensions`
 
 ### Diff Preview and Confirmation
 
-Before writing any config files, `/setup-sdlc` renders a diff preview comparing the configuration as it was at startup against the values accumulated during the session:
+Before writing any config files, `/setup-sdlc` runs `util/setup-init.js --dry-run` with the answers from the session. It applies the same section-level merge as the real write to `.sdlc/config.json` and `.sdlc/local.json`, writes nothing, and shows the changed fields. Sections you did not touch are not shown. Each prompt in the config builder defaults to the value already in your config, so pressing Enter keeps it:
 
 ```
 | path                  | before    | after       |

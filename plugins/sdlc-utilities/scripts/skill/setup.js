@@ -31,6 +31,12 @@ const { OPENSPEC_ENRICH_VERSION } = require(path.join(__dirname, '..', 'util', '
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Copy fields, adding `current` when cfg holds a value for field.name (R7, P-sections). Never mutates input. */
+function withCurrent(fields, cfg) {
+  if (!cfg || typeof cfg !== 'object') return fields.map(f => ({ ...f }));
+  return fields.map(f => (cfg[f.name] !== undefined ? { ...f, current: cfg[f.name] } : { ...f }));
+}
+
 function countFiles(dirPath, ext, exclude) {
   if (!fs.existsSync(dirPath)) return 0;
   return fs.readdirSync(dirPath).filter(f => f.endsWith(ext) && f !== exclude).length;
@@ -383,8 +389,8 @@ function detect(projectRoot) {
     if (section.id === 'openspec-block') {
       // Legacy when managed block version is set but below the current plugin-shipped
       // version (OPENSPEC_ENRICH_VERSION from util/openspec-enrich.js). Keep this
-      // conservative — a false 'set' is safer than a false 'legacy'; the user can
-      // re-run with --force anyway.
+      // conservative — a false 'set' is safer than a false 'legacy'; every run
+      // offers every section again (R-walk-1).
       const v = result.openspecConfig.managedBlockVersion;
       if (v != null && v < OPENSPEC_ENRICH_VERSION) return 'legacy';
     }
@@ -459,10 +465,14 @@ function detect(projectRoot) {
       optional: section.optional,
       delegatedTo: section.delegatedTo,
       confirmDetected: section.confirmDetected || false,
-      fields: section.fields,
+      fields: withCurrent(section.fields, cfg),
     };
     return row;
   });
+
+  // R7/P7: shipFields carries the current local ship values too.
+  const shipSection = SETUP_SECTIONS.find(s => s.id === 'ship');
+  result.shipFields = withCurrent(result.shipFields, shipSection ? currentCfgFor(shipSection) : null);
 
   return result;
 }
@@ -521,8 +531,8 @@ function parseArgs(argv) {
     }
   }
 
-  // --force wins over --unset-only (selection mode is 'all' in both default and --force cases;
-  // the difference is that --force skips the per-field "keep" prompt during the dispatch loop).
+  // --force is deprecated (A3): its only effect is to win over --unset-only, so the
+  // default selection mode stays 'all'.
   const defaultSelectionMode = force ? 'all' : (unsetOnly ? 'unset-only' : 'all');
 
   return {

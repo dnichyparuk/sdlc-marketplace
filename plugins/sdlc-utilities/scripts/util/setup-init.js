@@ -11,7 +11,8 @@
  * Options:
  *   --project-config '<json>'  JSON object for .sdlc/config.json sections
  *   --local-config '<json>'    JSON object for .sdlc/local.json sections
- *   --output-file              Write JSON to temp file (path on stdout)
+ *   --dry-run                  Print the per-file diff of the merged write; write nothing (P9)
+ *   --output-file             Write JSON to temp file (path on stdout)
  *
  * Exit codes:
  *   0 = success, JSON on stdout
@@ -32,6 +33,9 @@ const {
   readLocalConfig,
   writeProjectConfig,
   writeLocalConfig,
+  mergeProjectConfig,
+  mergeLocalConfig,
+  computeConfigDiff,
   ensureSdlcGitignore,
   ensureRootGitignore,
 } = require(path.join(LIB, 'config'));
@@ -45,6 +49,7 @@ function parseArgs(argv) {
   const args = argv.slice(2);
   let projectConfig = null;
   let localConfig   = null;
+  let dryRun        = false;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -52,10 +57,12 @@ function parseArgs(argv) {
       projectConfig = args[++i];
     } else if (a === '--local-config' && args[i + 1]) {
       localConfig = args[++i];
+    } else if (a === '--dry-run') {
+      dryRun = true;
     }
   }
 
-  return { projectConfig, localConfig };
+  return { projectConfig, localConfig, dryRun };
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +164,23 @@ function main() {
   if (validationErrors.length > 0) {
     errors.push(...validationErrors);
     writeOutput({ errors, warnings }, 'setup-init', 1);
+    return;
+  }
+
+  // P9: --dry-run reports the per-file diff of the merged write and writes nothing
+  // (no gitignore, no backup sweep, no config writes).
+  if (cli.dryRun) {
+    const entry = (raw, merge, rel) => {
+      if (raw === null) return null;
+      const config = JSON.parse(raw);
+      if (Object.keys(config).length === 0) return null;
+      const { existing, merged } = merge(projectRoot, config);
+      return { path: rel, ...computeConfigDiff(existing, merged) };
+    };
+    writeOutput({ errors, warnings, dryRun: true, diff: {
+      projectConfig: entry(cli.projectConfig, mergeProjectConfig, '.sdlc/config.json'),
+      localConfig:   entry(cli.localConfig,   mergeLocalConfig,   '.sdlc/local.json'),
+    } }, 'setup-init', 0);
     return;
   }
 
