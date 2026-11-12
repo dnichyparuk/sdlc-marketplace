@@ -99,7 +99,7 @@ mcp__atlassian__searchJiraIssuesUsingJql({
   fields: ["status"],
   maxResults: 100
 })
-→ Keep raw as phase5["Task"].statuses (status list), e.g. unique status names: ["To Do", "In Progress", "In Review", "Done"]
+→ Extract unique status names and keep them as phase5["Task"].statuses, e.g. ["To Do", "In Progress", "In Review", "Done"]
 
 // Step 5b: For each status, find one representative issue key
 mcp__atlassian__searchJiraIssuesUsingJql({

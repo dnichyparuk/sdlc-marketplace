@@ -275,7 +275,7 @@ function parseArgs(argv) {
       errors.push(`--site '${site}' must be a sanitized site host without '/', '\\' or '..'`);
     } else {
       const normalised = sanitizeSiteHost(site);
-      if (normalised === null) {
+      if (normalised === null || !/^[a-z0-9_-]+$/.test(normalised)) {
         errors.push(`--site '${site}' is not a valid site host`);
       } else {
         site = normalised;

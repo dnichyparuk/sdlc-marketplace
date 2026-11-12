@@ -21,7 +21,7 @@ Manages Jira issues via the Atlassian MCP with a project metadata cache that eli
 | `--project <KEY>` | Jira project key to use (e.g., `PROJ`). Auto-detected from git branch or `.sdlc/config.json` → `jira.defaultProject`. When `jira.projects` is set (≥2 entries), values outside the list are rejected. | Auto |
 | `--force-refresh` | Rebuild the project cache from scratch (cache is permanent by default; use when project metadata has changed) | — |
 | `--init-templates` | Copy the skill's default issue type templates to `.sdlc/jira-templates/` for customization | — |
-| `--site <host>` | Sanitized site host (lowercased, `.` → `_`, e.g., `acme_atlassian_net`). Disambiguates `--check`/`--load` when the same project key is cached under multiple site subdirectories. A dotted host is normalised; a value with `/`, `\` or `..` is rejected. | Unset |
+| `--site <host>` | Sanitized site host (lowercased, `.` → `_`, e.g., `acme_atlassian_net`). Disambiguates `--check`/`--load` when the same project key is cached under multiple site subdirectories. A dotted host is normalised; a value with `/`, `\` or `..`, or one that does not normalise to `[a-z0-9_-]` (for example a port), is rejected. | Unset |
 | `--skip-workflow-discovery` | Bypass Phase 5; cache marks each non-subtask issue type `{ unsampled: true }`. Transitions fall back to a live `getTransitionsForJiraIssue` per issue. Use in CI and other pre-seeded environments. | false |
 
 ---
@@ -382,7 +382,7 @@ On exhausted-recovery paths (R23 dual-namespace exhausted, R9 retry-exhausted, R
 4. On approval, dispatches `error-report-sdlc` with `--error-type mcp-<class>`; the issue gets the `tooling-error` and `jira-sdlc` labels.
 5. When a duplicate is found, proposes commenting on the existing issue (`gh issue comment <n> --repo rnagrodzki/sdlc-marketplace`) rather than creating a new one.
 
-To act on a filed MCP-failure issue (identified by its `mcp-failure[<class>]` line; it carries no `mcp-failure` label) with hardening proposals, use:
+To act on a filed MCP-failure issue (identified by its `mcp-failure[<class>]` line; it carries no `mcp-failure` label, so `harden-sdlc` does not pre-select the plugin-defect route and classifies the issue itself) with hardening proposals, use:
 
 ```text
 /harden-sdlc --from-issue <issue-number> --skill jira-sdlc
@@ -396,5 +396,5 @@ See [`/harden-sdlc`](harden-sdlc.md) for the `--from-issue` flag documentation.
 
 - [`/plan-sdlc`](plan-sdlc.md) — write an implementation plan from a Jira ticket
 - [`/execute-plan-sdlc`](execute-plan-sdlc.md) — execute an existing plan
-- [`/harden-sdlc`](harden-sdlc.md) — consume filed MCP-failure issues (the `mcp-failure[<class>]` line, not a label) as hardening input via `--from-issue`
+- [`/harden-sdlc`](harden-sdlc.md) — consume filed MCP-failure issues (the `mcp-failure[<class>]` line, not a label) as hardening input via `--from-issue` (the plugin-defect route hint keyed on the `mcp-failure` label does not apply)
 - [`/error-report-sdlc`](error-report-sdlc.md) — receives MCP failure dispatches after R28 user approval

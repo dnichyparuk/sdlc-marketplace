@@ -475,7 +475,7 @@
         (one `mcp-failure.js --analyze --record` call) and presents the proposal title and body verbatim to the user,
         requiring explicit Y/edit/skip approval (R28 gate). The gate fires exactly once, not
         per namespace attempt. The dispatch to error-report-sdlc only happens after user approval.
-        Labels mcp-failure and class:auth are mentioned. The response cites R23 and R28.
+        The issue gets the labels error-report-sdlc applies (tooling-error and jira-sdlc), and the `mcp-failure[auth]` line is the duplicate marker; no jira-specific mcp-failure or class:auth labels are dispatched. The response cites R23 and R28.
 
 - description: "jira-sdlc R28 link-verification-class: R22 abort triggers telemetry+gate immediately"
   vars:

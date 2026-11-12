@@ -47,7 +47,7 @@ removed entirely — the API call is never made with raw placeholder text.
 | `--project <KEY>` | Jira project key (e.g., PROJ). When `jira.projects` is set, values outside the list are rejected. | Auto-detected |
 | `--force-refresh` | Rebuild cache even if fresh | false |
 | `--init-templates` | Copy default templates to `.sdlc/jira-templates/` | false |
-| `--site <host>` | Sanitized site host (e.g., `acme_atlassian_net`). Disambiguates `--check`/`--load` when the same project key is cached under multiple sites. A dotted host is normalised; a value with `/`, `\` or `..` is rejected with exit 1 (P9). | Unset |
+| `--site <host>` | Sanitized site host (e.g., `acme_atlassian_net`). Disambiguates `--check`/`--load` when the same project key is cached under multiple sites. A dotted host is normalised; a value with `/`, `\` or `..`, or one that does not normalise to `[a-z0-9_-]` (for example a port), is rejected with exit 1 (P9). | Unset |
 | `--skip-workflow-discovery` | Bypass Phase 5; cache `workflows[type] = { unsampled: true }` per non-subtask type. Transitions fall back to live `getTransitionsForJiraIssue` per issue. Use in CI. | false |
 
 **Project key resolution (ordered fallback):** <!-- implements R13 -->
