@@ -185,6 +185,7 @@
 - E3: Migration conflict (unified config and legacy both have same section) → unified wins; report conflict to user
 - E4: `lib/config.js` not found → show installation error
 - E5: Step 3.S scan re-run exits non-zero → show the command's stderr verbatim, skip every delegated section that needs the scan in this run, continue with the other selected sections (Step 0 exit-code rules apply)
+- E6: `util/setup-init.js --dry-run` exits non-zero → show stderr verbatim (and `errors[]` when a path was printed), print `Write cancelled — no changes made.`, skip the write
 
 ## Invariants and constraints
 
@@ -246,7 +247,7 @@
 | R-version-1 | (issue #232) |
 | R-walk-1 … R-walk-3 | (issue #235) |
 | A2, R-walk-1, P-skip | (#9361) |
-| A3, R7, R-walk-3, R26, R27, E5, P7, P9, P-sections | (#9362) |
+| A3, R7, R-walk-3, R26, R27, E5, E6, P7, P9, P-sections | (#9362) |
 | R-SCRIPT-VERSIONS | (issue #424) |
 | R-pr-expected-account | (issue #234) |
 | R-pr-template-scaffold | (issue #260) |

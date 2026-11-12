@@ -415,10 +415,10 @@ Store the assembled `pr` config for use in the "Writing config files" step.
 
 #### 3.S. Scan phase (delegated content sections only)
 <!-- implements R10, R14, R27, E5, P-scan -->
-Run the project scan once per run, just before the first `setup-dimensions` or `setup-pr-template` section in `selectedIds`. Decide the flags once, from `selectedIds` only: always `--scan`, and also `--scan-prs` when `pr-template` is in `selectedIds`. Never decide from `scan.recentPrs` — an empty list is normal on non-GitHub hosts. Run Step 0's command with those flags added, as one plain Bash call, and apply Step 0's exit-code rules. On a non-zero exit code, show the command's stderr verbatim, print `Project scan failed — skipping the sections that need it.`, skip every delegated section that needs the scan in this run, and continue with the other selected sections. On exit 0, read `.scan` from the new output file (`signals`, `files`, `hosting`, `ciFiles`, `git`, `jiraEvidence`, `recentPrs`); do not re-scan with Glob or Bash. Pass that one scan to every delegated section as "Scan Input".
+Run the project scan once per run, just before the first `setup-dimensions` or `setup-pr-template` section in `selectedIds`. Decide the flags once, from `selectedIds` only: always `--scan`, and also `--scan-prs` when `pr-template` is in `selectedIds`. Never decide from `scan.recentPrs` — an empty list is normal on non-GitHub hosts. Run Step 0's command with those flags added, as one plain Bash call. Take the output path the command prints on stdout and the exit code from the tool result (when no path was printed, read no file). On a non-zero exit code, do NOT stop the run: show the command's stderr verbatim, print `Project scan failed — skipping the sections that need it.`, skip every delegated section that needs the scan in this run, and continue with the other selected sections. On exit 0, read `.scan` from the new output file (`signals`, `files`, `hosting`, `ciFiles`, `git`, `jiraEvidence`, `recentPrs`); do not re-scan with Glob or Bash. Pass that one scan to every delegated section as "Scan Input".
 
 #### Diff preview
-<!-- implements R-walk-3, P9 -->
+<!-- implements R-walk-3, P9, E6 -->
 Before the write, preview it with the same script in dry-run mode. Pass exactly the `--project-config` and `--local-config` arguments the write step will pass:
 
 ```bash
