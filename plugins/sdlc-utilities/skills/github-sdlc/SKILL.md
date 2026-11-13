@@ -1,8 +1,8 @@
 ---
 name: github-sdlc
-description: "Use this skill to create, edit, view, search, close, reopen, comment on, link, assign or set project fields on GitHub issues through the gh CLI, with a cached repository metadata (labels, milestones, assignees, templates, issue types, Projects v2) and an approval gate before every write. Arguments: [--repo <[HOST/]OWNER/REPO>] [--force-refresh] [--init-templates] [--skip-projects] [--auto] [--templates-dir <path>]. Triggers on: github issue, gh issue, create github issue, edit github issue, comment on github issue, close github issue, reopen github issue, search github issues, sub-issue, github project field, github issue template."
+description: "Use this skill to create, edit, view, search, close, reopen, comment on, link, assign or set project fields on GitHub issues through the gh CLI, with a cached repository metadata (labels, milestones, assignees, templates, issue types, Projects v2) and an approval gate before every write. Arguments: [--repo <[HOST/]OWNER/REPO>] [--force-refresh] [--init-templates] [--skip-projects] [--auto] [--templates-dir <path>] [--clear]. Triggers on: github issue, gh issue, create github issue, edit github issue, comment on github issue, close github issue, reopen github issue, search github issues, sub-issue, github project field, github issue template."
 user-invocable: true
-argument-hint: "[--repo <[HOST/]OWNER/REPO>] [--force-refresh] [--init-templates] [--skip-projects] [--auto] [--templates-dir <path>]"
+argument-hint: "[--repo <[HOST/]OWNER/REPO>] [--force-refresh] [--init-templates] [--skip-projects] [--auto] [--templates-dir <path>] [--clear]"
 model: sonnet
 ---
 
@@ -30,10 +30,18 @@ Every `<…>` value in a Bash call is a single-quoted literal (write a `'` insid
 
 <!-- implements C9, R1, R3, R4, R28, R30, A1–A5, A11, P1–P6, G2 -->
 
-The first Bash call of every run is the check (C9):
+`--output-file` stands last in each call: it takes the next token as its path, so nothing a user typed may follow it.
+
+When `$ARGUMENTS` holds `--clear` (A6, P15), the first Bash call is this one instead; report `cleared` and `cachePath` ("no cache" when `cleared` is false) and stop, with no issue operation. Exit 1: show `errors[]` and stop.
 
 ```bash
-node "<PLUGIN_ROOT>/scripts/skill/github.js" --check --output-file $ARGUMENTS
+node "<PLUGIN_ROOT>/scripts/skill/github.js" --clear $ARGUMENTS --output-file
+```
+
+Otherwise the first Bash call of every run is the check (C9):
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/github.js" --check $ARGUMENTS --output-file
 ```
 
 Run this as one plain Bash call. Take the manifest path the command prints on stdout as
@@ -55,7 +63,7 @@ result without an error is exit code 0). Use the literal path in every later ste
 2. `flags.initTemplates === true` (A3, R10) — run the template copy, report, and stop:
 
    ```bash
-   node "<PLUGIN_ROOT>/scripts/skill/github.js" --output-file $ARGUMENTS
+   node "<PLUGIN_ROOT>/scripts/skill/github.js" $ARGUMENTS --output-file
    ```
 
    Run it as one plain Bash call (the forwarded `--init-templates` selects the subcommand; `--templates-dir` (A9) is forwarded with it) and read the printed path. Exit 1: show `errors[]` and stop (R10 refuses a target that is not this checkout's origin). Exit 0: report "`<created count>` templates created, `<skipped count>` skipped (already exist) in `<targetDir>`." and stop. Run no issue operation.
@@ -64,7 +72,7 @@ result without an error is exit code 0). Use the literal path in every later ste
    - `none` — ask which repository with AskUserQuestion: a closed list of `candidateRepos` when it is non-empty (R1 step 4), else a free-form question (R1 step 5). When `flags.auto === true`, ask nothing: stop with a `pendingQuestion` (see **Questions under --auto**) whose options are `candidateRepos`. After the answer, run this block once and read its output as `GITHUB_CONTEXT_FILE` again:
 
      ```bash
-     node "<PLUGIN_ROOT>/scripts/skill/github.js" --check --output-file --repo '<ANSWER_SLUG>' $ARGUMENTS
+     node "<PLUGIN_ROOT>/scripts/skill/github.js" --check --repo '<ANSWER_SLUG>' $ARGUMENTS --output-file
      ```
 
 4. `auth.actingAccount` — the login every write of this run uses; the approval view shows it as `as @<actingAccount>` (R27, R30). `auth.accountSwitch.switched` tells that the script picked another local account through a per-process token; never run `gh auth switch` (R30).
@@ -221,9 +229,9 @@ by re-running the request with the answer stated in it, or without that flag (I1
 | E4 `permission` | `--apply` already recovered once; second failure → stop with `gh auth login` hint; under `--auto` → `pendingQuestion` |
 | E5 `rate-limit` | report `resetAt`; stop |
 | E6 `not-found` | ask to check number and repository (`pendingQuestion` under `--auto`) |
-| E7 `validation` | `--refresh --sections <affected>` once → `--check-payload` → if clean and no retry yet, `--apply` once; second failure → R26 gate |
+| E7 `validation` | `--refresh --sections <affected>` once → `--check-payload` → if clean, no retry yet and no `partial` on the failed entry, `--apply` once; second failure → R26 gate |
 | E8 scope | show `gh auth refresh -s <scope>`; stop |
-| E9 `transport` / `unknown` outcome | report `readBack`; never re-send |
+| E9 `failure.class: transport` or an `unknown[]` entry (`outcome: "unknown"`) | report `readBack` (and `partial`); never re-send |
 | E10 bulk partial | list `failed` + `notRun`; offer a new bulk (new approval) |
 | E11 no `gh` | install hint; stop |
 | R26 defect classes | `mcp-failure.js --analyze --record --source github …` → show `proposalText` → `Y` / `edit` / `skip`; `show-duplicate` → link only |
@@ -235,8 +243,12 @@ Notes on the rows:
   `gh auth switch`. A retry after an account change is never auto-approvable (R34 `accountSwitch`).
 - E7: the affected section is the one the failure message names (label → `labels`, milestone →
   `milestones`, user → `assignableUsers`, project value → `projects`; none named → every section).
-  "No retry yet" means the `--apply` output has no `auth.accountSwitch.recovered: true`: one write
-  gets at most one retry across E4, E7 and E9 (C7). Before the retry, record it with one plain
+  "No retry yet" means the `--apply` output has no `auth.accountSwitch.recovered: true` and the
+  failed entry has no `retried` field (`E4` or `E9`: the script already sent the write again): one
+  write gets at most one retry across E4, E7 and E9 (C7). A failed entry with `partial` (`number`,
+  `url`, `completedCommands`) shows that earlier commands of the op already ran, for example the
+  `issue create`: never run a whole-op `--apply` again for it; report `partial` and offer a new
+  payload for the remaining steps only. Before the retry, record it with one plain
   Bash call (R32):
 
   ```bash

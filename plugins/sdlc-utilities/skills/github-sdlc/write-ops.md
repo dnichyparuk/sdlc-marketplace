@@ -171,7 +171,7 @@ the `--check-payload` run that gave `autoApprovable: true`. Read the printed pat
 - `notAutoApprovable: true` → `pendingQuestion` with the approval options and `autoBlockers[]`.
 - A `failed[]` or `unknown[]` entry → the SKILL.md **Failure handling** row of its
   `failure.class` (E4–E10). A bulk lists `applied`, `failed`, `unknown` and `notRun` (R23, E10).
-  The `index` of every entry is 1-based (the position of the op in `ops`). A `failed[]` entry
+  A `failed[]` entry with `partial` means earlier commands of the op ran (the new issue's `number`/`url`): never `--apply` that op again as a whole. A `retried` field means the script already sent the write again (C7). The `index` of every entry is 1-based (the position of the op in `ops`). A `failed[]` entry
   whose `failure` is `null` carries a `findings` object instead: the live re-check right before
   the write found a problem (G7); show those findings and go back to step 3.
 

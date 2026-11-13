@@ -246,7 +246,7 @@ export const skillsMeta: SkillMeta[] = [
     command: '/github-sdlc',
     category: 'integrations',
     userInvocable: true,
-    tagline: 'Creates, edits, views, searches and comments on GitHub issues through the gh CLI, with a cached repository metadata and an approval gate before every write.',
+    tagline: 'Creates, edits, views, searches and comments on GitHub issues through the gh CLI, with a cached repository metadata and an approval gate before writes (low-risk writes skip it under --auto).',
     pipeline: [
       { id: 'check', label: 'Check repository context', type: 'script', description: 'github.js --check resolves the repository, account and cache state' },
       { id: 'refresh', label: 'Refresh cache', type: 'script', description: 'Builds or refreshes labels, milestones, assignees, templates, issue types and Projects v2 metadata' },
@@ -257,6 +257,7 @@ export const skillsMeta: SkillMeta[] = [
       { id: 'approve', label: 'Approve payload', type: 'user', description: 'Write-ops only: explicit approve / change / cancel before any gh call' },
       { id: 'validate-links', label: 'Validate links', type: 'verify', description: 'Checks issue references in the body before the write' },
       { id: 'apply', label: 'Apply operation', type: 'script', description: 'Runs the gh commands built by github.js' },
+      { id: 'update-cache', label: 'Update cache', type: 'script', description: 'After an approved label create or an E7 validation failure: refreshes the affected cache sections' },
       { id: 'failure-gate', label: 'Failure gate', type: 'critique', description: 'Classifies a failed gh call and asks before escalating to error-report-sdlc' },
     ],
     connections: [

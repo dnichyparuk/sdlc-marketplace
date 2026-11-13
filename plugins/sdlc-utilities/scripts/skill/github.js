@@ -332,7 +332,11 @@ function resolveRepo(projectRoot, args, config) {
 
 /** Run `gh` with the acting account's token, when one was selected. */
 function gh(args) {
-  return execGh(args, { env: ghTokenEnv(activeHost, ghToken) });
+  // F10: a token never reaches a host other than the one it was selected for.
+  const hostArg = args.find((a) => typeof a === 'string' && a.startsWith('--hostname='));
+  const callHost = hostArg ? hostArg.slice('--hostname='.length).toLowerCase() : null;
+  const foreign = callHost && activeHost && callHost !== String(activeHost).toLowerCase();
+  return execGh(args, { env: foreign ? ghTokenEnv(callHost, null) : ghTokenEnv(activeHost, ghToken) });
 }
 
 function scopesFrom(tokenScopes) {
@@ -1010,7 +1014,8 @@ function linkEnd(value, target) {
   let m = value.match(ISSUE_URL_RE);
   if (m) {
     const repo = parseSlug(`${m[1]}/${m[2]}/${m[3]}`);
-    return repo && { repo, number: Number(m[4]) };
+    // F10: a link end on another host is invalid: no live read and no token go to a host the payload names.
+    return repo && eqi(repo.host, target.host) ? { repo, number: Number(m[4]) } : null;
   }
   m = value.match(ISSUE_REF_RE);
   if (!m) return null;
@@ -1556,6 +1561,15 @@ function checkPayload(input, ctx) {
   if (extra.length) errors.push(`bulk: unknown key(s) ${extra.join(', ')} (a bulk input holds only ops)`);
   if (!Array.isArray(input.ops) || input.ops.length === 0) errors.push('ops: must be a non-empty array of ops');
   const ops = Array.isArray(input.ops) ? input.ops.map((op) => checkOp(op, ctx)) : [];
+  // F10: every op of a bulk targets the host of the first op, the only host the run authenticates for.
+  if (Array.isArray(input.ops)) {
+    const hostOf = (op) => { const p = isPlainObject(op) ? parseSlug(op.repo) : null; return p && p.host; };
+    const h0 = hostOf(input.ops[0]);
+    input.ops.forEach((op, i) => {
+      const h = hostOf(op);
+      if (h0 && h && !eqi(h, h0)) errors.push(`ops[${i + 1}].repo: host ${h} differs from the first op's host ${h0}`);
+    });
+  }
   return {
     ops, bulkTooLarge: ops.length > BULK_MAX, payloadHash: payloadHash(input),
     autoApprovable: false, autoBlockers: ['bulk'], warnings: [], errors,
@@ -1580,8 +1594,8 @@ function payloadAuth(input, github) {
 // ---------------------------------------------------------------------------
 
 // E9: write kinds (`<argv[0]> <argv[1]>`) re-sent once after a transport failure: a second send leaves the
-// same state. `issue create` and `issue comment` (a comment, a closing or reopening comment, `related`) are not.
-const IDEMPOTENT_KINDS = ['issue edit', 'issue close', 'issue reopen', 'label create', 'project item-add', 'project item-edit'];
+// same state. `label create` fails with 422 on an existing label, so a timeout leaves it `unknown`; `issue create` and `issue comment` (a comment, a closing or reopening comment, `related`) are not.
+const IDEMPOTENT_KINDS = ['issue edit', 'issue close', 'issue reopen', 'project item-add', 'project item-edit'];
 const READ_BACK_MAX = 30;
 const LATE_VALUES = [`--url=${NEW_ISSUE_URL}`, `--id=${ITEM_ID}`];
 
@@ -1651,7 +1665,7 @@ function runWrite(argv, repo, st) {
     const r = gh(argv);
     appendTelemetry({ class: failure.class, operation: kind, repo: repo.slug, error: failure.message,
       recovered: r.ok ? `yes:${rid}` : 'no' }, st.projectRoot, 'github');
-    return r.ok ? { ok: true, r } : { ok: false, failure: classifyGhFailure(r) };
+    return r.ok ? { ok: true, r } : { ok: false, failure: classifyGhFailure(r), retried: rid };
   };
 
   if ((failure.class === 'permission' || failure.class === 'not-found') && !st.auto) {
@@ -1670,10 +1684,15 @@ function runWrite(argv, repo, st) {
     // E9: a transport failure of the retried non-idempotent write is `unknown`, never a plain failure.
     if (!w.ok && w.failure.class === 'transport' && !IDEMPOTENT_KINDS.includes(kind)) return { ok: false, unknown: true };
     if (w.ok || w.failure.class !== 'permission') return w;
-    return { ok: false, failure: { ...failure, hint: `gh auth login --hostname ${repo.host}, or switch the account yourself` } };
+    return { ok: false, retried: 'E4', failure: { ...failure, hint: `gh auth login --hostname ${repo.host}, or switch the account yourself` } };
   }
   if (failure.class === 'transport') return IDEMPOTENT_KINDS.includes(kind) ? retry('E9') : { ok: false, unknown: true };
   return { ok: false, failure };
+}
+
+/** F6: what a failed op already did: `partial` is set when a write ran, so a whole-op retry must not repeat it. */
+function partialOf(vals, completed) {
+  return completed ? { partial: { number: vals.number, url: vals.url, completedCommands: completed } } : {};
 }
 
 /**
@@ -1690,6 +1709,7 @@ function applyOp(op, commands, st) {
   }
   const created = op.op === 'create';
   const vals = { number: created ? null : op.number, url: created ? null : issueUrl(repo, op.number), itemId: live.itemId };
+  let done = 0;
   for (const { argv: planned, text } of commands) {
     const argv = planned.map((a) => {
       if (a === `--url=${NEW_ISSUE_URL}` && vals.url) return `--url=${vals.url}`;
@@ -1704,8 +1724,9 @@ function applyOp(op, commands, st) {
       return { failed: { failure: { class: late === `--id=${ITEM_ID}` ? 'validation' : 'unknown', httpStatus: null, message } } };
     }
     const w = runWrite(argv, repo, st);
-    if (w.unknown) return { unknown: { outcome: 'unknown', readBack: readBack(op, argv, text, repo, st.actingAccount) } };
-    if (!w.ok) return { failed: { failure: w.failure } };
+    if (w.unknown) return { unknown: { outcome: 'unknown', ...partialOf(vals, done), readBack: readBack(op, argv, text, repo, st.actingAccount) } };
+    if (!w.ok) return { failed: { failure: w.failure, ...(w.retried ? { retried: w.retried } : {}), ...partialOf(vals, done) } };
+    done++;
     if (argv[0] === 'issue' && argv[1] === 'create') {
       const url = w.r.stdout.split('\n').map((l) => l.trim()).reverse().find((l) => ISSUE_URL_RE.test(l));
       if (url) Object.assign(vals, { url, number: Number(url.match(ISSUE_URL_RE)[4]) });

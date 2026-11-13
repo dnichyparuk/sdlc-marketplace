@@ -11,7 +11,7 @@ Specification: docs/specs/github-sdlc.md
 ## Usage
 
 ```text
-/github-sdlc [--repo <[HOST/]OWNER/REPO>] [--force-refresh] [--init-templates] [--skip-projects] [--auto] [--templates-dir <path>]
+/github-sdlc [--repo <[HOST/]OWNER/REPO>] [--force-refresh] [--init-templates] [--skip-projects] [--auto] [--templates-dir <path>] [--clear]
 ```
 
 ---
@@ -25,6 +25,7 @@ Specification: docs/specs/github-sdlc.md
 | `--init-templates` | Copy the shipped issue templates into the repository's issue template directory for customization. | — |
 | `--skip-projects` | Do not read Projects v2 boards when building the cache. Project field operations are then unavailable. | false |
 | `--auto` | Run low-risk writes without asking: comments, label-only edits, closing as completed or not planned, reopening, and setting the `Status` field of an issue already on a configured board. Everything else still asks. | false |
+| `--clear` | Delete the cached metadata of the target repository and stop. | — |
 | `--templates-dir <path>` | Directory that `--init-templates` copies the default templates from (the source, not the target; the target is always `.github/ISSUE_TEMPLATE/`). | the templates shipped with the plugin |
 
 ---
