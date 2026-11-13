@@ -157,6 +157,11 @@ function classify(signal = {}) {
   return 'unknown';
 }
 
+function oneLine(value) {
+  // CR, LF, other C0/C1 control characters and U+2028/2029 would start a new log line (A09).
+  return String(value).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ');
+}
+
 // ---------------------------------------------------------------------------
 // appendTelemetry(failure) — structured 5-line block append (R27)
 // ---------------------------------------------------------------------------
@@ -172,11 +177,6 @@ function classify(signal = {}) {
  * }} failure
  * @param {string} [root] — optional project root override
  */
-function oneLine(value) {
-  // CR, LF, other C0/C1 control characters and U+2028/2029 would start a new log line (A09).
-  return String(value).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ');
-}
-
 function appendTelemetry(failure, root, source = 'jira') {
   const today   = new Date().toISOString().slice(0, 10);
   if (source === 'github') {

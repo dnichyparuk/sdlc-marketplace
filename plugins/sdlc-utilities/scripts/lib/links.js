@@ -37,6 +37,7 @@
 
 const { execFileSync } = require('child_process');
 const { readFileSync } = require('fs');
+const dns = require('dns');
 
 let parseRemoteOwner;
 let execGh;
@@ -330,6 +331,9 @@ function blockedHostReason(hostname) {
   if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1);
   if (h === 'localhost' || h.endsWith('.localhost')) return 'loopback host';
   if (h === 'metadata.google.internal') return 'cloud metadata host';
+  const isIp = /^[\d.]+$/.test(h) || h.includes(':');
+  if (!isIp && !h.includes('.')) return 'single-label host';
+  if (!isIp && /\.(?:internal|local|localdomain|svc|lan)$/.test(h)) return 'internal host name';
   const v4 = (a, b) => {
     if (a === 0 || a === 127) return 'loopback or unspecified address';
     if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) return 'private address';
@@ -343,11 +347,30 @@ function blockedHostReason(hostname) {
     if (h === '::' || h === '::1') return 'loopback or unspecified address';
     if (/^fe[89ab]/.test(h)) return 'link-local address';
     if (/^f[cd]/.test(h)) return 'private (unique-local) address';
+    if (/^2002:/.test(h)) return 'private (6to4) address range';
+    if (/^64:ff9b:/.test(h)) return 'private (NAT64) address range';
+    if (/^::[0-9a-f]{1,4}:[0-9a-f]{1,4}$/.test(h) || /^::\d+\.\d+\.\d+\.\d+$/.test(h)) return 'IPv4-compatible address';
     const mapped = h.match(/^::ffff:(?:(\d+)\.(\d+)\.\d+\.\d+|([0-9a-f]{1,4}):[0-9a-f]{1,4})$/);
     if (mapped) {
       const hi = mapped[3] !== undefined ? parseInt(mapped[3], 16) : null;
       return mapped[1] !== undefined ? v4(parseInt(mapped[1], 10), parseInt(mapped[2], 10)) : v4(hi >> 8, hi & 255);
     }
+  }
+  return null;
+}
+
+// Literal check, then (unless offline) every address the name resolves to. A failed lookup is left to fetch,
+// which then reports the URL unreachable. Best effort: the connection is not pinned to the checked address.
+async function blockedUrlReason(hostname, offline) {
+  const lit = blockedHostReason(hostname);
+  if (lit || offline) return lit;
+  const h = String(hostname || '').replace(/^\[|\]$/g, '');
+  if (/^[\d.]+$/.test(h) || h.includes(':')) return null;
+  let addrs;
+  try { addrs = await dns.promises.lookup(h, { all: true }); } catch (_) { return null; }
+  for (const a of addrs) {
+    const why = blockedHostReason(a.family === 6 ? `[${a.address}]` : a.address);
+    if (why) return `resolves to ${why}`;
   }
   return null;
 }
@@ -375,11 +398,11 @@ async function fetchOnce(url, method) {
     let next;
     try { next = new URL(loc, current); } catch (_) { return { status: res.status }; }
     if (next.protocol !== 'http:' && next.protocol !== 'https:') return { blocked: `redirect to ${next.protocol} URL` };
-    const why = blockedHostReason(next.hostname);
+    const why = await blockedUrlReason(next.hostname, false);
     if (why) return { blocked: `redirect to ${why}` };
     current = next.toString();
   }
-  return { status: 310, tooManyRedirects: true };
+  return { tooManyRedirects: true };
 }
 
 async function checkGenericUrl(c, ctx) {
@@ -387,7 +410,7 @@ async function checkGenericUrl(c, ctx) {
   if (BUILT_IN_SKIP_HOSTS.has(host) || (ctx.skipHostsSet && ctx.skipHostsSet.has(host))) {
     return { skip: true, reason: 'skip-list' };
   }
-  const why = blockedHostReason(c.parsed.hostname);
+  const why = await blockedUrlReason(c.parsed.hostname, ctx.offline);
   if (why) return { ok: false, reason: 'url-blocked-host', detail: `${why}: not fetched` };
   if (ctx.offline) {
     return { skip: true, reason: 'offline' };

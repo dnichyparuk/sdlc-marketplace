@@ -251,3 +251,19 @@
       value: '"ok":true'
     - type: not-contains
       value: 'url-blocked-host'
+
+- description: "links: single-label and internal-suffix hosts are reported as url-blocked-host"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/blocked-names.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"offline":true}'
+  assert:
+    - type: contains
+      value: '"url":"http://metadata/"'
+    - type: contains
+      value: '"url":"http://svc.internal/x"'
+    - type: contains
+      value: 'url-blocked-host'
+    - type: not-contains
+      value: 'url-unreachable'
