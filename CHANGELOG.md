@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-13
+
+### Added
+- github-sdlc: a write pipeline for GitHub issues (payload-driven create and edit with bug and feature issue templates, a write-ops reference and operations reference), a `--clear` flag that drops the metadata cache on demand, and rules that report a partly failed or unknown-outcome write instead of re-sending it (#9367).
+
+### Fixed
+- github-sdlc: `gh project` calls are pinned to the token's host, inline code span masking no longer crosses a blank line, and `--clear` runs once the repository is known; the docs state which low-risk writes run without approval under `--auto` (#9367).
+
 ## [0.52.0] - 2026-11-13
 
 ### Added
