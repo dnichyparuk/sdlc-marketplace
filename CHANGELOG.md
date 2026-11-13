@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.1] - 2026-11-13
+
+### Fixed
+- review-sdlc, ship-sdlc: review-sdlc waits for its orchestrator with one blocking `review.js --wait-summary` call and the review step agents start no wake timers, so a finished step agent no longer hands back the same report again; a non-zero `--wait-summary` exit stops the wait with the error line, runs cleanup and reports "Review failed" (#9372).
+- ship-sdlc: `ship.js` no longer emits the version step while a pending question or an earlier step is open, and stops with `commitsAfterRelease` when commits sit on top of the release commit (#9372).
+- received-review-sdlc: under `--auto` a finding at the severity threshold that needs discussion stops with a fix-or-defer question; with no PR, the open-decisions stop runs after the Step 11 summary (#9372).
+
 ## [0.54.0] - 2026-11-13
 
 ### Fixed
