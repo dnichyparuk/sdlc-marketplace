@@ -5900,6 +5900,23 @@
         const want = '/sdlc:ship-sdlc --resume --auto --bump minor --draft --rebase auto --quality full';
         return JSON.stringify(e.ext.commands) === JSON.stringify([want]) ? true : `FAIL: commands ${JSON.stringify(e.ext.commands)}`;
 
+# R105: the pending-question stop prints the same line; a flag whose source is not cli (quality here) is not repeated.
+- description: "ship-step: (r105) the pending-question resume line repeats the CLI-given --bump and --draft, not a seeded quality"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --quality balanced --result results/execute-pending-highrisk.json --answer gate-stop --cli-flags bump=minor,draft=true"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const d = o.calls[o.calls.length - 1].envelope;
+        if (d.status !== 'done' || !d.ext || d.ext.reason !== 'pending-question') return `FAIL: ${d.status} ${d.ext && d.ext.reason}`;
+        const cmds = d.ext.commands || [];
+        return cmds.length === 2 && cmds[1] === '/sdlc:ship-sdlc --resume --bump minor --draft' ? true : `FAIL: commands ${JSON.stringify(cmds)}`;
+
 # R104: a resume after final-check-open reviews a new fix commit once.
 - description: "ship-final-check: (g) a resume after a fix commit re-arms the final check once"
   vars:

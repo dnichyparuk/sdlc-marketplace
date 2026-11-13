@@ -71,11 +71,10 @@
  *                        a snapshot follows its --after call and headAfter is the fixture HEAD after that commit
  *   --self-commit-outside <p>  (rounds-self-commit) the received-review commit also adds <p>, outside the plan Files (R103)
  *   --fix-subject        (rounds-self-commit) the plan header carries **Fix commit:** `fix(#1): widget - review fixes` (R103)
-
- *   --cli-flags <k=v,...>  (R105) seeds CLI-sourced flags into the ledger: value and sources entry (bump=minor,draft=true,rebase=auto)
  *   --resume-after-outside  (rounds-self-commit, with --self-commit-outside) seeds execute and commit completed; after the
  *                        stop: --after confirm_pipeline (yes), then a commit that deletes <p>, then --after confirm_pipeline
  *                        (yes) again (a snapshot follows each)
+ *   --cli-flags <k=v,...>  (R105) seeds CLI-sourced flags into the ledger: value and sources entry (bump=minor,draft=true,rebase=auto)
  *   --no-tag             Patch data.flags.noTag = true into the seed (any scenario)
  *   --version-head       A successful dispatch_version result without artifacts.commit gets the fixture repo's HEAD sha
  *   --other-exec         Also copy seed/execute-complete.json to a second branch's execute state file (es2)
@@ -366,8 +365,11 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     const cliFlagsIdx = process.argv.indexOf('--cli-flags');
     if (cliFlagsIdx >= 0) {
       data.flags.sources = data.flags.sources || {};
-      for (const pair of process.argv[cliFlagsIdx + 1].split(',')) {
+      const cliFlagsArg = process.argv[cliFlagsIdx + 1];
+      if (!cliFlagsArg) { console.error('--cli-flags needs k=v,k=v'); process.exit(2); }
+      for (const pair of cliFlagsArg.split(',')) {
         const [k, v] = pair.split('=');
+        if (!k || v === undefined || v === '') { console.error(`--cli-flags: bad pair "${pair}"`); process.exit(2); }
         data.flags[k] = v === 'true' ? true : v;
         data.flags.sources[k] = 'cli';
       }

@@ -146,6 +146,7 @@ function parseArgs(argv) {
       errors.push(`${a} is no longer accepted: workspace is auto-detected from cwd + current branch (main worktree on the default branch → new feature branch; otherwise run in place). Remove the flag.`);
     } else if (a === '--rebase' && args[i + 1]) {
       rebase = args[++i]; // 'auto' | 'skip' | 'prompt'
+      if (!['auto', 'skip', 'prompt'].includes(rebase)) errors.push(`--rebase must be one of auto, skip, prompt, got "${rebase}".`);
     } else if (a === '--review-threshold') {
       const v = args[i + 1] && !args[i + 1].startsWith('--') ? args[++i] : '';
       if (SEVERITIES.includes(v)) {
