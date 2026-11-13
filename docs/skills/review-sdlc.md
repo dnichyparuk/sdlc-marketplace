@@ -361,7 +361,7 @@ During the run, the consolidated comment body is written to `${diff_dir}/review-
 
 ### Waiting for the orchestrator
 
-When the review orchestrator runs in the background, review-sdlc waits for it with one blocking call, `node review.js --wait-summary --manifest <manifest>`. The call returns when this run's review summary is written, or after a timeout, and is repeated until the orchestrator returns. The skill starts no timers, so nothing wakes it after it reports (R21).
+When the review orchestrator runs in the background, review-sdlc waits for it with one blocking call, `node review.js --wait-summary --manifest <manifest>`. The call returns when this run's review summary is written, or after a timeout, and is repeated until the orchestrator returns. The skill starts no timers, so nothing wakes it after it reports (R21). A non-zero exit of the wait call (a bad manifest or input) stops the review with a failure instead of repeating the call.
 
 ---
 

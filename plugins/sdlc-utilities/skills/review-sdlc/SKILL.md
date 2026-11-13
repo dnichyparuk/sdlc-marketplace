@@ -30,7 +30,7 @@ Run this as one plain Bash call. Take the manifest path the command prints on st
 - Exit code 1: show the stderr message to the user and stop.
 - Exit code 2: show `Script error — see output above` and stop.
 
-**On script crash (exit 2):** Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=review-sdlc, step=Step 0 — skill/review.js execution, error=stderr.
+**On script crash (exit 2 of the Step 0 prepare call):** Invoke error-report-sdlc — Read `<PLUGIN_ROOT>/skills/error-report-sdlc/SKILL.md`, follow with skill=review-sdlc, step=Step 0 — skill/review.js execution, error=stderr.
 
 **Do NOT read the manifest file contents into the main context.** The orchestrator will read it.
 
@@ -93,7 +93,7 @@ orchestrator has finished, wait only with this call, run as one plain Bash call 
 node "<PLUGIN_ROOT>/scripts/skill/review.js" --wait-summary --manifest "<MANIFEST_FILE>"
 ```
 
-It prints one JSON line. Exit 0: read the line (`ready` or `timedOut`) and repeat the call until the orchestrator's return has arrived. Any other exit (exit 2 prints no JSON): show the stderr `Error:` line and do not repeat the call; stop with a failure (the orchestrator's summary cannot be located). Never start
+It prints one JSON line. Exit 0: read the line (`ready` or `timedOut`) and repeat the call until the orchestrator's return has arrived. Any other exit (exit 2 prints no JSON): show the stderr `Error:` line, do not repeat the call and do not invoke error-report-sdlc (an input or manifest error is not a script crash); stop with the failure line `Review failed: <Error line>` (the orchestrator's summary cannot be located). Never start
 `Monitor`, a background Bash command, `sleep` or any other timer to wait. Before you return, stop
 with `TaskStop` every background task you started that is still running.
 
@@ -282,7 +282,7 @@ If the removal is denied, go on: the next review run deletes review dirs older t
 - Do NOT read the manifest JSON into main context (the orchestrator reads it)
 - Do NOT read REFERENCE.md in main context (the orchestrator reads it from REFERENCE_MD_PATH)
 - Do NOT read the orchestrator agent definition into main context — pass the file path or use the sdlc:review-orchestrator subagent_type
-- Do NOT invoke error-report-sdlc for user errors — only for script crashes (exit 2)
+- Do NOT invoke error-report-sdlc for user errors — only for script crashes (exit 2 of the Step 0 prepare call; a `--wait-summary` exit 2 is not one)
 
 ## See Also
 
