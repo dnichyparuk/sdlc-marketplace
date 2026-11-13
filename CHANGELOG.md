@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-11-13
+
+### Added
+- github-sdlc: a cached GitHub read path with a gh stub for promptfoo cases and shared helpers for config, git, links and MCP failure handling (#9345).
+
+### Fixed
+- github-sdlc: the gh token is chosen by host (GHE hosts use `GH_ENTERPRISE_TOKEN`) and is never sent to another host; GHE links with an explicit port match by exact host and port; an unreadable `--file` in validate-links is a handled error; the temp cache file is removed when the atomic write fails; `--telemetry --source github` keeps the class, operation and repo (#9345).
+
 ## [0.51.9] - 2026-11-12
 
 ### Fixed
