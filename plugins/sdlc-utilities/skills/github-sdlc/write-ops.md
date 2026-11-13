@@ -162,7 +162,10 @@ node "<PLUGIN_ROOT>/scripts/skill/github.js" --apply --input '<PAYLOAD_PATH>' --
 ```
 
 `<PAYLOAD_HASH>` is the `payloadHash` the approval view showed, or under auto-approval the hash of
-the `--check-payload` run that gave `autoApprovable: true`. Read the printed path:
+the `--check-payload` run that gave `autoApprovable: true`.
+Never drop `--expect-hash`: the script refuses a real `--apply` without it (exit 1,
+`errors: ["--apply requires --expect-hash"]`, no `gh` call; R36). Only `--dry-run` runs without it.
+Read the printed path:
 
 - Exit 0 → report each `applied[]` entry (`#<number>` and `url`). When `createLabels` ran, run the
   SKILL.md Step 6 refresh of `labels`.

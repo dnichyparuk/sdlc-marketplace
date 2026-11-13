@@ -166,6 +166,8 @@ step that names them: no `--apply` without `approve` in the same turn except an
 `autoApprovable: true` payload when `flags.auto === true` (G3), no `low` placeholder applied
 without an answer (G5), no approval view without the critique block (G6), no `--apply` before
 `--validate-links` passes (G8).
+Every `--apply` without `--dry-run` carries `--expect-hash` with the `payloadHash` the run approved
+(the approval view, or the auto-approved `--check-payload` run); the script refuses it without one (R36).
 
 ---
 
@@ -243,7 +245,9 @@ Notes on the rows:
   write gets at most one retry across E4, E7 and E9 (C7). A failed entry with `partial` (`number`,
   `url`, `completedCommands`) shows that earlier commands of the op already ran, for example the
   `issue create`: never run a whole-op `--apply` again for it; report `partial` and offer a new
-  payload for the remaining steps only. Before the retry, record it with one plain
+  payload for the remaining steps only. The E7 retry `--apply` passes `--expect-hash` with the
+  `payloadHash` of the new `--check-payload` run; when that hash differs from the approved one, the
+  payload changed and needs a new approval (R27). Before the retry, record it with one plain
   Bash call (R32):
 
   ```bash
