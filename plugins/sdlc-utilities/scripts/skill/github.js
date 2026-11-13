@@ -336,7 +336,12 @@ function gh(args) {
   const hostArg = args.find((a) => typeof a === 'string' && a.startsWith('--hostname='));
   const callHost = hostArg ? hostArg.slice('--hostname='.length).toLowerCase() : null;
   const foreign = callHost && activeHost && callHost !== String(activeHost).toLowerCase();
-  return execGh(args, { env: foreign ? ghTokenEnv(callHost, null) : ghTokenEnv(activeHost, ghToken) });
+  const env = foreign ? ghTokenEnv(callHost, null) : ghTokenEnv(activeHost, ghToken);
+  // F7: argv with neither --hostname= nor --repo= (gh project) has no host binding: pin it to the token's host.
+  if (!foreign && activeHost && !args.some((a) => typeof a === 'string' && (a.startsWith('--hostname=') || a.startsWith('--repo=')))) {
+    env.GH_HOST = String(activeHost);
+  }
+  return execGh(args, { env });
 }
 
 function scopesFrom(tokenScopes) {

@@ -26,7 +26,7 @@ const blank = (s) => s.replace(/[^\n]/g, ' ');
 function mask(text, comments) {
   let out = String(text);
   out = out.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^\1[`~]*[ \t]*$|(?![\s\S]))/gm, blank);
-  out = out.replace(/(`+)(?!`)[\s\S]*?[^`]\1(?!`)/g, blank);
+  out = out.replace(/(`+)(?!`)(?:(?!\n[ \t]*\n)[\s\S])*?[^`]\1(?!`)/g, blank);
   if (comments) out = out.replace(/<!--[\s\S]*?-->/g, blank);
   return out;
 }

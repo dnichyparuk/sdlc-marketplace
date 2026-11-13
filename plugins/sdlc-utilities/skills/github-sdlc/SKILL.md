@@ -32,13 +32,7 @@ Every `<…>` value in a Bash call is a single-quoted literal (write a `'` insid
 
 `--output-file` stands last in each call: it takes the next token as its path, so nothing a user typed may follow it.
 
-When `$ARGUMENTS` holds `--clear` (A6, P15), the first Bash call is this one instead; report `cleared` and `cachePath` ("no cache" when `cleared` is false) and stop, with no issue operation. Exit 1: show `errors[]` and stop.
-
-```bash
-node "<PLUGIN_ROOT>/scripts/skill/github.js" --clear $ARGUMENTS --output-file
-```
-
-Otherwise the first Bash call of every run is the check (C9):
+The first Bash call of every run is the check (C9). When `$ARGUMENTS` holds `--clear` (A6, P15), drop that one token from the forwarded arguments: the parser allows one subcommand, and `--check` is it. The `--clear` call follows in item 3 once the repository is resolved.
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/skill/github.js" --check $ARGUMENTS --output-file
@@ -74,6 +68,12 @@ result without an error is exit code 0). Use the literal path in every later ste
      ```bash
      node "<PLUGIN_ROOT>/scripts/skill/github.js" --check --repo '<ANSWER_SLUG>' $ARGUMENTS --output-file
      ```
+
+   When `$ARGUMENTS` held `--clear` (A6, P15), run this call once `repo.slug` is known, report `cleared` and `cachePath` ("no cache" when `cleared` is false) and stop, with no issue operation. Exit 1: show `errors[]` and stop.
+
+   ```bash
+   node "<PLUGIN_ROOT>/scripts/skill/github.js" --clear --repo '<SLUG>' --output-file
+   ```
 
 4. `auth.actingAccount` — the login every write of this run uses; the approval view shows it as `as @<actingAccount>` (R27, R30). `auth.accountSwitch.switched` tells that the script picked another local account through a per-process token; never run `gh auth switch` (R30).
 5. `cache.refreshNeeded` — `true` → Step 2 refreshes; otherwise Step 2 only loads (P4, R6).
