@@ -75,7 +75,7 @@ function redirectDenied(cmd, masked) {
 
 function teeDenied(cmd, masked) {
   // `tee` counts only in command position, so `grep -n tee f` is not denied.
-  const re = /(^|[|;&(])[ \t]*tee\b([^|;&\n]*)/g;
+  const re = /(^|[|;&(`])[ \t]*tee\b([^|;&\n]*)/g;
   let m;
   while ((m = re.exec(masked)) !== null) {
     const argsEnd = m.index + m[0].length;
@@ -93,17 +93,17 @@ function matchArgs(cmd, m, groupIndex) {
 }
 
 function ddDenied(cmd, masked) {
-  const re = /(^|[|;&(\n])[ \t]*dd\b([^|;&\n]*)/g;
+  const re = /(^|[|;&(`\n])[ \t]*dd\b([^|;&\n]*)/g;
   let m;
   while ((m = re.exec(masked)) !== null) {
-    const outs = matchArgs(cmd, m, 2).filter((a) => a.startsWith('of='));
+    const outs = matchArgs(cmd, m, 2).map((a) => a.replace(/^["']/, '')).filter((a) => a.startsWith('of='));
     if (outs.some((a) => !isAllowedTarget(a.slice(3)))) return true;
   }
   return false;
 }
 
 function gitApplyDenied(cmd, masked) {
-  const re = /(^|[|;&(\n])[ \t]*git\b[^|;&\n]*\sapply\b([^|;&\n]*)/g;
+  const re = /(^|[|;&(`\n])[ \t]*git\b[^|;&\n]*\sapply\b([^|;&\n]*)/g;
   let m;
   while ((m = re.exec(masked)) !== null) {
     const args = matchArgs(cmd, m, 2);
@@ -115,7 +115,7 @@ function gitApplyDenied(cmd, masked) {
 }
 
 function patchDenied(cmd, masked) {
-  const re = /(^|[|;&(\n])[ \t]*patch\b([^|;&\n]*)/g;
+  const re = /(^|[|;&(`\n])[ \t]*patch\b([^|;&\n]*)/g;
   let m;
   while ((m = re.exec(masked)) !== null) {
     const args = matchArgs(cmd, m, 2);

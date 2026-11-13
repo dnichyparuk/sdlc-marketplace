@@ -44,8 +44,19 @@ child.stdout.on('data', (d) => { stdout += d; });
 child.stderr.on('data', (d) => process.stderr.write(d));
 setTimeout(() => writeMarker('reporting'), 1000);
 
-child.on('exit', () => {
+child.on('close', (code) => {
   const elapsedMs = Date.now() - startedAt;
   fs.rmSync(dir, { recursive: true, force: true });
-  process.stdout.write(JSON.stringify({ elapsedMs, result: JSON.parse(stdout) }));
+  if (code !== 0 || !stdout.trim()) {
+    process.stderr.write(`wave-progress exited ${code} with ${stdout.trim() ? 'output' : 'empty stdout'}\n`);
+    process.exit(2);
+  }
+  let result;
+  try {
+    result = JSON.parse(stdout);
+  } catch (e) {
+    process.stderr.write(`wave-progress stdout is not JSON: ${e.message}\n`);
+    process.exit(2);
+  }
+  process.stdout.write(JSON.stringify({ elapsedMs, result }));
 });
