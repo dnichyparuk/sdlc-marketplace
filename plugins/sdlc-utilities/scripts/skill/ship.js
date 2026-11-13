@@ -2758,6 +2758,7 @@ function runAfter(stepArgs) {
       ledger.finalCheck.status = 'completed';
       ledger.finalCheck.verdict = (output.artifacts && output.artifacts.verdict) ?? null;
       ledger.finalCheck.open = finalCheckOpen(ledger); // R95
+      ledger.finalCheck.threshold = SEVERITIES.includes(ledger.flags.reviewThreshold) ? ledger.flags.reviewThreshold : BUILT_IN_DEFAULTS.reviewThreshold; // R95
       if (flags.auto && ledger.finalCheck.open.length > 0) return finalCheckStop(); // R95: hand off to the caller
     }
     from = 'dispatch_commit_fixes';
