@@ -14,9 +14,18 @@
 //   --no-gh-path                   PATH = a temp dir holding only node and git
 //   --dump <path>                  add the file's text to `dumps` (`~/` = temp home, else workspace)
 //   --drop-key <path>:<key>        delete a top-level key of a JSON file in the temp home first
+//   --set-key <path>:<a.b.c>=<json> set a (nested) key of a JSON file in the temp home first
+//   --payload <key>                write that entry of PAYLOADS (a string verbatim, else as JSON) to a temp
+//                                  file for @PAYLOAD@; repeatable: one run per payload, all in `runs[]`
+//                                  ({ exit, json, stderr }); the top-level fields are the first run's
+//   --bulk-over-max                wrap each --payload in { ops } of BULK_MAX + 1 copies; adds `bulkMax`
 //   --check-dataset <path>         print the C17 check { ok, offenders[] } for a dataset
-//   --schema-sync                  print { keysEqual, defaultEqual, ... }: github.js constants vs the schema
-// Script-arg tokens: @OUT@ (temp output path), @HOME@, @WS@, @NL@ (LF), @CR@ (CR), @FIX:<path under fixtures-fs>@.
+//   --check-triggers               print { overlap, length }: R33 trigger phrases shared by the github and jira skills
+//   --schema-sync                print { keysEqual, defaultEqual, ... }: github.js constants vs the schema
+//   --auto-argv <key>:<flag>       print { base, extra }: github.js commands of PAYLOADS[<key>] against the
+//                                  $HOME cache and its R34 class, then the same with <flag> appended to the last argv
+// Script-arg tokens: @OUT@ (temp output path), @HOME@, @WS@, @NL@ (LF), @CR@ (CR), @FIX:<path under fixtures-fs>@,
+// @PAYLOAD@ (the current --payload file).
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -25,6 +34,8 @@ const { spawnSync } = require('child_process');
 const PROMPTFOO_DIR = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const FIXTURES = path.join(PROMPTFOO_DIR, 'fixtures-fs');
+const PAYLOADS = path.join(FIXTURES, 'github-sdlc-inputs', 'payloads-core.json');
+const GITHUB_JS = path.join(REPO_ROOT, 'plugins/sdlc-utilities/scripts/skill/github.js');
 const STUB_BIN_RE = /script_stub_bin:\s*"?fixtures-fs\/stub-bin-gh-issues\/bin"?/;
 const OFFLINE_RE = /SDLC_LINKS_OFFLINE"?\s*:\s*"?1/;
 const TIMEOUT_MS = 25_000;
@@ -34,8 +45,8 @@ function parseArgs(argv) {
   const own = sep < 0 ? argv : argv.slice(0, sep);
   const opts = {
     script: 'plugins/sdlc-utilities/scripts/skill/github.js', rawGh: false, origin: null, noGit: false,
-    config: null, sub: null, breakCache: false, noGhPath: false, dumps: [], dropKeys: [], checkDataset: null,
-    schemaSync: false, rest: sep < 0 ? [] : argv.slice(sep + 1),
+    config: null, sub: null, breakCache: false, noGhPath: false, dumps: [], dropKeys: [], setKeys: [], payloads: [],
+    bulkOverMax: false, checkDataset: null, schemaSync: false, autoArgv: null, rest: sep < 0 ? [] : argv.slice(sep + 1),
   };
   for (let i = 0; i < own.length; i++) {
     switch (own[i]) {
@@ -49,8 +60,13 @@ function parseArgs(argv) {
       case '--no-gh-path': opts.noGhPath = true; break;
       case '--dump': opts.dumps.push(own[++i]); break;
       case '--drop-key': opts.dropKeys.push(own[++i]); break;
+      case '--set-key': opts.setKeys.push(own[++i]); break;
+      case '--payload': opts.payloads.push(own[++i]); break;
+      case '--bulk-over-max': opts.bulkOverMax = true; break;
       case '--check-dataset': opts.checkDataset = own[++i]; break;
       case '--schema-sync': opts.schemaSync = true; break;
+      case '--check-triggers': opts.checkTriggers = true; break;
+      case '--auto-argv': opts.autoArgv = own[++i]; break;
       default: throw new Error(`unknown option ${own[i]}`);
     }
   }
@@ -73,9 +89,24 @@ function checkDataset(rel) {
   return { ok: offenders.length === 0, offenders };
 }
 
+// R33: exact (case-insensitive) trigger phrases shared by the github-sdlc and jira-sdlc descriptions.
+function checkTriggers() {
+  const read = (skill) => {
+    const text = fs.readFileSync(path.join(REPO_ROOT, 'plugins/sdlc-utilities/skills', skill, 'SKILL.md'), 'utf8');
+    const line = text.split('\n').find((l) => l.startsWith('description:')) || '';
+    const description = line.replace(/^description:\s*/, '').replace(/^["']|["']$/g, '');
+    const triggers = (description.split('Triggers on:')[1] || '').split(',')
+      .map((t) => t.trim().toLowerCase().replace(/\.$/, '')).filter(Boolean);
+    return { description, triggers };
+  };
+  const gh = read('github-sdlc');
+  const jira = read('jira-sdlc');
+  return { overlap: gh.triggers.filter((t) => jira.triggers.includes(t)), length: gh.description.length };
+}
+
 // R4 sync: github.js GITHUB_CONFIG_KEYS / CACHE_MAX_AGE_HOURS_DEFAULT vs schema `githubSection`.
 function schemaSync() {
-  const gh = require(path.join(REPO_ROOT, 'plugins/sdlc-utilities/scripts/skill/github.js'));
+  const gh = require(GITHUB_JS);
   const schema = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'schemas/sdlc-config.schema.json'), 'utf8'));
   const section = schema.$defs.githubSection;
   const scriptKeys = [...gh.GITHUB_CONFIG_KEYS].sort();
@@ -86,6 +117,28 @@ function schemaSync() {
     scriptDefault: gh.CACHE_MAX_AGE_HOURS_DEFAULT, schemaDefault,
     defaultEqual: gh.CACHE_MAX_AGE_HOURS_DEFAULT === schemaDefault,
   };
+}
+
+function payloadEntry(key) {
+  const all = JSON.parse(fs.readFileSync(PAYLOADS, 'utf8'));
+  if (!(key in all)) throw new Error(`no payload "${key}" in ${PAYLOADS}`);
+  return all[key];
+}
+
+// R34: github.js commands of one payload and their class against the $HOME cache, plain and with one extra flag.
+function autoArgv(spec) {
+  const colon = spec.indexOf(':');
+  const op = payloadEntry(spec.slice(0, colon));
+  const gh = require(GITHUB_JS);
+  const repo = gh.parseSlug(op.repo);
+  const cache = JSON.parse(fs.readFileSync(gh.cachePath(repo), 'utf8'));
+  const classify = (commands) => {
+    const autoBlockers = gh.shapeBlockers(commands, repo, cache);
+    return { commands, autoApprovable: gh.isAutoApprovable(commands, autoBlockers), autoBlockers };
+  };
+  const commands = gh.buildCommands(op, cache, {});
+  const extra = commands.map((argv, i) => (i === commands.length - 1 ? [...argv, spec.slice(colon + 1)] : argv));
+  return { base: classify(commands), extra: classify(extra) };
 }
 
 function which(bin, searchPath) {
@@ -138,6 +191,16 @@ function run(opts, tmp) {
     delete data[spec.slice(colon + 1)];
     fs.writeFileSync(file, JSON.stringify(data));
   }
+  for (const spec of opts.setKeys) {
+    const colon = spec.indexOf(':');
+    const eq = spec.indexOf('=', colon);
+    const file = path.join(home, spec.slice(0, colon));
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const keys = spec.slice(colon + 1, eq).split('.');
+    const parent = keys.slice(0, -1).reduce((o, k) => o[k], data);
+    parent[keys[keys.length - 1]] = JSON.parse(spec.slice(eq + 1));
+    fs.writeFileSync(file, JSON.stringify(data));
+  }
   const cwd = opts.sub ? path.join(ws, opts.sub) : ws;
   fs.mkdirSync(cwd, { recursive: true });
   if (opts.noGhPath) {
@@ -149,21 +212,34 @@ function run(opts, tmp) {
     env.PATH = bare;
   }
 
-  const args = opts.rest.map((a) => a
-    .replace(/@OUT@/g, out)
-    .replace(/@HOME@/g, home)
-    .replace(/@WS@/g, ws)
-    .replace(/@NL@/g, '\n')
-    .replace(/@CR@/g, '\r')
-    .replace(/@FIX:([^@]+)@/g, (_, p) => path.join(FIXTURES, p)));
-  const r = opts.rawGh
-    ? spawnSync('gh', args, { cwd, env, encoding: 'utf8', timeout: TIMEOUT_MS })
-    : spawnSync(process.execPath, [path.resolve(REPO_ROOT, opts.script), ...args],
-      { cwd, env, encoding: 'utf8', timeout: TIMEOUT_MS });
-
+  const bulkMax = opts.bulkOverMax ? require(GITHUB_JS).BULK_MAX : undefined;
+  const payloadFiles = opts.payloads.map((key, i) => {
+    let entry = payloadEntry(key);
+    if (opts.bulkOverMax) entry = { ops: Array.from({ length: bulkMax + 1 }, () => entry) };
+    const file = path.join(tmp, `payload-${i}.json`);
+    fs.writeFileSync(file, typeof entry === 'string' ? entry : JSON.stringify(entry, null, 2));
+    return file;
+  });
+  const exec = (payloadFile) => {
+    const args = opts.rest.map((a) => a
+      .replace(/@OUT@/g, out)
+      .replace(/@HOME@/g, home)
+      .replace(/@WS@/g, ws)
+      .replace(/@PAYLOAD@/g, payloadFile)
+      .replace(/@NL@/g, '\n')
+      .replace(/@CR@/g, '\r')
+      .replace(/@FIX:([^@]+)@/g, (_, p) => path.join(FIXTURES, p)));
+    const r = opts.rawGh
+      ? spawnSync('gh', args, { cwd, env, encoding: 'utf8', timeout: TIMEOUT_MS })
+      : spawnSync(process.execPath, [path.resolve(REPO_ROOT, opts.script), ...args],
+        { cwd, env, encoding: 'utf8', timeout: TIMEOUT_MS });
+    let json = null;
+    try { json = JSON.parse(r.stdout || ''); } catch (_) { /* not JSON */ }
+    return { r, json };
+  };
+  const results = payloadFiles.length ? payloadFiles.map(exec) : [exec('')];
+  const { r, json } = results[0];
   const stdout = r.stdout || '';
-  let json = null;
-  try { json = JSON.parse(stdout); } catch (_) { /* not JSON */ }
   const calls = (readOrNull(log) || '').split('\n').filter(Boolean).map((l) => JSON.parse(l));
   const dumps = {};
   for (const p of opts.dumps) {
@@ -177,6 +253,8 @@ function run(opts, tmp) {
     calls,
     outputFile: { path: out, content: readOrNull(out) },
     dumps,
+    ...(payloadFiles.length ? { runs: results.map((x) => ({ exit: x.r.status, json: x.json, stderr: x.r.stderr || '' })) } : {}),
+    ...(bulkMax === undefined ? {} : { bulkMax }),
   };
 }
 
@@ -186,8 +264,16 @@ function main() {
     process.stdout.write(`${JSON.stringify(checkDataset(opts.checkDataset))}\n`);
     return;
   }
+  if (opts.checkTriggers) {
+    process.stdout.write(`${JSON.stringify(checkTriggers())}\n`);
+    return;
+  }
   if (opts.schemaSync) {
     process.stdout.write(`${JSON.stringify(schemaSync())}\n`);
+    return;
+  }
+  if (opts.autoArgv) {
+    process.stdout.write(`${JSON.stringify(autoArgv(opts.autoArgv))}\n`);
     return;
   }
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'github-case-'));

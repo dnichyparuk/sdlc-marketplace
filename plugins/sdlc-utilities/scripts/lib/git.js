@@ -566,6 +566,58 @@ function selectGhAccountForTarget({ host, owner, repo, run = execGh }) {
 }
 
 /**
+ * True when a gh write failure looks like a permission problem a different account could fix.
+ * Rate limits (primary or secondary), 422, timeouts and anything else are not permission errors.
+ * @param {string} text
+ * @returns {boolean}
+ */
+function isGhIssueWritePermissionError(text) {
+  const t = String(text || '');
+  if (/rate limit/i.test(t)) return false;
+  if (/HTTP 403|Resource not accessible|must have push access/i.test(t)) return true;
+  return /HTTP 404/.test(t) && /repos\/[^/\s]+\/[^/\s"']+/.test(t);
+}
+
+/**
+ * After a permission failure, find another gh account that can write to the target repo.
+ * Candidates: the owner-match account first, then every other account whose token passes
+ * `api repos/<o>/<r>`. Never the current account; never `gh auth switch`. The token goes to
+ * the caller only. One switch per run: the caller passes `alreadySwitched`.
+ *
+ * @param {{ host: string, owner: string, repo: string, errorText: string, alreadySwitched?: boolean,
+ *   currentAccount?: string|null, run?: function }} p
+ * @returns {{ recovered: boolean, account: string|null, token: string|null, reason: string|null, hint: string|null }}
+ */
+function recoverGhAccountForTarget({ host, owner, repo, errorText, alreadySwitched, currentAccount, run = execGh }) {
+  const out = (recovered, account, token, reason, hint = null) => ({ recovered, account, token, reason, hint });
+  if (alreadySwitched) return out(false, null, null, 'already-switched');
+  if (!isGhIssueWritePermissionError(errorText)) return out(false, null, null, 'non-permission-error');
+  const noAccount = () => out(false, null, null, 'no-account', `gh auth login --hostname ${host}`);
+  if (!GH_SLUG_PART_RE.test(String(owner)) || !GH_SLUG_PART_RE.test(String(repo)) || !GH_HOST_RE.test(String(host))) {
+    return noAccount();
+  }
+
+  const { accounts, error } = getGhAccountsForHost(host, { run });
+  if (error) return noAccount();
+  const current = String(currentAccount || '').toLowerCase();
+  const ownerLower = owner.toLowerCase();
+  const candidates = accounts
+    .filter(a => a.login.toLowerCase() !== current)
+    .sort((a, b) => Number(b.login.toLowerCase() === ownerLower) - Number(a.login.toLowerCase() === ownerLower));
+
+  const probeArgs = ['api', 'repos/' + owner + '/' + repo, '--hostname=' + host];
+  for (const candidate of candidates) {
+    const token = getGhTokenFor(candidate.login, host, { run });
+    if (!token) continue;
+    const isOwner = candidate.login.toLowerCase() === ownerLower;
+    if (isOwner || run(probeArgs, { env: ghTokenEnv(host, token) }).ok) {
+      return out(true, candidate.login, token, null);
+    }
+  }
+  return noAccount();
+}
+
+/**
  * Env for a `gh` child that acts as the account owning `token` on `host`. gh reads GH_TOKEN
  * only for github.com and *.ghe.com; other (GitHub Enterprise Server) hosts read
  * GH_ENTERPRISE_TOKEN. The token is never set for the other variable.
@@ -1538,6 +1590,8 @@ module.exports = {
   getGhAccountsForHost,
   getGhTokenFor,
   selectGhAccountForTarget,
+  isGhIssueWritePermissionError,
+  recoverGhAccountForTarget,
   ghTokenEnv,
   GH_TIMEOUT_MS,
   retryExec,

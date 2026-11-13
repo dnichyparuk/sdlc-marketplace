@@ -959,6 +959,19 @@
         const o = JSON.parse(output);
         return o.ok === true && o.offenders.length === 0 ? true : `FAIL ${output}`;
 
+- description: "github-sdlc/r33-triggers: no trigger phrase shared with jira-sdlc and the description fits 1024 characters"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--check-triggers"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.overlap.length === 0 && o.length > 0 && o.length <= 1024 ? true : `FAIL ${output}`;
+
 # ── view and search (R22, R24, R31, P9, P10) ──────────────────────────────────
 
 - description: "github-sdlc/view P9: issue 7 returns the issue, links, project values and three comments newest last"
@@ -1259,3 +1272,1188 @@
       value: |
         const o = JSON.parse(output);
         return o.exit === 1 && o.json.ok === false && o.json.errors.some((e) => e.includes('cannot read')) ? true : `FAIL ${output}`;
+
+# ── --init-templates (R10, A3, A9, R-templates-root) ──────────────────────────
+# The runner builds a fresh workspace per case, so the second-run (skipped[]) path is not reachable here.
+
+- description: "github-sdlc/init-templates A3/P15: creates bug.md and feature.md in .github/ISSUE_TEMPLATE"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--origin https://github.com/acme/widgets.git --dump .github/ISSUE_TEMPLATE/bug.md --dump .github/ISSUE_TEMPLATE/feature.md -- --init-templates --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const bug = o.dumps['.github/ISSUE_TEMPLATE/bug.md'] || '';
+        const feat = o.dumps['.github/ISSUE_TEMPLATE/feature.md'] || '';
+        const ok = o.exit === 0 && o.json.created.join(',') === 'bug.md,feature.md' && o.json.skipped.length === 0
+          && o.json.targetDir.endsWith('/.github/ISSUE_TEMPLATE') && o.calls.length === 0
+          && bug.includes('labels: [bug]') && bug.includes('## Steps to Reproduce') && bug.includes('## Expected Behaviour')
+          && feat.includes('## Problem') && feat.includes('## Proposal') && feat.includes('## Acceptance Criteria');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/init-templates A9: --templates-dir copies only the decoy template"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--origin https://github.com/acme/widgets.git -- --init-templates --repo acme/widgets --templates-dir @FIX:github-sdlc-home-decoy/.claude/plugins/cache/x/sdlc/9.9.9/skills/github-sdlc/templates@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 0 && o.json.created.join(',') === 'decoy.md' ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/init-templates R-templates-root: a decoy plugin home does not change the shipped names"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--origin https://github.com/acme/widgets.git -- --init-templates --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home-decoy"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 0 && o.json.created.join(',') === 'bug.md,feature.md' ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/init-templates R10: --repo of another repository than the checkout exits 1"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--origin https://github.com/acme/widgets.git -- --init-templates --repo acme/other"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.errors.length === 1 && o.json.errors[0].includes('acme/other') && !o.json.created;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/init-templates A3: --check with --init-templates reports flags.initTemplates and copies nothing"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--origin https://github.com/acme/widgets.git -- --check --init-templates --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 0 && o.json.flags.initTemplates === true && !o.json.created ? true : `FAIL ${output}`;
+
+# ── --check-payload core (P11, P16, R2, R6, R17-R21, R23, R29, R34, R36, C3, C18) ─
+# Payloads: fixtures-fs/github-sdlc-inputs/payloads-core.json (--payload <key>, one run per key in runs[]).
+# Every --check-payload case runs the R37 live reads, so it sets GH_STUB_DATA live (default + live routes).
+
+- description: "github-sdlc/payload-core P16: a comment with an extra labels key exits 1 with unknownKeys"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload comment-extra-labels -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && JSON.stringify(o.json.unknownKeys) === '["labels"]'
+          && o.json.missingKeys.length === 0 && o.json.invalidNumbers.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core P16: no repo is missingKeys; number -3, 1.5 and \"12\" are invalidNumbers"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload comment-no-repo --payload number-negative --payload number-fraction --payload number-string -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [noRepo, ...numbers] = o.runs;
+        const ok = o.runs.length === 4 && noRepo.exit === 1 && JSON.stringify(noRepo.json.missingKeys) === '["repo"]'
+          && numbers.every((r) => r.exit === 1 && r.json.invalidNumbers.includes('number') && r.json.commands.length === 0);
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core P16: a bulk whose second op has an unknown key reports it on that op only"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload bulk-second-unknown -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ops = o.json.ops;
+        const ok = o.exit === 1 && ops.length === 2 && ops[0].unknownKeys.length === 0
+          && JSON.stringify(ops[1].unknownKeys) === '["extra"]' && o.json.bulkTooLarge === false;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core C3: op delete exits 1 with unknownOp and no commands"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload op-delete -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.unknownOp === true && o.json.commands.length === 0 && o.json.autoApprovable === false;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R2: a create for acme/other is repoNotAllowed with no gh call"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"repos":["acme/widgets"]}} --payload create-other-repo -- --check-payload --input @PAYLOAD@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.repoNotAllowed === true && o.calls.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R2: an addParent end in acme/other is in notAllowedRefs; related to it is allowed"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"repos":["acme/widgets"]}} --payload link-parent-other --payload link-related-other -- --check-payload --input @PAYLOAD@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [parent, related] = o.runs;
+        const ok = parent.exit === 1 && parent.json.repoNotAllowed === true
+          && JSON.stringify(parent.json.notAllowedRefs) === '["https://github.com/acme/other/issues/3"]'
+          && related.json.repoNotAllowed === false && related.json.notAllowedRefs.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R17/R6: an unknown label is unknownLabels with stale labels"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload edit-unknown-label -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && JSON.stringify(o.json.unknownLabels) === '["needs-triage"]'
+          && JSON.stringify(o.json.stale) === '["labels"]';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core G9/R17/R20: unknown milestone, assignee, type, option and board are findings"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} --payload create-unknown-milestone --payload create-assignees --payload create-unknown-type --payload project-unknown-option --payload project-other-board -- --check-payload --input @PAYLOAD@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [milestone, assignees, type, option, board] = o.runs.map((r) => ({ ...r.json, exit: r.exit }));
+        const ok = o.runs.every((r) => r.exit === 1)
+          && milestone.unknownMilestone === true && milestone.stale.includes('milestones')
+          && JSON.stringify(assignees.unassignable) === '["zed"]' && assignees.stale.includes('assignableUsers')
+          && type.unknownType === true && type.stale.includes('issueTypes')
+          && option.unknownProjectValue.length === 1 && option.unknownProjectValue[0].includes('Blocked')
+          && option.stale.includes('projects')
+          && board.unknownProjectValue.length === 1 && board.unknownProjectValue[0].includes('acme/9')
+          && board.unknownProjectValue[0].includes('github.projects');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core E8/R20: scopes.project false and a project payload give the refresh hint"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} --payload project-status -- --check-payload --input @PAYLOAD@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_SCOPES": "read:project", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.errors.some((e) => e.includes('gh auth refresh -s project'));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R29: client.subIssues false and host.blockedBy false are unsupported"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--set-key .sdlc-cache/github/github_com/acme/widgets.json:capabilities.client.subIssues=false --set-key .sdlc-cache/github/github_com/acme/widgets.json:capabilities.host.blockedBy=false --payload link-sub-issue --payload link-blocked-by -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [sub, dep] = o.runs;
+        const ok = sub.exit === 1 && JSON.stringify(sub.json.unsupported) === '["client.subIssues"]'
+          && dep.exit === 1 && JSON.stringify(dep.json.unsupported) === '["host.blockedBy"]';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R23: BULK_MAX + 1 ops (from the exports) exit 1 with bulkTooLarge"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--bulk-over-max --payload comment-plain -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && Number.isInteger(o.bulkMax) && o.json.ops.length === o.bulkMax + 1
+          && o.json.bulkTooLarge === true && o.json.autoApprovable === false
+          && JSON.stringify(o.json.autoBlockers) === '["bulk"]';
+        return ok ? true : `FAIL ${output}`;
+
+# Reads of issue 12 in argv-all: the close (open), the reopen (closed), the addSubIssues end (open).
+- description: "github-sdlc/payload-core R17-R21: commands[] follow the argv shape table, label create first"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} --payload argv-all -- --check-payload --input @PAYLOAD@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live", "GH_STUB_SEQ": "state12=open,closed,open"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const R = '--repo=github.com/acme/widgets';
+        const got = o.json.ops.map((op) => JSON.stringify(op.commands));
+        const want = [
+          [['label', 'create', 'needs-triage', R, '--color=ededed', '--description=Needs a first look'],
+            ['issue', 'create', R, '--title=Fix crash on save', '--body-file=<tmp>', '--label=bug', '--label=needs-triage',
+              '--milestone=v1.0', '--assignee=alice', '--assignee=@me', '--type=Bug', '--parent=3'],
+            ['project', 'item-add', '2', '--owner=acme', '--url=<new-issue-url>']],
+          [['issue', 'edit', '5', R, '--title=New title', '--body-file=<tmp>', '--add-label=bug', '--remove-label=enhancement',
+            '--milestone=v1.0', '--type=Task']],
+          [['issue', 'comment', '12', R, '--body-file=<tmp>'], ['issue', 'close', '12', R, '--reason=duplicate', '--duplicate-of=4']],
+          [['issue', 'comment', '12', R, '--body-file=<tmp>'], ['issue', 'reopen', '12', R]],
+          [['issue', 'comment', '7', R, '--body-file=<tmp>']],
+          [['issue', 'edit', '5', R, '--parent=3', '--add-sub-issue=12', '--remove-sub-issue=7', '--add-blocked-by=4',
+            '--remove-blocked-by=20', '--add-blocking=7', '--remove-blocking=3'], ['issue', 'comment', '5', R, '--body-file=<tmp>']],
+          [['issue', 'edit', '7', R, '--remove-parent']],
+          [['issue', 'edit', '5', R, '--add-assignee=bob', '--remove-assignee=alice']],
+          [['project', 'item-add', '2', '--owner=acme', '--url=https://github.com/acme/widgets/issues/5'],
+            ['project', 'item-edit', '--id=<item-id>', '--project-id=PVT_2', '--field-id=PVTF_3', '--number=3']],
+          [['project', 'item-edit', '--id=<item-id>', '--project-id=PVT_2', '--field-id=PVTF_4', '--clear']],
+        ].map((c) => JSON.stringify(c));
+        const bad = want.map((w, i) => (w === got[i] ? null : `op ${i}: got ${got[i]}`)).filter(Boolean);
+        // Live findings keep commands[]: op 1 edits the body with no template (R12), op 5 links the pull request #20 (R19).
+        const findings = o.json.ops.map((op, i) => (op.templateMissing ? `${i}:templateMissing` : '')
+          + op.errors.map((e) => `${i}:${e}`).join('') + (op.noOpState ? `${i}:noOpState` : '')).filter(Boolean);
+        const ok = o.exit === 1 && got.length === want.length && bad.length === 0
+          && JSON.stringify(findings) === JSON.stringify(['1:templateMissing',
+            '5:removeBlockedBy 20: acme/widgets#20 is a pull request, not an issue'])
+          && o.calls.every((c) => !/^(issue|label|project) /.test(c.argv.join(' ')));
+        return ok ? true : `FAIL ${bad.join('; ')} ${output}`;
+
+- description: "github-sdlc/payload-core C18: label -R=evil/repo stays one --add-label element"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload edit-evil-label -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const argv = o.json.commands[0] || [];
+        const ok = o.json.commands.length === 1 && argv.length === 5 && argv[4] === '--add-label=-R=evil/repo'
+          && !argv.includes('-R=evil/repo') && o.json.unknownLabels.includes('-R=evil/repo');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R36: key order and whitespace do not change payloadHash"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload hash-compact --payload hash-reordered --payload comment-plain -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [a, b, other] = o.runs.map((r) => r.json.payloadHash);
+        const ok = /^[0-9a-f]{64}$/.test(a) && a === b && other !== a;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R34: comment, label edit, close not planned, close completed with comment, reopen are auto"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload comment-plain --payload edit-labels --payload close-not-planned --payload close-completed-comment --payload reopen -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live", "GH_STUB_SEQ": "state12=open,open,closed"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.runs.length === 5
+          && o.runs.every((r) => r.exit === 0 && r.json.autoApprovable === true && r.json.autoBlockers.length === 0);
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R34: create, title edit, sub-issue, duplicate, createLabels, Iteration and bulk are not auto"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} --payload create-plain --payload edit-title --payload link-sub-issue --payload close-duplicate --payload edit-create-labels --payload project-iteration --payload bulk-comments -- --check-payload --input @PAYLOAD@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const want = ['class', 'class', 'class', 'duplicate', 'createLabels', 'class', 'bulk'];
+        const bad = o.runs.map((r, i) => (r.json.autoApprovable === false && r.json.autoBlockers.includes(want[i]) ? null : i))
+          .filter((i) => i !== null);
+        const ok = o.runs.length === want.length && bad.length === 0 && o.runs.every((r) => r.exit === 0);
+        return ok ? true : `FAIL runs ${bad.join(',')} ${output}`;
+
+- description: "github-sdlc/payload-core R34/R30: an account switch in the run blocks a plain comment"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload comment-plain -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_ACCOUNTS": "alice*,acme", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.autoApprovable === false && JSON.stringify(o.json.autoBlockers) === '["accountSwitch"]'
+          && !o.calls.some((c) => c.argv.join(' ').startsWith('auth switch'));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core C2: a create is not auto-approvable with --auto either"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload create-plain -- --check-payload --input @PAYLOAD@ --auto"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.autoApprovable === false && o.json.autoBlockers.includes('class');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R34: a comment argv with an extra flag outside AUTO_ARGV_SHAPES is not auto"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--auto-argv comment-plain:--body=x"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.base.autoApprovable === true && o.extra.autoApprovable === false
+          && JSON.stringify(o.extra.autoBlockers) === '["class"]' && o.extra.commands[0].at(-1) === '--body=x';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-core R34: a related link is never auto-approvable"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--payload link-related-other -- --check-payload --input @PAYLOAD@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = o.runs[0].json;
+        return r.autoApprovable === false && r.autoBlockers.includes('class') ? true : `FAIL ${output}`;
+
+# ── content checks (R12, R13, R15, R16, R34, G4, G10) ─────────────────────────
+# payloads-content.json is one bulk input (the runner's --payload reads payloads-core.json only); the ops[] index is:
+# 0 no template, 1 extra heading, 2 empty required form section, 3 placeholders, 4 title bracket, 5 template bracket,
+# 6 bracket not in template, 7 long title, 8 prose acceptance, 9 mentions and refs, 10 duplicate marker, 11 same-repo URL,
+# 12 cross-repo URL, 13 comment placeholder, 14 filler opening.
+
+- description: "github-sdlc/payload-content G4 R12: no template is templateMissing; an extra heading and an empty required form section are findings"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ops = o.json.ops;
+        const ok = o.exit === 1 && ops[0].templateMissing === true && ops[1].templateMissing === false
+          && JSON.stringify(ops[1].unknownHeadings) === '["Extra"]'
+          && JSON.stringify(ops[2].missingRequired) === '["Problem"]' && ops[2].unknownHeadings.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-content R13: markers and template comments are placeholders; GitHub markdown and bracketed text outside the template are not"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ops = o.json.ops;
+        const kinds = ops[3].placeholders.map((p) => `${p.kind}:${p.text}`).join('|');
+        const ok = kinds === 'marker:{summary}|comment:<!-- Describe the bug -->' && ops[3].placeholders[0].line === 3
+          && ops[4].placeholders.length === 0
+          && ops[5].placeholders.length === 1 && ops[5].placeholders[0].kind === 'bracket'
+          && ops[6].placeholders.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-content R15: a long title, a filler opening and prose under Acceptance Criteria are findings"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ops = o.json.ops;
+        const ok = ops[7].titleTooLong === true && ops[0].titleTooLong === false
+          && ops[14].fillerOpening === true && ops[7].fillerOpening === false
+          && JSON.stringify(ops[8].nonChecklistAcceptance) === '["The bug is fixed."]';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-content R16 R34: mentions skip code, comments and need not be assignable; refs and autoBlockers"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@ --auto"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ops = o.json.ops;
+        const m = ops[9].mentions.map((x) => `${x.login}:${x.team}:${x.assignable}`).join('|');
+        const refs = ops[9].refs.map((x) => `${x.ref}:${x.crossRepo}`).join('|');
+        const ok = m === 'alice:false:true|carol:false:false|acme/core:true:false' && refs === '#7:false|acme/widgets#8:false'
+          && ops[9].autoApprovable === false && ops[9].autoBlockers.includes('mentions')
+          && ops[10].duplicateMarker === true && ops[10].autoBlockers.includes('duplicateMarker')
+          && ops[11].duplicateMarker === false && ops[11].crossRepoRefs.length === 0 && ops[11].autoApprovable === true
+          && JSON.stringify(ops[12].crossRepoRefs) === '["https://github.com/acme/other/issues/9"]'
+          && ops[12].autoBlockers.includes('crossRepoRefs') && ops[12].autoApprovable === false;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-content G10 C8: a comment holding a placeholder exits 1 without --auto"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const p = o.json.ops[13].placeholders;
+        return o.exit === 1 && p.length === 1 && p[0].text === '{summary}' ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-content G10 C8: a comment holding a placeholder exits 1 with --auto"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@ --auto"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const p = o.json.ops[13].placeholders;
+        return o.exit === 1 && p.length === 1 && p[0].text === '{summary}' ? true : `FAIL ${output}`;
+
+# ── live checks (R37, R8, R12, R18, R19, R24, R34 (d), C6, E9) ────────────────
+# Scenario stub-bin-gh-issues/scenarios/live.json (default + issue 8, acme/other#3 and the Q_ISSUE_LIVE answers:
+# 5 -> 3, 8 -> 5 -> 3, 12 -> 7; 7 is item PVTI_7 on board acme #2). payloads-live.json is one bulk input; ops[]:
+# 0 close 12, 1 comment on PR 20, 2 self sub-issue, 3 parent cycle, 4 missing blocked-by, 5 edit existing headings,
+# 6 edit adding a heading, 7 Status of an item on the board, 8 Status of an issue not on the board.
+
+- description: "github-sdlc/payload-live R37 R18: a close reads the issue state; closing a closed issue is noOpState, exit 1"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload close-not-planned --payload close-not-planned -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live", "GH_STUB_SEQ": "state12=open,closed"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [open, closed] = o.runs;
+        const stateRead = o.calls.filter((c) => JSON.stringify(c.argv)
+          === JSON.stringify(['api', 'repos/acme/widgets/issues/12', '--hostname=github.com']));
+        const ok = open.exit === 0 && open.json.noOpState === false && open.json.live.issues['acme/widgets#12'].state === 'open'
+          && closed.exit === 1 && closed.json.noOpState === true
+          && closed.json.live.issues['acme/widgets#12'].stateReason === 'completed'
+          && closed.json.commands.length === 1 && stateRead.length === 2;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-live R24: a comment on pull request 20 is isPullRequest with the pr-sdlc hint, exit 1"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --check-payload --input @FIX:github-sdlc-inputs/payloads-live.json@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ops = o.json.ops;
+        const ok = o.exit === 1 && ops[1].isPullRequest === true && ops[1].warnings.some((w) => w.includes('pr-sdlc'))
+          && ops[1].live.issues['acme/widgets#20'].isPullRequest === true && ops[0].isPullRequest === false
+          && !o.calls.some((c) => c.argv[1] === 'graphql' && c.argv.includes('--field=number=20'));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-live R19: a self sub-issue is selfLink; a parent that descends from the target and a missing issue are findings"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --check-payload --input @FIX:github-sdlc-inputs/payloads-live.json@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ops = o.json.ops;
+        const ok = o.exit === 1 && ops[2].selfLink === true && ops[3].selfLink === false
+          && JSON.stringify(ops[3].live.issues['acme/widgets#8'].ancestors) === '["acme/widgets#5","acme/widgets#3"]'
+          && ops[3].errors.some((e) => e.includes('acme/widgets#8') && e.includes('parent cycle'))
+          && JSON.stringify(ops[4].errors) === '["addBlockedBy 999: acme/widgets#999 does not exist"]'
+          && ops[4].live.issues['acme/widgets#999'].exists === false;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-live R12: an edit with template existing checks only the headings it adds"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --check-payload --input @FIX:github-sdlc-inputs/payloads-live.json@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ops = o.json.ops;
+        const ok = ops[5].templateMissing === false && ops[5].unknownHeadings.length === 0
+          && ops[6].templateMissing === false && JSON.stringify(ops[6].unknownHeadings) === '["Extra"]';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-live R34: a Status set on an item already on board acme 2 is auto; on an issue not on it, notExistingItem"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --check-payload --input @FIX:github-sdlc-inputs/payloads-live.json@ --auto'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [on, off] = [o.json.ops[7], o.json.ops[8]];
+        const ok = on.autoApprovable === true && on.autoBlockers.length === 0 && on.commands[0][2] === '--id=PVTI_7'
+          && off.autoApprovable === false && off.autoBlockers.includes('notExistingItem')
+          && off.commands[0][2] === '--id=<item-id>' && o.json.autoApprovable === false;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-live R8: with a complete cache no metadata call runs; every per-issue call is an R37 read"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --check-payload --input @FIX:github-sdlc-inputs/payloads-live.json@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const lines = o.calls.map((c) => c.argv.join(' '));
+        const metadata = lines.filter((l) => /^(label|project) |\/labels|\/milestones|\/assignees|assignableUsers|projectV2|__type|issueTypes|field-list/.test(l));
+        const isRest = (a) => a.length === 3 && a[0] === 'api' && /^repos\/acme\/widgets\/issues\/[1-9]\d*$/.test(a[1]) && a[2] === '--hostname=github.com';
+        const isLiveQuery = (a) => a.length === 7 && a[0] === 'api' && a[1] === 'graphql' && a[2] === '--hostname=github.com'
+          && a[3].startsWith('--raw-field=query=') && a[3].includes('projectItems') && a[3].includes('parent{')
+          && a[4] === '--field=owner=acme' && a[5] === '--field=name=widgets' && /^--field=number=[1-9]\d*$/.test(a[6]);
+        const perIssue = o.calls.map((c) => c.argv).filter((a) => a[1] === 'graphql' || /\/issues\//.test(a[1] || ''));
+        const bad = perIssue.filter((a) => !isRest(a) && !isLiveQuery(a));
+        const ok = metadata.length === 0 && bad.length === 0 && perIssue.some(isRest) && perIssue.some(isLiveQuery);
+        return ok ? true : `FAIL metadata=${JSON.stringify(metadata)} bad=${JSON.stringify(bad)}`;
+
+- description: "github-sdlc/payload-live C6: a failed live read is a finding with its class"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload comment-plain -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live", "GH_STUB_FAIL": "403@api graphql"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.errors.some((e) => e.startsWith('live acme/widgets#5: permission:'))
+          && o.json.live.issues['acme/widgets#5'].failure.class === 'permission';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/payload-live E9: a live read that times out is retried once"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--payload comment-plain -- --check-payload --input @PAYLOAD@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live", "SDLC_GH_TIMEOUT_MS": "500", "GH_STUB_SLEEP_MS": "1500", "GH_STUB_FAIL": "timeout@api repos/acme/widgets/issues/5#1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const reads = o.calls.filter((c) => c.argv[1] === 'repos/acme/widgets/issues/5');
+        const ok = o.exit === 0 && reads.length === 2 && o.json.errors.length === 0
+          && o.json.live.issues['acme/widgets#5'].exists === true;
+        return ok ? true : `FAIL ${output}`;
+
+# ── apply (P13, R36, R37, G7, R17, R21, R23, R31, R32, E4, E7-E10, C7, C13, C16, C18, C20) ──
+# github-sdlc-inputs/payloads-apply.json is both the stub scenario of these cases (GH_STUB_DATA, relative to
+# scenarios/: it extends live.json with the write routes, a create read-back and a comment read-back on issue 5)
+# and, under `payloads`, their inputs. The runner's --payload reads payloads-core.json only, so each case runs
+# `node -e` with the APPLY_HARNESS script (defined once below, reused by YAML alias). Its argv:
+#   -- <repo root> <payload keys, comma-separated> <run-github-case.js args>
+# For each key it writes payloads[key] to a temp file, replaces @INPUT@ with that path and @HASH:<key>@ with
+# github.js payloadHash(payloads[key]), runs run-github-case.js, and adds `bodies`: the text of every body file
+# a --dry-run listed (those files are kept by --dry-run; the harness removes them). It prints a JSON array, one
+# run-github-case.js result per key. Indices in applied[], failed[], unknown[] and notRun[] are 1-based (R23).
+
+- description: "github-sdlc/apply A10 R21: --dry-run on a comment lists one issue comment argv whose body file holds the body byte for byte; no write"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@ --dry-run"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: &apply_harness |
+        const cp = require('child_process');
+        const fs = require('fs');
+        const os = require('os');
+        const path = require('path');
+        const [root, keys, ...rest] = process.argv.slice(1);
+        const pf = path.join(root, 'tests', 'promptfoo');
+        const fixture = path.join(pf, 'fixtures-fs', 'github-sdlc-inputs', 'payloads-apply.json');
+        const { payloads } = JSON.parse(fs.readFileSync(fixture, 'utf8'));
+        const { payloadHash } = require(path.join(root, 'plugins', 'sdlc-utilities', 'scripts', 'skill', 'github.js'));
+        const entry = (key) => {
+          if (!(key in payloads)) throw new Error(`no payload "${key}" in ${fixture}`);
+          return payloads[key];
+        };
+        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'github-apply-'));
+        const runs = keys.split(',').map((key, i) => {
+          const input = path.join(tmp, `payload-${i}.json`);
+          fs.writeFileSync(input, JSON.stringify(entry(key), null, 2));
+          const args = rest.map((a) => a.replace('@INPUT@', input).replace(/@HASH:([^@]+)@/, (_, k) => payloadHash(entry(k))));
+          const r = cp.spawnSync(process.execPath, [path.join(pf, 'scripts', 'run-github-case.js'), ...args], { encoding: 'utf8' });
+          const o = JSON.parse(r.stdout);
+          const files = ((o.json && o.json.commands) || []).flat().filter((a) => a.startsWith('--body-file=/'))
+            .map((a) => a.slice('--body-file='.length));
+          o.bodies = files.map((f) => fs.readFileSync(f, 'utf8'));
+          for (const f of files) fs.rmSync(path.dirname(f), { recursive: true, force: true });
+          return o;
+        });
+        fs.rmSync(tmp, { recursive: true, force: true });
+        process.stdout.write(JSON.stringify(runs));
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const cmds = o.json.commands;
+        const argv = cmds[0] || [];
+        const ok = o.exit === 0 && cmds.length === 1 && argv.slice(0, 4).join(' ') === 'issue comment 5 --repo=github.com/acme/widgets'
+          && argv.length === 5 && argv[4].startsWith('--body-file=/') && JSON.stringify(o.bodies) === '["Fixed in main, thanks."]'
+          && !o.calls.some((c) => /^(issue|label|project) /.test(c.argv.join(' ')));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply G7 C8: an unknown label and a placeholder marker each exit 1 with no gh write"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-unknown-label,comment-placeholder -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [label, marker] = JSON.parse(output);
+        const noWrite = (o) => !o.calls.some((c) => /^(issue|label|project) /.test(c.argv.join(' ')));
+        const ok = label.exit === 1 && JSON.stringify(label.json.unknownLabels) === '["needs-triage"]'
+          && marker.exit === 1 && marker.json.placeholders[0].text === '{summary}'
+          && [label, marker].every((o) => noWrite(o) && o.json.applied.length === 0 && o.json.failed.length === 0);
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply G10: --apply --auto on a comment holding a placeholder marker still exits 1 with no gh write"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment-placeholder -- --apply --input @INPUT@ --auto"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.placeholders.length === 1 && o.json.notAutoApprovable === false
+          && !o.calls.some((c) => /^(issue|label|project) /.test(c.argv.join(' ')));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply A12 R36: the checked payload passes --expect-hash; with the title changed it is hashMismatch, exit 1, no gh call"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create,create-retitled -- --apply --input @INPUT@ --expect-hash @HASH:create@ --dry-run"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [same, changed] = JSON.parse(output);
+        const ok = same.exit === 0 && same.json.hashMismatch === false && same.json.commands.length === 1
+          && changed.exit === 1 && changed.json.hashMismatch === true && changed.calls.length === 0
+          && /^[0-9a-f]{64}$/.test(changed.json.payloadHash) && changed.json.payloadHash !== same.json.payloadHash;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R36 C2: --apply --auto on a create is notAutoApprovable with autoBlockers, exit 1, no issue create call"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@ --expect-hash @HASH:create@ --auto"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.notAutoApprovable === true && o.json.autoBlockers.includes('class')
+          && o.json.applied.length === 0 && !o.calls.some((c) => c.argv[0] === 'issue' && c.argv[1] === 'create');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R37: issue 12 open at the check and closed at the re-check fails the close with noOpState, no issue close call"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} close -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      GH_STUB_SEQ: "state12=open,closed"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const f = o.json.failed[0] || {};
+        const reads = o.calls.filter((c) => c.argv.join(' ') === 'api repos/acme/widgets/issues/12 --hostname=github.com');
+        const ok = o.exit === 1 && o.json.noOpState === false && f.index === 1 && f.failure === null
+          && f.findings.noOpState === true && reads.length === 2 && o.json.applied.length === 0
+          && !o.calls.some((c) => c.argv[0] === 'issue' && c.argv[1] === 'close');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R37: a clean close runs the state read and the live query of issue 12 directly before issue close"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} close -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const lines = o.calls.map((c) => c.argv.join(' '));
+        const close = lines.findIndex((l) => l.startsWith('issue close 12 '));
+        const ok = o.exit === 0 && close > 1 && lines[close - 2] === 'api repos/acme/widgets/issues/12 --hostname=github.com'
+          && lines[close - 1].startsWith('api graphql') && o.calls[close - 1].argv.includes('--field=number=12')
+          && JSON.stringify(o.json.applied) === '[{"index":1,"number":12,"url":"https://github.com/acme/widgets/issues/12"}]';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R23: --dry-run on a three-item bulk lists three commands in input order"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} bulk-three -- --apply --input @INPUT@ --dry-run"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const cmds = o.json.commands;
+        const ok = o.exit === 0 && cmds.length === 3 && cmds.map((a) => `${a[1]} ${a[2]}`).join('|') === 'comment 5|comment 7|comment 12'
+          && JSON.stringify(o.bodies) === '["First.","Second.","Third."]'
+          && !o.calls.some((c) => /^(issue|label|project) /.test(c.argv.join(' ')));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R23 E10: a bulk whose item 2 fails reports applied 1, failed 2, notRun 3, exit 1"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} bulk-three -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      GH_STUB_FAIL: "422@issue comment 7"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const j = o.json;
+        const comments = o.calls.filter((c) => c.argv[0] === 'issue' && c.argv[1] === 'comment').map((c) => c.argv[2]);
+        const ok = o.exit === 1 && JSON.stringify(j.applied.map((a) => a.index)) === '[1]'
+          && JSON.stringify(j.failed.map((f) => f.index)) === '[2]' && j.failed[0].failure.class === 'validation'
+          && JSON.stringify(j.notRun) === '[3]' && j.unknown.length === 0 && JSON.stringify(comments) === '["5","7"]';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R17 C18: label create runs before issue create; a title holding $(touch pwned) stays one argv element and creates no file"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create-labels --dump pwned -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const label = o.calls.findIndex((c) => c.argv[0] === 'label' && c.argv[1] === 'create');
+        const create = o.calls.findIndex((c) => c.argv[0] === 'issue' && c.argv[1] === 'create');
+        const ok = o.exit === 0 && label >= 0 && label < create
+          && o.calls[create].argv.includes('--title=Fix crash $(touch pwned)') && o.dumps.pwned === null
+          && JSON.stringify(o.json.applied) === '[{"index":1,"number":42,"url":"https://github.com/acme/widgets/issues/42"}]';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply C16: no --dry-run output of the comment and title payloads holds a milestones POST or a project field-create argv"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment,comment-3,comment-4,comment-7,comment-8,comment-12,comment-placeholder,edit-title -- --apply --input @INPUT@ --dry-run"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const runs = JSON.parse(output);
+        const argvs = runs.flatMap((o) => o.json.commands || []);
+        const bad = argvs.filter((a) => (/milestones/.test(a.join(' ')) && a.some((x) => /POST/i.test(x))) || a.includes('field-create'));
+        const ok = runs.length === 8 && runs.every((o) => o.json && o.exit !== 2) && argvs.length >= 7 && bad.length === 0
+          && !runs.some((o) => o.calls.some((c) => /^(issue|label|project) /.test(c.argv.join(' '))));
+        return ok ? true : `FAIL bad=${JSON.stringify(bad)} ${output}`;
+
+- description: "github-sdlc/apply C16: no --dry-run output of the edit, state, project, create and bulk payloads holds a milestones POST or a project field-create argv"
+  vars:
+    script_path: "-e"
+    script_args: 'eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-type,edit-unknown-label,assign-bob,close,project-status-7,create,create-retitled,create-labels,bulk-three --config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --apply --input @INPUT@ --dry-run'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const runs = JSON.parse(output);
+        const argvs = runs.flatMap((o) => o.json.commands || []);
+        const bad = argvs.filter((a) => (/milestones/.test(a.join(' ')) && a.some((x) => /POST/i.test(x))) || a.includes('field-create'));
+        const ok = runs.length === 9 && runs.every((o) => o.json && o.exit !== 2) && argvs.length >= 12 && bad.length === 0
+          && !runs.some((o) => o.calls.some((c) => /^(issue|label|project) /.test(c.argv.join(' '))));
+        return ok ? true : `FAIL bad=${JSON.stringify(bad)} ${output}`;
+
+- description: "github-sdlc/apply E7: a 422 on issue create is class validation with no retry inside --apply"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      GH_STUB_FAIL: "422@issue create"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const creates = o.calls.filter((c) => c.argv[0] === 'issue' && c.argv[1] === 'create');
+        const f = o.json.failed[0] || {};
+        const ok = o.exit === 1 && f.index === 1 && f.failure.class === 'validation' && f.failure.httpStatus === 422
+          && creates.length === 1;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply E4 R30 C7 R32: a 403 with accounts alice*,acme recovers the account once, retries once, logs it, no auth switch"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment --dump .sdlc/learnings/log.md -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      GH_STUB_ACCOUNTS: "alice*,acme"
+      GH_STUB_FAIL: "403@issue comment#1"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const sw = o.json.auth.accountSwitch;
+        const comments = o.calls.filter((c) => c.argv[0] === 'issue' && c.argv[1] === 'comment');
+        const log = o.dumps['.sdlc/learnings/log.md'] || '';
+        const ok = o.exit === 0 && sw.recovered === true && sw.account === 'alice' && o.json.actingAccount === 'alice'
+          && comments.length === 2 && comments[0].tokenHash !== comments[1].tokenHash
+          && !o.calls.some((c) => c.argv[0] === 'auth' && c.argv[1] === 'switch')
+          && /^## \d{4}-\d{2}-\d{2} — github-sdlc gh-failure\[permission\]: issue comment$/m.test(log)
+          && log.includes('- recovered: yes:E4');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply E4 C7: a 403 then a 422 after the account change is not tried a third time"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      GH_STUB_ACCOUNTS: "alice*,acme"
+      GH_STUB_FAIL: "403@issue comment#1;422@issue comment#1"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const comments = o.calls.filter((c) => c.argv[0] === 'issue' && c.argv[1] === 'comment');
+        const f = o.json.failed[0] || {};
+        const ok = o.exit === 1 && o.json.auth.accountSwitch.recovered === true && f.failure.class === 'validation'
+          && comments.length === 2;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply E8: scopes.project null and a scope failure on project item-edit give the gh auth refresh -s project hint, no retry"
+  vars:
+    script_path: "-e"
+    script_args: 'eval(process.env.APPLY_HARNESS) -- {{repo_root}} project-status-7 --config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --apply --input @INPUT@'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      GH_STUB_ACCOUNTS: "alice*,acme"
+      GH_STUB_FAIL: "scope@project item-edit"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const edits = o.calls.filter((c) => c.argv[0] === 'project' && c.argv[1] === 'item-edit');
+        const f = o.json.failed[0] || {};
+        const ok = o.exit === 1 && o.json.auth.scopes.project === null && f.failure.class === 'auth'
+          && f.failure.hint === 'gh auth refresh -s project' && edits.length === 1 && edits[0].argv.includes('--id=PVTI_7');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply E9: a timeout on a comment is outcome unknown with one issue comment call and one comment read-back"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      SDLC_GH_TIMEOUT_MS: "500"
+      GH_STUB_SLEEP_MS: "1500"
+      GH_STUB_FAIL: "timeout@issue comment"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const comments = o.calls.filter((c) => c.argv[0] === 'issue' && c.argv[1] === 'comment');
+        const readBacks = o.calls.filter((c) => c.argv[1] === 'repos/acme/widgets/issues/5/comments?per_page=100');
+        const u = o.json.unknown[0] || {};
+        const ok = o.exit === 1 && u.index === 1 && u.outcome === 'unknown' && u.readBack.found === true
+          && u.readBack.url === 'https://github.com/acme/widgets/issues/5#issuecomment-901'
+          && comments.length === 1 && readBacks.length === 1 && o.json.failed.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply E9 R32: a timeout on an edit is retried once, applied and logged"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-title --dump .sdlc/learnings/log.md -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      SDLC_GH_TIMEOUT_MS: "500"
+      GH_STUB_SLEEP_MS: "1500"
+      GH_STUB_FAIL: "timeout@issue edit#1"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const edits = o.calls.filter((c) => c.argv[0] === 'issue' && c.argv[1] === 'edit');
+        const log = o.dumps['.sdlc/learnings/log.md'] || '';
+        const ok = o.exit === 0 && edits.length === 2 && o.json.applied.length === 1
+          && log.includes('gh-failure[transport]: issue edit') && log.includes('- recovered: yes:E9');
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply E9: a timeout on issue create is outcome unknown and the read-back finds the open issue"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      SDLC_GH_TIMEOUT_MS: "500"
+      GH_STUB_SLEEP_MS: "1500"
+      GH_STUB_FAIL: "timeout@issue create"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const creates = o.calls.filter((c) => c.argv[0] === 'issue' && c.argv[1] === 'create');
+        const u = o.json.unknown[0] || {};
+        const ok = o.exit === 1 && creates.length === 1 && u.outcome === 'unknown'
+          && JSON.stringify(u.readBack) === '{"found":true,"number":42,"url":"https://github.com/acme/widgets/issues/42"}';
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R31: one apply per class gives the expected failure.class (secondary rate limit is rate-limit)"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment-3,comment-4,comment,comment-7,comment-8,comment-12,edit-type,assign-bob,edit-title -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      SDLC_GH_TIMEOUT_MS: "500"
+      GH_STUB_SLEEP_MS: "1500"
+      GH_STUB_FAIL: "401@issue comment 3;403@issue comment 4;rate-limit@issue comment 5;404@issue comment 7;422@issue comment 8;secondary-rate-limit@issue comment 12;timeout@issue edit 5 --repo=github.com/acme/widgets --title"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const runs = JSON.parse(output);
+        const want = ['auth', 'permission', 'rate-limit', 'not-found', 'validation', 'rate-limit', 'capability', 'unknown', 'transport'];
+        const got = runs.map((o) => (o.json && o.json.failed[0] ? o.json.failed[0].failure.class : null));
+        const ok = runs.every((o) => o.exit === 1) && JSON.stringify(got) === JSON.stringify(want)
+          && runs[2].json.failed[0].failure.resetAt === '2026-01-01T00:00:00.000Z';
+        return ok ? true : `FAIL got=${JSON.stringify(got)} ${output}`;
+
+- description: "github-sdlc/apply C13 C20 R32: the acting token appears in no output, output file, cache or log after an account change and a pat failure"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment --dump .sdlc/learnings/log.md --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --apply --input @INPUT@ --output-file @OUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      GH_STUB_ACCOUNTS: "alice*,acme"
+      GH_STUB_FAIL: "403@issue comment#1;pat@issue comment#1"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const out = JSON.parse(o.outputFile.content || '{}');
+        const f = (out.failed || [])[0] || {};
+        const log = o.dumps['.sdlc/learnings/log.md'] || '';
+        const ok = o.exit === 1 && o.stdout === '' && !output.includes('S3CR3T')
+          && out.auth.accountSwitch.recovered === true && f.failure.class === 'auth' && f.failure.message.includes('[REDACTED]')
+          && log.includes('gh-failure[permission]') && typeof o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json'] === 'string';
+        return ok ? true : `FAIL ${output}`;

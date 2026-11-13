@@ -25,6 +25,7 @@ One row per skill in `plugins/sdlc-utilities/skills/`.
 | commit-sdlc | inherit | Runs on the session model; message drafting is routed to commit-orchestrator (haiku). A skill pin would move the whole transcript onto the pinned model. |
 | error-report-sdlc | inherit | Runs on the session model; consent gates and gh stay in main context; drafting is routed to error-report-orchestrator (haiku). |
 | execute-plan-sdlc | sonnet | Orchestrator; workers routed by the agent × effort table |
+| github-sdlc | sonnet | Read/write GitHub issues through github.js; light reasoning |
 | harden-sdlc | sonnet | Existing — unchanged |
 | jira-sdlc | sonnet | Read/write Jira; light reasoning |
 | plan-sdlc | opus | Plan decomposition needs stronger reasoning; user-directed |
@@ -124,6 +125,17 @@ Haiku runs only the batched-trivial agent. On failure a task retries at most twi
 | execute-worker-complex at high | execute-worker-complex, high | — (then the user) |
 
 The agent tiers are execute-worker-batch → execute-worker → execute-worker-complex. A task extracted from a failed batch is re-dispatched on the batch entry's second retry.
+
+### github-sdlc tuning
+
+| Knob | Default | Defined in |
+|---|---|---|
+| `TITLE_MAX` | 120 characters | `plugins/sdlc-utilities/scripts/skill/github.js` |
+| `VIEW_COMMENTS_MAX` | 20 comments | `skill/github.js` |
+| `SEARCH_LIMIT_MAX` | 50 results | `skill/github.js` |
+| `BULK_MAX` | 20 ops | `skill/github.js` |
+| `GH_TIMEOUT_MS` | 30 000 ms (test override `SDLC_GH_TIMEOUT_MS`) | `plugins/sdlc-utilities/scripts/lib/git.js` |
+| `github.cacheMaxAgeHours` | 0 (no expiry) | `schemas/sdlc-config.schema.json` |
 
 ## 6. Why tuning changes do not require spec updates
 

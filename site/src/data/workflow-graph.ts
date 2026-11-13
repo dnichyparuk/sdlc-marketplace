@@ -17,6 +17,7 @@ export interface WorkflowEdge {
 export const workflowNodes: WorkflowNode[] = [
   // Plan lane
   { slug: 'jira-sdlc', command: '/jira-sdlc', category: 'integrations', lane: 'plan', col: 0, tagline: 'Create & manage Jira issues' },
+  { slug: 'github-sdlc', command: '/github-sdlc', category: 'integrations', lane: 'plan', col: 3, tagline: 'Create & manage GitHub issues' },
   { slug: 'plan-sdlc', command: '/plan-sdlc', category: 'planning', lane: 'plan', col: 1, tagline: 'Write implementation plans' },
   { slug: 'execute-plan-sdlc', command: '/execute-plan-sdlc', category: 'planning', lane: 'plan', col: 2, tagline: 'Execute plans with parallel waves' },
   // Review lane
@@ -35,6 +36,7 @@ export const workflowNodes: WorkflowNode[] = [
 export const workflowEdges: WorkflowEdge[] = [
   // Plan lane flow
   { from: 'jira-sdlc', to: 'plan-sdlc', label: 'informs', style: 'solid' },
+  { from: 'github-sdlc', to: 'plan-sdlc', label: 'informs', style: 'solid' },
   { from: 'plan-sdlc', to: 'execute-plan-sdlc', label: 'executes', style: 'solid' },
   // Review lane flow
   { from: 'setup-sdlc', to: 'review-sdlc', label: 'configures', style: 'solid' },

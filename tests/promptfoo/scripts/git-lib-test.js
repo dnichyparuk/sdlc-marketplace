@@ -244,6 +244,31 @@ switch (op) {
     break;
   }
 
+  case 'recoverGhAccountForTarget': {
+    // 422 / already-switched short-circuit; 403 with alice (current) + acme (owner) -> acme token; no other account -> no-account.
+    const calls = [];
+    const mkStatus = (logins) => JSON.stringify({ hosts: { 'github.com': logins.map((l, i) => ({ state: 'success', active: i === 0, login: l })) } });
+    const mkRun = (logins) => (argv) => {
+      calls.push(argv.join(' '));
+      if (argv[0] === 'auth' && argv[1] === 'status') return { ok: true, stdout: mkStatus(logins), stderr: '', status: 0, timedOut: false };
+      if (argv[0] === 'auth' && argv[1] === 'token') return { ok: true, stdout: 'tok-' + argv[2].split('=')[1], stderr: '', status: 0, timedOut: false };
+      return { ok: false, stdout: '', stderr: '', status: 1, timedOut: false };
+    };
+    const base = { host: 'github.com', owner: 'acme', repo: 'widgets', currentAccount: 'alice' };
+    const perm = ['HTTP 403: Resource not accessible by integration', 'HTTP 403: must have push access', 'HTTP 404: Not Found (repos/acme/widgets/issues)'].map(lib.isGhIssueWritePermissionError);
+    const notPerm = ['HTTP 403: API rate limit exceeded', 'HTTP 403: secondary rate limit', 'HTTP 422: Validation Failed', 'timeout'].map(lib.isGhIssueWritePermissionError);
+    const r422 = lib.recoverGhAccountForTarget({ ...base, errorText: 'HTTP 422: Validation Failed', run: mkRun(['alice', 'acme']) });
+    const before = calls.length;
+    const switched = lib.recoverGhAccountForTarget({ ...base, errorText: 'HTTP 403: Resource not accessible', alreadySwitched: true, run: mkRun(['alice', 'acme']) });
+    const switchedCalls = calls.length - before;
+    calls.length = 0;
+    const ok = lib.recoverGhAccountForTarget({ ...base, errorText: 'HTTP 403: Resource not accessible', run: mkRun(['alice', 'acme']) });
+    const okCalls = calls.slice();
+    const none = lib.recoverGhAccountForTarget({ ...base, errorText: 'HTTP 403: must have push access', run: mkRun(['alice']) });
+    console.log(JSON.stringify({ perm, notPerm, r422, switched, switchedCalls, ok, okCalls, none }));
+    break;
+  }
+
   case 'probeGhAuthScopes': {
     // probeGhAuth passes --hostname to `gh api user` and parses the Token scopes line (null when absent).
     const cmds = [];

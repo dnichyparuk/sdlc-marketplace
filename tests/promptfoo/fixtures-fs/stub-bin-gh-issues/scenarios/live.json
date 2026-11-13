@@ -1,0 +1,37 @@
+{
+  "extends": "default",
+  "routes": [
+    { "match": "api repos/acme/widgets/issues/8 --hostname=github.com",
+      "stdout": { "number": 8, "node_id": "I_8", "title": "Widget settings notes", "body": "## Notes\n\nFirst notes.",
+        "state": "open", "state_reason": null, "html_url": "https://github.com/acme/widgets/issues/8",
+        "user": { "login": "alice" }, "labels": [], "assignees": [], "milestone": null, "comments": 0,
+        "created_at": "2026-11-06T10:00:00Z", "updated_at": "2026-11-06T10:00:00Z", "closed_at": null } },
+    { "match": "api repos/acme/other/issues/3 --hostname=github.com",
+      "stdout": { "number": 3, "node_id": "I_O3", "title": "Other epic", "body": "Lives in acme/other.",
+        "state": "open", "state_reason": null, "html_url": "https://github.com/acme/other/issues/3",
+        "user": { "login": "bob" }, "labels": [], "assignees": [], "milestone": null, "comments": 0,
+        "created_at": "2026-10-20T10:00:00Z", "updated_at": "2026-10-20T10:00:00Z", "closed_at": null } },
+    { "match": "api graphql --hostname=github.com", "contains": ["projectItems", "--field=name=other", "--field=number=3"],
+      "stdout": { "data": { "repository": { "issue": { "parent": null, "projectItems": { "nodes": [] } } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["projectItems", "--field=name=widgets", "--field=number=3"],
+      "stdout": { "data": { "repository": { "issue": { "parent": null, "projectItems": { "nodes": [] } } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["projectItems", "--field=name=widgets", "--field=number=4"],
+      "stdout": { "data": { "repository": { "issue": { "parent": null, "projectItems": { "nodes": [] } } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["projectItems", "--field=name=widgets", "--field=number=5"],
+      "stdout": { "data": { "repository": { "issue": {
+        "parent": { "number": 3, "repository": { "nameWithOwner": "acme/widgets" }, "parent": null },
+        "projectItems": { "nodes": [] } } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["projectItems", "--field=name=widgets", "--field=number=7"],
+      "stdout": { "data": { "repository": { "issue": { "parent": null,
+        "projectItems": { "nodes": [ { "id": "PVTI_7", "project": { "number": 2, "owner": { "login": "acme" } } } ] } } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["projectItems", "--field=name=widgets", "--field=number=8"],
+      "stdout": { "data": { "repository": { "issue": {
+        "parent": { "number": 5, "repository": { "nameWithOwner": "acme/widgets" },
+          "parent": { "number": 3, "repository": { "nameWithOwner": "acme/widgets" }, "parent": null } },
+        "projectItems": { "nodes": [] } } } } } },
+    { "match": "api graphql --hostname=github.com", "contains": ["projectItems", "--field=name=widgets", "--field=number=12"],
+      "stdout": { "data": { "repository": { "issue": {
+        "parent": { "number": 7, "repository": { "nameWithOwner": "acme/widgets" }, "parent": null },
+        "projectItems": { "nodes": [] } } } } } }
+  ]
+}

@@ -178,6 +178,7 @@ const SKILL_TO_SCRIPT = {
   'review-sdlc':          'skill/review.js',
   'received-review-sdlc': 'skill/received-review.js',
   'jira-sdlc':            'skill/jira.js',
+  'github-sdlc':          'skill/github.js',
   'ship-sdlc':            'skill/ship.js',
   'plan-sdlc':            'skill/plan.js',
   'setup-sdlc':           'skill/setup.js',
@@ -200,6 +201,7 @@ const USER_INVOCABLE_SKILLS = [
   'commit-sdlc',
   'version-sdlc',
   'jira-sdlc',
+  'github-sdlc',
   'ship-sdlc',
   'setup-sdlc',
 ];

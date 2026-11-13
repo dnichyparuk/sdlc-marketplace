@@ -6,7 +6,7 @@
  * The fixture commits once on `main`, then switches to a feature branch
  * (`eval-<kind>`) so commit-sdlc --auto and ship run off the default branch.
  *
- * Usage: node build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean|plan>
+ * Usage: node build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean|plan|github>
  * Exit:  0 ok, 1 a git command failed (its stderr is passed through),
  *        2 usage, non-empty working directory, or inside a git work tree.
  */
@@ -17,7 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const { execFileSync, spawnSync } = require('child_process');
 
-const USAGE = 'usage: build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean|plan>';
+const USAGE = 'usage: build-fixture-repo.js <commit|commit-crlf|review|execute|ship|ship-clean|plan|github>';
 
 const README = [
   '# Eval fixture',
@@ -170,6 +170,8 @@ const FIXTURES = {
     files: { ...BASE_FILES, '.sdlc/review-dimensions/docs-clarity.md': DIMENSION, '.claude/settings.json': CLAUDE_SETTINGS },
     staged: false,
   },
+  // github-sdlc cases: an origin remote so the stub gh resolves acme/widgets.
+  github: { branch: 'eval-github', files: { ...BASE_FILES }, staged: false, remote: 'https://github.com/acme/widgets.git' },
 };
 
 function git(cwd, args) {
@@ -217,6 +219,7 @@ function main() {
     // so the grader can only see the eval run's commit.
     fs.rmSync(path.join(cwd, '.git', 'COMMIT_EDITMSG'), { force: true });
     git(cwd, ['switch', '-q', '-c', fixture.branch]);
+    if (fixture.remote) git(cwd, ['remote', 'add', 'origin', fixture.remote]);
 
     if (fixture.staged) {
       fs.appendFileSync(path.join(cwd, 'README.md'), eol('Second line.\n'));

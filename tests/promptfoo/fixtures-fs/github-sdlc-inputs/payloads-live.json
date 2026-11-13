@@ -1,0 +1,14 @@
+{ "ops": [
+  { "op": "state", "repo": "acme/widgets", "number": 12, "action": "close", "reason": "completed" },
+  { "op": "comment", "repo": "acme/widgets", "number": 20, "body": "Looks good." },
+  { "op": "link", "repo": "acme/widgets", "number": 5, "addSubIssues": [5] },
+  { "op": "link", "repo": "acme/widgets", "number": 3, "addParent": 8 },
+  { "op": "link", "repo": "acme/widgets", "number": 5, "addBlockedBy": [999] },
+  { "op": "edit", "repo": "acme/widgets", "number": 8, "template": "existing", "body": "## Notes\n\nUpdated notes." },
+  { "op": "edit", "repo": "acme/widgets", "number": 8, "template": "existing",
+    "body": "## Notes\n\nUpdated notes.\n\n## Extra\n\nMore." },
+  { "op": "project", "repo": "acme/widgets", "number": 7, "project": { "owner": "acme", "number": 2 },
+    "field": "Status", "value": "Done" },
+  { "op": "project", "repo": "acme/widgets", "number": 5, "project": { "owner": "acme", "number": 2 },
+    "field": "Status", "value": "Done" }
+] }

@@ -125,3 +125,39 @@
         return o.result === null && typeof o.error === 'string' && o.error.startsWith('scaffold failed (exit 2)')
           && o.log.length === 0 && o.workspaceGone === true
           ? true : `FAIL: ${output}`;
+
+# stub_bin / script_env vars (I12): a stub claude in the stub_bin dir records what it sees.
+
+- description: "headless-runner: provider (f) stub_bin first on PATH and script_env reach the child"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario provider-env --variant ok"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.error === null && o.ran === true && o.seen && o.seen.pathHead === o.bin
+          && o.seen.ghStubLog === o.ghLog
+          ? true : `FAIL: ${output}`;
+
+- description: "headless-runner: provider (g) missing stub_bin dir is an error"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario provider-env --variant missing"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.ran === false && o.seen === null && o.error.startsWith('headless-case: stub_bin path not found or not a directory: ')
+          ? true : `FAIL: ${output}`;
+
+- description: "headless-runner: provider (h) bad script_env JSON is an error"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-headless-case-stub.js"
+    script_args: "--scenario provider-env --variant badjson"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.ran === false && o.seen === null && o.error.startsWith('headless-case: invalid script_env')
+          ? true : `FAIL: ${output}`;
