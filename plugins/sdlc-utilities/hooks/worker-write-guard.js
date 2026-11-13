@@ -295,16 +295,61 @@ function ddDenied(cmd, masked) {
   return false;
 }
 
+/** Shell words of cmd[s, e) split on the masked text (same offsets), so a quoted word with spaces stays one word; text has every quote character removed. */
+function argWords(cmd, masked, s, e) {
+  const words = [];
+  const re = /\S+/g;
+  const seg = masked.slice(s, e);
+  let m;
+  while ((m = re.exec(seg)) !== null) {
+    const raw = cmd.slice(s + m.index, s + m.index + m[0].length);
+    // A backslash escape or $'..' / $".." quoting makes the shell word differ from the text: fail closed.
+    words.push({ masked: m[0], text: raw.replace(/\$(?=["'])/g, '').replace(/["']/g, ''), unsafe: /\\|\$['"]/.test(raw) });
+  }
+  return words;
+}
+
+/** The word as the shell reads it for a plain word: quotes, `$` before a quote and backslashes removed. */
+function shellWord(w) {
+  return w.text.replace(/\\/g, '');
+}
+
+const GIT_APPLY_READ_ONLY = ['--check', '--stat', '--numstat', '--summary'];
+const GIT_APPLY_WRITE = ['--apply', '--index', '--cached', '--3way', '-3'];
+// A word that may name the subcommand sits within the first words after `git`.
+const GIT_SUBCOMMAND_WINDOW = 4;
+
+// git global options that take their value as the next word (`--git-dir=x` carries it in the same word).
+const GIT_GLOBAL_WITH_VALUE = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--super-prefix', '--config-env', '--attr-source'];
+
+/** Index of the git subcommand: the first word that is not a global option or the value of one; -1 when there is none. */
+function gitSubcommandIndex(words) {
+  for (let i = 0; i < words.length; i++) {
+    const w = shellWord(words[i]);
+    if (!w.startsWith('-')) return i;
+    if (GIT_GLOBAL_WITH_VALUE.includes(w)) i++;
+  }
+  return -1;
+}
+
 function gitApplyDenied(cmd, masked) {
   for (const { s, e, overflow } of findCommands(masked, 'git')) {
     if (overflow) return true;
-    const maskedWords = masked.slice(s, e).split(/\s+/).filter(Boolean);
-    const at = maskedWords.lastIndexOf('apply');
-    if (at < 0) continue;
-    const args = cmd.slice(s, e).split(/\s+/).filter(Boolean).slice(at + 1);
-    const writes = args.some((a) => ['--apply', '--index', '--cached', '--3way', '-3'].includes(a));
-    const readOnly = args.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a));
-    if (writes || !readOnly) return true;
+    const words = argWords(cmd, masked, s, e);
+    const sub = gitSubcommandIndex(words);
+    const at = sub >= 0 && shellWord(words[sub]) === 'apply' ? sub : -1;
+    if (at < 0) {
+      // No `apply` word: deny only an unquoted escape or $'..' quote near the subcommand slot, where it can hide `apply`.
+      if (words.slice(0, GIT_SUBCOMMAND_WINDOW).some((w) => /\\|\$['"]/.test(w.masked))) return true;
+      continue;
+    }
+    if (words.slice(at + 1).some((w) => w.unsafe)) return true;
+    const args = words.slice(at + 1).map((w) => w.text);
+    const writes = args.some((a) => GIT_APPLY_WRITE.includes(a));
+    const readOnly = args.some((a) => GIT_APPLY_READ_ONLY.includes(a));
+    // Any other long option is denied: git accepts unambiguous abbreviations (`--ap` is `--apply`).
+    const otherLong = args.some((a) => a.startsWith('--') && a !== '--' && !GIT_APPLY_READ_ONLY.includes(a));
+    if (writes || otherLong || !readOnly) return true;
   }
   return false;
 }
@@ -312,7 +357,9 @@ function gitApplyDenied(cmd, masked) {
 function patchDenied(cmd, masked) {
   for (const { s, e, overflow } of findCommands(masked, 'patch')) {
     if (overflow) return true;
-    const args = cmd.slice(s, e).split(/\s+/).filter(Boolean);
+    const pw = argWords(cmd, masked, s, e);
+    if (pw.some((w) => w.unsafe)) return true;
+    const args = pw.map((w) => w.text);
     if (args.includes('--dry-run')) continue;
     const outputs = [];
     args.forEach((a, i) => {

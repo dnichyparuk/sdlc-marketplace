@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.5] - 2026-11-13
+
+### Fixed
+- worker write guard: `git apply` and `patch` arguments are read as the shell reads them (quotes removed, words with backslashes or `$'..'` / `$"..."` quoting denied), the `git apply` subcommand is found after git global options (including value-taking `--attr-source`), and only the read-only options `--check`, `--stat`, `--numstat` and `--summary` are allowed; a write flag is denied even beside a read-only flag (#9381).
+- execute-plan-sdlc, review-sdlc: the wave and review-summary wait tuning values moved from the specs to `docs/cost-tiers.md`, and a ship-prepare case pins the `--rebase` validation error (#9381).
+
 ## [0.54.4] - 2026-11-13
 
 ### Fixed

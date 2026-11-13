@@ -143,9 +143,21 @@ The agent tiers are execute-worker-batch → execute-worker → execute-worker-c
 |---|---|---|
 | `execute.waveInterval` | 60 s (`--wave-interval`, minimum 10) | `plugins/sdlc-utilities/scripts/skill/execute.js` |
 | `WAIT_REPORTING_POLL_SECONDS` | 5 s once any task reports | `plugins/sdlc-utilities/scripts/state/execute.js` |
+| `--interval` default of `wave-progress --wait` | 5 s (when no `--interval` is passed) | `scripts/state/execute.js` (`waitForWaveProgress`) |
+| `--timeout` default of `wave-progress --wait` | 300 s (capped by `WAIT_MAX_TIMEOUT_SECONDS`) | `scripts/state/execute.js` (`waitForWaveProgress`) |
 | `WAIT_MAX_GRACE_SECONDS` | 30 s (cap and default of `--grace`) | `scripts/state/execute.js` |
 | `--grace` passed by the skill | 10 s | `skills/execute-plan-sdlc/SKILL.md`, `wave-runner-template.md` |
 | `WAIT_MAX_TIMEOUT_SECONDS` | 540 s | `scripts/state/execute.js` |
+
+### review-sdlc summary wait tuning
+
+| Knob | Default | Defined in |
+|---|---|---|
+| `--interval` default of `--wait-summary` | 5 s (minimum 1) | `plugins/sdlc-utilities/scripts/skill/review.js` (`runWaitSummary`) |
+| `--grace` default of `--wait-summary` | 15 s | `scripts/skill/review.js` (`runWaitSummary`) |
+| `WAIT_MAX_GRACE_SECONDS` | 30 s (cap of `--grace`) | `scripts/skill/review.js` |
+| `--timeout` default of `--wait-summary` | 300 s (minimum 1) | `scripts/skill/review.js` (`runWaitSummary`) |
+| `WAIT_MAX_TIMEOUT_SECONDS` | 540 s (cap of `--timeout`) | `scripts/skill/review.js` |
 
 ## 6. Why tuning changes do not require spec updates
 
