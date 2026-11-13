@@ -983,6 +983,18 @@
         const r = JSON.parse(output);
         return !r.issues.some(i => i.lane === 'copy-check') && r.copyCheck !== null && r.copyCheck.rules === 1 && r.copyCheck.missing.length === 0
 
+- description: "plan-copy: (f) a run from a subdirectory still reports each missing copy"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-copy-subdir.js"
+    script_args: "--project-root {{project_root}}"
+    project_root: "file://fixtures-fs/plan-copy-rules"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const cc = r.issues.filter(i => i.lane === 'copy-check' && i.blocking === true);
+        return cc.length === 3 && r.copyCheck.missing.length === 3
+
 - description: "plan-sdlc/lens-sentinels: R71 runtime-semantics and user-facing-files sentinels present in the risk lens, the reviewer and SKILL.md"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-plan-lens-sentinels.js"

@@ -86,6 +86,49 @@ function teeDenied(cmd, masked) {
   return false;
 }
 
+/** Argument words of a command-position match, sliced from the original (unmasked) command. */
+function matchArgs(cmd, m, groupIndex) {
+  const argsEnd = m.index + m[0].length;
+  return cmd.slice(argsEnd - m[groupIndex].length, argsEnd).split(/\s+/).filter(Boolean);
+}
+
+function ddDenied(cmd, masked) {
+  const re = /(^|[|;&(\n])[ \t]*dd\b([^|;&\n]*)/g;
+  let m;
+  while ((m = re.exec(masked)) !== null) {
+    const outs = matchArgs(cmd, m, 2).filter((a) => a.startsWith('of='));
+    if (outs.some((a) => !isAllowedTarget(a.slice(3)))) return true;
+  }
+  return false;
+}
+
+function gitApplyDenied(cmd, masked) {
+  const re = /(^|[|;&(\n])[ \t]*git\b[^|;&\n]*\sapply\b([^|;&\n]*)/g;
+  let m;
+  while ((m = re.exec(masked)) !== null) {
+    const args = matchArgs(cmd, m, 2);
+    if (!args.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a))) return true;
+  }
+  return false;
+}
+
+function patchDenied(cmd, masked) {
+  const re = /(^|[|;&(\n])[ \t]*patch\b([^|;&\n]*)/g;
+  let m;
+  while ((m = re.exec(masked)) !== null) {
+    const args = matchArgs(cmd, m, 2);
+    if (args.includes('--dry-run')) continue;
+    const outputs = [];
+    args.forEach((a, i) => {
+      if (a === '-o') outputs.push(args[i + 1] || '');
+      else if (a.startsWith('--output=')) outputs.push(a.slice(9));
+      else if (a.startsWith('-o') && !a.startsWith('--')) outputs.push(a.slice(2));
+    });
+    if (!outputs.some((t) => t && isAllowedTarget(t))) return true;
+  }
+  return false;
+}
+
 /** @returns {{ deny: boolean, rule: string|null }} first matching rule, else not denied. */
 function classifyCommand(cmd) {
   const command = typeof cmd === 'string' ? cmd : '';
@@ -97,8 +140,11 @@ function classifyCommand(cmd) {
     ['awk-in-place', () => /(^|[\s|;&(])g?awk\b[^|;&\n]*\s-i\s*inplace/.test(masked)],
     ['tee', () => teeDenied(command, masked)],
     ['redirect', () => redirectDenied(command, masked)],
-    ['python-write', () => /\bpython[0-9.]*\b[^|;&\n]*\s-c\b/.test(masked) && /open\(|write_text/.test(command)],
+    ['python-write', () => /\bpython[0-9.]*\b[^|;&\n]*(\s-c\b|\s-(?=\s|$)|<<)/.test(masked) && /open\(|write_text/.test(command)],
     ['node-write', () => /\bnode\b[^|;&\n]*\s(-e|--eval)\b/.test(masked) && /writeFileSync|appendFileSync/.test(command)],
+    ['dd-write', () => ddDenied(command, masked)],
+    ['git-apply', () => gitApplyDenied(command, masked)],
+    ['patch', () => patchDenied(command, masked)],
   ];
   for (const [name, test] of rules) {
     if (test()) return { deny: true, rule: name };

@@ -345,3 +345,26 @@
       value: '"url":"http://10.0.0.7/m","line":3'
     - type: contains
       value: 'url-blocked-host'
+
+- description: "links: reserved, benchmarking, multicast and broadcast URLs are reported as url-blocked-host"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/blocked-hosts-reserved.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"offline":true}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const urls = ['http://198.18.0.1/','http://224.0.0.1/','http://240.0.0.1/','http://255.255.255.255/','http://192.0.0.8/'];
+        return r.ok === false && urls.every(u => r.violations.some(v => v.url === u && v.reason === 'url-blocked-host'))
+
+- description: "links: blockedHostReason blocks site-local IPv6 and mapped reserved addresses"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-links-blocked-host.js"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return ['[fec0::1]','feff::1','::ffff:198.18.0.1','::ffff:c000:0008'].every(h => typeof r[h] === 'string')
+          && ['93.184.216.34','192.0.2.1','198.20.0.1'].every(h => r[h] === null)

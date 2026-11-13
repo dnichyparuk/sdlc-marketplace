@@ -392,12 +392,13 @@ function runG17Prepare(flags) {
 function buildCopyCheck(planPath) {
   if (planPath === undefined) return null;
   const text = readPlanFile(planPath);
-  const rules = (readSection(resolveSdlcRoot(), 'plan') || {}).copyRules;
+  const rules = (readSection(resolveSdlcRoot(), 'plan') || {}).copyRules; // config: main worktree (R67)
   if (rules === undefined || rules === null) return null;
   const valid = Array.isArray(rules) ? rules.filter(r => validateCopyRules([r]).errors.length === 0).length : 0;
+  const contentRoot = resolveActiveWorktreeSafe(); // globs: active checkout top, not cwd (R67, #9375)
   return {
     rules: valid,
-    missing: requiredCopies(text, rules, process.cwd()).filter(c => !c.covered).map(({ path: p, rule, trigger }) => ({ path: p, rule, trigger })),
+    missing: requiredCopies(text, rules, contentRoot).filter(c => !c.covered).map(({ path: p, rule, trigger }) => ({ path: p, rule, trigger })),
     errors: validateCopyRules(rules).errors,
   };
 }

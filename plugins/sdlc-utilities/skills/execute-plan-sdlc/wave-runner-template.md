@@ -91,7 +91,7 @@ per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).
 1. Record the dispatch time. All per-task dispatches from §2 run in the background, so
    each returns a task ID immediately rather than blocking.
 2. Wait with one foreground Bash call (Bash `timeout` parameter 600000):
-   `node {STATE_SCRIPT} wave-progress --wave {WAVE} --run-id {RUN_ID} --wait --tasks <plan task ids of the wave, comma-separated> --interval <waveInterval> --timeout <min(540, remaining budget in seconds)>`.
+   `node {STATE_SCRIPT} wave-progress --wave {WAVE} --run-id {RUN_ID} --wait --tasks <plan task ids of the wave, comma-separated> --interval <waveInterval> --grace 10 --timeout <min(540, remaining budget in seconds)>`.
    Repeat the call while fewer than N returns have arrived and the deadline has not passed.
    Compute the remaining budget in whole seconds; when it is below 1, skip the call and go to
    step 4 with the last `inFlight` list (the full task list when there is none). When the call

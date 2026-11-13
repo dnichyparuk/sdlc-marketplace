@@ -235,3 +235,139 @@
   assert:
     - type: javascript
       value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l1) cp into repo allowed (cp not checked)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"cp docs/x site/x"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l2) mv allowed (mv not checked)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"mv a b"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l3) install allowed (install not checked)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"install -m 644 /tmp/x src/a"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l4) cp -t allowed (cp not checked)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"cp -t site docs/x"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l5) dd of= into repo denied by dd-write"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"dd if=/tmp/x of=src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: dd-write\./.test(o.permissionDecisionReason) || 'FAIL: not denied by dd-write';
+
+- description: "worker-write-guard: (l6) git apply denied by git-apply"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"git apply /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l7) patch denied by patch"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"patch -p1 < /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: patch\./.test(o.permissionDecisionReason) || 'FAIL: not denied by patch';
+
+- description: "worker-write-guard: (l8) python3 - stdin script denied by python-write"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"python3 - <<EOF\nopen(''a'',''w'').write(''x'')\nEOF"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: python-write\./.test(o.permissionDecisionReason) || 'FAIL: not denied by python-write';
+
+- description: "worker-write-guard: (l9) cp from repo to scratch allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"cp src/a /tmp/x"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l10) mv scratch to TMPDIR allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"mv /tmp/a \"$TMPDIR/b\""}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l11) dd of=/dev/null allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"dd if=src/a of=/dev/null"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l12) git apply --check allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"git apply --check /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l13) patch --dry-run allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"patch --dry-run -p1 < /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l14) npm install and git log --stat allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"npm install && git log --stat"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l15) quoted apply in git commit allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"git commit -m \"apply fix\""}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
