@@ -62,7 +62,12 @@ function maskQuotes(cmd) {
       }
       if (ch === '\\' && i + 1 < cmd.length) {
         // An escaped char outside quotes is literal: `\'` or `\"` opens no quote context.
-        out += '__';
+        // An escaped letter or digit is the plain char to the shell (`\tee` is `tee`): keep it.
+        if (/[A-Za-z0-9]/.test(cmd[i + 1])) {
+          out += ch + cmd[i + 1];
+        } else {
+          out += '__';
+        }
         i++;
         continue;
       }
@@ -95,22 +100,25 @@ function maskQuotes(cmd) {
   return out;
 }
 
+const WRAPPER_WORDS = ['env', 'sudo', 'exec', 'command', 'nohup', 'time', 'xargs', 'timeout', 'nice', 'stdbuf', 'setsid', 'ionice'];
+const MAX_PREFIX_TOKENS = 256;
+const KEYWORDS = ['then', 'do', 'else', 'if', 'elif', 'while', 'until', '!'];
+
 /**
  * One command-position scanner shared by the tee, dd, git-apply and patch rules, so they
  * cannot drift (R90). It is code, not one backtracking regex, and it works on offsets
  * without slicing words, so its cost is linear in the command length: the work per start
  * position is bounded by MAX_PREFIX_TOKENS. A command starts at the line start, after
- * `| ; &`, `(`, `{`, a backtick or a newline, after `then`/`do`/`else`, after leading
- * `VAR=val` words, and after wrapper words (`env`, `sudo`, `exec`, `command`, `nohup`,
- * `time`, `xargs`, `timeout`, `nice`, `stdbuf`, `setsid`, `ionice`) with their own options,
- * option arguments, `VAR=val` words and numbers. The command name may carry a path
- * (`/usr/bin/tee`). A prefix of MAX_PREFIX_TOKENS or more words before the command is
- * denied (fail closed). Known gaps (best-effort guard): a quoted command name (`"tee" f`),
- * `bash -c "..."` and other interpreters.
+ * `| ; &`, `(`, `)` (a case label), `{`, a backtick or a newline, after the keywords
+ * `then`, `do`, `else`, `if`, `elif`, `while`, `until` and `!`, after leading `VAR=val` words
+ * (also with a spaced `$(...)` value), and after wrapper words (`env`, `sudo`, `exec`,
+ * `command`, `nohup`, `time`, `xargs`, `timeout`, `nice`, `stdbuf`, `setsid`, `ionice`) with
+ * their own options, option arguments, `VAR=val` words and numbers. The command name may
+ * carry a path (`/usr/bin/tee`) or a backslash before a letter (`\\tee`). A prefix of
+ * MAX_PREFIX_TOKENS or more words before the command is denied (fail closed). Known gaps
+ * (best-effort guard): a quoted command name (`"tee" f`), `bash -c "..."`, `find -exec`,
+ * `busybox` and other interpreters.
  */
-const WRAPPER_WORDS = ['env', 'sudo', 'exec', 'command', 'nohup', 'time', 'xargs', 'timeout', 'nice', 'stdbuf', 'setsid', 'ionice'];
-const MAX_PREFIX_TOKENS = 256;
-
 /** Words of the command, as [start, end, segment] offsets; a word never crosses `|`, `;`, `&` or whitespace. */
 function tokenize(masked) {
   const toks = [];
@@ -162,16 +170,26 @@ function scanPrefix(masked, toks, j, first, name) {
   const seg = toks[j].seg;
   let inWrapper = false;
   let afterOption = false;
+  let keywords = true; // leading shell keywords (`if`, `!`, `then` ...) come before the command
+  let open = 0; // unclosed `$(` or backtick text of an assignment value
   for (let n = 0; ; n++) {
     const k = j + n;
     if (k >= toks.length || toks[k].seg !== seg) return -1;
     if (n >= MAX_PREFIX_TOKENS) return -2; // only prefix words so far: fail closed
-    const ws = n === 0 ? first : toks[k].s;
+    let ws = n === 0 ? first : toks[k].s;
     const we = toks[k].e;
-    if (n === 0 && (isWordEqual(masked, ws, we, 'then') || isWordEqual(masked, ws, we, 'do') || isWordEqual(masked, ws, we, 'else'))) continue;
-    if (isCommandWord(masked, ws, we, name)) return we;
+    if (open !== 0) {
+      open = openDepth(masked, ws, we, open); // a spaced command substitution inside an assignment value
+      continue;
+    }
+    while (ws < we - 1 && masked[ws] === '\\') ws++; // `\tee` is `tee`
+    if (keywords && KEYWORDS.some((w) => isWordEqual(masked, ws, we, w))) continue;
+    keywords = false;
     if (isAssignment(masked, ws, we)) {
       afterOption = false;
+      open = openDepth(masked, ws, we, 0);
+    } else if (isCommandWord(masked, ws, we, name)) {
+      return we;
     } else if (WRAPPER_WORDS.some((w) => isCommandWord(masked, ws, we, w))) {
       inWrapper = true;
       afterOption = false;
@@ -185,6 +203,18 @@ function scanPrefix(masked, toks, j, first, name) {
       return -1;
     }
   }
+}
+
+/** Open `(` (after `$`) and backtick count after the word [ws, we), starting from `open`; never below 0. */
+function openDepth(masked, ws, we, open) {
+  let depth = open;
+  for (let i = ws; i < we; i++) {
+    const ch = masked[i];
+    if (ch === '(' && i > ws && masked[i - 1] === '$') depth++;
+    else if (ch === ')' && depth > 0) depth--;
+    else if (ch === '`') depth = depth > 0 ? depth - 1 : depth + 1;
+  }
+  return depth;
 }
 
 /** Every command-position use of `name` in the masked command: [{ s, e }] = the argument text range; { overflow } for a prefix too long to scan. */
@@ -204,7 +234,7 @@ function findCommands(masked, name) {
     if (j === 0 || toks[j].seg !== toks[j - 1].seg) add(j, toks[j].s);
     for (let i = toks[j].s; i < toks[j].e; i++) {
       const ch = masked[i];
-      if (ch !== '(' && ch !== '`' && ch !== '{') continue;
+      if (ch !== '(' && ch !== ')' && ch !== '`' && ch !== '{') continue;
       if (i + 1 < toks[j].e) add(j, i + 1);
       else if (j + 1 < toks.length && toks[j + 1].seg === toks[j].seg) add(j + 1, toks[j + 1].s);
     }

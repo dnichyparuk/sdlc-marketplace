@@ -712,10 +712,10 @@
         const o = JSON.parse(r.stdout).hookSpecificOutput;
         return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
 
-- description: "worker-write-guard: (l50) 256 leading assignments before tee denied"
+- description: "worker-write-guard: (l50) 256 leading assignments before tee fails closed (scratch target, so only the prefix limit denies)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
-    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 tee src/a"}}'
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 tee /tmp/a"}}'
   assert:
     - type: latency
       threshold: 2000
@@ -753,3 +753,103 @@
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
         const o = JSON.parse(r.stdout).hookSpecificOutput;
         return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l53) backslash-escaped command name denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"\\tee src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l54) if keyword before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"if tee src/a </dev/null; then :; fi"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l55) while keyword before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"while tee src/a; do :; done"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l56) negation before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"! tee src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l57) case arm before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"case a in a) tee src/a;; esac"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l58) assignment with spaced command substitution before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"X=$(echo a) tee src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l59) assignment with quoted spaced substitution before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"X=\"$(echo a)\" tee src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l60) 255 leading assignments before tee to scratch allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 tee /tmp/a"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l61) assignment whose value ends in /tee is not a command allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"X=/a/tee f"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
