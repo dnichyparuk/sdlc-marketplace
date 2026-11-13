@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.7] - 2026-11-13
+
+### Fixed
+- plan-sdlc: spec R72 names the brief check's JSON fields and the real exec case prefix, the gate is labelled by the brief check, and the user doc's complexity routing table matches SKILL.md (#9384).
+- ship-sdlc: the user doc gives the full condition under which review counts are null (missing, stale or malformed) (#9384).
+- worker write guard: regex literals are named constants; verdicts are unchanged (#9384).
+- fixture guard: `check-fixture-guard` ignores shell comments when it scopes and orders files, ignores a quoted `#`, and gains `--dir` for an isolated scan (#9383, #9384).
+
 ## [0.54.6] - 2026-11-13
 
 ### Fixed
