@@ -901,3 +901,43 @@
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
         const o = JSON.parse(r.stdout).hookSpecificOutput;
         return o.permissionDecision === 'deny' || 'FAIL: not denied';
+
+- description: "worker-write-guard: (l66) git apply quoted -c value with a fake flag denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"git -c \"user.name=a b --check c\" apply y.patch"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l67) patch quoted -o beside a scratch output denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"patch -o /tmp/x \"-o\" src/a.js < /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: patch\./.test(o.permissionDecisionReason) || 'FAIL: not denied by patch';
+
+- description: "worker-write-guard: (l68) git apply --check after a quoted -c value allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"git -c \"user.name=a b\" apply --check y.patch"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l69) git apply quoted --check allowed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"git apply \"--check\" /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"

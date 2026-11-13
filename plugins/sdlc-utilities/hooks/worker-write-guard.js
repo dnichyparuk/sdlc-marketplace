@@ -295,13 +295,25 @@ function ddDenied(cmd, masked) {
   return false;
 }
 
+/** Shell words of cmd[s, e) split on the masked text (same offsets), so a quoted word with spaces stays one word; text has every quote character removed. */
+function argWords(cmd, masked, s, e) {
+  const words = [];
+  const re = /\S+/g;
+  const seg = masked.slice(s, e);
+  let m;
+  while ((m = re.exec(seg)) !== null) {
+    words.push({ masked: m[0], text: cmd.slice(s + m.index, s + m.index + m[0].length).replace(/["']/g, '') });
+  }
+  return words;
+}
+
 function gitApplyDenied(cmd, masked) {
   for (const { s, e, overflow } of findCommands(masked, 'git')) {
     if (overflow) return true;
-    const maskedWords = masked.slice(s, e).split(/\s+/).filter(Boolean);
-    const at = maskedWords.lastIndexOf('apply');
+    const words = argWords(cmd, masked, s, e);
+    const at = words.map((w) => w.masked).lastIndexOf('apply');
     if (at < 0) continue;
-    const args = cmd.slice(s, e).split(/\s+/).filter(Boolean).slice(at + 1);
+    const args = words.slice(at + 1).map((w) => w.text);
     const writes = args.some((a) => ['--apply', '--index', '--cached', '--3way', '-3'].includes(a));
     const readOnly = args.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a));
     if (writes || !readOnly) return true;
@@ -312,7 +324,7 @@ function gitApplyDenied(cmd, masked) {
 function patchDenied(cmd, masked) {
   for (const { s, e, overflow } of findCommands(masked, 'patch')) {
     if (overflow) return true;
-    const args = cmd.slice(s, e).split(/\s+/).filter(Boolean);
+    const args = argWords(cmd, masked, s, e).map((w) => w.text);
     if (args.includes('--dry-run')) continue;
     const outputs = [];
     args.forEach((a, i) => {
