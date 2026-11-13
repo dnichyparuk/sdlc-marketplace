@@ -71,6 +71,8 @@
  *                        a snapshot follows its --after call and headAfter is the fixture HEAD after that commit
  *   --self-commit-outside <p>  (rounds-self-commit) the received-review commit also adds <p>, outside the plan Files (R103)
  *   --fix-subject        (rounds-self-commit) the plan header carries **Fix commit:** `fix(#1): widget - review fixes` (R103)
+
+ *   --cli-flags <k=v,...>  (R105) seeds CLI-sourced flags into the ledger: value and sources entry (bump=minor,draft=true,rebase=auto)
  *   --resume-after-outside  (rounds-self-commit, with --self-commit-outside) seeds execute and commit completed; after the
  *                        stop: --after confirm_pipeline (yes), then a commit that deletes <p>, then --after confirm_pipeline
  *                        (yes) again (a snapshot follows each)
@@ -360,6 +362,16 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     if (scenario.startsWith('rounds-')) data.flags.auto = true;
     if (reviewThreshold) data.flags.reviewThreshold = reviewThreshold;
     if (process.argv.includes('--no-push')) data.flags.noPush = true; // A16 (learnings c)
+    // R105: --cli-flags bump=minor,draft=true,rebase=auto seeds CLI-sourced flags (value and sources entry).
+    const cliFlagsIdx = process.argv.indexOf('--cli-flags');
+    if (cliFlagsIdx >= 0) {
+      data.flags.sources = data.flags.sources || {};
+      for (const pair of process.argv[cliFlagsIdx + 1].split(',')) {
+        const [k, v] = pair.split('=');
+        data.flags[k] = v === 'true' ? true : v;
+        data.flags.sources[k] = 'cli';
+      }
+    }
     if (process.argv.includes('--no-tag')) {
       data.flags.noTag = true; // A15: the ledger records an untagged release
       // verify_version_tag emits its command only after branch_prepare succeeded; seed that so an empty list is the noTag rule's doing.

@@ -5882,6 +5882,24 @@
         if (JSON.stringify(e.ext.commands) !== JSON.stringify(['/sdlc:ship-sdlc --resume --auto'])) return `FAIL: commands ${JSON.stringify(e.ext.commands)}`;
         return o.ledgerExists === true ? true : `FAIL: ledgerExists ${o.ledgerExists}`;
 
+# R105: the printed resume line repeats the CLI-given flags that R11 takes only from the resuming CLI.
+- description: "ship-final-check: (r105) the final-check-open resume line repeats --bump, --draft, --rebase and --quality given on the CLI"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --final-summary medium-1.json --review-threshold medium --cli-flags bump=minor,draft=true,rebase=auto,quality=full"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const reviews = o.calls.filter(c => c.args[1] === 'dispatch_review');
+        const e = reviews.length ? reviews[reviews.length - 1].envelope : null;
+        if (!e || !e.ext || e.ext.reason !== 'final-check-open') return `FAIL: ${e && e.status} ${e && e.ext && e.ext.reason}`;
+        const want = '/sdlc:ship-sdlc --resume --auto --bump minor --draft --rebase auto --quality full';
+        return JSON.stringify(e.ext.commands) === JSON.stringify([want]) ? true : `FAIL: commands ${JSON.stringify(e.ext.commands)}`;
+
 # R104: a resume after final-check-open reviews a new fix commit once.
 - description: "ship-final-check: (g) a resume after a fix commit re-arms the final check once"
   vars:

@@ -1636,8 +1636,22 @@ function ensureLedger({ flags, flagSources, openspecContext, planFile, gitState,
 }
 
 /**
+ * R105: flags a resuming run takes from its own CLI only (R11 never reads them from the ledger),
+ * keyed by the name in `flags.sources`; each renders its CLI form from the merged value.
+ * `auto`, `steps` (restored from the ledger), `tasks` and `fromWave` (R76) are left out on purpose.
+ */
+const RESUME_CLI_RENDER = {
+  bump: v => `--bump ${v}`,
+  draft: v => (v === true ? '--draft' : null),
+  rebase: v => `--rebase ${v}`,
+  quality: v => `--quality ${v}`,
+  reviewRounds: v => `--review-rounds ${v}`,
+  reviewThreshold: v => `--review-threshold ${v}`,
+};
+
+/**
  * Printed resume line. R11 rewrites every non-frozen flag from the resuming run's own CLI, so the
- * line repeats the CLI-only release flags and any CLI-given review flag of this run.
+ * line repeats the CLI-only release flags and every flag this run took from its CLI (R105).
  */
 function resumeCommand(flags, auto) {
   const src = flags.sources || {};
@@ -1646,8 +1660,11 @@ function resumeCommand(flags, auto) {
   if (flags.noTag) parts.push('--no-tag');
   if (flags.noPush) parts.push('--no-push');
   if (flags.releaseSubject) parts.push(`--release-subject ${JSON.stringify(String(flags.releaseSubject))}`);
-  if (src.reviewRounds === 'cli' && flags.reviewRounds) parts.push(`--review-rounds ${flags.reviewRounds}`);
-  if (src.reviewThreshold === 'cli' && flags.reviewThreshold) parts.push(`--review-threshold ${flags.reviewThreshold}`);
+  for (const [key, render] of Object.entries(RESUME_CLI_RENDER)) {
+    if (src[key] !== 'cli' || flags[key] == null) continue;
+    const part = render(flags[key]);
+    if (part) parts.push(part);
+  }
   return parts.join(' ');
 }
 
