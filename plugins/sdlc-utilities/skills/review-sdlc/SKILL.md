@@ -93,7 +93,7 @@ orchestrator has finished, wait only with this call, run as one plain Bash call 
 node "<PLUGIN_ROOT>/scripts/skill/review.js" --wait-summary --manifest "<MANIFEST_FILE>"
 ```
 
-It prints one JSON line. Exit 0: read the line (`ready` or `timedOut`) and repeat the call until the orchestrator's return has arrived. Any other exit (exit 2 prints no JSON): show the stderr `Error:` line and do not repeat the call; wait for the orchestrator's return without it, or stop with a failure. Never start
+It prints one JSON line. Exit 0: read the line (`ready` or `timedOut`) and repeat the call until the orchestrator's return has arrived. Any other exit (exit 2 prints no JSON): show the stderr `Error:` line and do not repeat the call; stop with a failure (the orchestrator's summary cannot be located). Never start
 `Monitor`, a background Bash command, `sleep` or any other timer to wait. Before you return, stop
 with `TaskStop` every background task you started that is still running.
 
