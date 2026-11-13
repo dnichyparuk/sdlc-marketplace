@@ -78,7 +78,8 @@
  *   --no-tag             Patch data.flags.noTag = true into the seed (any scenario)
  *   --version-head       A successful dispatch_version result without artifacts.commit gets the fixture repo's HEAD sha
  *   --other-exec         Also copy seed/execute-complete.json to a second branch's execute state file (es2)
- *   --walk               (handoff) walk the remaining steps to cleanup
+ *   --walk               (handoff, rounds-*) walk the remaining steps to cleanup (rounds-*: after the round loop)
+ *   --received-result <rel>  (rounds-*) the dispatch_received_review result of each round (default results/generic-ok.json)
  *   --summary <name>     review-gate: copy fixtures-fs/review-summaries/<name> to the main
  *                        worktree's .sdlc/execution/review-summary-feat-ship.json before the scenario runs
  *   --final-summary <n>  (rounds-*, walk) when the emitted dispatch_review has --committed --base, write review-summaries/<n>
@@ -142,6 +143,7 @@ let osAnswer = null;
 let answerText = null;
 let selfCommitOutside = null;
 let fcResume = null;
+let receivedResultRel = 'results/generic-ok.json';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
@@ -163,6 +165,7 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--answer-text' && args[i + 1]) answerText = args[++i];
   else if (args[i] === '--self-commit-outside' && args[i + 1]) selfCommitOutside = args[++i];
   else if (args[i] === '--fc-resume' && args[i + 1]) fcResume = args[++i];
+  else if (args[i] === '--received-result' && args[i + 1]) receivedResultRel = args[++i];
   else if (args[i] === '--no-plan') noPlan = true;
 }
 if (answerText !== null) {
@@ -335,7 +338,7 @@ function reviewRound(fixLine, { reviewResult = 'results/generic-ok.json', selfCo
     headAfter = sh('git rev-parse HEAD').stdout.trim();
   }
   if (gitStatusFail) fs.writeFileSync(statusFailFlag, '');
-  c = after('dispatch_received_review', 'results/generic-ok.json');
+  c = after('dispatch_received_review', receivedResultRel);
   fs.rmSync(statusFailFlag, { force: true });
   if (selfCommit) snapshots.push(snap());
   if (is(c, 'stage_fixes')) {
@@ -379,6 +382,8 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
       // verify_version_tag emits its command only after branch_prepare succeeded; seed that so an empty list is the noTag rule's doing.
       data.history = [...(data.history || []), { step: 'branch_prepare', result: 'success' }];
     }
+    // R106: rounds-* --walk walks on to cleanup; skip version and pr, whose tag and gh checks the walk's generic result cannot pass.
+    if (scenario.startsWith('rounds-') && process.argv.includes('--walk')) { for (const s of data.steps) if (s.name === 'version' || s.name === 'pr') s.status = 'skipped'; }
     if (scenario === 'handoff' && process.argv.includes('--walk')) { data.flags.steps = ['execute']; for (const s of data.steps) if (s.name !== 'execute' && s.status === 'pending') s.status = 'skipped'; }
     if (scenario === 'emit-in-progress') data.flags.auto = true;
     if (scenario === 'confirm-pr') {
@@ -781,6 +786,7 @@ switch (scenario) {
       }
       if (fcResume === 'twice') { after('confirm_pipeline', 'results/yes.json'); snapshots.push(snap()); }
     }
+    if (process.argv.includes('--walk')) walk(calls[calls.length - 1].envelope); // R106: on to cleanup
     break;
   }
   case 'tier': {

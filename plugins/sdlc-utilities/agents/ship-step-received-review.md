@@ -18,4 +18,4 @@ Under `--auto` with `--min-severity`, an item at or above that severity with the
 
 Do not run `git commit`, `git commit --amend` or `git stash`. Leave your fixes in the working tree; the pipeline's commit-fixes step commits them (ship-sdlc R97).
 
-(1) status — success or failure (2) result summary — 2-3 lines (3) artifacts — commit hash, tag, PR URL, verdict (4) warnings — when you stopped at a question you could not ask, the question and its answer options, one short keyword each (5) usage — input/output/cache-read tokens if the harness reports them, else `n/a`.
+(1) status — success or failure (2) result summary — 2-3 lines (3) artifacts — commit hash, tag, PR URL, verdict, and the counts of fixed, declined (pushback or won't fix) and deferred items from the skill's report, when it gives them (deferred = items with the verdict "needs discussion" or "below threshold"; omit a count the report does not support) (4) warnings — when you stopped at a question you could not ask, the question and its answer options, one short keyword each (5) usage — input/output/cache-read tokens if the harness reports them, else `n/a`.

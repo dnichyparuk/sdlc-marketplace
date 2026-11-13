@@ -135,9 +135,9 @@ After applying the Step 1 OpenSpec enrichment rules from `./openspec-flow.md` (w
 
 The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()`) is swept by `ship.js --gc` and by the session-start hook (`gcTempdirs`, prefix `sdlc-explore-`).
 
-- **Full pipeline** (`explorePack.manifestPath` is non-null AND scope is 4+ files / unclear scope):
+- **Full pipeline** (complexity routing (Step 0) chose the full pipeline AND `explorePack.manifestPath` is non-null):
 
-  1. Spawn `sdlc:plan-explore-orchestrator` Agent exactly once with inputs:
+  1. Spawn the Agent exactly once with `subagent_type: sdlc:plan-explore-orchestrator`. Do not pass `model`, `effort`, isolation or background; the agent file sets them. Inputs:
      ```
      MANIFEST_FILE: <explorePack.manifestPath>
      PROJECT_ROOT: <cwd>
@@ -147,19 +147,23 @@ The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()
      `USER_PROMPT` is authoritative — the orchestrator re-derives web-research dimensions
      independently from the manifest's `webResearchSignal` (which is a best-effort hint;
      plan.js may not have stdin when invoked from a TTY).
-  2. Read the orchestrator's returned `Brief file:` absolute path. Use `Read` to load the brief into context. The brief is the source of truth for Step 2 task provenance.
-  3. **Brief validation:** After loading the brief, grep its content for the pattern `F-[A-Za-z0-9_.-]+-[0-9]+` (the `F-<DIM>-<n>` finding ID format; ids match in either case, and the orchestrator writes them in lowercase, R26). If zero matches are found, treat the orchestrator as if it had failed: append one line to `.sdlc/learnings/log.md`: `## <YYYY-MM-DD> — plan-sdlc orchestrator returned brief without F-DIM-N findings; using fallback inline exploration`, then proceed via the **Error fallback** path below. Rationale: a brief with no findings cannot satisfy G15 (Brief citation coverage) and would force every task into "out-of-scope addition" — better to fall back cleanly.
+  2. Read the orchestrator's returned `Brief file:` line. If it has no such line or says `Brief file: none`, use the **Error fallback** below.
+  3. **Brief check (R72):** run
+     ```bash
+     node "<PLUGIN_ROOT>/scripts/skill/plan-explore.js" --check-brief "<explorePack.outDir>"
+     ```
+     as one plain Bash call. Exit 0: Read the brief at `<explorePack.outDir>/discovery-brief.md`; it is the source of truth for Step 2 task provenance. Exit 1 (the script prints its JSON with a `reason` code): take `reason` from the JSON and use the **Error fallback** below. Exit 1 without parseable JSON (for example a node crash), or any other non-zero exit (2 is an input error and prints no JSON): use the **Error fallback** with reason `check-brief failed (exit <n>): <first stderr line>`. A brief with no findings cannot satisfy G15 (Brief citation coverage), so the fallback is cleaner.
 
   **Brief consumption (when brief is present AND validation passed):**
   - Step 2 tasks MUST cite at least one `F-<DIM>-<n>` finding ID from the brief OR be explicitly marked "out-of-scope addition" with rationale <!-- implements R27 -->
   - When the brief contains a `## Best-Practice Synthesis` section: Key Decisions MUST explicitly ADOPT / REJECT-with-rationale / mark NOT-APPLICABLE each web finding by its `F-<DIM>-<n>` ID <!-- implements R27 -->
 
-- **Lightweight scope** (`explorePack.scopeHintCount` ≤ 3 OR `explorePack.manifestPath` is null due to lightweight scope):
+- **Lightweight scope** (complexity routing (Step 0) chose the lightweight branch). A null `explorePack.manifestPath` on a full-pipeline run is an explore failure: use the **Error fallback**, which takes precedence.
   - Skip orchestrator. Use inline exploration below. No brief.
 
-- **Error fallback** (`explorePack.error` is non-null, the orchestrator returned non-zero, or brief validation found zero `F-<DIM>-<n>` IDs):
-  - Append one line to `.sdlc/learnings/log.md`: `## <YYYY-MM-DD> — plan-sdlc orchestrator skipped: <explorePack.error or "brief without F-DIM-N findings">`
-  - Use inline exploration below. Plan still produced. <!-- implements R28 -->
+- **Error fallback** — any of: `explorePack.error` is non-null; the orchestrator returned an error; its return has no `Brief file:` line or says `Brief file: none`; the brief check exited non-zero; or `explorePack.manifestPath` is null on a full-pipeline run.
+  - Append `## <YYYY-MM-DD> — plan-sdlc orchestrator skipped: <reason>` to `.sdlc/learnings/log.md` (reason: the error text, `no brief file`, `no manifest`, the check's `reason`, or the `check-brief failed` text).
+  - Use inline exploration below. Plan still produced. <!-- implements R28, R72 -->
 
 **Structured discovery:** When requirements are vague (a single sentence or ambiguous goal), OR when multiple materially different approaches exist for a non-trivial aspect, use AskUserQuestion with targeted questions. Concrete triggers for the latter: (a) exploration surfaces two or more viable architecture patterns for the same aspect; (b) an ambiguous scope boundary exists where including vs. excluding a component would materially change the plan; (c) the codebase sends conflicting signals — two existing patterns either of which could reasonably be followed. When the active template provides `## Discovery Questions`, use those questions verbatim. When the template has no `## Discovery Questions` section (project override omitted it), fall back to:
 1. **Scope** — what's in, what's explicitly out?

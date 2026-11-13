@@ -405,7 +405,74 @@ function main() {
   }
 }
 
-if (require.main === module) {
+// ---------------------------------------------------------------------------
+// --check-brief: verify the discovery brief and per-dimension results (R72)
+// ---------------------------------------------------------------------------
+
+function checkBrief(outDir) {
+  const res = { ok: false, reason: null, dimensions: [], missingResults: [], findingIds: 0 };
+  let brief;
+  try {
+    brief = fs.readFileSync(path.join(outDir, 'discovery-brief.md'), 'utf8');
+  } catch (_) {
+    res.reason = 'brief-missing';
+    return res;
+  }
+
+  // Table rows under "## Dimensions": first cell of each row after the separator row.
+  const lines = brief.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^##\s+Dimensions\s*$/.test(l));
+  if (start !== -1) {
+    let afterSeparator = false;
+    for (const line of lines.slice(start + 1)) {
+      if (/^#{1,6}\s/.test(line)) break;
+      if (!line.trim().startsWith('|')) continue;
+      if (/^\s*\|[\s|:-]+\|?\s*$/.test(line)) { afterSeparator = true; continue; }
+      if (!afterSeparator) continue;
+      const name = line.trim().replace(/^\|/, '').split('|')[0].replace(/`/g, '').trim();
+      if (name) res.dimensions.push(name);
+    }
+  }
+  res.findingIds = (brief.match(/\bF-[A-Za-z0-9_.-]+-[0-9]+\b/g) || []).length;
+
+  if (res.dimensions.length === 0) { res.reason = 'no-dimensions'; return res; }
+
+  for (const name of res.dimensions) {
+    let present = false;
+    if (!name.includes('/') && !name.includes('..')) {
+      try { present = fs.readFileSync(path.join(outDir, `dim-${name}.md`), 'utf8').trim() !== ''; } catch (_) { /* missing */ }
+    }
+    if (!present) res.missingResults.push(name);
+  }
+  if (res.missingResults.length > 0) { res.reason = 'missing-dimension-results'; return res; }
+  if (res.findingIds === 0) { res.reason = 'no-finding-ids'; return res; }
+
+  res.ok = true;
+  return res;
+}
+
+function runCheckBrief(argv) {
+  const i = argv.indexOf('--check-brief');
+  const outDir = argv[i + 1];
+  if (!outDir || outDir.startsWith('--')) {
+    process.stderr.write('plan-explore.js: --check-brief requires an <outDir> value\n');
+    process.exit(2);
+  }
+  let res;
+  try {
+    res = checkBrief(outDir);
+  } catch (err) {
+    res = { ok: false, reason: 'check-error', dimensions: [], missingResults: [], findingIds: 0, error: String(err && err.message) };
+  }
+  process.stdout.write(JSON.stringify(res) + '\n');
+  process.exit(res.ok ? 0 : 1);
+}
+
+module.exports.checkBrief = checkBrief;
+
+if (require.main === module && process.argv.includes('--check-brief')) {
+  runCheckBrief(process.argv);
+} else if (require.main === module) {
   try {
     main();
   } catch (err) {

@@ -1916,6 +1916,22 @@ function finalCheckOpen(ledger) {
   return [{ id: null, severity: top || null, path: null }];
 }
 
+/** R106: one review round record; never throws. */
+function reviewRoundRecord(ledger, round, final) {
+  let d;
+  try { d = reviewGateDecision(ledger); } catch { d = { parseable: false, threshold: BUILT_IN_DEFAULTS.reviewThreshold }; }
+  const counts = d.parseable ? Object.fromEntries(SEVERITIES.map(k => [k, d.counts[k]])) : null;
+  const rr = (ledger.steps || []).find(s => s.name === 'received-review');
+  const ran = !final && !!rr && rr.status === 'completed';
+  const h = ran && Array.isArray(ledger.history) ? lastHistory(ledger, 'dispatch_received_review') : null;
+  const a = h && h.data && h.data.artifacts;
+  const int = (k) => (a && Number.isInteger(a[k]) && a[k] >= 0 ? a[k] : null);
+  return {
+    round, final: !!final, counts, threshold: d.threshold, receivedReview: ran,
+    fixed: ran ? int('fixed') : null, declined: ran ? int('declined') : null, deferred: ran ? int('deferred') : null,
+  };
+}
+
 /** R89: `--testing-file "<path>"` with the latest successful execute summary, or null. */
 function prTestingInput(ledger) {
   let row = null;
@@ -1991,6 +2007,12 @@ function buildSummary(ledger) {
   const review = (ledger.steps || []).find(s => s.name === 'review');
   const summaryFileCandidate = reviewSummaryPath(ledger.branch);
   const summaryFile = review && review.status === 'completed' && fs.existsSync(summaryFileCandidate) ? summaryFileCandidate : null;
+  // R106: closed rounds, then the final check, else a live last round that never reached afterFixesCommitted.
+  const reviewRounds = (ledger.rounds || []).map(r => r.record).filter(Boolean);
+  const liveRound = ledger.round || 1;
+  if (ledger.finalCheck) reviewRounds.push(...(ledger.finalCheck.priorRecords || []));
+  if (ledger.finalCheck && ledger.finalCheck.record) reviewRounds.push(ledger.finalCheck.record);
+  else if (!ledger.finalCheck && review && review.status === 'completed' && !reviewRounds.some(x => x.round === liveRound)) reviewRounds.push(reviewRoundRecord(ledger, liveRound, false));
   return {
     steps: (ledger.steps || []).map(s => ({ name: s.name, status: s.status, ...(attested && s.name === 'execute' ? { source: 'user-attested' } : {}) })),
     usage,
@@ -1998,6 +2020,7 @@ function buildSummary(ledger) {
     commits,
     reviewSummaryPath: summaryFile,
     finalCheck: ledger.finalCheck || null, // R95
+    reviewRounds, // R106
   };
 }
 
@@ -2476,6 +2499,7 @@ function afterFixesCommitted(ledger, { sha, round, flags, warnings }) {
     review: { ...entryOf('review') },
     receivedReview: { ...entryOf('received-review') },
     commitFixes: { ...entryOf('commit-fixes'), commitSha: sha || null },
+    record: reviewRoundRecord(ledger, round, false), // R106
   });
   if (last) {
     const commit = sha || exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
@@ -2885,7 +2909,7 @@ function runAfter(stepArgs) {
   if (after === 'confirm_pipeline' && fc && fc.handoff === true && fc.status === 'completed' && Array.isArray(fc.open) && fc.open.length > 0) {
     const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
     if (head && head !== fc.commit) {
-      ledger.finalCheck = { base: fc.commit, commit: head, status: 'pending', verdict: null, open: [], recheck: (fc.recheck || 0) + 1 };
+      ledger.finalCheck = { base: fc.commit, commit: head, status: 'pending', verdict: null, open: [], recheck: (fc.recheck || 0) + 1, priorRecords: [...(fc.priorRecords || []), ...(fc.record ? [fc.record] : [])] }; // R106: keep each earlier final record
       const i = ledger.steps.findIndex(s => s.name === 'review');
       if (i >= 0) {
         const fresh = { name: 'review', status: 'pending' };
@@ -2927,6 +2951,7 @@ function runAfter(stepArgs) {
       ledger.finalCheck.verdict = (output.artifacts && output.artifacts.verdict) ?? null;
       ledger.finalCheck.open = finalCheckOpen(ledger); // R95
       ledger.finalCheck.threshold = SEVERITIES.includes(ledger.flags.reviewThreshold) ? ledger.flags.reviewThreshold : BUILT_IN_DEFAULTS.reviewThreshold; // R95
+      ledger.finalCheck.record = reviewRoundRecord(ledger, (ledger.round || 1) + 1, true); // R106
       if (flags.auto && ledger.finalCheck.open.length > 0) return finalCheckStop(); // R95: hand off to the caller
     }
     from = 'dispatch_commit_fixes';

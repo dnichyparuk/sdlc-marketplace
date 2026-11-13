@@ -187,6 +187,8 @@ echo '{"success":false,"output":{"summary":"scope check failed","pendingQuestion
 echo '{"success":true,"output":{"summary":"fixed 2 items, 1 open decision","pendingQuestion":{"prompt":"Open decisions: F3 (cache key format). Fix them, or defer them to a follow-up?","options":["fix","defer"]}}}' > results/received-review-open.json
 echo '{"success":false,"output":{"summary":"fixed 2 items, 1 open decision","pendingQuestion":{"prompt":"Open decisions: F3 (cache key format). Fix them, or defer them to a follow-up?","options":["fix","defer"]}}}' > results/received-review-open-fail.json
 echo '{"success":true,"output":{"summary":"ok","usage":{"inputTokens":10,"outputTokens":5,"model":"haiku"}}}' > results/generic-ok.json
+# R106: received-review reports its fixed/declined/deferred counts.
+echo '{"success":true,"output":{"summary":"fixed 2, declined 1","artifacts":{"fixed":2,"declined":1,"deferred":0},"usage":{"inputTokens":10,"outputTokens":5,"model":"haiku"}}}' > results/received-review-counts.json
 echo '{"success":true,"output":{"summary":"branch created","artifacts":{"branch":"feat/add-widget-support"}}}' > results/branch-prepare-ok.json
 echo '{"success":true,"output":{"summary":"committed abc1234","usage":{"inputTokens":120,"outputTokens":40,"model":"haiku"}}}' > results/commit-ok.json
 echo '{"success":false,"output":{"summary":"pre-commit hook failed"}}' > results/commit-fail.json

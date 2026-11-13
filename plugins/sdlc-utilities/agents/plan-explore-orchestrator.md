@@ -90,6 +90,8 @@ END_DIMENSION_CONTRACT
 
 ## Step 2 — FAN-OUT
 
+**Fan-out is mandatory (R72).** The Agent tool is in your tool list. Run this step on every run. An empty `scopeHintFiles`, `webResearchSignal: false` or a narrow task is never a reason to skip it, and you never explore inline in its place. If an Agent call returns an error, write no brief and return the Step 5 summary with `Brief file: none` and `Error: <the tool error text>`.
+
 Dispatch ALL dimensions in a SINGLE message as parallel `Agent` tool calls. All dimension agents MUST be dispatched simultaneously (multiple tool calls in one message). Do not dispatch them sequentially.
 
 For each dimension, dispatch one `Agent`:
@@ -165,6 +167,8 @@ If no findings, return: ZERO_FINDINGS
 ```
 
 **Await barrier (R56):** Your turn is NOT complete until you have collected exactly one result per dispatched dimension — N = count of dispatched discovery dimensions. Do NOT end your turn, and do NOT proceed to Step 3 or write `discovery-brief.md`, while any dispatched subagent is still outstanding. If the runtime backgrounds a dispatch and re-invokes you via a task-completion notification, keep awaiting across notifications until the collected count equals N. Never consolidate on partial or zero results.
+
+**Result files (R72).** As each dimension result arrives, write its returned text verbatim to `<outDir>/dim-<dimension.name>.md` with the Write tool. plan-sdlc checks one such file per row of the brief's `## Dimensions` table.
 
 ---
 
@@ -260,11 +264,14 @@ Zero-finding dimensions: <comma-separated list of names, or "none">
 
 Every field is required. Use `0` for counts and `"none"` for empty lists.
 
+On an Agent error (Step 2), return `Brief file: none`, `Error: <text>` and the other fields with `0` / `none`.
+
 ---
 
 ## Quality Gates (before returning)
 
 - [ ] Exactly N results collected (one per dispatched dimension) before CRITIQUE and the brief write
+- [ ] One `dim-<name>.md` per dispatched dimension in `manifest.outDir`
 - [ ] `discovery-brief.md` written to `manifest.outDir/discovery-brief.md` with a stable `F-<DIM>-<n>` ID on every finding
 - [ ] Summary contains every required field, including the absolute `Brief file:` path
 

@@ -42,8 +42,8 @@ Not every request needs a full planning pipeline:
 | Scope Signal | Normal Mode | Plan Mode |
 |---|---|---|
 | 1 file, clear change | Stop — just do the work | Lightweight plan (user explicitly chose to plan) |
-| 2–3 files, clear scope | Lightweight: inline exploration only, no review loop | Lightweight |
-| 4+ files or unclear scope | Full pipeline (Steps 1–7) | Full pipeline |
+| Small, clear scope (about 2–3 files) | Lightweight: inline exploration only, no review loop | Lightweight |
+| Larger or unclear scope (about 4+ files) | Full pipeline (Steps 1–7) | Full pipeline |
 | Multiple independent subsystems | Flags the split, suggests one plan per subsystem | Same |
 
 The skill loads two companion files only on the branch that needs them: `openspec-flow.md` (the OpenSpec rules, read when the prepare output shows OpenSpec or a `--from-openspec` change) and `review-loop.md` (Steps 5–6, read for full-pipeline plans).
@@ -63,9 +63,10 @@ For 4+ file scopes, plan-sdlc dispatches a parallel dynamic-dimension orchestrat
 **Step 0 — Prepare.** `plan.js` runs as today, but now also spawns `plan-explore.js`. That script walks git changes, parses backtick paths from any active OpenSpec proposal, tokenizes the user prompt, and `git grep`s for top non-stopword tokens to build a scope-hint file set (capped 30 files). It computes `webResearchSignal` from a regex over best-practice phrases plus a fixed external-tech vocab (oauth, jwt, kafka, redis, kubernetes, terraform, react, vue, angular, postgres, mongodb, graphql, grpc, websocket, oauth2, openid, saml). It writes everything to `manifest.json` inside `os.tmpdir()/sdlc-explore-<branchSlug>-XXXX/`. Output back to plan.js: `explorePack = { manifestPath, outDir, scopeHintCount, webResearchSignal, error }`.
 
 **Step 1 — Routing.** Three branches:
-- **≤3 files (lightweight):** orchestrator skipped. Inline exploration as today. No brief.
-- **4+ files AND `explorePack.manifestPath != null`:** dispatch `sdlc:plan-explore-orchestrator` exactly once with `MANIFEST_FILE`, `PROJECT_ROOT`, `USER_PROMPT`, `OPENSPEC_CONTEXT`.
-- **`explorePack.error` non-null:** append a one-line note to `.sdlc/learnings/log.md`, fall back to inline exploration. Plan still produced.
+- **Lightweight (complexity routing in Step 0 chose the lightweight branch):** orchestrator skipped. Inline exploration as today. No brief.
+- **Full pipeline (complexity routing chose the full pipeline) AND `explorePack.manifestPath != null`:** dispatch `sdlc:plan-explore-orchestrator` exactly once with `MANIFEST_FILE`, `PROJECT_ROOT`, `USER_PROMPT`, `OPENSPEC_CONTEXT`.
+  After it returns, plan-sdlc runs `plan-explore.js --check-brief <outDir>` (R72): the brief must exist, name at least one dimension, hold one `dim-<name>.md` result file per dimension and at least one `F-<DIM>-<n>` id.
+- **Fallback:** `explorePack.error` non-null, an orchestrator error, no `Brief file:` line (or `Brief file: none`), a failed brief check, or a null `explorePack.manifestPath` on a full-pipeline run (reason `no manifest`): append `## <date> — plan-sdlc orchestrator skipped: <reason>` to `.sdlc/learnings/log.md` and fall back to inline exploration. Plan still produced.
 
 **Orchestrator (the new agent).** Four steps, mirroring review-orchestrator but with a load-bearing inversion:
 1. **SCOPE.** LLM-derives 3–5 kebab-case task-specific dimensions as JSON `{ name, description, files[], mode, model }`. Names are task-shaped (`auth-middleware-integration`), not generic axes. Must include ≥1 `web`/`hybrid` dimension when `webResearchSignal: true`; must include zero web/hybrid when the prompt is a pure rename/move/dead-code refactor.
@@ -97,9 +98,9 @@ For 4+ file scopes, plan-sdlc dispatches a parallel dynamic-dimension orchestrat
 - Regex (case-insensitive): `best practice`, `recommended`, `industry standard`, `state of the art`, `compare alternatives`, `alternatives to`
 - External-tech vocab token (any occurrence): `oauth`, `jwt`, `kafka`, `redis`, `kubernetes`, `terraform`, `react`, `vue`, `angular`, `postgres`, `mongodb`, `graphql`, `grpc`, `websocket`, `oauth2`, `openid`, `saml`
 
-**Lightweight-skip rule.** When complexity routing lands at ≤3 files, the orchestrator is skipped entirely. No brief, no tempdir, `explorePack.manifestPath = null`. Inline exploration is used as today.
+**Lightweight-skip rule.** When complexity routing chooses the lightweight branch (about ≤3 files), the orchestrator is skipped entirely. No brief, no tempdir, `explorePack.manifestPath = null`. Inline exploration is used as today.
 
-**Fallback path.** When `plan-explore.js` fails or `sdlc:plan-explore-orchestrator` exits non-zero, plan-sdlc appends a one-line note to `.sdlc/learnings/log.md` and falls back to inline exploration. The plan is still produced — brief absence is not a plan failure.
+**Fallback path.** When `plan-explore.js` fails, `sdlc:plan-explore-orchestrator` returns an error or no brief file, the R72 brief check fails (`brief-missing`, `no-dimensions`, `missing-dimension-results`, `no-finding-ids`, `check-error`), or `explorePack.manifestPath` is null on a full-pipeline run, plan-sdlc appends a one-line note with the reason to `.sdlc/learnings/log.md` and falls back to inline exploration. The plan is still produced — brief absence is not a plan failure.
 
 **Brief example** (3 dimensions, one web, one hybrid):
 ```

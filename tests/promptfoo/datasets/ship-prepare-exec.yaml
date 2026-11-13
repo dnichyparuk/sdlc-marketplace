@@ -4911,6 +4911,48 @@
         const c = s.commits.map(x => x.step + ':' + x.sha).join(',');
         return c === 'commit-fixes:aaaaaaa,commit-fixes:bbbbbbb' ? true : `FAIL: commits ${c}`;
 
+# R106: the Step 6 summary carries one record per review round, then the final check.
+- description: "ship-summary-rounds: (a) two rounds and the final check give three records with received-review counts"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --rounds 2 --received-result results/received-review-counts.json --walk"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const rec = (round, final, high, rr, n) => ({ round, final, counts: { critical: 0, high, medium: 0, low: 0 }, threshold: 'high', receivedReview: rr, fixed: n && n[0], declined: n && n[1], deferred: n && n[2] });
+        const want = JSON.stringify([rec(1, false, 1, true, [2, 1, 0]), rec(2, false, 1, true, [2, 1, 0]), rec(3, true, 0, false, [null, null, null])]);
+        const cl = o.calls.find(c => c.envelope.step && c.envelope.step.id === 'cleanup');
+        if (!cl) return `FAIL: no cleanup emitted ${JSON.stringify(o.calls.map(c => c.envelope.step ? c.envelope.step.id : c.envelope.status))}`;
+        const a = JSON.stringify(cl.envelope.step.data.summary.reviewRounds);
+        if (a !== want) return `FAIL: cleanup reviewRounds ${a}`;
+        const last = o.calls[o.calls.length - 1].envelope;
+        const b = JSON.stringify(last.ext && last.ext.summary && last.ext.summary.reviewRounds);
+        return b === want ? true : `FAIL: last envelope ${last.status} reviewRounds ${b}`;
+
+- description: "ship-summary-rounds: (b) a round that ends without fixes gives one live record without counts"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-2-no-fixes --seed frozen --summary high-1.json --rounds 2 --walk"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const want = JSON.stringify([{ round: 1, final: false, counts: { critical: 0, high: 1, medium: 0, low: 0 }, threshold: 'high', receivedReview: true, fixed: null, declined: null, deferred: null }]);
+        const cl = o.calls.find(c => c.envelope.step && c.envelope.step.id === 'cleanup');
+        if (!cl) return `FAIL: no cleanup emitted ${JSON.stringify(o.calls.map(c => c.envelope.step ? c.envelope.step.id : c.envelope.status))}`;
+        const a = JSON.stringify(cl.envelope.step.data.summary.reviewRounds);
+        if (a !== want) return `FAIL: cleanup reviewRounds ${a}`;
+        const last = o.calls[o.calls.length - 1].envelope;
+        const b = JSON.stringify(last.ext && last.ext.summary && last.ext.summary.reviewRounds);
+        return b === want ? true : `FAIL: last envelope ${last.status} reviewRounds ${b}`;
+
 - description: "ship-stage-sdlc: tracked .sdlc paths of the plan are staged, ignored and missing ones are not"
   vars:
     script_path: "-e"
