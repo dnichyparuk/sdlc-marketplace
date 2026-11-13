@@ -1489,7 +1489,7 @@ function stageScope(planFile, cwd, approved = [], base = null) {
   // R103: paths committed since received-review started count as changed too.
   let diffFailed = false;
   if (base) {
-    const d = spawnSync('git', ['diff', '--name-only', '-z', `${base}..HEAD`], { cwd, encoding: 'utf8', timeout: 8000 });
+    const d = spawnSync('git', ['diff', '--name-only', '--no-renames', '-z', `${base}..HEAD`], { cwd, encoding: 'utf8', timeout: 8000 });
     if (d.status === 0) changed.push(...d.stdout.split('\0').filter(Boolean)); else diffFailed = true;
   }
   const outside = changed.filter(p => !p.startsWith('.sdlc/') && ![...allowed].some(a => p === a || p.startsWith(`${a}/`)));
@@ -2722,7 +2722,7 @@ function runAfter(stepArgs) {
       ...(viaExecute ? [`/sdlc:execute-plan-sdlc --plan "${flags.planFile}" --resume --strict-files`] : []),
       ...extraCommands,
       // R80: the caller repeats --auto on resume, so the printed line carries it when the run used it.
-      `/sdlc:ship-sdlc --resume${flags.auto ? ' --auto' : ''}`,
+      `/sdlc:ship-sdlc --resume${flags.auto ? ' --auto' : ''}${flags.noPush ? ' --no-push' : ''}`,
     ];
     return finish(createEnvelope('done', null, {
       ext: { ...ext, reason: 'pending-question', pendingQuestion: question, commands },
@@ -2734,7 +2734,7 @@ function runAfter(stepArgs) {
     ledger.finalCheck.handoff = true; // R104: the next resume re-checks or asks
     ledger.paused = { at: new Date().toISOString(), reason: 'final check open' };
     return finish(createEnvelope('done', null, {
-      ext: { ...ext, reason: 'final-check-open', summary: buildSummary(ledger), commands: ['/sdlc:ship-sdlc --resume --auto'] },
+      ext: { ...ext, reason: 'final-check-open', summary: buildSummary(ledger), commands: [`/sdlc:ship-sdlc --resume --auto${flags.noPush ? ' --no-push' : ''}`] },
       stateFile: ledgerPath, progress: progress(),
     }));
   };
