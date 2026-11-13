@@ -659,3 +659,27 @@
   assert:
     - type: javascript
       value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l46) 30 wrapper option pairs then tee denied, and fast (no regex backtracking)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"xargs -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 tee src/a"}}'
+  assert:
+    - type: latency
+      threshold: 2000
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l47) 30 wrapper option pairs with no write allowed, and fast (no regex backtracking)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"xargs -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 -n 5 echo x"}}'
+  assert:
+    - type: latency
+      threshold: 2000
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"

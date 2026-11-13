@@ -96,22 +96,72 @@ function maskQuotes(cmd) {
 }
 
 /**
- * One command-position prefix shared by the tee, dd, git-apply and patch rules, so they
- * cannot drift (R90). A command starts at the line start, after `| ; & ( { `` or a newline,
- * after `then`/`do`/`else`, after leading `VAR=val` words, and after wrapper words
- * (`env`, `sudo`, `exec`, `command`, `nohup`, `time`, `xargs`, `timeout`, `nice`, `stdbuf`,
- * `setsid`, `ionice`) with their own options, option arguments, `VAR=val` words and numbers.
- * The command name may carry a path (`/usr/bin/tee`). Known gaps (best-effort guard):
- * a quoted command name (`"tee" f`), `bash -c "..."` and other interpreters.
+ * One command-position scanner shared by the tee, dd, git-apply and patch rules, so they
+ * cannot drift (R90). It is code, not one backtracking regex: the work per start position
+ * is bounded by MAX_PREFIX_TOKENS, so it is linear in the command length. A command starts
+ * at the line start, after `| ; &`, `(`, `{`, a backtick or a newline, after `then`/`do`/`else`,
+ * after leading `VAR=val` words, and after wrapper words (`env`, `sudo`, `exec`, `command`,
+ * `nohup`, `time`, `xargs`, `timeout`, `nice`, `stdbuf`, `setsid`, `ionice`) with their own
+ * options, option arguments, `VAR=val` words and numbers. The command name may carry a path
+ * (`/usr/bin/tee`). A wrapper chain of MAX_PREFIX_TOKENS words or more is denied (fail closed). Known gaps (best-effort guard): a quoted command name (`"tee" f`),
+ * `bash -c "..."` and other interpreters.
  */
-const CMD_START = '(?:^|[|;&(`\\n{])[ \\t]*(?:(?:then|do|else)[ \\t]+)?(?:[A-Za-z_][A-Za-z0-9_]*=\\S*[ \\t]+)*';
-const WRAP_ARG = '(?:-\\S*(?:[ \\t]+[^\\s-][^\\s|;&]*)?|[A-Za-z_][A-Za-z0-9_]*=\\S*|\\{\\}|\\d+[smhd]?)';
-const WRAPPERS = '(?:(?:env|sudo|exec|command|nohup|time|xargs|timeout|nice|stdbuf|setsid|ionice)\\b(?:[ \\t]+' + WRAP_ARG + ')*[ \\t]+)*';
-const CMD_PATH = '(?:[^\\s|;&()`]*/)?';
+const WRAPPER_WORDS = new Set(['env', 'sudo', 'exec', 'command', 'nohup', 'time', 'xargs', 'timeout', 'nice', 'stdbuf', 'setsid', 'ionice']);
+const MAX_PREFIX_TOKENS = 256;
 
-/** Global regex for command `name`; `tail` holds one capture group, the argument text. */
-function cmdRe(name, tail) {
-  return new RegExp(CMD_START + WRAPPERS + CMD_PATH + name + tail, 'g');
+function baseName(word) {
+  return word.slice(word.lastIndexOf('/') + 1);
+}
+
+/** Scan the tokens at `pos` (inside a segment ending at `end`); return the offset after the command word, or -1. */
+function scanPrefix(masked, pos, end, name) {
+  const re = /\S{1,256}/g; // bounded token, so many start positions in one long word stay linear
+  re.lastIndex = pos;
+  let inWrapper = false;
+  let afterOption = false;
+  for (let n = 0; n < MAX_PREFIX_TOKENS; n++) {
+    const t = re.exec(masked);
+    if (!t || t.index >= end) return -1;
+    if (n === MAX_PREFIX_TOKENS - 1 && inWrapper) return -2; // chain too long to scan: fail closed
+    const w = t[0];
+    if (n === 0 && (w === 'then' || w === 'do' || w === 'else')) continue;
+    if (baseName(w) === name) return t.index + w.length;
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(w)) {
+      afterOption = false;
+    } else if (WRAPPER_WORDS.has(baseName(w))) {
+      inWrapper = true;
+      afterOption = false;
+    } else if (inWrapper && w[0] === '-') {
+      afterOption = true;
+    } else if (inWrapper && (w === '{}' || /^[0-9]+[smhd]?$/.test(w))) {
+      afterOption = false;
+    } else if (inWrapper && afterOption) {
+      afterOption = false; // the option's own argument
+    } else {
+      return -1;
+    }
+  }
+  return -1;
+}
+
+/** Every command-position use of `name` in the masked command: [{ s, e }] = the argument text range. */
+function findCommands(masked, name) {
+  const found = [];
+  const segRe = /[^|;&\n]+/g;
+  let seg;
+  while ((seg = segRe.exec(masked)) !== null) {
+    const a = seg.index;
+    const b = a + seg[0].length;
+    const startRe = /(?:[(`{]|^)[ \t]*/g;
+    let st;
+    while ((st = startRe.exec(seg[0])) !== null) {
+      if (st[0] === '') startRe.lastIndex++;
+      const s = scanPrefix(masked, a + st.index + st[0].length, b, name);
+      if (s >= 0) found.push({ s, e: b });
+      else if (s === -2) found.push({ overflow: true });
+    }
+  }
+  return found;
 }
 
 function isAllowedTarget(target) {
@@ -133,38 +183,30 @@ function redirectDenied(cmd, masked) {
 
 function teeDenied(cmd, masked) {
   // `tee` counts only in command position, so `grep -n tee f` is not denied.
-  const re = cmdRe('tee', '\\b([^|;&\\n]*)');
-  let m;
-  while ((m = re.exec(masked)) !== null) {
-    const argsEnd = m.index + m[0].length;
-    const argsStart = argsEnd - m[1].length;
-    const args = cmd.slice(argsStart, argsEnd).split(/\s+/).filter((a) => a && !a.startsWith('-'));
+  for (const { s, e, overflow } of findCommands(masked, 'tee')) {
+    if (overflow) return true;
+    const args = cmd.slice(s, e).split(/\s+/).filter((a) => a && !a.startsWith('-'));
     if (args.some((a) => !isAllowedTarget(a))) return true;
   }
   return false;
 }
 
-/** Argument words of a command-position match, sliced from the original (unmasked) command. */
-function matchArgs(cmd, m, groupIndex) {
-  const argsEnd = m.index + m[0].length;
-  return cmd.slice(argsEnd - m[groupIndex].length, argsEnd).split(/\s+/).filter(Boolean);
-}
-
 function ddDenied(cmd, masked) {
-  const re = cmdRe('dd', '\\b([^|;&\\n]*)');
-  let m;
-  while ((m = re.exec(masked)) !== null) {
-    const outs = matchArgs(cmd, m, 1).map((a) => a.replace(/^["']/, '')).filter((a) => a.startsWith('of='));
+  for (const { s, e, overflow } of findCommands(masked, 'dd')) {
+    if (overflow) return true;
+    const outs = cmd.slice(s, e).split(/\s+/).filter(Boolean).map((a) => a.replace(/^["']/, '')).filter((a) => a.startsWith('of='));
     if (outs.some((a) => !isAllowedTarget(a.slice(3)))) return true;
   }
   return false;
 }
 
 function gitApplyDenied(cmd, masked) {
-  const re = cmdRe('git', '\\b[^|;&\\n]*\\sapply\\b([^|;&\\n]*)');
-  let m;
-  while ((m = re.exec(masked)) !== null) {
-    const args = matchArgs(cmd, m, 1);
+  for (const { s, e, overflow } of findCommands(masked, 'git')) {
+    if (overflow) return true;
+    const maskedWords = masked.slice(s, e).split(/\s+/).filter(Boolean);
+    const at = maskedWords.lastIndexOf('apply');
+    if (at < 0) continue;
+    const args = cmd.slice(s, e).split(/\s+/).filter(Boolean).slice(at + 1);
     const writes = args.some((a) => ['--apply', '--index', '--cached', '--3way', '-3'].includes(a));
     const readOnly = args.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a));
     if (writes || !readOnly) return true;
@@ -173,10 +215,9 @@ function gitApplyDenied(cmd, masked) {
 }
 
 function patchDenied(cmd, masked) {
-  const re = cmdRe('patch', '\\b([^|;&\\n]*)');
-  let m;
-  while ((m = re.exec(masked)) !== null) {
-    const args = matchArgs(cmd, m, 1);
+  for (const { s, e, overflow } of findCommands(masked, 'patch')) {
+    if (overflow) return true;
+    const args = cmd.slice(s, e).split(/\s+/).filter(Boolean);
     if (args.includes('--dry-run')) continue;
     const outputs = [];
     args.forEach((a, i) => {
