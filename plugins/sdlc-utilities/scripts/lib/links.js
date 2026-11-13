@@ -107,13 +107,16 @@ function blank(s) {
 function maskCodeLines(lines) {
   let fence = null;
   return lines.map((raw) => {
-    const f = raw.match(/^ {0,3}(`{3,}|~{3,})/);
+    // A backtick fence's info string has no backtick; a closer has only trailing whitespace.
+    const f = raw.match(/^ {0,3}(`{3,}(?=[^`]*$)|~{3,})/);
     if (fence) {
-      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      const c = raw.match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+      if (c && c[1][0] === fence[0] && c[1].length >= fence.length) fence = null;
       return blank(raw);
     }
     if (f) { fence = f[1]; return blank(raw); }
-    return raw.replace(/(`+)[^`]*?\1/g, blank);
+    // A span closes on a whole run of the same length as its opener.
+    return raw.replace(/(?<!`)(`+)(?!`)[^`]*?(?<!`)\1(?!`)/g, blank);
   });
 }
 
