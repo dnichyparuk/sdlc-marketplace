@@ -60,6 +60,12 @@ function maskQuotes(cmd) {
         out += ch;
         continue;
       }
+      if (ch === '\\' && i + 1 < cmd.length) {
+        // An escaped char outside quotes is literal: `\'` or `\"` opens no quote context.
+        out += '__';
+        i++;
+        continue;
+      }
       if (ch === '"' || ch === "'") stack.push({ t: ch });
       out += ch;
     } else if (top.t === "'") {
@@ -92,16 +98,20 @@ function maskQuotes(cmd) {
 /**
  * One command-position prefix shared by the tee, dd, git-apply and patch rules, so they
  * cannot drift (R90). A command starts at the line start, after `| ; & ( { `` or a newline,
- * after `then`/`do`/`else`, and after wrapper words (`env`, `sudo`, `exec`, `command`,
- * `nohup`, `time`, `xargs`) with their own options or VAR=val words.
+ * after `then`/`do`/`else`, after leading `VAR=val` words, and after wrapper words
+ * (`env`, `sudo`, `exec`, `command`, `nohup`, `time`, `xargs`, `timeout`, `nice`, `stdbuf`,
+ * `setsid`, `ionice`) with their own options, option arguments, `VAR=val` words and numbers.
+ * The command name may carry a path (`/usr/bin/tee`). Known gaps (best-effort guard):
+ * a quoted command name (`"tee" f`), `bash -c "..."` and other interpreters.
  */
-const CMD_START = '(?:^|[|;&(`\\n{])[ \\t]*(?:(?:then|do|else)[ \\t]+)?';
-const WRAP_ARG = '(?:-\\S*|[A-Za-z_][A-Za-z0-9_]*=\\S*|\\{\\}|\\d+)';
-const WRAPPERS = '(?:(?:env|sudo|exec|command|nohup|time|xargs)\\b(?:[ \\t]+' + WRAP_ARG + ')*[ \\t]+)*';
+const CMD_START = '(?:^|[|;&(`\\n{])[ \\t]*(?:(?:then|do|else)[ \\t]+)?(?:[A-Za-z_][A-Za-z0-9_]*=\\S*[ \\t]+)*';
+const WRAP_ARG = '(?:-\\S*(?:[ \\t]+[^\\s-][^\\s|;&]*)?|[A-Za-z_][A-Za-z0-9_]*=\\S*|\\{\\}|\\d+[smhd]?)';
+const WRAPPERS = '(?:(?:env|sudo|exec|command|nohup|time|xargs|timeout|nice|stdbuf|setsid|ionice)\\b(?:[ \\t]+' + WRAP_ARG + ')*[ \\t]+)*';
+const CMD_PATH = '(?:[^\\s|;&()`]*/)?';
 
 /** Global regex for command `name`; `tail` holds one capture group, the argument text. */
 function cmdRe(name, tail) {
-  return new RegExp(CMD_START + WRAPPERS + name + tail, 'g');
+  return new RegExp(CMD_START + WRAPPERS + CMD_PATH + name + tail, 'g');
 }
 
 function isAllowedTarget(target) {
