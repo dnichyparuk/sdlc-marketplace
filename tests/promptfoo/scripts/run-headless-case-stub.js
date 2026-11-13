@@ -2,6 +2,7 @@
 // Deterministic checks for the headless runner (#9346). Prints one JSON line.
 // Usage: run-headless-case-stub.js --scenario <scaffold|scaffold-in-worktree> [--kind <kind>]
 //        run-headless-case-stub.js --scenario provider [--mode <ok|error|crash>] [--kind <kind>] [--tier <cheap|costly>]
+//        run-headless-case-stub.js --scenario provider-env [--variant <ok|missing|badjson>]
 // The provider scenario drives providers/headless-case.js against the stub claude
 // in fixtures-fs/stub-bin-claude; it never starts a real claude.
 const fs = require('fs');
@@ -60,6 +61,40 @@ async function runProvider(D) {
   };
 }
 
+// stub_bin / script_env: a `claude` placed in D/bin (passed as stub_bin, so it is first on
+// PATH) records the PATH head and GH_STUB_LOG it sees. Variants: ok | missing | badjson.
+async function runProviderEnv(D) {
+  const variant = arg('--variant') || 'ok';
+  const bin = path.join(D, 'bin');
+  fs.mkdirSync(bin);
+  const log = path.join(D, 'env-log.json');
+  fs.writeFileSync(path.join(bin, 'claude'), [
+    '#!/usr/bin/env node',
+    "const fs = require('fs');",
+    "fs.writeFileSync(process.env.ENV_LOG, JSON.stringify({ pathHead: process.env.PATH.split(require('path').delimiter)[0], ghStubLog: process.env.GH_STUB_LOG }));",
+    "process.stdin.resume();",
+    "process.stdin.on('end', () => console.log(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0 })));",
+    '',
+  ].join('\n'), { mode: 0o755 });
+  process.env.ENV_LOG = log;
+  process.env.TMPDIR = D;
+
+  const vars = {
+    scaffold: 'commit',
+    allowed_tools: 'Read',
+    stub_bin: variant === 'missing' ? path.join(D, 'no-such-dir') : bin,
+    script_env: variant === 'badjson' ? '{not json' : JSON.stringify({ GH_STUB_LOG: path.join(D, 'gh.log') }),
+  };
+  const res = await new HeadlessCaseProvider().callApi('stub prompt', { vars });
+  return {
+    error: res.error ?? null,
+    ran: res.output !== undefined,
+    bin,
+    ghLog: path.join(D, 'gh.log'),
+    seen: fs.existsSync(log) ? JSON.parse(fs.readFileSync(log, 'utf8')) : null,
+  };
+}
+
 async function main() {
   const scenario = arg('--scenario');
   const kind = arg('--kind');
@@ -67,6 +102,8 @@ async function main() {
   try {
     if (scenario === 'provider') {
       process.stdout.write(JSON.stringify(await runProvider(D)) + '\n');
+    } else if (scenario === 'provider-env') {
+      process.stdout.write(JSON.stringify(await runProviderEnv(D)) + '\n');
     } else if (scenario === 'scaffold') {
       const r = spawnSync('node', [BUILDER, kind], { cwd: D, encoding: 'utf8' });
       const out = { exit: r.status };

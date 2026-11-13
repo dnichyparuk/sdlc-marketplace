@@ -198,6 +198,23 @@
         if (o.calls.some(c => c.includes('auth switch'))) return 'FAIL: auth switch ran';
         return w.accountSwitch.switched === false && w.token === null && w.actingAccount === 'alice' ? true : `FAIL: own ${JSON.stringify(w)}`;
 
+- description: "git-lib: recoverGhAccountForTarget recovers by owner token, never auth switch"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
+    script_args: "--op recoverGhAccountForTarget"
+    project_root: "file://fixtures-fs/project-openspec-baseline"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (!o.perm.every(x => x === true) || !o.notPerm.every(x => x === false)) return `FAIL: classify ${JSON.stringify([o.perm, o.notPerm])}`;
+        if (o.r422.recovered !== false || o.r422.reason !== 'non-permission-error') return `FAIL: 422 ${JSON.stringify(o.r422)}`;
+        if (o.switched.reason !== 'already-switched' || o.switchedCalls !== 0) return `FAIL: switched ${JSON.stringify(o.switched)} calls ${o.switchedCalls}`;
+        if (o.ok.recovered !== true || o.ok.account !== 'acme' || o.ok.token !== 'tok-acme') return `FAIL: ok ${JSON.stringify(o.ok)}`;
+        if (!o.okCalls.includes('auth token --user=acme --hostname=github.com')) return `FAIL: calls ${JSON.stringify(o.okCalls)}`;
+        if (o.okCalls.some(c => c.includes('auth switch'))) return 'FAIL: auth switch ran';
+        return o.none.recovered === false && o.none.reason === 'no-account' && o.none.hint === 'gh auth login --hostname github.com' ? true : `FAIL: none ${JSON.stringify(o.none)}`;
+
 - description: "git-lib: probeGhAuth passes --hostname to gh api user and returns tokenScopes"
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"

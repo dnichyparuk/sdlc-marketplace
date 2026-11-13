@@ -11,6 +11,8 @@
  *   max_budget_usd   — --max-budget-usd value (default 2)
  *   tier             — cheap | costly (default cheap); costly needs SDLC_HEADLESS_COSTLY=1
  *   snapshot_files   — workspace-relative files whose text goes to `contents` (default [])
+ *   stub_bin         — directory prepended to the child's PATH (resolved absolute; must exist)
+ *   script_env       — extra child env vars, an object or JSON-object string (applied before stub_bin)
  */
 const fs = require('fs');
 const os = require('os');
@@ -23,11 +25,14 @@ const PLUGIN_DIR = path.join(REPO, 'plugins/sdlc-utilities');
 const STDERR_TAIL = 2000;
 
 // Spawn claude with the prompt on stdin; resolves (never rejects) once.
-function runClaude(prompt, { cwd, args, timeoutMs }) {
+function runClaude(prompt, { cwd, args, timeoutMs, extraEnv = {}, stubBin = null }) {
   return new Promise((resolve) => {
     // Unset CLAUDECODE so claude doesn't refuse to run inside another Claude session
     const env = { ...process.env };
     delete env.CLAUDECODE;
+    Object.assign(env, extraEnv);
+    // Last PATH mutation, so a script_env PATH is the base (same order as script-runner).
+    if (stubBin) env.PATH = stubBin + path.delimiter + (env.PATH || '');
 
     let stdout = '';
     let stderr = '';
@@ -55,6 +60,15 @@ function runClaude(prompt, { cwd, args, timeoutMs }) {
     proc.stdin.on('error', () => {});
     proc.stdin.end(prompt);
   });
+}
+
+// script_env: object or JSON-object string. Throws on bad JSON or a non-object value.
+function parseScriptEnv(value) {
+  const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('script_env must be a JSON object');
+  }
+  return parsed;
 }
 
 function parseStream(stdout) {
@@ -127,6 +141,24 @@ class HeadlessCaseProvider {
     const maxBudget = vars.max_budget_usd ?? 2;
     const snapshotFiles = vars.snapshot_files || [];
 
+    let extraEnv = {};
+    if (vars.script_env) {
+      try {
+        extraEnv = parseScriptEnv(vars.script_env);
+      } catch (err) {
+        return { error: `headless-case: invalid script_env: ${err.message}` };
+      }
+    }
+    let stubBin = null;
+    if (vars.stub_bin) {
+      stubBin = path.resolve(String(vars.stub_bin));
+      let stat;
+      try { stat = fs.statSync(stubBin); } catch (_) { stat = null; }
+      if (!stat || !stat.isDirectory()) {
+        return { error: `headless-case: stub_bin path not found or not a directory: ${stubBin}` };
+      }
+    }
+
     const W = fs.mkdtempSync(path.join(os.tmpdir(), 'sdlc-headless-'));
     try {
       const build = spawnSync(process.execPath, [BUILDER, String(vars.scaffold)], { cwd: W, encoding: 'utf8' });
@@ -140,7 +172,7 @@ class HeadlessCaseProvider {
         '--max-budget-usd', String(maxBudget),
         '--allowedTools', String(vars.allowed_tools),
       ];
-      const run = await runClaude(prompt, { cwd: W, args, timeoutMs: timeoutSeconds * 1000 });
+      const run = await runClaude(prompt, { cwd: W, args, timeoutMs: timeoutSeconds * 1000, extraEnv, stubBin });
       if (run.spawnError) {
         if (run.spawnError.code === 'ENOENT') return { error: 'claude not found on PATH' };
         return { error: run.spawnError.message };

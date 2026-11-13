@@ -1,0 +1,56 @@
+{
+  "extends": "live",
+  "routes": [
+    { "match": "issue edit 5 --repo=github.com/acme/widgets --type=Task",
+      "stderr": "unknown flag: --type\n\nUsage:  gh issue edit {<numbers> | <urls>} [flags]", "exit": 1 },
+    { "match": "issue edit 5 --repo=github.com/acme/widgets --add-assignee=bob",
+      "stderr": "gh: something unexpected happened", "exit": 1 },
+    { "match": "issue create", "contains": ["--repo=github.com/acme/widgets"],
+      "stdout": "https://github.com/acme/widgets/issues/42\n" },
+    { "match": "issue comment", "contains": ["--repo=github.com/acme/widgets"],
+      "stdout": "https://github.com/acme/widgets/issues/5#issuecomment-901\n" },
+    { "match": "issue edit", "contains": ["--repo=github.com/acme/widgets"],
+      "stdout": "https://github.com/acme/widgets/issues/5\n" },
+    { "match": "issue close", "contains": ["--repo=github.com/acme/widgets"], "stdout": "" },
+    { "match": "issue reopen", "contains": ["--repo=github.com/acme/widgets"], "stdout": "" },
+    { "match": "label create", "contains": ["--repo=github.com/acme/widgets"], "stdout": "" },
+    { "match": "project item-add", "stdout": "" },
+    { "match": "project item-edit", "stdout": "" },
+    { "match": "api repos/acme/widgets/issues?state=open&creator=alice",
+      "stdout": [ { "number": 42, "title": "Fix crash on save", "state": "open",
+        "html_url": "https://github.com/acme/widgets/issues/42", "user": { "login": "alice" } } ] },
+    { "match": "api repos/acme/widgets/issues/5/comments?per_page=100 --hostname=github.com",
+      "stdout": [[
+        { "id": 901, "user": { "login": "alice" }, "body": "Fixed in main, thanks.", "created_at": "2026-11-12T10:00:00Z",
+          "html_url": "https://github.com/acme/widgets/issues/5#issuecomment-901" }
+      ]] }
+  ],
+  "payloads": {
+    "comment": { "op": "comment", "repo": "acme/widgets", "number": 5, "body": "Fixed in main, thanks." },
+    "comment-3": { "op": "comment", "repo": "acme/widgets", "number": 3, "body": "Noted." },
+    "comment-4": { "op": "comment", "repo": "acme/widgets", "number": 4, "body": "Noted." },
+    "comment-7": { "op": "comment", "repo": "acme/widgets", "number": 7, "body": "Noted." },
+    "comment-8": { "op": "comment", "repo": "acme/widgets", "number": 8, "body": "Noted." },
+    "comment-12": { "op": "comment", "repo": "acme/widgets", "number": 12, "body": "Noted." },
+    "comment-placeholder": { "op": "comment", "repo": "acme/widgets", "number": 5, "body": "{summary}" },
+    "edit-title": { "op": "edit", "repo": "acme/widgets", "number": 5, "title": "Fix crash on save" },
+    "edit-type": { "op": "edit", "repo": "acme/widgets", "number": 5, "type": "Task" },
+    "edit-unknown-label": { "op": "edit", "repo": "acme/widgets", "number": 5, "addLabels": ["needs-triage"] },
+    "assign-bob": { "op": "assign", "repo": "acme/widgets", "number": 5, "addAssignees": ["bob"] },
+    "close": { "op": "state", "repo": "acme/widgets", "number": 12, "action": "close", "reason": "not planned" },
+    "project-status-7": { "op": "project", "repo": "acme/widgets", "number": 7, "project": { "owner": "acme", "number": 2 },
+      "field": "Status", "value": "Done" },
+    "create": { "op": "create", "repo": "acme/widgets", "template": "bug.md", "title": "Fix crash on save",
+      "body": "## Describe the bug\n\nThe app crashes on save." },
+    "create-retitled": { "op": "create", "repo": "acme/widgets", "template": "bug.md", "title": "Fix crash on load",
+      "body": "## Describe the bug\n\nThe app crashes on save." },
+    "create-labels": { "op": "create", "repo": "acme/widgets", "template": "bug.md", "title": "Fix crash $(touch pwned)",
+      "body": "## Describe the bug\n\nThe app crashes on save.", "labels": ["needs-triage"],
+      "createLabels": [{ "name": "needs-triage", "color": "ededed" }] },
+    "bulk-three": { "ops": [
+      { "op": "comment", "repo": "acme/widgets", "number": 5, "body": "First." },
+      { "op": "comment", "repo": "acme/widgets", "number": 7, "body": "Second." },
+      { "op": "comment", "repo": "acme/widgets", "number": 12, "body": "Third." }
+    ] }
+  }
+}

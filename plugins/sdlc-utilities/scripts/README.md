@@ -35,6 +35,7 @@ Besides the `validate-*` validators, `ci/` holds three read-only reporting scrip
 | Skill | Scripts |
 |-------|---------|
 | commit-sdlc | `skill/commit.js` |
+| github-sdlc | `skill/github.js` |
 | jira-sdlc | `skill/jira.js` |
 | plan-sdlc | `skill/plan.js` |
 | pr-sdlc | `skill/pr.js` |
@@ -53,6 +54,8 @@ Besides the `validate-*` validators, `ci/` holds three read-only reporting scrip
 | `dimensions.js` | `validateAll`, `extractFrontmatter` | Review dimension file validation |
 | `discovery.js` | `validateAll`, `extractScriptRefs` | Plugin discovery and cross-reference checks |
 | `git.js` | `exec`, `checkGitState`, `detectBaseBranch` | Git CLI wrappers |
+| `github-templates.js` | `parseMarkdownTemplate`, `parseIssueForm`, `parseTemplateConfig` | Issue template parsing for github-sdlc |
+| `github-content.js` | `findPlaceholders`, `checkHeadings` | Issue body, title and comment content checks for github-sdlc |
 | `openspec.js` | `detectActiveChanges`, `validateChange` | OpenSpec change detection |
 | `output.js` | `writeOutput` | Structured JSON output helpers |
 | `state.js` | `readState`, `writeState`, `initState` | Execution state file I/O |

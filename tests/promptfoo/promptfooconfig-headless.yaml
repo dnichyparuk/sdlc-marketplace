@@ -15,4 +15,5 @@ prompts:
 
 tests:
   - file://datasets/headless-cheap.yaml
+  - file://datasets/headless-github.yaml
   - file://datasets/headless-costly.yaml

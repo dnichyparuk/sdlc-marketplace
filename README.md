@@ -51,6 +51,7 @@ Open `/plugin`, go to **Marketplaces**, and toggle auto-update for `sdlc-marketp
 | [`/execute-plan-sdlc`](docs/skills/execute-plan-sdlc.md) | Execute an implementation plan with adaptive task classification, wave-based parallel dispatch, and automatic error recovery; flips OpenSpec tasks.md checkboxes in real time as waves complete |
 | [`/ship-sdlc`](docs/skills/ship-sdlc.md) | Chain execute, commit, review, version, and PR into a single shipping pipeline with conditional review-fix loop |
 | [`/jira-sdlc`](docs/skills/jira-sdlc.md) | Create, edit, search, and transition Jira issues with cached project metadata |
+| [`/github-sdlc`](docs/skills/github-sdlc.md) | Create, edit, search, close, link and comment on GitHub issues with cached repository metadata |
 | [`/setup-sdlc`](docs/skills/setup-sdlc.md) | Unified project setup — configure version, ship, review, PR templates, plan templates, guardrails, and jira settings in one flow |
 | [`/harden-sdlc`](docs/skills/harden-sdlc.md) | After a pipeline failure, analyze hardening surfaces (guardrails, review dimensions, copilot instructions) and propose user-approved edits that would catch the same class of failure earlier next time |
 | [`/verify-pipeline-sdlc`](docs/skills/verify-pipeline-sdlc.md) | Analyze a failed CI run on a PR, classify the root cause, and either apply a minimal fix or emit a proposal — invoked by ship-sdlc's verify-pipeline step under --auto |
