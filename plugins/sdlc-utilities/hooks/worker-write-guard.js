@@ -304,22 +304,38 @@ function argWords(cmd, masked, s, e) {
   while ((m = re.exec(seg)) !== null) {
     const raw = cmd.slice(s + m.index, s + m.index + m[0].length);
     // A backslash escape or $'..' / $".." quoting makes the shell word differ from the text: fail closed.
-    words.push({ masked: m[0], text: raw.replace(/["']/g, ''), unsafe: /\\|\$['"]/.test(raw) });
+    words.push({ masked: m[0], text: raw.replace(/\$(?=["'])/g, '').replace(/["']/g, ''), unsafe: /\\|\$['"]/.test(raw) });
   }
   return words;
 }
+
+/** The word as the shell reads it for a plain word: quotes, `$` before a quote and backslashes removed. */
+function shellWord(w) {
+  return w.text.replace(/\\/g, '');
+}
+
+const GIT_APPLY_READ_ONLY = ['--check', '--stat', '--numstat', '--summary'];
+const GIT_APPLY_WRITE = ['--apply', '--index', '--cached', '--3way', '-3'];
+// A word that may name the subcommand sits within the first words after `git`.
+const GIT_SUBCOMMAND_WINDOW = 4;
 
 function gitApplyDenied(cmd, masked) {
   for (const { s, e, overflow } of findCommands(masked, 'git')) {
     if (overflow) return true;
     const words = argWords(cmd, masked, s, e);
-    if (words.some((w) => w.unsafe)) return true;
-    const at = words.map((w) => w.masked).lastIndexOf('apply');
-    if (at < 0) continue;
+    const at = words.map((w) => shellWord(w)).lastIndexOf('apply');
+    if (at < 0) {
+      // No `apply` word: deny only an unquoted escape or $'..' quote near the subcommand slot, where it can hide `apply`.
+      if (words.slice(0, GIT_SUBCOMMAND_WINDOW).some((w) => /\\|\$['"]/.test(w.masked))) return true;
+      continue;
+    }
+    if (words.slice(at + 1).some((w) => w.unsafe)) return true;
     const args = words.slice(at + 1).map((w) => w.text);
-    const writes = args.some((a) => ['--apply', '--index', '--cached', '--3way', '-3'].includes(a));
-    const readOnly = args.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a));
-    if (writes || !readOnly) return true;
+    const writes = args.some((a) => GIT_APPLY_WRITE.includes(a));
+    const readOnly = args.some((a) => GIT_APPLY_READ_ONLY.includes(a));
+    // Any other long option is denied: git accepts unambiguous abbreviations (`--ap` is `--apply`).
+    const otherLong = args.some((a) => a.startsWith('--') && a !== '--' && !GIT_APPLY_READ_ONLY.includes(a));
+    if (writes || otherLong || !readOnly) return true;
   }
   return false;
 }

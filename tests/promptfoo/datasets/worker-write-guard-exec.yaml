@@ -965,3 +965,55 @@
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
         const o = JSON.parse(r.stdout).hookSpecificOutput;
         return o.permissionDecision === 'deny' && /Blocked rule: patch\./.test(o.permissionDecisionReason) || 'FAIL: not denied by patch';
+
+- description: "worker-write-guard: (l72) git log with an escaped grep pattern is not denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git log --grep \"a\\.b\""}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l73) git commit with an escape in the message is not denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git commit -m \"fix\\nx\""}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l74) git double-quoted apply subcommand denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git \"apply\" p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l75) git split-quoted apply subcommand denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git app\"ly\" p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l76) git apply abbreviated long option denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git apply --stat --ap p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
