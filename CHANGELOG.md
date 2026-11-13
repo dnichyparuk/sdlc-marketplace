@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-13
+
+### Fixed
+- links, review-sdlc, pr-sdlc: the link gate no longer checks URLs quoted in inline code spans or fenced code blocks, so a review finding that quotes an example URL (such as a loopback or metadata address) no longer blocks the review comment; spans close only on a run of the same backtick length, fences close only on a bare closing run, and URLs outside code keep their line numbers; the specs, review prompt template and user docs state the rule (#9371).
+
 ## [0.53.1] - 2026-11-13
 
 ### Fixed

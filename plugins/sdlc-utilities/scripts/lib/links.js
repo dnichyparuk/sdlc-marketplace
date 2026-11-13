@@ -82,7 +82,7 @@ const TRAILING_PUNCT = /[.,;:!?]+$/;
 function extractUrls(text) {
   if (!text || typeof text !== 'string') return [];
   const seen = new Map(); // url -> first line number
-  const lines = text.split(/\r?\n/);
+  const lines = maskCodeLines(text.split(/\r?\n/));
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     URL_REGEX.lastIndex = 0;
@@ -102,23 +102,34 @@ function blank(s) {
   return s.replace(/[^\n]/g, ' ');
 }
 
+// Blank fenced code blocks (opener, body and closer) and inline code spans,
+// keeping each line's length so line numbers and columns survive (pr-sdlc R20).
+function maskCodeLines(lines) {
+  let fence = null;
+  return lines.map((raw) => {
+    // A backtick fence's info string has no backtick; a closer has only trailing whitespace.
+    const f = raw.match(/^ {0,3}(`{3,}(?=[^`]*$)|~{3,})/);
+    if (fence) {
+      const c = raw.match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+      if (c && c[1][0] === fence[0] && c[1].length >= fence.length) fence = null;
+      return blank(raw);
+    }
+    if (f) { fence = f[1]; return blank(raw); }
+    // A span closes on a whole run of the same length as its opener.
+    return raw.replace(/(?<!`)(`+)(?!`)[^`]*?(?<!`)\1(?!`)/g, blank);
+  });
+}
+
 // `owner/repo#N` and bare `#N` references outside code spans, fenced blocks,
 // HTML comments and URLs. Bare refs come back with owner/repo null.
 function extractIssueRefs(text) {
   if (!text || typeof text !== 'string') return [];
-  const lines = text.replace(/<!--[\s\S]*?-->/g, blank).split(/\r?\n/);
+  const lines = maskCodeLines(text.replace(/<!--[\s\S]*?-->/g, blank).split(/\r?\n/));
   const seen = new Set();
   const refs = [];
   const REF = /(?<![\w/&#.-])(?:([A-Za-z0-9][\w.-]*)\/([\w.-]+))?#(\d+)\b/g;
-  let fence = null;
   for (let i = 0; i < lines.length; i++) {
-    const f = lines[i].match(/^ {0,3}(`{3,}|~{3,})/);
-    if (fence) {
-      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
-      continue;
-    }
-    if (f) { fence = f[1]; continue; }
-    const line = lines[i].replace(/(`+)[^`]*?\1/g, blank).replace(URL_REGEX, blank);
+    const line = lines[i].replace(URL_REGEX, blank);
     let m;
     while ((m = REF.exec(line)) !== null) {
       const key = `${m[1] || ''}/${m[2] || ''}#${m[3]}`;

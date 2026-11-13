@@ -50,7 +50,7 @@ For each dimension with `status: "ACTIVE"` or `status: "TRUNCATED"`:
 
 ## Step 3 — Judgment Pass
 
-Read each findings file (small, ≤ ~20 findings). Decide duplicates by meaning, not only by identical `file:line`; contradictions at the same location; severity recalibration (`info` for credential exposure, `critical` for a minor style note); and the zero-findings rule. Apply decisions by rewriting the findings JSON with Write: drop a duplicate, change `severity`, add `note` / `alsoFlaggedBy`.
+Read each findings file (small, ≤ ~20 findings). Decide duplicates by meaning, not only by identical `file:line`; contradictions at the same location; severity recalibration (`info` for credential exposure, `critical` for a minor style note); and the zero-findings rule. Apply decisions by rewriting the findings JSON with Write: drop a duplicate, change `severity`, add `note` / `alsoFlaggedBy`. When a finding quotes an example or test URL as bare text, wrap that URL in an inline code span in the rewrite (review-sdlc R20), so the link gate does not block the comment.
 
 - **Zero findings**: a dimension with many matched files returned none — keep its `no-findings` result and do not re-review; the script renders `No findings; {matched_count} files in scope.` for it.
 

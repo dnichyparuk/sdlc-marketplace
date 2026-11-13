@@ -179,7 +179,7 @@ Post this review comment to PR #{pr.number}? (yes / save / cancel)
 
 Wait for the user's reply.
 
-- `yes` → **link verification — HARD GATE.** Before `gh api … /comments`, validate every URL embedded in the consolidated review comment body via the shared link validator. The script reads the body from `--file` and auto-derives `expectedRepo` from `parseRemoteOwner(cwd)` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill MUST NOT construct ctx JSON. <!-- R14 -->
+- `yes` → **link verification — HARD GATE.** Before `gh api … /comments`, validate every URL embedded in the consolidated review comment body via the shared link validator. The script reads the body from `--file` and auto-derives `expectedRepo` from `parseRemoteOwner(cwd)` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill MUST NOT construct ctx JSON. URLs inside inline code spans and fenced code blocks are not checked (pr-sdlc R20). <!-- R14 -->
 
   ```bash
   node "<PLUGIN_ROOT>/scripts/lib/links.js" --file "{comment_file}" --json
