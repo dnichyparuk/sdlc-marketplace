@@ -314,3 +314,53 @@
   assert:
     - type: javascript
       value: "JSON.stringify(JSON.parse(output)) === JSON.stringify(['a/{b,c'])"
+
+- description: "review-wait-summary: ready when summary commentPath matches the manifest diff_dir"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--wait-summary --manifest manifest.json --grace 0"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-wait-summary"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.ready === true && r.timedOut === false"
+
+- description: "review-wait-summary: stale summary (other diff_dir) times out not ready"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--wait-summary --manifest manifest-other.json --interval 1 --timeout 1"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-wait-summary"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.ready === false && r.timedOut === true"
+
+- description: "review-wait-summary: missing --manifest is an error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--wait-summary"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-wait-summary"
+  assert:
+    - type: contains
+      value: "Error: --wait-summary requires --manifest"
+
+- description: "review-wait-summary: unreadable manifest is an error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--wait-summary --manifest missing.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-wait-summary"
+  assert:
+    - type: contains
+      value: "Error: manifest unreadable"
+
+- description: "review-wait-summary: non-numeric --interval is an error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--wait-summary --manifest manifest.json --interval abc"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/review-wait-summary"
+  assert:
+    - type: contains
+      value: "Error: --interval requires an integer >= 1"

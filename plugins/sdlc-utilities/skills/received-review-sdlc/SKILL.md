@@ -414,6 +414,8 @@ node "<PLUGIN_ROOT>/scripts/skill/received-review.js" --check-scope --manifest "
 Exit 0: continue. Exit 1 or 2: stop. Return failure with `pendingQuestion` = the printed JSON and
 "Revert or keep the listed changes?" (options: keep, revert). Do not revert. Skip Step 12 (E9). Exit 2 prints no JSON: report the stderr text as the failure, and use the printed JSON only on exit 1.
 
+**Open decisions (R35):** when `flags.auto` is true and `flags.minSeverity` is set, and one or more items at or above `minSeverity` have the verdict "needs discussion", finish Steps 11.6 to 12 as usual (a scope-check stop above comes first). Then stop: return failure with `pendingQuestion` `{"prompt": "Open decisions: <id> (<one-line point>); … Fix them, or defer them to a follow-up?", "options": ["fix", "defer"]}`. Do not implement those items.
+
 ---
 
 ## Step 11.6 — META-ANALYZE: Cluster Findings and Dispatch harden-sdlc (R21–R26)

@@ -5129,6 +5129,126 @@
         if (e.status !== 'done' || e.ext.reason !== 'pending-question' || !e.ext.pendingQuestion || e.ext.pendingQuestion.id !== 'rerunGuard') return `FAIL: ${e.status} ${e.ext && e.ext.reason} ${e.error}`;
         return o.snapshots[1].version.status === 'failed' && o.snapshots[1].paused ? true : `FAIL: ${JSON.stringify(o.snapshots[1])}`;
 
+# R100, R82, R101, R102: guards that stop ship before or after the version step.
+- description: "ship-guard: (R100) received-review success with a pendingQuestion stops before version"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario guard-received-open --seed frozen --result results/received-review-open.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'done' || !e.ext || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.ext && e.ext.reason} ${e.error}`;
+        if (e.step) return `FAIL: a step was emitted ${JSON.stringify(e.step)}`;
+        const s = o.snapshots[0];
+        if (s.stepStatuses['received-review'] !== 'in_progress') return `FAIL: received-review ${s.stepStatuses['received-review']}`;
+        if (s.stepStatuses.version !== 'pending') return `FAIL: version ${s.stepStatuses.version}`;
+        return s.paused ? true : 'FAIL: ledger not paused';
+
+- description: "ship-guard: (R82) open decisions print the received-review complete command"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario guard-received-open --seed frozen --result results/received-review-open-fail.json"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'done' || !e.ext || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.ext && e.ext.reason} ${e.error}`;
+        const c = e.ext.commands;
+        if (!Array.isArray(c) || c.length !== 2) return `FAIL: commands ${JSON.stringify(c)}`;
+        if (!/ complete --step received-review --result "open decisions answered by the owner"$/.test(c[0])) return `FAIL: first command ${c[0]}`;
+        if (!/^\/sdlc:ship-sdlc --resume/.test(c[c.length - 1])) return `FAIL: last command ${c[c.length - 1]}`;
+        return o.snapshots[0].stepStatuses['received-review'] === 'in_progress' ? true : `FAIL: received-review ${o.snapshots[0].stepStatuses['received-review']}`;
+
+- description: "ship-guard: (R101) version is not dispatched while received-review is in progress"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario guard-earlier-open --seed frozen"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'done' || !e.ext || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.error}`;
+        const q = e.ext.pendingQuestion;
+        if (!q || q.id !== 'earlierStepOpen' || q.step !== 'received-review' || JSON.stringify(q.options) !== '["resume"]') return `FAIL: pendingQuestion ${JSON.stringify(q)}`;
+        const c = e.ext.commands;
+        if (c.length !== 1 || !/^\/sdlc:ship-sdlc --resume/.test(c[0])) return `FAIL: commands ${JSON.stringify(c)}`;
+        const v = o.snapshots[0].version;
+        return v.status === 'pending' && !('dispatchHead' in v) ? true : `FAIL: version ${JSON.stringify(v)}`;
+
+- description: "ship-guard: (R102) release commit followed by a commit stops at the version result"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario guard-release-ahead --seed frozen"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.calls[0].envelope.step?.id !== 'dispatch_version') return `FAIL: first call ${JSON.stringify(o.calls[0].envelope.step && o.calls[0].envelope.step.id)}`;
+        const e = o.calls[1].envelope;
+        if (e.status !== 'done' || !e.ext || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.ext && e.ext.reason} ${e.error}`;
+        const q = e.ext.pendingQuestion;
+        if (!q || q.id !== 'commitsAfterRelease' || q.step !== 'version') return `FAIL: pendingQuestion ${JSON.stringify(q)}`;
+        if (q.releaseCommit !== o.releaseSha || q.head !== o.headAfter || JSON.stringify(q.later) !== JSON.stringify([o.headAfter])) return `FAIL: shas ${JSON.stringify(q)} R=${o.releaseSha} F=${o.headAfter}`;
+        if (JSON.stringify(q.options) !== '["record","skip"]') return `FAIL: options ${JSON.stringify(q.options)}`;
+        if (o.snapshots[1].version.status !== 'in_progress' || !o.snapshots[1].paused) return `FAIL: ${JSON.stringify(o.snapshots[1])}`;
+        const c = e.ext.commands;
+        if (c.length !== 3 || !c[0].endsWith(` complete --step version --result "release commit ${o.releaseSha} recorded by hand"`) || !/ skip --step version --reason "re-run guard: release already made"$/.test(c[1])) return `FAIL: commands ${JSON.stringify(c)}`;
+        return true;
+
+- description: "ship-guard: (R102) resume after a version step that ran ahead stops with commitsAfterRelease"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario guard-release-ahead-resume --seed frozen"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[1].envelope;
+        if (e.status !== 'done' || !e.ext || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.ext && e.ext.reason} ${e.error}`;
+        const q = e.ext.pendingQuestion;
+        if (!q || q.id !== 'commitsAfterRelease') return `FAIL: pendingQuestion ${JSON.stringify(q)}`;
+        if (q.releaseCommit !== o.releaseSha || !Array.isArray(q.later) || q.later.length !== 1 || q.later[0] !== o.headAfter) return `FAIL: shas ${JSON.stringify(q)}`;
+        const c = e.ext.commands;
+        return c.length === 3 && c[0].includes(`release commit ${o.releaseSha} recorded by hand`) ? true : `FAIL: commands ${JSON.stringify(c)}`;
+
+- description: "ship-guard: (R102) repeated resume is idempotent"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario guard-release-ahead-resume --seed frozen"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.calls[1].envelope.ext, b = o.calls[2].envelope.ext;
+        if (a.reason !== 'pending-question' || b.reason !== 'pending-question') return `FAIL: ${a.reason} / ${b.reason}`;
+        if (JSON.stringify(a.pendingQuestion) !== JSON.stringify(b.pendingQuestion)) return 'FAIL: pendingQuestion differs';
+        if (JSON.stringify(a.commands) !== JSON.stringify(b.commands)) return 'FAIL: commands differ';
+        const s1 = o.snapshots[1], s2 = o.snapshots[2];
+        if (JSON.stringify(s1.version) !== JSON.stringify(s2.version)) return `FAIL: version entry changed ${JSON.stringify(s1.version)} ${JSON.stringify(s2.version)}`;
+        return s2.historyLength === s1.historyLength + 1 && s2.paused ? true : `FAIL: history ${s1.historyLength} -> ${s2.historyLength}`;
+
 # R86: the re-run guard for the execute step (no state file plus a tree that differs from dispatchTree means it may have run).
 - description: "ship-rerun: (execute) finished execute without state stops with rerunGuard"
   vars:

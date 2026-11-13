@@ -359,6 +359,10 @@ Reviewing local changes — no PR to post to. Options:
 
 During the run, the consolidated comment body is written to `${diff_dir}/review-comment.md` (a temporary location under `$TMPDIR`). The skill reads this path from the orchestrator summary and (a) emits the file's contents verbatim in the terminal before the posting prompt, and (b) uses the same file as the body source for `gh api -F body=@…` or the `save` write. The file is discarded along with the diff dir after the terminal branch — including when you reply `cancel` or the command fails — but its contents remain visible in scrollback.
 
+### Waiting for the orchestrator
+
+When the review orchestrator runs in the background, review-sdlc waits for it with one blocking call, `node review.js --wait-summary --manifest <manifest>`. The call returns when this run's review summary is written, or after a timeout, and is repeated until the orchestrator returns. The skill starts no timers, so nothing wakes it after it reports (R21).
+
 ---
 
 ## Post-Review Self-Fix

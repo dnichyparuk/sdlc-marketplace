@@ -85,7 +85,17 @@ subagents, run a judgment pass over their findings, and run `review-consolidate.
 which writes `${diff_dir}/review-comment.md` and the review summary. It does NOT post to a PR and does
 NOT prompt the user — the skill handles posting in Step 4.
 
-Wait for the orchestrator to return its summary.
+Wait for the orchestrator to return its summary (R21). When the Agent call returns before the
+orchestrator has finished, wait only with this call, run as one plain Bash call with the Bash
+`timeout` parameter 600000:
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/review.js" --wait-summary --manifest "<MANIFEST_FILE>"
+```
+
+It prints one JSON line. Repeat the call until the orchestrator's return has arrived. Never start
+`Monitor`, a background Bash command, `sleep` or any other timer to wait. Before you return, stop
+with `TaskStop` every background task you started that is still running.
 
 **Check the review summary right away (P11).** As soon as the orchestrator returns its
 summary (first dispatch or the one re-dispatch below), and before Step 3 displays

@@ -2031,6 +2031,39 @@ function rerunGuard(entry, cwd, executeHasState) {
   };
 }
 
+/** R102: null unless sha is a commit and a strict ancestor of HEAD. */
+function commitsAfterRelease(sha, cwd) {
+  if (typeof sha !== 'string' || !/^[0-9a-fA-F]{4,40}$/.test(sha)) return null;
+  const git = (...a) => spawnSync('git', a, { cwd, encoding: 'utf8', timeout: 8000 });
+  const h = git('rev-parse', 'HEAD');
+  const r = git('rev-parse', '--verify', '--quiet', `${sha}^{commit}`);
+  if (h.status !== 0 || r.status !== 0) return null;
+  const head = h.stdout.trim();
+  const releaseCommit = r.stdout.trim();
+  if (!head || !releaseCommit || releaseCommit === head) return null;
+  if (git('merge-base', '--is-ancestor', releaseCommit, 'HEAD').status !== 0) return null;
+  const list = git('rev-list', '--reverse', `${releaseCommit}..HEAD`);
+  if (list.status !== 0) return null;
+  const later = list.stdout.split('\n').map(s => s.trim()).filter(Boolean);
+  return {
+    id: 'commitsAfterRelease',
+    step: 'version',
+    releaseCommit,
+    head,
+    later,
+    prompt: `The version step's release commit ${releaseCommit} is not HEAD: ${later.length} commit(s) landed after it (${later.map(s => s.slice(0, 7)).join(', ')}). They are not part of the release, and this run did not review them. Record the release by hand, or skip the version step?`,
+    options: ['record', 'skip'],
+  };
+}
+
+/** R80/R102: the two hand-recording commands for the version step. */
+function versionGuardCommands(sha) {
+  return [
+    `node "${STATE_SHIP_SCRIPT}" complete --step version --result "release commit ${sha} recorded by hand"`,
+    `node "${STATE_SHIP_SCRIPT}" skip --step version --reason "re-run guard: release already made"`,
+  ];
+}
+
 /**
  * Pick the next step after `after` in P-TRANS-1 order (L6, L19) and build its
  * payload. Conditional steps whose condition is not met are recorded skipped.
@@ -2223,16 +2256,31 @@ function pickNextStep(after, ctx) {
         break;
       default: // dispatch_*
         if (id === 'dispatch_version') {
-          const guard = rerunGuard(entryOf('version'), resolveActiveWorktreeSafe());
-          if (guard) {
+          // R101: no version while an earlier step is still open.
+          const open = ['execute', 'commit', 'review', 'received-review', 'commit-fixes'].find(n => { const e = entryOf(n); return !!e && e.status === 'in_progress'; });
+          if (open) {
             return {
-              pending: guard,
-              commands: [
-                `node "${STATE_SHIP_SCRIPT}" complete --step version --result "release commit ${guard.head} recorded by hand"`,
-                `node "${STATE_SHIP_SCRIPT}" skip --step version --reason "re-run guard: release already made"`,
-              ],
+              pending: { id: 'earlierStepOpen', step: open, prompt: `The ${open} step is still in progress (an open question or a stop it has not recovered from). Ship does not run the version step before it ends. Resume the run to finish it.`, options: ['resume'] },
+              commands: [],
             };
           }
+          const wt = resolveActiveWorktreeSafe();
+          const v = entryOf('version');
+          // R102b: the earlier version run left commits after its release commit.
+          if (v && (v.status === 'in_progress' || v.status === 'failed') && v.dispatchHead) {
+            const last = lastHistory(ledger, 'dispatch_version');
+            const sha = last && last.data && last.data.artifacts ? last.data.artifacts.commit : undefined;
+            let rel = null;
+            if (sha) rel = commitsAfterRelease(sha, wt);
+            else {
+              const list = spawnSync('git', ['rev-list', '--reverse', `${v.dispatchHead}..HEAD`], { cwd: wt, encoding: 'utf8', timeout: 8000 });
+              const shas = list.status === 0 ? list.stdout.split('\n').map(s => s.trim()).filter(Boolean) : [];
+              if (shas.length >= 2) rel = commitsAfterRelease(shas[0], wt);
+            }
+            if (rel) return { pending: rel, commands: versionGuardCommands(rel.releaseCommit) };
+          }
+          const guard = rerunGuard(v, wt);
+          if (guard) return { pending: guard, commands: versionGuardCommands(guard.head) };
         }
         if (id === 'dispatch_execute') {
           // A "yes" at execute_gate is the user's own go-ahead to resume, so it never loops back into the guard.
@@ -2500,6 +2548,10 @@ function runAfter(stepArgs) {
   const archiveAbort = after === 'archive_openspec' && answer === 'abort';
   let success = result.success === true;
   let failureText = output.summary;
+  // R102a: a release commit with commits after it is a question, checked before the tag and --no-tag checks.
+  const releaseAhead = name === 'version' && success
+    ? commitsAfterRelease(output.artifacts && output.artifacts.commit, resolveActiveWorktreeSafe())
+    : null;
   if (name && STEP_SIDE_EFFECTS[name] === 'tag' && success && !flags.noTag) {
     const tag = output.artifacts && output.artifacts.tag;
     if (!tag || !getTagList(resolveActiveWorktreeSafe()).includes(tag)) {
@@ -2550,7 +2602,10 @@ function runAfter(stepArgs) {
     const open = st && st.data && Array.isArray(st.data.waves) ? st.data.waves.find(w => w && w.status === 'in_progress') : null;
     if (open) midWave = { prompt: `execute-plan-sdlc returned while wave ${open.number} was still in progress; its workers may still be running. Wait until they finish, then resume.`, options: ['resume'] };
   }
-  const pq = after.startsWith('dispatch_') && !success ? (validPendingQuestion(output.pendingQuestion) || midWave) : null;
+  // R100: a pending question wins over success; R102a joins as a ship-made question.
+  const pq = after.startsWith('dispatch_')
+    ? (validPendingQuestion(output.pendingQuestion) || (!success ? midWave : null) || releaseAhead)
+    : null;
   const ext = {};
   const recorded = new Set();
   if (name && !pq && !archiveAbort) {
@@ -2658,6 +2713,11 @@ function runAfter(stepArgs) {
         },
         stateFile: ledgerPath, progress: progress(), ext,
       }));
+    }
+    if (pq === releaseAhead) return pendingStop(pq, false, versionGuardCommands(pq.releaseCommit));
+    // R82: open decisions; the owner records the answer, then resumes.
+    if (after === 'dispatch_received_review' && pq.options.includes('defer')) {
+      return pendingStop(pq, false, [`node "${STATE_SHIP_SCRIPT}" complete --step received-review --result "open decisions answered by the owner"`]);
     }
     return pendingStop(pq, after === 'dispatch_execute');
   }
