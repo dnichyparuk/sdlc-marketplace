@@ -65,7 +65,8 @@ For 4+ file scopes, plan-sdlc dispatches a parallel dynamic-dimension orchestrat
 **Step 1 — Routing.** Three branches:
 - **≤3 files (lightweight):** orchestrator skipped. Inline exploration as today. No brief.
 - **4+ files AND `explorePack.manifestPath != null`:** dispatch `sdlc:plan-explore-orchestrator` exactly once with `MANIFEST_FILE`, `PROJECT_ROOT`, `USER_PROMPT`, `OPENSPEC_CONTEXT`.
-- **`explorePack.error` non-null:** append a one-line note to `.sdlc/learnings/log.md`, fall back to inline exploration. Plan still produced.
+  After it returns, plan-sdlc runs `plan-explore.js --check-brief <outDir>` (R72): the brief must exist, name at least one dimension, hold one `dim-<name>.md` result file per dimension and at least one `F-<DIM>-<n>` id.
+- **Fallback:** `explorePack.error` non-null, an orchestrator error, no `Brief file:` line (or `Brief file: none`), or a failed brief check: append `## <date> — plan-sdlc orchestrator skipped: <reason>` to `.sdlc/learnings/log.md` and fall back to inline exploration. Plan still produced.
 
 **Orchestrator (the new agent).** Four steps, mirroring review-orchestrator but with a load-bearing inversion:
 1. **SCOPE.** LLM-derives 3–5 kebab-case task-specific dimensions as JSON `{ name, description, files[], mode, model }`. Names are task-shaped (`auth-middleware-integration`), not generic axes. Must include ≥1 `web`/`hybrid` dimension when `webResearchSignal: true`; must include zero web/hybrid when the prompt is a pure rename/move/dead-code refactor.
@@ -99,7 +100,7 @@ For 4+ file scopes, plan-sdlc dispatches a parallel dynamic-dimension orchestrat
 
 **Lightweight-skip rule.** When complexity routing lands at ≤3 files, the orchestrator is skipped entirely. No brief, no tempdir, `explorePack.manifestPath = null`. Inline exploration is used as today.
 
-**Fallback path.** When `plan-explore.js` fails or `sdlc:plan-explore-orchestrator` exits non-zero, plan-sdlc appends a one-line note to `.sdlc/learnings/log.md` and falls back to inline exploration. The plan is still produced — brief absence is not a plan failure.
+**Fallback path.** When `plan-explore.js` fails, `sdlc:plan-explore-orchestrator` returns an error or no brief file, or the R72 brief check fails (`brief-missing`, `no-dimensions`, `missing-dimension-results`, `no-finding-ids`), plan-sdlc appends a one-line note with the reason to `.sdlc/learnings/log.md` and falls back to inline exploration. The plan is still produced — brief absence is not a plan failure.
 
 **Brief example** (3 dimensions, one web, one hybrid):
 ```

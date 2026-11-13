@@ -1002,3 +1002,61 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true"
+
+# --- plan-explore.js --check-brief (R72) ---
+
+- description: "plan-explore --check-brief: complete brief and results yield ok (R72)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan-explore.js"
+    script_args: "--check-brief {{project_root}}/ok"
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.ok === true && r.reason === null && r.dimensions.length === 3 && r.findingIds === 4;
+
+- description: "plan-explore --check-brief: brief naming dimensions with no dim files yields missing-dimension-results (R72)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan-explore.js"
+    script_args: "--check-brief {{project_root}}/skipped"
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.ok === false && r.reason === 'missing-dimension-results'
+          && r.dimensions.join() === 'a-dim,b-dim,c-dim' && r.missingResults.length === 3;
+
+- description: "plan-explore --check-brief: brief without finding ids yields no-finding-ids (R72)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan-explore.js"
+    script_args: "--check-brief {{project_root}}/no-ids"
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.ok === false && r.reason === 'no-finding-ids' && r.findingIds === 0;
+
+- description: "plan-explore --check-brief: empty dimensions table yields no-dimensions (R72)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan-explore.js"
+    script_args: "--check-brief {{project_root}}/no-dims"
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.ok === false && r.reason === 'no-dimensions' && r.dimensions.length === 0;
+
+- description: "plan-explore --check-brief: path with no brief yields brief-missing (R72)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan-explore.js"
+    script_args: "--check-brief {{project_root}}/absent"
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.ok === false && r.reason === 'brief-missing' && r.findingIds === 0;
