@@ -1636,6 +1636,22 @@ function ensureLedger({ flags, flagSources, openspecContext, planFile, gitState,
 }
 
 /**
+ * Printed resume line. R11 rewrites every non-frozen flag from the resuming run's own CLI, so the
+ * line repeats the CLI-only release flags and any CLI-given review flag of this run.
+ */
+function resumeCommand(flags, auto) {
+  const src = flags.sources || {};
+  const parts = ['/sdlc:ship-sdlc --resume'];
+  if (auto) parts.push('--auto');
+  if (flags.noTag) parts.push('--no-tag');
+  if (flags.noPush) parts.push('--no-push');
+  if (flags.releaseSubject) parts.push(`--release-subject ${JSON.stringify(String(flags.releaseSubject))}`);
+  if (src.reviewRounds === 'cli' && flags.reviewRounds) parts.push(`--review-rounds ${flags.reviewRounds}`);
+  if (src.reviewThreshold === 'cli' && flags.reviewThreshold) parts.push(`--review-threshold ${flags.reviewThreshold}`);
+  return parts.join(' ');
+}
+
+/**
  * Branch name for workspace=branch, from the plan's first `# ` heading.
  * @returns {{ type: string, slug: string, name: string }}
  * @throws {TypeError} from resolveBranchName (empty slug, bad template)
@@ -2722,7 +2738,7 @@ function runAfter(stepArgs) {
       ...(viaExecute ? [`/sdlc:execute-plan-sdlc --plan "${flags.planFile}" --resume --strict-files`] : []),
       ...extraCommands,
       // R80: the caller repeats --auto on resume, so the printed line carries it when the run used it.
-      `/sdlc:ship-sdlc --resume${flags.auto ? ' --auto' : ''}${flags.noPush ? ' --no-push' : ''}`,
+      resumeCommand(flags, flags.auto),
     ];
     return finish(createEnvelope('done', null, {
       ext: { ...ext, reason: 'pending-question', pendingQuestion: question, commands },
@@ -2734,7 +2750,7 @@ function runAfter(stepArgs) {
     ledger.finalCheck.handoff = true; // R104: the next resume re-checks or asks
     ledger.paused = { at: new Date().toISOString(), reason: 'final check open' };
     return finish(createEnvelope('done', null, {
-      ext: { ...ext, reason: 'final-check-open', summary: buildSummary(ledger), commands: [`/sdlc:ship-sdlc --resume --auto${flags.noPush ? ' --no-push' : ''}`] },
+      ext: { ...ext, reason: 'final-check-open', summary: buildSummary(ledger), commands: [resumeCommand(flags, true)] },
       stateFile: ledgerPath, progress: progress(),
     }));
   };
