@@ -683,3 +683,73 @@
       threshold: 2000
     - type: javascript
       value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l48) VAR=val word longer than 256 chars before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"A=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx tee src/a"}}'
+  assert:
+    - type: latency
+      threshold: 2000
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l49) path-qualified tee longer than 256 chars denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/x/tee src/a"}}'
+  assert:
+    - type: latency
+      threshold: 2000
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l50) 256 leading assignments before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 A=1 tee src/a"}}'
+  assert:
+    - type: latency
+      threshold: 2000
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l51) wrapper chain of 300 words fails closed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice nice ls"}}'
+  assert:
+    - type: latency
+      threshold: 2000
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' || 'FAIL: not denied';
+
+- description: "worker-write-guard: (l52) timeout with a decimal duration before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"timeout 1.5 tee src/a"}}'
+  assert:
+    - type: latency
+      threshold: 2000
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';

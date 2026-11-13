@@ -97,43 +97,87 @@ function maskQuotes(cmd) {
 
 /**
  * One command-position scanner shared by the tee, dd, git-apply and patch rules, so they
- * cannot drift (R90). It is code, not one backtracking regex: the work per start position
- * is bounded by MAX_PREFIX_TOKENS, so it is linear in the command length. A command starts
- * at the line start, after `| ; &`, `(`, `{`, a backtick or a newline, after `then`/`do`/`else`,
- * after leading `VAR=val` words, and after wrapper words (`env`, `sudo`, `exec`, `command`,
- * `nohup`, `time`, `xargs`, `timeout`, `nice`, `stdbuf`, `setsid`, `ionice`) with their own
- * options, option arguments, `VAR=val` words and numbers. The command name may carry a path
- * (`/usr/bin/tee`). A wrapper chain of MAX_PREFIX_TOKENS words or more is denied (fail closed). Known gaps (best-effort guard): a quoted command name (`"tee" f`),
+ * cannot drift (R90). It is code, not one backtracking regex, and it works on offsets
+ * without slicing words, so its cost is linear in the command length: the work per start
+ * position is bounded by MAX_PREFIX_TOKENS. A command starts at the line start, after
+ * `| ; &`, `(`, `{`, a backtick or a newline, after `then`/`do`/`else`, after leading
+ * `VAR=val` words, and after wrapper words (`env`, `sudo`, `exec`, `command`, `nohup`,
+ * `time`, `xargs`, `timeout`, `nice`, `stdbuf`, `setsid`, `ionice`) with their own options,
+ * option arguments, `VAR=val` words and numbers. The command name may carry a path
+ * (`/usr/bin/tee`). A prefix of MAX_PREFIX_TOKENS or more words before the command is
+ * denied (fail closed). Known gaps (best-effort guard): a quoted command name (`"tee" f`),
  * `bash -c "..."` and other interpreters.
  */
-const WRAPPER_WORDS = new Set(['env', 'sudo', 'exec', 'command', 'nohup', 'time', 'xargs', 'timeout', 'nice', 'stdbuf', 'setsid', 'ionice']);
+const WRAPPER_WORDS = ['env', 'sudo', 'exec', 'command', 'nohup', 'time', 'xargs', 'timeout', 'nice', 'stdbuf', 'setsid', 'ionice'];
 const MAX_PREFIX_TOKENS = 256;
 
-function baseName(word) {
-  return word.slice(word.lastIndexOf('/') + 1);
+/** Words of the command, as [start, end, segment] offsets; a word never crosses `|`, `;`, `&` or whitespace. */
+function tokenize(masked) {
+  const toks = [];
+  const re = /[^\s|;&]+/g;
+  let m;
+  let seg = 0;
+  let prevEnd = 0;
+  while ((m = re.exec(masked)) !== null) {
+    if (toks.length > 0 && /[|;&\n]/.test(masked.slice(prevEnd, m.index))) seg++;
+    toks.push({ s: m.index, e: m.index + m[0].length, seg });
+    prevEnd = m.index + m[0].length;
+  }
+  return toks;
 }
 
-/** Scan the tokens at `pos` (inside a segment ending at `end`); return the offset after the command word, or -1. */
-function scanPrefix(masked, pos, end, name) {
-  const re = /\S{1,256}/g; // bounded token, so many start positions in one long word stay linear
-  re.lastIndex = pos;
+/** The word [ws, we) is `word`, or ends in `/word` (a path-qualified command). */
+function isCommandWord(masked, ws, we, word) {
+  const len = word.length;
+  if (we - ws < len || !masked.startsWith(word, we - len)) return false;
+  return we - ws === len || masked[we - len - 1] === '/';
+}
+
+function isWordEqual(masked, ws, we, word) {
+  return we - ws === word.length && masked.startsWith(word, ws);
+}
+
+function isAssignment(masked, ws, we) {
+  if (!/[A-Za-z_]/.test(masked[ws])) return false;
+  let i = ws + 1;
+  while (i < we && /[A-Za-z0-9_]/.test(masked[i])) i++;
+  return i < we && masked[i] === '=';
+}
+
+/** A wrapper numeric argument: digits and dots, then an optional s, m, h or d (`5`, `1.5`, `2m`). */
+function isDuration(masked, ws, we) {
+  if (!/[0-9]/.test(masked[ws])) return false;
+  let i = ws + 1;
+  while (i < we && /[0-9.]/.test(masked[i])) i++;
+  if (i < we && /[smhd]/.test(masked[i])) i++;
+  return i === we;
+}
+
+/**
+ * Scan the words from token `j` (whose first word starts at `first`, inside the token when
+ * the start follows `(`, `{` or a backtick). Returns the offset after the command word, -1
+ * when there is no such command here, or -2 when the prefix is too long to scan.
+ */
+function scanPrefix(masked, toks, j, first, name) {
+  const seg = toks[j].seg;
   let inWrapper = false;
   let afterOption = false;
-  for (let n = 0; n < MAX_PREFIX_TOKENS; n++) {
-    const t = re.exec(masked);
-    if (!t || t.index >= end) return -1;
-    if (n === MAX_PREFIX_TOKENS - 1 && inWrapper) return -2; // chain too long to scan: fail closed
-    const w = t[0];
-    if (n === 0 && (w === 'then' || w === 'do' || w === 'else')) continue;
-    if (baseName(w) === name) return t.index + w.length;
-    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(w)) {
+  for (let n = 0; ; n++) {
+    const k = j + n;
+    if (k >= toks.length || toks[k].seg !== seg) return -1;
+    if (n >= MAX_PREFIX_TOKENS) return -2; // only prefix words so far: fail closed
+    const ws = n === 0 ? first : toks[k].s;
+    const we = toks[k].e;
+    if (n === 0 && (isWordEqual(masked, ws, we, 'then') || isWordEqual(masked, ws, we, 'do') || isWordEqual(masked, ws, we, 'else'))) continue;
+    if (isCommandWord(masked, ws, we, name)) return we;
+    if (isAssignment(masked, ws, we)) {
       afterOption = false;
-    } else if (WRAPPER_WORDS.has(baseName(w))) {
+    } else if (WRAPPER_WORDS.some((w) => isCommandWord(masked, ws, we, w))) {
       inWrapper = true;
       afterOption = false;
-    } else if (inWrapper && w[0] === '-') {
+    } else if (inWrapper && masked[ws] === '-') {
       afterOption = true;
-    } else if (inWrapper && (w === '{}' || /^[0-9]+[smhd]?$/.test(w))) {
+    } else if (inWrapper && (isWordEqual(masked, ws, we, '{}') || isDuration(masked, ws, we))) {
       afterOption = false;
     } else if (inWrapper && afterOption) {
       afterOption = false; // the option's own argument
@@ -141,24 +185,28 @@ function scanPrefix(masked, pos, end, name) {
       return -1;
     }
   }
-  return -1;
 }
 
-/** Every command-position use of `name` in the masked command: [{ s, e }] = the argument text range. */
+/** Every command-position use of `name` in the masked command: [{ s, e }] = the argument text range; { overflow } for a prefix too long to scan. */
 function findCommands(masked, name) {
+  const toks = tokenize(masked);
+  const segEnd = [];
+  toks.forEach((t) => {
+    segEnd[t.seg] = t.e;
+  });
   const found = [];
-  const segRe = /[^|;&\n]+/g;
-  let seg;
-  while ((seg = segRe.exec(masked)) !== null) {
-    const a = seg.index;
-    const b = a + seg[0].length;
-    const startRe = /(?:[(`{]|^)[ \t]*/g;
-    let st;
-    while ((st = startRe.exec(seg[0])) !== null) {
-      if (st[0] === '') startRe.lastIndex++;
-      const s = scanPrefix(masked, a + st.index + st[0].length, b, name);
-      if (s >= 0) found.push({ s, e: b });
-      else if (s === -2) found.push({ overflow: true });
+  const add = (j, first) => {
+    const s = scanPrefix(masked, toks, j, first, name);
+    if (s >= 0) found.push({ s, e: segEnd[toks[j].seg] });
+    else if (s === -2) found.push({ overflow: true });
+  };
+  for (let j = 0; j < toks.length; j++) {
+    if (j === 0 || toks[j].seg !== toks[j - 1].seg) add(j, toks[j].s);
+    for (let i = toks[j].s; i < toks[j].e; i++) {
+      const ch = masked[i];
+      if (ch !== '(' && ch !== '`' && ch !== '{') continue;
+      if (i + 1 < toks[j].e) add(j, i + 1);
+      else if (j + 1 < toks.length && toks[j + 1].seg === toks[j].seg) add(j + 1, toks[j + 1].s);
     }
   }
   return found;
