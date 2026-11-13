@@ -36,7 +36,7 @@ const LIB = path.join(__dirname, '..', 'lib');
 
 const { writeOutput } = require(path.join(LIB, 'output'));
 const {
-  execGh, selectGhAccountForTarget, probeGhAuth, parseRemoteOwner, formatAccessDenied,
+  execGh, selectGhAccountForTarget, ghTokenEnv, probeGhAuth, parseRemoteOwner, formatAccessDenied,
 } = require(path.join(LIB, 'git'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { resolveSdlcRoot, readSection } = require(path.join(LIB, 'config'));
@@ -95,7 +95,7 @@ const SUBCOMMANDS = {
   '--validate-links': 'validate-links',
 };
 
-// The acting account's token (R30): reaches `gh` children only as env.GH_TOKEN, never output.
+// The acting account's token (R30): reaches `gh` children only through ghTokenEnv (GH_TOKEN or GH_ENTERPRISE_TOKEN by host), never output.
 let ghToken = null;
 // Host of the repository being worked on, for host-bound gh calls made outside resolveAuth (R30).
 let activeHost = null;
@@ -294,7 +294,7 @@ function resolveRepo(projectRoot, args, config) {
 
 /** Run `gh` with the acting account's token, when one was selected. */
 function gh(args) {
-  return execGh(args, { env: { ...process.env, ...(ghToken ? { GH_TOKEN: ghToken } : {}) } });
+  return execGh(args, { env: ghTokenEnv(activeHost, ghToken) });
 }
 
 function scopesFrom(tokenScopes) {
@@ -428,8 +428,13 @@ function clearCache(repo) {
 function writeCacheAtomic(file, data) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n');
-  fs.renameSync(tmp, file);
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n');
+    fs.renameSync(tmp, file);
+  } catch (err) {
+    try { fs.rmSync(tmp, { force: true }); } catch (_) { /* best effort */ }
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -850,11 +855,17 @@ function search(repo, queryFile) {
 
 /** P12: existence-only link check with the acting account's token; violations go to stderr. */
 async function validateLinksSub(repo, file) {
-  const text = fs.readFileSync(file, 'utf8');
-  const env = { ...process.env, ...(ghToken ? { GH_TOKEN: ghToken } : {}) };
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (err) {
+    emit({ ok: false, violations: [], skipped: [], warnings: [], errors: [`--file: cannot read ${file}: ${err.code || err.message}`] }, 1);
+    return;
+  }
+  const env = ghTokenEnv(repo.host, ghToken);
   const result = await validateLinks(text, { github: { host: repo.host, owner: repo.owner, repo: repo.name, env } });
   if (!result.ok) process.stderr.write(formatViolations(result.violations) + '\n');
-  emit({ ok: result.ok, violations: result.violations, skipped: result.skipped }, result.ok ? 0 : 1);
+  emit({ ok: result.ok, violations: result.violations, skipped: result.skipped, warnings: [], errors: [] }, result.ok ? 0 : 1);
 }
 
 // ---------------------------------------------------------------------------

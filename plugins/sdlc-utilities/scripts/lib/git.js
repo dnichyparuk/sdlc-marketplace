@@ -24,6 +24,9 @@ const { execSync, spawnSync } = require('node:child_process');
 const MAX_BUFFER = 50 * 1024 * 1024; // 50 MB
 // #9188: a `gh` call that never answers must not hang a prepare script. Applies to every
 // exec() command that starts with `gh `; an explicit opts.timeout wins. Tuning value, not contract.
+// Slug grammar shared by selectGhAccountForTarget (host may carry a port, as in skill/github.js).
+const GH_SLUG_PART_RE = /^[A-Za-z0-9._-]+$/;
+const GH_HOST_RE = /^[A-Za-z0-9.-]+(:\d+)?$/;
 const GH_TIMEOUT_MS = 30 * 1000;
 
 /**
@@ -528,9 +531,7 @@ function selectGhAccountForTarget({ host, owner, repo, run = execGh }) {
     warning,
   });
 
-  const OWNER_REPO_RE = /^[A-Za-z0-9._-]+$/;
-  const HOST_RE = /^[A-Za-z0-9.-]+$/;
-  if (!OWNER_REPO_RE.test(String(owner)) || !OWNER_REPO_RE.test(String(repo)) || !HOST_RE.test(String(host))) {
+  if (!GH_SLUG_PART_RE.test(String(owner)) || !GH_SLUG_PART_RE.test(String(repo)) || !GH_HOST_RE.test(String(host))) {
     return result(null, null, null, null, 'invalid host/owner/repo');
   }
 
@@ -556,12 +557,29 @@ function selectGhAccountForTarget({ host, owner, repo, run = execGh }) {
   for (const candidate of accounts.filter(a => !a.active)) {
     const token = getGhTokenFor(candidate.login, host, { run });
     if (!token) continue;
-    if (run(probeArgs, { env: { ...process.env, GH_TOKEN: token } }).ok) {
+    if (run(probeArgs, { env: ghTokenEnv(host, token) }).ok) {
       return result(active.login, candidate.login, token, 'account has access');
     }
   }
   return result(active.login, active.login, null, null,
     `No authenticated gh account has access to ${owner}/${repo}. Run "gh auth switch" to select the correct account manually.`);
+}
+
+/**
+ * Env for a `gh` child that acts as the account owning `token` on `host`. gh reads GH_TOKEN
+ * only for github.com and *.ghe.com; other (GitHub Enterprise Server) hosts read
+ * GH_ENTERPRISE_TOKEN. The token is never set for the other variable.
+ * @param {string} host - may carry a port
+ * @param {string|null} token
+ * @returns {NodeJS.ProcessEnv}
+ */
+function ghTokenEnv(host, token) {
+  const env = { ...process.env };
+  if (!token) return env;
+  const name = String(host || '').toLowerCase().replace(/:\d+$/, '');
+  if (name === 'github.com' || name.endsWith('.ghe.com')) env.GH_TOKEN = token;
+  else env.GH_ENTERPRISE_TOKEN = token;
+  return env;
 }
 
 /**
@@ -1520,6 +1538,7 @@ module.exports = {
   getGhAccountsForHost,
   getGhTokenFor,
   selectGhAccountForTarget,
+  ghTokenEnv,
   GH_TIMEOUT_MS,
   retryExec,
   // Shared

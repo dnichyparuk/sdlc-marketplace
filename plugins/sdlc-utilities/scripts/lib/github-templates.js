@@ -18,6 +18,9 @@ const { extractFrontmatter, extractBody } = require('./yaml');
 // Issue-form elements GitHub renders as one `### <label>` section; `markdown` is skipped.
 const FORM_SECTION_TYPES = ['textarea', 'input', 'dropdown', 'checkboxes'];
 
+const MAX_TEMPLATE_CHARS = 262144;
+const MAX_LINE_CHARS = 2048;
+
 const KEY_RE = /^("[^"]*"|'[^']*'|[^\s:#"'[{-][^:]*?|-[^\s:][^:]*?)\s*:(?:\s+(.*))?$/;
 
 // ---------------------------------------------------------------------------
@@ -55,7 +58,10 @@ function scalar(raw) {
  * @returns {*} the root map, list or scalar; null for an empty document
  */
 function parseFormYaml(text) {
-  const lines = String(text ?? '').replace(/\r\n?/g, '\n').split('\n');
+  // Bound the input: the line regexes backtrack quadratically on long whitespace runs, and
+  // templates come from repositories whose contributors the caller does not control.
+  const lines = String(text ?? '').slice(0, MAX_TEMPLATE_CHARS).replace(/\r\n?/g, '\n').split('\n')
+    .map((line) => (line.length > MAX_LINE_CHARS ? line.slice(0, MAX_LINE_CHARS) : line));
   let i = 0;
   const indentOf = (line) => line.match(/^ */)[0].length;
   const isItem = (body) => body === '-' || body.startsWith('- ');

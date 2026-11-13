@@ -141,14 +141,16 @@ function classifyUrl(url, githubHost) {
     return { kind: 'invalid', parsed: null };
   }
   const host = parsed.hostname.toLowerCase();
-  // GitHub issues/PRs (githubHost: extra GitHub Enterprise host from ctx.github)
-  if (host === 'github.com' || host === 'www.github.com' || (githubHost && host === githubHost.toLowerCase())) {
+  // GitHub issues/PRs (githubHost: extra GitHub Enterprise host from ctx.github, may carry a port)
+  const ghe = githubHost ? String(githubHost).toLowerCase() : null;
+  const isGhe = ghe !== null && (parsed.host.toLowerCase() === ghe || (!/:\d+$/.test(ghe) && host === ghe));
+  if (host === 'github.com' || host === 'www.github.com' || isGhe) {
     const m = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)\b/);
     if (m) {
       return {
         kind: 'github',
         parsed,
-        host: host === 'www.github.com' ? 'github.com' : host,
+        host: host === 'www.github.com' ? 'github.com' : (isGhe ? parsed.host.toLowerCase() : host),
         owner: m[1],
         repo: m[2],
         type: m[3],     // "issues" | "pull"
@@ -185,8 +187,10 @@ function ghViewExists(owner, repo, type, number) {
 
 // Existence-only check through gh api (ctx.github set): the repository identity is
 // not compared, cross-repository links are allowed (spec github-sdlc P12, I4).
-function ghApiIssueExists(host, owner, repo, number, env) {
+function ghApiIssueExists(host, owner, repo, number, env, boundHost) {
   if (!execGh) return { ok: false, detail: 'gh helper unavailable' };
+  // The acting account's token belongs to boundHost only: never present it to another host.
+  if (env && boundHost && String(host).toLowerCase() !== String(boundHost).toLowerCase()) env = undefined;
   const r = execGh(
     ['api', `repos/${owner}/${repo}/issues/${number}`, `--hostname=${host}`, '--silent'],
     { env },
@@ -197,7 +201,7 @@ function ghApiIssueExists(host, owner, repo, number, env) {
 function checkGithubUrl(c, ctx) {
   if (ctx.github) {
     if (ctx.offline) return { ok: true };
-    const ex = ghApiIssueExists(c.host, c.owner, c.repo, c.number, ctx.github.env);
+    const ex = ghApiIssueExists(c.host, c.owner, c.repo, c.number, ctx.github.env, ctx.github.host);
     return ex.ok ? { ok: true } : { ok: false, reason: 'github-not-found', detail: ex.detail };
   }
   const expected = ctx.expectedRepo;
@@ -401,7 +405,7 @@ async function validateLinks(text, ctx = {}) {
     const g = resolvedCtx.github;
     for (const r of extractIssueRefs(text)) {
       if (offline) break;
-      const ex = ghApiIssueExists(g.host, r.owner || g.owner, r.repo || g.repo, r.number, g.env);
+      const ex = ghApiIssueExists(g.host, r.owner || g.owner, r.repo || g.repo, r.number, g.env, g.host);
       if (!ex.ok) {
         violations.push({ url: r.ref, line: r.line, reason: 'github-ref-not-found', detail: ex.detail });
       }

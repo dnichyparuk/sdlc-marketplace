@@ -1246,3 +1246,16 @@
       value: |
         const o = JSON.parse(output);
         return o.exit === 1 && o.json.errors.some((e) => e.includes('--file')) ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/links P17: --validate-links with an unreadable --file exits 1 with a handled error"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --validate-links --repo acme/widgets --file /nonexistent/links.md"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.exit === 1 && o.json.ok === false && o.json.errors.some((e) => e.includes('cannot read')) ? true : `FAIL ${output}`;

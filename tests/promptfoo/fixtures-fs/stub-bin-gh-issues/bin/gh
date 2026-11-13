@@ -207,6 +207,18 @@ function answer() {
   return routeAnswer();
 }
 
+// Real gh reads GH_TOKEN only for github.com and *.ghe.com; other hosts read GH_ENTERPRISE_TOKEN.
+{
+  const stubHost = (opt('--hostname') || 'github.com').toLowerCase().replace(/:\d+$/, '');
+  if (stubHost === 'github.com' || stubHost.endsWith('.ghe.com')) {
+    delete env.GH_ENTERPRISE_TOKEN;
+  } else if (env.GH_ENTERPRISE_TOKEN) {
+    env.GH_TOKEN = env.GH_ENTERPRISE_TOKEN;
+  } else {
+    delete env.GH_TOKEN;
+  }
+}
+
 if (env.GH_STUB_LOG) {
   const tokenHash = env.GH_TOKEN
     ? crypto.createHash('sha256').update(env.GH_TOKEN).digest('hex').slice(0, 12)
