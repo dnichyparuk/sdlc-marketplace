@@ -152,17 +152,17 @@ The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()
      ```bash
      node "<PLUGIN_ROOT>/scripts/skill/plan-explore.js" --check-brief "<explorePack.outDir>"
      ```
-     as one plain Bash call. Exit 0: Read the brief at `<explorePack.outDir>/discovery-brief.md`; it is the source of truth for Step 2 task provenance. Non-zero: take `reason` from the JSON and use the **Error fallback** below. A brief with no findings cannot satisfy G15 (Brief citation coverage), so the fallback is cleaner.
+     as one plain Bash call. Exit 0: Read the brief at `<explorePack.outDir>/discovery-brief.md`; it is the source of truth for Step 2 task provenance. Exit 1: take `reason` from the JSON and use the **Error fallback** below. Any other non-zero exit (2 prints no JSON): use the **Error fallback** with reason `check-brief failed (exit <n>): <first stderr line>`. A brief with no findings cannot satisfy G15 (Brief citation coverage), so the fallback is cleaner.
 
   **Brief consumption (when brief is present AND validation passed):**
   - Step 2 tasks MUST cite at least one `F-<DIM>-<n>` finding ID from the brief OR be explicitly marked "out-of-scope addition" with rationale <!-- implements R27 -->
   - When the brief contains a `## Best-Practice Synthesis` section: Key Decisions MUST explicitly ADOPT / REJECT-with-rationale / mark NOT-APPLICABLE each web finding by its `F-<DIM>-<n>` ID <!-- implements R27 -->
 
-- **Lightweight scope** (complexity routing (Step 0) chose the lightweight branch, or `explorePack.manifestPath` is null):
+- **Lightweight scope** (complexity routing (Step 0) chose the lightweight branch). A null `explorePack.manifestPath` on a full-pipeline run is an explore failure: use the **Error fallback**, which takes precedence.
   - Skip orchestrator. Use inline exploration below. No brief.
 
 - **Error fallback** — any of: `explorePack.error` is non-null; the orchestrator returned an error; its return has no `Brief file:` line or says `Brief file: none`; the brief check exited non-zero.
-  - Append `## <YYYY-MM-DD> — plan-sdlc orchestrator skipped: <reason>` to `.sdlc/learnings/log.md` (reason: the error text, `no brief file`, or the check's `reason`).
+  - Append `## <YYYY-MM-DD> — plan-sdlc orchestrator skipped: <reason>` to `.sdlc/learnings/log.md` (reason: the error text, `no brief file`, or the check's `reason`, or the `check-brief failed` text).
   - Use inline exploration below. Plan still produced. <!-- implements R28, R72 -->
 
 **Structured discovery:** When requirements are vague (a single sentence or ambiguous goal), OR when multiple materially different approaches exist for a non-trivial aspect, use AskUserQuestion with targeted questions. Concrete triggers for the latter: (a) exploration surfaces two or more viable architecture patterns for the same aspect; (b) an ambiguous scope boundary exists where including vs. excluding a component would materially change the plan; (c) the codebase sends conflicting signals — two existing patterns either of which could reasonably be followed. When the active template provides `## Discovery Questions`, use those questions verbatim. When the template has no `## Discovery Questions` section (project override omitted it), fall back to:
