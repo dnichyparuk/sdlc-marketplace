@@ -32,6 +32,15 @@ const WORKER_RE = /(^|:)execute-worker(-complex|-batch)?$/;
 
 const ALLOWED_TARGET_RE = /^(\/dev\/|\/tmp\/|\$TMPDIR\/|\$\{TMPDIR\}\/)/;
 
+const SHELL_WORD_RE = /\S+/g; // one word of the masked text (a run of non-space characters); copy it per use, the g flag keeps lastIndex
+const WHITESPACE_RE = /\s+/; // a run of whitespace between words
+const DOLLAR_BEFORE_QUOTE_RE = /\$(?=["'])/g; // the $ of a $'..' or $".." quote
+const QUOTE_CHAR_RE = /["']/g; // any quote character, removed as the shell does
+const UNSAFE_WORD_RE = /\\|\$['"]/; // a backslash or $'/$" quote: the shell word can differ from its text
+const BACKSLASH_RE = /\\/g; // a backslash the shell removes from an unquoted word
+const LEADING_QUOTE_RE = /^["']/; // one quote at the start of a target
+const TRAILING_QUOTE_RE = /["']$/; // one quote at the end of a target
+
 /**
  * Replace the interior of quoted strings with `_`, keeping length and quote marks.
  * A command substitution inside double quotes (`$(...)` or backticks) is code the shell
@@ -172,7 +181,7 @@ function scanPrefix(masked, toks, j, first, name, nextBackslash) {
     let we = we0;
     if (nextBackslash[ws0] < we0) {
       if (we0 - ws0 > MAX_ESCAPED_WORD) return TOO_LONG; // a long escaped word: fail closed
-      src = masked.slice(ws0, we0).replace(/\\/g, '');
+      src = masked.slice(ws0, we0).replace(BACKSLASH_RE, '');
       ws = 0;
       we = src.length;
       if (we === 0) continue;
@@ -260,7 +269,7 @@ function findCommands(masked, name) {
 }
 
 function isAllowedTarget(target) {
-  const unquoted = target.replace(/^["']/, '').replace(/["']$/, '');
+  const unquoted = target.replace(LEADING_QUOTE_RE, '').replace(TRAILING_QUOTE_RE, '');
   return ALLOWED_TARGET_RE.test(path.posix.normalize(unquoted));
 }
 
@@ -280,7 +289,7 @@ function teeDenied(cmd, masked) {
   // `tee` counts only in command position, so `grep -n tee f` is not denied.
   for (const { s, e, overflow } of findCommands(masked, 'tee')) {
     if (overflow) return true;
-    const args = cmd.slice(s, e).split(/\s+/).filter((a) => a && !a.startsWith('-'));
+    const args = cmd.slice(s, e).split(WHITESPACE_RE).filter((a) => a && !a.startsWith('-'));
     if (args.some((a) => !isAllowedTarget(a))) return true;
   }
   return false;
@@ -289,7 +298,7 @@ function teeDenied(cmd, masked) {
 function ddDenied(cmd, masked) {
   for (const { s, e, overflow } of findCommands(masked, 'dd')) {
     if (overflow) return true;
-    const outs = cmd.slice(s, e).split(/\s+/).filter(Boolean).map((a) => a.replace(/^["']/, '')).filter((a) => a.startsWith('of='));
+    const outs = cmd.slice(s, e).split(WHITESPACE_RE).filter(Boolean).map((a) => a.replace(LEADING_QUOTE_RE, '')).filter((a) => a.startsWith('of='));
     if (outs.some((a) => !isAllowedTarget(a.slice(3)))) return true;
   }
   return false;
@@ -298,20 +307,20 @@ function ddDenied(cmd, masked) {
 /** Shell words of cmd[s, e) split on the masked text (same offsets), so a quoted word with spaces stays one word; text has every quote character removed. */
 function argWords(cmd, masked, s, e) {
   const words = [];
-  const re = /\S+/g;
+  const re = new RegExp(SHELL_WORD_RE);
   const seg = masked.slice(s, e);
   let m;
   while ((m = re.exec(seg)) !== null) {
     const raw = cmd.slice(s + m.index, s + m.index + m[0].length);
     // A backslash escape or $'..' / $".." quoting makes the shell word differ from the text: fail closed.
-    words.push({ masked: m[0], text: raw.replace(/\$(?=["'])/g, '').replace(/["']/g, ''), unsafe: /\\|\$['"]/.test(raw) });
+    words.push({ masked: m[0], text: raw.replace(DOLLAR_BEFORE_QUOTE_RE, '').replace(QUOTE_CHAR_RE, ''), unsafe: UNSAFE_WORD_RE.test(raw) });
   }
   return words;
 }
 
 /** The word as the shell reads it for a plain word: quotes, `$` before a quote and backslashes removed. */
 function shellWord(w) {
-  return w.text.replace(/\\/g, '');
+  return w.text.replace(BACKSLASH_RE, '');
 }
 
 const GIT_APPLY_READ_ONLY = ['--check', '--stat', '--numstat', '--summary'];
@@ -340,7 +349,7 @@ function gitApplyDenied(cmd, masked) {
     const at = sub >= 0 && shellWord(words[sub]) === 'apply' ? sub : -1;
     if (at < 0) {
       // No `apply` word: deny only an unquoted escape or $'..' quote near the subcommand slot, where it can hide `apply`.
-      if (words.slice(0, GIT_SUBCOMMAND_WINDOW).some((w) => /\\|\$['"]/.test(w.masked))) return true;
+      if (words.slice(0, GIT_SUBCOMMAND_WINDOW).some((w) => UNSAFE_WORD_RE.test(w.masked))) return true;
       continue;
     }
     if (words.slice(at + 1).some((w) => w.unsafe)) return true;

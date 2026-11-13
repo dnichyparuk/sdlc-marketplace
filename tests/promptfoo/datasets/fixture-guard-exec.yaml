@@ -14,3 +14,12 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.exitCode === 1 && r.stderr.includes('refusing: inside a git work tree') && r.gitConfigChanged === false"
+
+- description: "fixture-guard: (c) a setup.sh that names git init only in comments is not in scope; a guarded one is"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-fixture-guard.js"
+    script_args: "--dir {{project_root}}"
+    project_root: "file://fixtures-fs/fixture-guard-comments"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.ok === true && r.scanned === 2 && r.unguarded.length === 0"

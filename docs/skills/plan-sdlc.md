@@ -41,10 +41,10 @@ Not every request needs a full planning pipeline:
 
 | Scope Signal | Normal Mode | Plan Mode |
 |---|---|---|
-| 1 file, clear change | Stop — just do the work | Lightweight plan (user explicitly chose to plan) |
-| Small, clear scope (about 2–3 files) | Lightweight: inline exploration only, no review loop | Lightweight |
-| Larger or unclear scope (about 4+ files) | Full pipeline (Steps 1–7) | Full pipeline |
-| Multiple independent subsystems | Flags the split, suggests one plan per subsystem | Same |
+| 1 file, clear change | Stop — no plan needed. Tell the user. | Lightweight plan (user explicitly chose to plan) |
+| 2–3 files, clear scope | Lightweight: inline exploration only, no review loop | Lightweight |
+| 4+ files or unclear scope | Full pipeline (Steps 1–7) | Full pipeline |
+| Multiple independent subsystems | Decompose into separate plans | Decompose |
 
 The skill loads two companion files only on the branch that needs them: `openspec-flow.md` (the OpenSpec rules, read when the prepare output shows OpenSpec or a `--from-openspec` change) and `review-loop.md` (Steps 5–6, read for full-pipeline plans).
 
