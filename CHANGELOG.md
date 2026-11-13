@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.6] - 2026-11-13
+
+### Fixed
+- plan-sdlc: the explore fan-out is checked by `plan-explore.js --check-brief`, which requires a brief, a dimension table, one `dim-<name>.md` file per dimension and at least one finding id; the orchestrator's fan-out is mandatory and returns `Brief file: none` on a failed dispatch; plan-sdlc falls back to inline exploration with a logged reason, also when the explore manifest path is null on a full run, and the check always prints JSON with exit 2 reserved for input errors (#9382).
+- plan-sdlc: the full pipeline is routed by complexity instead of file count alone (#9382).
+- ship-sdlc: the summary carries `reviewRounds`, one record per review round plus the final check with severity counts, threshold, received-review status and its fixed, declined and deferred counts; a final-check recheck keeps the earlier final records (#9382).
+- received-review-sdlc: the step reports deferred items only for needs-discussion and below-threshold verdicts, and omits counts the report does not support (#9382).
+
 ## [0.54.5] - 2026-11-13
 
 ### Fixed
