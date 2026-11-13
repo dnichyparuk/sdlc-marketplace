@@ -27,6 +27,7 @@ Specification: docs/specs/github-sdlc.md
 | `--auto` | Run low-risk writes without asking: comments, label-only edits, closing as completed or not planned, reopening, and setting the `Status` field of an issue already on a configured board. Everything else still asks. A comment that mentions someone, holds a `duplicate of` marker or references an issue in another repository still asks, as does a close as duplicate and every write of a run where the script switched the acting account. | false |
 | `--clear` | Delete the cached metadata of the target repository and stop. Needs no `gh` and no login. | — |
 | `--templates-dir <path>` | Directory that `--init-templates` copies the default templates from (the source, not the target; the target is always `.github/ISSUE_TEMPLATE/`). | the templates shipped with the plugin |
+| `--expect-hash <h>` | Internal to the apply step, not a user argument: the payload hash the approval view showed. The skill passes it on every real write (`--apply` without `--dry-run`), and the script refuses the write without it. You do not pass it yourself. | — |
 
 ---
 
