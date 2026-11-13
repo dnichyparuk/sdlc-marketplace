@@ -302,7 +302,9 @@ function argWords(cmd, masked, s, e) {
   const seg = masked.slice(s, e);
   let m;
   while ((m = re.exec(seg)) !== null) {
-    words.push({ masked: m[0], text: cmd.slice(s + m.index, s + m.index + m[0].length).replace(/["']/g, '') });
+    const raw = cmd.slice(s + m.index, s + m.index + m[0].length);
+    // A backslash escape or $'..' / $".." quoting makes the shell word differ from the text: fail closed.
+    words.push({ masked: m[0], text: raw.replace(/["']/g, ''), unsafe: /\\|\$['"]/.test(raw) });
   }
   return words;
 }
@@ -311,6 +313,7 @@ function gitApplyDenied(cmd, masked) {
   for (const { s, e, overflow } of findCommands(masked, 'git')) {
     if (overflow) return true;
     const words = argWords(cmd, masked, s, e);
+    if (words.some((w) => w.unsafe)) return true;
     const at = words.map((w) => w.masked).lastIndexOf('apply');
     if (at < 0) continue;
     const args = words.slice(at + 1).map((w) => w.text);
@@ -324,7 +327,9 @@ function gitApplyDenied(cmd, masked) {
 function patchDenied(cmd, masked) {
   for (const { s, e, overflow } of findCommands(masked, 'patch')) {
     if (overflow) return true;
-    const args = argWords(cmd, masked, s, e).map((w) => w.text);
+    const pw = argWords(cmd, masked, s, e);
+    if (pw.some((w) => w.unsafe)) return true;
+    const args = pw.map((w) => w.text);
     if (args.includes('--dry-run')) continue;
     const outputs = [];
     args.forEach((a, i) => {
