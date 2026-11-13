@@ -32,28 +32,76 @@ const WORKER_RE = /(^|:)execute-worker(-complex|-batch)?$/;
 
 const ALLOWED_TARGET_RE = /^(\/dev\/|\/tmp\/|\$TMPDIR\/|\$\{TMPDIR\}\/)/;
 
-/** Replace the interior of quoted strings with `_`, keeping length and quote marks. */
+/**
+ * Replace the interior of quoted strings with `_`, keeping length and quote marks.
+ * A command substitution inside double quotes (`$(...)` or backticks) is code the shell
+ * runs, so it stays unmasked (its own quotes are masked as usual); single-quoted text
+ * is always masked.
+ */
 function maskQuotes(cmd) {
   let out = '';
-  let quote = null;
+  const stack = []; // open contexts: {t:'"'} {t:"'"} {t:'$(', depth} {t:'`'}
   for (let i = 0; i < cmd.length; i++) {
     const ch = cmd[i];
-    if (quote) {
-      if (quote === '"' && ch === '\\' && i + 1 < cmd.length) {
-        out += '__';
-        i++;
-      } else if (ch === quote) {
-        quote = null;
+    const top = stack[stack.length - 1];
+    if (!top || top.t === '$(' || top.t === '`') {
+      if (top && top.t === '$(') {
+        if (ch === '(') top.depth++;
+        else if (ch === ')') {
+          if (top.depth === 0) {
+            stack.pop();
+            out += ch;
+            continue;
+          }
+          top.depth--;
+        }
+      } else if (top && ch === '`') {
+        stack.pop();
+        out += ch;
+        continue;
+      }
+      if (ch === '"' || ch === "'") stack.push({ t: ch });
+      out += ch;
+    } else if (top.t === "'") {
+      if (ch === "'") {
+        stack.pop();
         out += ch;
       } else {
         out += '_';
       }
-    } else {
-      if (ch === '"' || ch === "'") quote = ch;
+    } else if (ch === '\\' && i + 1 < cmd.length) {
+      out += '__';
+      i++;
+    } else if (ch === '"') {
+      stack.pop();
       out += ch;
+    } else if (ch === '$' && cmd[i + 1] === '(') {
+      out += '$(';
+      i++;
+      stack.push({ t: '$(', depth: 0 });
+    } else if (ch === '`') {
+      out += ch;
+      stack.push({ t: '`' });
+    } else {
+      out += '_';
     }
   }
   return out;
+}
+
+/**
+ * One command-position prefix shared by the tee, dd, git-apply and patch rules, so they
+ * cannot drift (R90). A command starts at the line start, after `| ; & ( { `` or a newline,
+ * after `then`/`do`/`else`, and after wrapper words (`env`, `sudo`, `exec`, `command`,
+ * `nohup`, `time`, `xargs`) with their own options or VAR=val words.
+ */
+const CMD_START = '(?:^|[|;&(`\\n{])[ \\t]*(?:(?:then|do|else)[ \\t]+)?';
+const WRAP_ARG = '(?:-\\S*|[A-Za-z_][A-Za-z0-9_]*=\\S*|\\{\\}|\\d+)';
+const WRAPPERS = '(?:(?:env|sudo|exec|command|nohup|time|xargs)\\b(?:[ \\t]+' + WRAP_ARG + ')*[ \\t]+)*';
+
+/** Global regex for command `name`; `tail` holds one capture group, the argument text. */
+function cmdRe(name, tail) {
+  return new RegExp(CMD_START + WRAPPERS + name + tail, 'g');
 }
 
 function isAllowedTarget(target) {
@@ -75,11 +123,11 @@ function redirectDenied(cmd, masked) {
 
 function teeDenied(cmd, masked) {
   // `tee` counts only in command position, so `grep -n tee f` is not denied.
-  const re = /(^|[|;&(`])[ \t]*tee\b([^|;&\n]*)/g;
+  const re = cmdRe('tee', '\\b([^|;&\\n]*)');
   let m;
   while ((m = re.exec(masked)) !== null) {
     const argsEnd = m.index + m[0].length;
-    const argsStart = argsEnd - m[2].length;
+    const argsStart = argsEnd - m[1].length;
     const args = cmd.slice(argsStart, argsEnd).split(/\s+/).filter((a) => a && !a.startsWith('-'));
     if (args.some((a) => !isAllowedTarget(a))) return true;
   }
@@ -93,20 +141,20 @@ function matchArgs(cmd, m, groupIndex) {
 }
 
 function ddDenied(cmd, masked) {
-  const re = /(^|[|;&(`\n])[ \t]*dd\b([^|;&\n]*)/g;
+  const re = cmdRe('dd', '\\b([^|;&\\n]*)');
   let m;
   while ((m = re.exec(masked)) !== null) {
-    const outs = matchArgs(cmd, m, 2).map((a) => a.replace(/^["']/, '')).filter((a) => a.startsWith('of='));
+    const outs = matchArgs(cmd, m, 1).map((a) => a.replace(/^["']/, '')).filter((a) => a.startsWith('of='));
     if (outs.some((a) => !isAllowedTarget(a.slice(3)))) return true;
   }
   return false;
 }
 
 function gitApplyDenied(cmd, masked) {
-  const re = /(^|[|;&(`\n])[ \t]*git\b[^|;&\n]*\sapply\b([^|;&\n]*)/g;
+  const re = cmdRe('git', '\\b[^|;&\\n]*\\sapply\\b([^|;&\\n]*)');
   let m;
   while ((m = re.exec(masked)) !== null) {
-    const args = matchArgs(cmd, m, 2);
+    const args = matchArgs(cmd, m, 1);
     const writes = args.some((a) => ['--apply', '--index', '--cached', '--3way', '-3'].includes(a));
     const readOnly = args.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a));
     if (writes || !readOnly) return true;
@@ -115,10 +163,10 @@ function gitApplyDenied(cmd, masked) {
 }
 
 function patchDenied(cmd, masked) {
-  const re = /(^|[|;&(`\n])[ \t]*patch\b([^|;&\n]*)/g;
+  const re = cmdRe('patch', '\\b([^|;&\\n]*)');
   let m;
   while ((m = re.exec(masked)) !== null) {
-    const args = matchArgs(cmd, m, 2);
+    const args = matchArgs(cmd, m, 1);
     if (args.includes('--dry-run')) continue;
     const outputs = [];
     args.forEach((a, i) => {
