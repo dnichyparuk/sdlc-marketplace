@@ -135,7 +135,7 @@ After applying the Step 1 OpenSpec enrichment rules from `./openspec-flow.md` (w
 
 The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()`) is swept by `ship.js --gc` and by the session-start hook (`gcTempdirs`, prefix `sdlc-explore-`).
 
-- **Full pipeline** (`explorePack.manifestPath` is non-null AND scope is 4+ files / unclear scope):
+- **Full pipeline** (complexity routing (Step 0) chose the full pipeline AND `explorePack.manifestPath` is non-null):
 
   1. Spawn the Agent exactly once with `subagent_type: sdlc:plan-explore-orchestrator`. Do not pass `model`, `effort`, isolation or background; the agent file sets them. Inputs:
      ```

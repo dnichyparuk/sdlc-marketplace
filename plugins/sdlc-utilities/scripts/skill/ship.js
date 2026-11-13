@@ -2010,6 +2010,7 @@ function buildSummary(ledger) {
   // R106: closed rounds, then the final check, else a live last round that never reached afterFixesCommitted.
   const reviewRounds = (ledger.rounds || []).map(r => r.record).filter(Boolean);
   const liveRound = ledger.round || 1;
+  if (ledger.finalCheck) reviewRounds.push(...(ledger.finalCheck.priorRecords || []));
   if (ledger.finalCheck && ledger.finalCheck.record) reviewRounds.push(ledger.finalCheck.record);
   else if (!ledger.finalCheck && review && review.status === 'completed' && !reviewRounds.some(x => x.round === liveRound)) reviewRounds.push(reviewRoundRecord(ledger, liveRound, false));
   return {
@@ -2908,7 +2909,7 @@ function runAfter(stepArgs) {
   if (after === 'confirm_pipeline' && fc && fc.handoff === true && fc.status === 'completed' && Array.isArray(fc.open) && fc.open.length > 0) {
     const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
     if (head && head !== fc.commit) {
-      ledger.finalCheck = { base: fc.commit, commit: head, status: 'pending', verdict: null, open: [], recheck: (fc.recheck || 0) + 1 };
+      ledger.finalCheck = { base: fc.commit, commit: head, status: 'pending', verdict: null, open: [], recheck: (fc.recheck || 0) + 1, priorRecords: [...(fc.priorRecords || []), ...(fc.record ? [fc.record] : [])] }; // R106: keep each earlier final record
       const i = ledger.steps.findIndex(s => s.name === 'review');
       if (i >= 0) {
         const fresh = { name: 'review', status: 'pending' };
