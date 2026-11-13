@@ -439,7 +439,7 @@ URL classes checked:
 | Atlassian `*.atlassian.net/browse/<KEY-N>` | Host matches the configured/cached Jira site | `atlassian-site-mismatch`, `atlassian-site-ambiguous` |
 | Generic `http(s)://...` | HEAD reachable (falls back to GET on 405), 5s timeout | `url-not-found`, `url-server-error`, `url-unreachable` |
 
-Hosts in the built-in skip list (`linkedin.com`, `x.com`, `twitter.com`, `medium.com`) are reported as `skipped`, not violations. Set `SDLC_LINKS_OFFLINE=1` to skip generic reachability checks while keeping context-aware checks (GitHub identity, Atlassian host) — useful in sandboxed CI runs. On non-zero exit, the PR is **not** created/edited; the violation list (URL, line, reason, observed/expected) is surfaced verbatim. No flag toggles this gate — it is hard.
+Hosts in the built-in skip list (`linkedin.com`, `x.com`, `twitter.com`, `medium.com`) are reported as `skipped`, not violations. Set `SDLC_LINKS_OFFLINE=1` to skip generic reachability checks while keeping context-aware checks (GitHub identity, Atlassian host) — useful in sandboxed CI runs. On non-zero exit, the PR is **not** created/edited; the violation list (URL, line, reason, observed/expected) is surfaced verbatim. No flag toggles this gate — it is hard. URLs inside inline code spans and fenced code blocks are not links: the validator does not check or fetch them, so quote an example URL in backticks.
 
 ## OpenSpec Integration
 

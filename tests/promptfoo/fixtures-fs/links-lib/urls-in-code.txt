@@ -1,0 +1,8 @@
+Quoted test URL: `http://10.0.0.5/x` in a span.
+Double-backtick span: ``http://127.0.0.1/z`` here.
+
+```
+curl http://169.254.169.254/latest/meta-data
+```
+
+Plain blocked http://10.0.0.6/after on line 8.

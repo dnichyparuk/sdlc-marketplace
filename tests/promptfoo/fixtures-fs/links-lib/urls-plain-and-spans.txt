@@ -1,0 +1,2 @@
+Plain blocked http://10.0.0.5/x on line one.
+Lone backtick ` then http://localhost:8080/y stays checked.
