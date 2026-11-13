@@ -2,7 +2,7 @@
 
 ## Overview
 
-Creates, edits, views, searches, closes, reopens, comments on, links and assigns GitHub issues through the `gh` CLI. Repository metadata (labels, milestones, assignable users, issue templates, issue types, Projects v2 boards) is cached on first use, so most operations need one `gh` call instead of several discovery calls. Every write is shown to you; unless you pass `--auto`, it needs your approval before it runs. Under `--auto`, only the low-risk writes listed under `--auto` run without asking. The script itself refuses a write that does not carry the fingerprint of the payload you approved, so a write cannot run without that approval step, even when the script is called directly.
+Creates, edits, views, searches, closes, reopens, comments on, links and assigns GitHub issues through the `gh` CLI. Repository metadata (labels, milestones, assignable users, issue templates, issue types, Projects v2 boards) is cached on first use, so most operations need one `gh` call instead of several discovery calls. Every write is shown to you; unless you pass `--auto`, it needs your approval before it runs. Under `--auto`, only the low-risk writes listed under `--auto` run without asking. The script refuses a real write unless it gets the payload hash the approval view showed (`--expect-hash`), and refuses a payload that changed after the approval; the approval itself is enforced by the skill, not by the script.
 
 Specification: docs/specs/github-sdlc.md
 
