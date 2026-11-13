@@ -102,6 +102,7 @@ function maskQuotes(cmd) {
 
 const WRAPPER_WORDS = ['env', 'sudo', 'exec', 'command', 'nohup', 'time', 'xargs', 'timeout', 'nice', 'stdbuf', 'setsid', 'ionice', 'eval', 'coproc'];
 const MAX_PREFIX_TOKENS = 256;
+const MAX_ESCAPED_WORD = 64; // longest word whose backslashes are removed before comparing; a longer one that holds a backslash is denied
 const NO_COMMAND = -1; // scanPrefix: no such command at this position
 const TOO_LONG = -2; // scanPrefix: the prefix is too long to scan (fail closed)
 const KEYWORDS = ['then', 'do', 'else', 'if', 'elif', 'while', 'until', '!'];
@@ -153,7 +154,7 @@ function isDuration(masked, ws, we) {
  * the start follows `(`, `{` or a backtick). Returns the offset after the command word,
  * NO_COMMAND, or TOO_LONG.
  */
-function scanPrefix(masked, toks, j, first, name) {
+function scanPrefix(masked, toks, j, first, name, nextBackslash) {
   const seg = toks[j].seg;
   let inWrapper = false;
   let afterOption = false;
@@ -169,7 +170,8 @@ function scanPrefix(masked, toks, j, first, name) {
     let src = masked;
     let ws = ws0;
     let we = we0;
-    if (we0 - ws0 <= 64 && masked.slice(ws0, we0).includes('\\')) {
+    if (nextBackslash[ws0] < we0) {
+      if (we0 - ws0 > MAX_ESCAPED_WORD) return TOO_LONG; // a long escaped word: fail closed
       src = masked.slice(ws0, we0).replace(/\\/g, '');
       ws = 0;
       we = src.length;
@@ -224,7 +226,7 @@ function openDepth(masked, ws, we, open) {
  * `command`, `nohup`, `time`, `xargs`, `timeout`, `nice`, `stdbuf`, `setsid`, `ionice`, `eval`,
  * `coproc`) with
  * their own options, option arguments, `VAR=val` words and numbers. The command name may
- * carry a path (`/usr/bin/tee`) or backslashes inside the word (`\\tee`, `te\\e`: the shell removes them from an unquoted word). A prefix of
+ * carry a path (`/usr/bin/tee`) or backslashes inside the word (`\\tee`, `te\\e`: the shell removes them from an unquoted word; a word of more than MAX_ESCAPED_WORD characters that holds a backslash is denied, fail closed). A prefix of
  * MAX_PREFIX_TOKENS or more words before the command is denied (fail closed). Accepted gaps
  * (best-effort filter, not a sandbox; R90): a command run through another interpreter or wrapper
  * string (`bash -c`, `sh -c`, `find -exec`, `xargs sh -c`, busybox applets), a quoted command
@@ -236,9 +238,12 @@ function findCommands(masked, name) {
   toks.forEach((t) => {
     segEnd[t.seg] = t.e;
   });
+  const nextBackslash = new Int32Array(masked.length + 1); // first backslash at or after each offset
+  nextBackslash[masked.length] = masked.length;
+  for (let i = masked.length - 1; i >= 0; i--) nextBackslash[i] = masked[i] === '\\' ? i : nextBackslash[i + 1];
   const found = [];
   const add = (j, first) => {
-    const s = scanPrefix(masked, toks, j, first, name);
+    const s = scanPrefix(masked, toks, j, first, name, nextBackslash);
     if (s >= 0) found.push({ s, e: segEnd[toks[j].seg] });
     else if (s === TOO_LONG) found.push({ overflow: true });
   };

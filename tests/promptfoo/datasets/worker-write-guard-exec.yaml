@@ -889,3 +889,15 @@
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
         const o = JSON.parse(r.stdout).hookSpecificOutput;
         return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l65) long path-qualified word with a backslash fails closed"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"/usr/bin/../bin/../bin/../bin/../bin/../bin/../bin/../bin/../bin/../bin/../bin/te\\e src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' || 'FAIL: not denied';
