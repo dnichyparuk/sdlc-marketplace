@@ -2012,8 +2012,8 @@
 # and, under `payloads`, their inputs. The runner's --payload reads payloads-core.json only, so each case runs
 # `node -e` with the APPLY_HARNESS script (defined once below, reused by YAML alias). Its argv:
 #   -- <repo root> <payload keys, comma-separated> <run-github-case.js args>
-# For each key it writes payloads[key] to a temp file, replaces @INPUT@ with that path and @HASH:<key>@ with
-# github.js payloadHash(payloads[key]), runs run-github-case.js, and adds `bodies`: the text of every body file
+# For each key it writes payloads[key] to a temp file, replaces @INPUT@ with that path, @HASH:<k>@ with
+# github.js payloadHash(payloads[k]) and @HASH@ with the hash of the current key's payload, runs run-github-case.js, and adds `bodies`: the text of every body file
 # a --dry-run listed (those files are kept by --dry-run; the harness removes them). It prints a JSON array, one
 # run-github-case.js result per key. Indices in applied[], failed[], unknown[] and notRun[] are 1-based (R23).
 
@@ -2045,7 +2045,8 @@
         const runs = keys.split(',').map((key, i) => {
           const input = path.join(tmp, `payload-${i}.json`);
           fs.writeFileSync(input, JSON.stringify(entry(key), null, 2));
-          const args = rest.map((a) => a.replace('@INPUT@', input).replace(/@HASH:([^@]+)@/, (_, k) => payloadHash(entry(k))));
+          const args = rest.map((a) => a.replace('@INPUT@', input).replace(/@HASH:([^@]+)@/, (_, k) => payloadHash(entry(k)))
+            .replace('@HASH@', payloadHash(entry(key))));
           const r = cp.spawnSync(process.execPath, [path.join(pf, 'scripts', 'run-github-case.js'), ...args], { encoding: 'utf8' });
           const o = JSON.parse(r.stdout);
           const files = ((o.json && o.json.commands) || []).flat().filter((a) => a.startsWith('--body-file=/'))
@@ -2070,7 +2071,7 @@
 - description: "github-sdlc/apply G7 C8: an unknown label and a placeholder marker each exit 1 with no gh write"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-unknown-label,comment-placeholder -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-unknown-label,comment-placeholder -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2091,7 +2092,7 @@
 - description: "github-sdlc/apply G10: --apply --auto on a comment holding a placeholder marker still exits 1 with no gh write"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment-placeholder -- --apply --input @INPUT@ --auto"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment-placeholder -- --apply --input @INPUT@ --expect-hash @HASH@ --auto"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2127,7 +2128,65 @@
           && /^[0-9a-f]{64}$/.test(changed.json.payloadHash) && changed.json.payloadHash !== same.json.payloadHash;
         return ok ? true : `FAIL ${output}`;
 
-- description: "github-sdlc/apply R36 C2: --apply --auto on a create is notAutoApprovable with autoBlockers, exit 1, no issue create call"
+- description: "github-sdlc/apply R36: --apply without --expect-hash refuses a comment and a create, exit 1, no gh call"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment,create -- --apply --input @INPUT@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const runs = JSON.parse(output);
+        const ok = runs.length === 2 && runs.every((o) => o.exit === 1
+          && JSON.stringify(o.json.errors) === '["--apply requires --expect-hash"]'
+          && o.calls.length === 0 && o.json.applied.length === 0 && o.json.hashMismatch === false
+          && /^[0-9a-f]{64}$/.test(o.json.payloadHash));
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R36: --apply --auto without --expect-hash refuses a plain comment, exit 1, no gh call"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@ --auto"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const ok = o.exit === 1 && JSON.stringify(o.json.errors) === '["--apply requires --expect-hash"]'
+          && o.calls.length === 0 && o.json.notAutoApprovable === false;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R36: a real --apply with the hash of another payload is hashMismatch, exit 1, no gh call"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create-retitled -- --apply --input @INPUT@ --expect-hash @HASH:create@"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env:
+      SDLC_LINKS_OFFLINE: "1"
+      GH_TOKEN: ""
+      GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
+      APPLY_HARNESS: *apply_harness
+  assert:
+    - type: javascript
+      value: |
+        const [o] = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.hashMismatch === true && o.calls.length === 0 && o.json.applied.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/apply R36 C2:--apply --auto on a create is notAutoApprovable with autoBlockers, exit 1, no issue create call"
   vars:
     script_path: "-e"
     script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@ --expect-hash @HASH:create@ --auto"
@@ -2149,7 +2208,7 @@
 - description: "github-sdlc/apply R37: issue 12 open at the check and closed at the re-check fails the close with noOpState, no issue close call"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} close -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} close -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2172,7 +2231,7 @@
 - description: "github-sdlc/apply R37: a clean close runs the state read and the live query of issue 12 directly before issue close"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} close -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} close -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2215,7 +2274,7 @@
 - description: "github-sdlc/apply R23 E10: a bulk whose item 2 fails reports applied 1, failed 2, notRun 3, exit 1"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} bulk-three -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} bulk-three -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2238,7 +2297,7 @@
 - description: "github-sdlc/apply R17 C18: label create runs before issue create; a title holding $(touch pwned) stays one argv element and creates no file"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create-labels --dump pwned -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create-labels --dump pwned -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2302,7 +2361,7 @@
 - description: "github-sdlc/apply E7: a 422 on issue create is class validation with no retry inside --apply"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2324,7 +2383,7 @@
 - description: "github-sdlc/apply E4 R30 C7 R32: a 403 with accounts alice*,acme recovers the account once, retries once, logs it, no auth switch"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment --dump .sdlc/learnings/log.md -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment --dump .sdlc/learnings/log.md -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2351,7 +2410,7 @@
 - description: "github-sdlc/apply E4 C7: a 403 then a 422 after the account change is not tried a third time"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2374,7 +2433,7 @@
 - description: "github-sdlc/apply E8: scopes.project null and a scope failure on project item-edit give the gh auth refresh -s project hint, no retry"
   vars:
     script_path: "-e"
-    script_args: 'eval(process.env.APPLY_HARNESS) -- {{repo_root}} project-status-7 --config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --apply --input @INPUT@'
+    script_args: 'eval(process.env.APPLY_HARNESS) -- {{repo_root}} project-status-7 --config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --apply --input @INPUT@ --expect-hash @HASH@'
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2397,7 +2456,7 @@
 - description: "github-sdlc/apply E9: a timeout on a comment is outcome unknown with one issue comment call and one comment read-back"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2423,7 +2482,7 @@
 - description: "github-sdlc/apply E9 R32: a timeout on an edit is retried once, applied and logged"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-title --dump .sdlc/learnings/log.md -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-title --dump .sdlc/learnings/log.md -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2447,7 +2506,7 @@
 - description: "github-sdlc/apply E9: a timeout on issue create is outcome unknown and the read-back finds the open issue"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2471,7 +2530,7 @@
 - description: "github-sdlc/apply R31: one apply per class gives the expected failure.class (secondary rate limit is rate-limit)"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment-3,comment-4,comment,comment-7,comment-8,comment-12,edit-type,assign-bob,edit-title -- --apply --input @INPUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment-3,comment-4,comment,comment-7,comment-8,comment-12,edit-type,assign-bob,edit-title -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2495,7 +2554,7 @@
 - description: "github-sdlc/apply C13 C20 R32: the acting token appears in no output, output file, cache or log after an account change and a pat failure"
   vars:
     script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment --dump .sdlc/learnings/log.md --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --apply --input @INPUT@ --output-file @OUT@"
+    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment --dump .sdlc/learnings/log.md --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --apply --input @INPUT@ --expect-hash @HASH@ --output-file @OUT@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:

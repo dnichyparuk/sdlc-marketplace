@@ -9,6 +9,7 @@
  *                  [--repo <[HOST/]OWNER/REPO>] [--force-refresh] [--skip-projects]
  *                  [--sections <csv>] [--auto] [--query-file <p>] [--file <p>] [--input <p>]
  *                  [--dry-run] [--expect-hash <h>] [--output-file [<p>]] [--skip-config-check]
+ *                  (--apply needs --expect-hash <h> unless --dry-run; R36)
  *
  * Subcommands (one; default --check):
  *   --check   Resolve the repository (R1, R3), probe auth and pick the acting account (P3, R30),
@@ -23,7 +24,7 @@
  *   --init-templates [--templates-dir <p>]: copy default issue templates into .github/ISSUE_TEMPLATE/ (R10).
  *   --check-payload --input <p>: check one write payload or a bulk { ops } against P16, the cache and the
  *             R37 live reads, and report the commands --apply would run, the R36 hash and the R34 class (P11).
- *   --apply --input <p> [--dry-run] [--expect-hash <h>] [--auto]: re-check the payload (G7, R36) and run its
+ *   --apply --input <p> (--expect-hash <h> | --dry-run) [--auto]: re-check the payload (G7, R36) and run its
  *             commands in order, each op after a fresh R37 live check (P13); --dry-run lists them only.
  *
  * Output (P17): `--output-file <p>` writes the JSON to <p> and prints nothing; a bare
@@ -1750,7 +1751,7 @@ function applyOp(op, commands, st) {
 }
 
 /**
- * P13 `--apply`: hash check (R36) → `--auto` class check (R36) → full checkPayload (G7) → per op the R37
+ * P13 `--apply`: missing-hash refusal unless dryRun, then hash check (R36) → `--auto` class check (R36) → full checkPayload (G7) → per op the R37
  * re-check and its writes; the first failed or unknown op stops the batch (R23). `--dry-run` lists the
  * commands with their body files (kept) and runs no write. ctx = { github, cacheFor, projectRoot, authenticate }.
  * @returns {{ data: object, exitCode: number }}
@@ -1761,6 +1762,9 @@ function apply(input, { dryRun, expectHash, auto }, ctx) {
   };
   const done = (data, exitCode) => ({ data: { ...data, ...result }, exitCode });
   const hash = payloadHash(input);
+  if (!dryRun && !expectHash) {
+    return done({ payloadHash: hash, warnings: [], errors: ['--apply requires --expect-hash'] }, 1);
+  }
   if (expectHash && hash !== expectHash) {
     result.hashMismatch = true;
     return done({ payloadHash: hash, warnings: [], errors: [`--expect-hash: the payload changed after the check (now ${hash})`] }, 1);

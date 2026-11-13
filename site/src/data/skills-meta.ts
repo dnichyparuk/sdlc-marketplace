@@ -256,7 +256,7 @@ export const skillsMeta: SkillMeta[] = [
       { id: 'critique', label: 'Critique payload', type: 'critique', description: 'Write-ops only: checks template completeness and placeholder resolution' },
       { id: 'approve', label: 'Approve payload', type: 'user', description: 'Write-ops only: explicit approve / change / cancel before any gh call' },
       { id: 'validate-links', label: 'Validate links', type: 'verify', description: 'Checks issue references in the body before the write' },
-      { id: 'apply', label: 'Apply operation', type: 'script', description: 'Runs the gh commands built by github.js' },
+      { id: 'apply', label: 'Apply operation', type: 'script', description: 'Runs the gh commands built by github.js; refuses a write without the approved payload hash' },
       { id: 'update-cache', label: 'Update cache', type: 'script', description: 'After an approved label create or an E7 validation failure: refreshes the affected cache sections' },
       { id: 'failure-gate', label: 'Failure gate', type: 'critique', description: 'Classifies a failed gh call and asks before escalating to error-report-sdlc' },
     ],

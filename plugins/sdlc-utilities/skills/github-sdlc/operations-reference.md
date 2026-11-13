@@ -104,7 +104,7 @@ the exit status, HTTP status and message (R31). `failure.message` is already red
 | `permission` | HTTP 403 that is not a rate limit; 404 on a repository the account cannot see | E4: the script recovered the account once; a second failure stops with the `gh auth login` hint | no |
 | `rate-limit` | primary or secondary rate limit | E5: report `resetAt`; stop; no wait-and-retry | no |
 | `not-found` | issue number absent | E6: ask to check the number and repository | no |
-| `validation` | HTTP 422; a label, milestone, user or project value `gh` does not know | E7: one section refresh, one re-check, at most one retry; a second failure goes to R26 | yes |
+| `validation` | HTTP 422; a label, milestone, user or project value `gh` does not know | E7: one section refresh, one re-check, at most one retry with the re-check's `payloadHash` as `--expect-hash` (R36); a second failure goes to R26 | yes |
 | `capability` | the installed `gh` or the host lacks a flag or feature | show the upgrade hint or the host message; stop | no |
 | `link-verification` | `--validate-links` found a violation | G8: show the list verbatim; no `--apply` | yes |
 | `unknown` | anything else | R26 gate | yes |
