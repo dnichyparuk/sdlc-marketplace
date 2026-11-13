@@ -133,6 +133,11 @@ function extractIssueRefs(text) {
 // URL classification
 // ---------------------------------------------------------------------------
 
+// A configured host may carry the scheme's default port (host:443); URL.host drops it, so drop it on both sides.
+function normGhHost(host) {
+  return String(host || '').toLowerCase().replace(/:(?:443|80)$/, '');
+}
+
 function classifyUrl(url, githubHost) {
   let parsed;
   try {
@@ -142,7 +147,7 @@ function classifyUrl(url, githubHost) {
   }
   const host = parsed.hostname.toLowerCase();
   // GitHub issues/PRs (githubHost: extra GitHub Enterprise host from ctx.github, may carry a port)
-  const ghe = githubHost ? String(githubHost).toLowerCase() : null;
+  const ghe = githubHost ? normGhHost(githubHost) : null;
   const isGhe = ghe !== null && parsed.host.toLowerCase() === ghe;
   if (host === 'github.com' || host === 'www.github.com' || isGhe) {
     const m = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)\b/);
@@ -191,7 +196,7 @@ function ghApiIssueExists(host, owner, repo, number, env, boundHost) {
   if (!execGh) return { ok: false, detail: 'gh helper unavailable' };
   // The acting account's token belongs to boundHost only: never present it to another host.
   // Another host gets the process environment without any gh token (A10); the bound host gets the token env merged over it.
-  if (env && boundHost && String(host).toLowerCase() !== String(boundHost).toLowerCase()) {
+  if (env && boundHost && normGhHost(host) !== normGhHost(boundHost)) {
     env = { ...process.env };
     delete env.GH_TOKEN;
     delete env.GH_ENTERPRISE_TOKEN;
@@ -317,21 +322,64 @@ function checkAtlassianUrl(c, ctx) {
 // Generic class checks (network reachability)
 // ---------------------------------------------------------------------------
 
-async function fetchOnce(url, method) {
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), NETWORK_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      method,
-      redirect: 'follow',
-      signal: ac.signal,
-      // Some servers reject HEAD without a UA
-      headers: { 'User-Agent': 'sdlc-links-validator/1.0' },
-    });
-    return { status: res.status };
-  } finally {
-    clearTimeout(timer);
+const MAX_REDIRECTS = 5;
+
+// Literal-only host check (no DNS): returns a reason string for a host that must not be fetched, else null (A10).
+function blockedHostReason(hostname) {
+  let h = String(hostname || '').toLowerCase().replace(/\.$/, '');
+  if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1);
+  if (h === 'localhost' || h.endsWith('.localhost')) return 'loopback host';
+  if (h === 'metadata.google.internal') return 'cloud metadata host';
+  const v4 = (a, b) => {
+    if (a === 0 || a === 127) return 'loopback or unspecified address';
+    if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) return 'private address';
+    if (a === 169 && b === 254) return 'link-local or metadata address';
+    if (a === 100 && b >= 64 && b <= 127) return 'shared address space';
+    return null;
+  };
+  const m4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m4) return v4(parseInt(m4[1], 10), parseInt(m4[2], 10));
+  if (h.includes(':')) {
+    if (h === '::' || h === '::1') return 'loopback or unspecified address';
+    if (/^fe[89ab]/.test(h)) return 'link-local address';
+    if (/^f[cd]/.test(h)) return 'private (unique-local) address';
+    const mapped = h.match(/^::ffff:(?:(\d+)\.(\d+)\.\d+\.\d+|([0-9a-f]{1,4}):[0-9a-f]{1,4})$/);
+    if (mapped) {
+      const hi = mapped[3] !== undefined ? parseInt(mapped[3], 16) : null;
+      return mapped[1] !== undefined ? v4(parseInt(mapped[1], 10), parseInt(mapped[2], 10)) : v4(hi >> 8, hi & 255);
+    }
   }
+  return null;
+}
+
+// Manual redirects: every hop passes the same host check as the first URL.
+async function fetchOnce(url, method) {
+  let current = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), NETWORK_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(current, {
+        method,
+        redirect: 'manual',
+        signal: ac.signal,
+        // Some servers reject HEAD without a UA
+        headers: { 'User-Agent': 'sdlc-links-validator/1.0' },
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    const loc = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    if (!loc) return { status: res.status };
+    let next;
+    try { next = new URL(loc, current); } catch (_) { return { status: res.status }; }
+    if (next.protocol !== 'http:' && next.protocol !== 'https:') return { blocked: `redirect to ${next.protocol} URL` };
+    const why = blockedHostReason(next.hostname);
+    if (why) return { blocked: `redirect to ${why}` };
+    current = next.toString();
+  }
+  return { status: 310, tooManyRedirects: true };
 }
 
 async function checkGenericUrl(c, ctx) {
@@ -339,6 +387,8 @@ async function checkGenericUrl(c, ctx) {
   if (BUILT_IN_SKIP_HOSTS.has(host) || (ctx.skipHostsSet && ctx.skipHostsSet.has(host))) {
     return { skip: true, reason: 'skip-list' };
   }
+  const why = blockedHostReason(c.parsed.hostname);
+  if (why) return { ok: false, reason: 'url-blocked-host', detail: `${why}: not fetched` };
   if (ctx.offline) {
     return { skip: true, reason: 'offline' };
   }
@@ -352,6 +402,8 @@ async function checkGenericUrl(c, ctx) {
   } catch (err) {
     return { ok: false, reason: 'url-unreachable', detail: err.message || String(err) };
   }
+  if (res.blocked) return { ok: false, reason: 'url-blocked-host', detail: `${res.blocked}: not followed` };
+  if (res.tooManyRedirects) return { ok: false, reason: 'url-unreachable', detail: `more than ${MAX_REDIRECTS} redirects` };
   if (res.status >= 200 && res.status < 400) return { ok: true };
   if (res.status >= 400 && res.status < 500) return { ok: false, reason: 'url-not-found', detail: `HTTP ${res.status}` };
   return { ok: false, reason: 'url-server-error', detail: `HTTP ${res.status}` };
@@ -563,5 +615,6 @@ if (require.main === module) {
     extractIssueRefs,
     classifyUrl,
     BUILT_IN_SKIP_HOSTS,
+    blockedHostReason,
   };
 }

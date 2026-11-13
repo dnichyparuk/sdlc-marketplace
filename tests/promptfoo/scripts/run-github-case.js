@@ -16,7 +16,7 @@
 //   --drop-key <path>:<key>        delete a top-level key of a JSON file in the temp home first
 //   --check-dataset <path>         print the C17 check { ok, offenders[] } for a dataset
 //   --schema-sync                  print { keysEqual, defaultEqual, ... }: github.js constants vs the schema
-// Script-arg tokens: @OUT@ (temp output path), @HOME@, @WS@, @FIX:<path under fixtures-fs>@.
+// Script-arg tokens: @OUT@ (temp output path), @HOME@, @WS@, @NL@ (LF), @CR@ (CR), @FIX:<path under fixtures-fs>@.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -153,6 +153,8 @@ function run(opts, tmp) {
     .replace(/@OUT@/g, out)
     .replace(/@HOME@/g, home)
     .replace(/@WS@/g, ws)
+    .replace(/@NL@/g, '\n')
+    .replace(/@CR@/g, '\r')
     .replace(/@FIX:([^@]+)@/g, (_, p) => path.join(FIXTURES, p)));
   const r = opts.rawGh
     ? spawnSync('gh', args, { cwd, env, encoding: 'utf8', timeout: TIMEOUT_MS })

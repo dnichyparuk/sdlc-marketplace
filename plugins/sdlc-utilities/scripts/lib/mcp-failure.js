@@ -172,18 +172,23 @@ function classify(signal = {}) {
  * }} failure
  * @param {string} [root] — optional project root override
  */
+function oneLine(value) {
+  // CR, LF, other C0/C1 control characters and U+2028/2029 would start a new log line (A09).
+  return String(value).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ');
+}
+
 function appendTelemetry(failure, root, source = 'jira') {
   const today   = new Date().toISOString().slice(0, 10);
   if (source === 'github') {
     const cls       = normalizeClass(failure.class, source);
-    const operation = redact(String(failure.operation || ''));
+    const operation = redact(oneLine(failure.operation || ''));
     const block = [
       `## ${today} — github-sdlc gh-failure[${cls}]: ${operation}`,
       `- operation: ${operation}`,
-      `- repo: ${redact(String(failure.repo || ''))}`,
+      `- repo: ${redact(oneLine(failure.repo || ''))}`,
       `- class: ${cls}`,
-      `- error: ${redact(String(failure.error || '').replace(/\n/g, ' ').slice(0, 300))}`,
-      `- recovered: ${String(failure.recovered || 'no')}`,
+      `- error: ${redact(oneLine(failure.error || '').slice(0, 300))}`,
+      `- recovered: ${oneLine(failure.recovered || 'no')}`,
       '',
     ].join('\n');
     const logPath = resolveLogPath(root);
@@ -192,11 +197,11 @@ function appendTelemetry(failure, root, source = 'jira') {
     return block;
   }
   const cls     = normalizeClass(failure.class);
-  const tool    = redact(String(failure.tool    || ''));
-  const site    = redact(String(failure.site    || ''));
-  const project = redact(String(failure.project || ''));
-  const error   = redact(String(failure.error   || '').replace(/\n/g, ' ').slice(0, 300));
-  const recovered = String(failure.recovered || 'no');
+  const tool    = redact(oneLine(failure.tool    || ''));
+  const site    = redact(oneLine(failure.site    || ''));
+  const project = redact(oneLine(failure.project || ''));
+  const error   = redact(oneLine(failure.error   || '').slice(0, 300));
+  const recovered = oneLine(failure.recovered || 'no');
 
   const logPath = resolveLogPath(root);
   const heading = `## ${today} — jira-sdlc mcp-failure[${cls}]: ${tool}`;
