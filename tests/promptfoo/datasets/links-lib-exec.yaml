@@ -128,3 +128,142 @@
       value: '"ok":true'
     - type: contains
       value: '"violations":[]'
+
+- description: "links: ctx.github skips identity match, checks URLs and refs by existence (stub gh)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/github-context.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"github":{"host":"github.com","owner":"acme","repo":"widgets"}}'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+  assert:
+    - type: contains
+      value: '"ok":true'
+    - type: not-contains
+      value: 'github-context-mismatch'
+
+- description: "links: ctx.github cross-repository URL is not a context mismatch (offline)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/wrong-owner-github.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"github":{"host":"github.com","owner":"rnagrodzki","repo":"sdlc-marketplace"},"offline":true}'
+  assert:
+    - type: contains
+      value: '"ok":true'
+    - type: not-contains
+      value: 'github-context-mismatch'
+
+- description: "links: ctx.github enterprise host URL is checked with gh api --hostname"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/github-context-ghe.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"github":{"host":"ghe.acme.test","owner":"acme","repo":"widgets"}}'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+  assert:
+    - type: contains
+      value: '"ok":true'
+
+- description: "links: ctx.github stub 404 gives github-not-found naming the URL"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/github-context-ghe.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"github":{"host":"ghe.acme.test","owner":"acme","repo":"widgets"}}'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"GH_STUB_FAIL": "404@api repos/acme/widgets/issues/4"}'
+  assert:
+    - type: contains
+      value: '"ok":false'
+    - type: contains
+      value: 'github-not-found'
+    - type: contains
+      value: 'https://ghe.acme.test/acme/widgets/issues/4'
+
+- description: "links: ctx.github reference not found gives github-ref-not-found"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/github-context.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"github":{"host":"github.com","owner":"acme","repo":"widgets"}}'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"GH_STUB_FAIL": "404@api repos/acme/widgets/issues/7"}'
+  assert:
+    - type: contains
+      value: 'github-ref-not-found'
+    - type: contains
+      value: '"url":"#7"'
+    - type: not-contains
+      value: '#999'
+    - type: not-contains
+      value: '#997'
+    - type: not-contains
+      value: '#995'
+
+- description: "links: ctx.github host with its default port (host:443) still classifies GHE URLs as GitHub links"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/github-context-ghe.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"github":{"host":"ghe.acme.test:443","owner":"acme","repo":"widgets"}}'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"GH_STUB_FAIL": "404@api repos/acme/widgets/issues/4"}'
+  assert:
+    - type: contains
+      value: 'github-not-found'
+    - type: not-contains
+      value: 'url-unreachable'
+
+- description: "links: loopback, private and metadata URLs are reported as url-blocked-host and not fetched"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/blocked-hosts.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"offline":true}'
+  assert:
+    - type: contains
+      value: '"ok":false'
+    - type: contains
+      value: '"url":"http://169.254.169.254/latest/meta-data"'
+    - type: contains
+      value: '"url":"http://10.0.0.5/x"'
+    - type: contains
+      value: '"url":"http://localhost:8080/y"'
+    - type: contains
+      value: 'url-blocked-host'
+    - type: not-contains
+      value: 'url-unreachable'
+
+- description: "links: a public URL still passes the generic check when offline"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/public-url.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"offline":true}'
+  assert:
+    - type: contains
+      value: '"ok":true'
+    - type: not-contains
+      value: 'url-blocked-host'
+
+- description: "links: single-label and internal-suffix hosts are reported as url-blocked-host"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
+    script_args: "--file {{project_root}}/blocked-names.txt --json --ctx {{ctx}}"
+    project_root: "file://fixtures-fs/links-lib"
+    ctx: '{"offline":true}'
+  assert:
+    - type: contains
+      value: '"url":"http://metadata/"'
+    - type: contains
+      value: '"url":"http://svc.internal/x"'
+    - type: contains
+      value: 'url-blocked-host'
+    - type: not-contains
+      value: 'url-unreachable'

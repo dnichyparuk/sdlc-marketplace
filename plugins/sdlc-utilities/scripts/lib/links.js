@@ -37,13 +37,18 @@
 
 const { execFileSync } = require('child_process');
 const { readFileSync } = require('fs');
+const dns = require('dns');
 
 let parseRemoteOwner;
+let execGh;
+let redactText = (s) => s;
+try { ({ redact: redactText } = require('./mcp-failure.js')); } catch (_) { /* identity fallback */ }
 try {
-  ({ parseRemoteOwner } = require('./git.js'));
+  ({ parseRemoteOwner, execGh } = require('./git.js'));
 } catch (_) {
   // git.js may be unavailable in some test contexts — fallback handled below
   parseRemoteOwner = null;
+  execGh = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,11 +97,49 @@ function extractUrls(text) {
   return [...seen.entries()].map(([url, line]) => ({ url, line }));
 }
 
+// Replace every match with spaces, keeping newlines so line numbers survive.
+function blank(s) {
+  return s.replace(/[^\n]/g, ' ');
+}
+
+// `owner/repo#N` and bare `#N` references outside code spans, fenced blocks,
+// HTML comments and URLs. Bare refs come back with owner/repo null.
+function extractIssueRefs(text) {
+  if (!text || typeof text !== 'string') return [];
+  const lines = text.replace(/<!--[\s\S]*?-->/g, blank).split(/\r?\n/);
+  const seen = new Set();
+  const refs = [];
+  const REF = /(?<![\w/&#.-])(?:([A-Za-z0-9][\w.-]*)\/([\w.-]+))?#(\d+)\b/g;
+  let fence = null;
+  for (let i = 0; i < lines.length; i++) {
+    const f = lines[i].match(/^ {0,3}(`{3,}|~{3,})/);
+    if (fence) {
+      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (f) { fence = f[1]; continue; }
+    const line = lines[i].replace(/(`+)[^`]*?\1/g, blank).replace(URL_REGEX, blank);
+    let m;
+    while ((m = REF.exec(line)) !== null) {
+      const key = `${m[1] || ''}/${m[2] || ''}#${m[3]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      refs.push({ ref: `${m[1] ? `${m[1]}/${m[2]}` : ''}#${m[3]}`, owner: m[1] || null, repo: m[2] || null, number: parseInt(m[3], 10), line: i + 1 });
+    }
+  }
+  return refs;
+}
+
 // ---------------------------------------------------------------------------
 // URL classification
 // ---------------------------------------------------------------------------
 
-function classifyUrl(url) {
+// A configured host may carry the scheme's default port (host:443); URL.host drops it, so drop it on both sides.
+function normGhHost(host) {
+  return String(host || '').toLowerCase().replace(/:(?:443|80)$/, '');
+}
+
+function classifyUrl(url, githubHost) {
   let parsed;
   try {
     parsed = new URL(url);
@@ -104,13 +147,16 @@ function classifyUrl(url) {
     return { kind: 'invalid', parsed: null };
   }
   const host = parsed.hostname.toLowerCase();
-  // GitHub issues/PRs
-  if (host === 'github.com' || host === 'www.github.com') {
+  // GitHub issues/PRs (githubHost: extra GitHub Enterprise host from ctx.github, may carry a port)
+  const ghe = githubHost ? normGhHost(githubHost) : null;
+  const isGhe = ghe !== null && parsed.host.toLowerCase() === ghe;
+  if (host === 'github.com' || host === 'www.github.com' || isGhe) {
     const m = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)\b/);
     if (m) {
       return {
         kind: 'github',
         parsed,
+        host: host === 'www.github.com' ? 'github.com' : (isGhe ? parsed.host.toLowerCase() : host),
         owner: m[1],
         repo: m[2],
         type: m[3],     // "issues" | "pull"
@@ -145,7 +191,34 @@ function ghViewExists(owner, repo, type, number) {
   }
 }
 
+// Existence-only check through gh api (ctx.github set): the repository identity is
+// not compared, cross-repository links are allowed (spec github-sdlc P12, I4).
+function ghApiIssueExists(host, owner, repo, number, env, boundHost) {
+  if (!execGh) return { ok: false, detail: 'gh helper unavailable' };
+  // The acting account's token belongs to boundHost only: never present it to another host.
+  // Another host gets the process environment without any gh token (A10); the bound host gets the token env merged over it.
+  if (env && boundHost && normGhHost(host) !== normGhHost(boundHost)) {
+    env = { ...process.env };
+    delete env.GH_TOKEN;
+    delete env.GH_ENTERPRISE_TOKEN;
+    delete env.GITHUB_TOKEN;
+    delete env.GITHUB_ENTERPRISE_TOKEN;
+  } else if (env) {
+    env = { ...process.env, ...env };
+  }
+  const r = execGh(
+    ['api', `repos/${owner}/${repo}/issues/${number}`, `--hostname=${host}`, '--silent'],
+    { env },
+  );
+  return r.ok ? { ok: true } : { ok: false, detail: redactText(r.stderr || 'gh lookup failed') };
+}
+
 function checkGithubUrl(c, ctx) {
+  if (ctx.github) {
+    if (ctx.offline) return { ok: true };
+    const ex = ghApiIssueExists(c.host, c.owner, c.repo, c.number, ctx.github.env, ctx.github.host);
+    return ex.ok ? { ok: true } : { ok: false, reason: 'github-not-found', detail: ex.detail };
+  }
   const expected = ctx.expectedRepo;
   if (!expected) {
     // Without an expected repo we can't verify identity — treat as identity unknown,
@@ -250,21 +323,86 @@ function checkAtlassianUrl(c, ctx) {
 // Generic class checks (network reachability)
 // ---------------------------------------------------------------------------
 
-async function fetchOnce(url, method) {
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), NETWORK_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      method,
-      redirect: 'follow',
-      signal: ac.signal,
-      // Some servers reject HEAD without a UA
-      headers: { 'User-Agent': 'sdlc-links-validator/1.0' },
-    });
-    return { status: res.status };
-  } finally {
-    clearTimeout(timer);
+const MAX_REDIRECTS = 5;
+
+// Literal-only host check (no DNS): returns a reason string for a host that must not be fetched, else null (A10).
+function blockedHostReason(hostname) {
+  let h = String(hostname || '').toLowerCase().replace(/\.$/, '');
+  if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1);
+  if (h === 'localhost' || h.endsWith('.localhost')) return 'loopback host';
+  if (h === 'metadata.google.internal') return 'cloud metadata host';
+  const isIp = /^[\d.]+$/.test(h) || h.includes(':');
+  if (!isIp && !h.includes('.')) return 'single-label host';
+  if (!isIp && /\.(?:internal|local|localdomain|svc|lan)$/.test(h)) return 'internal host name';
+  const v4 = (a, b) => {
+    if (a === 0 || a === 127) return 'loopback or unspecified address';
+    if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) return 'private address';
+    if (a === 169 && b === 254) return 'link-local or metadata address';
+    if (a === 100 && b >= 64 && b <= 127) return 'shared address space';
+    return null;
+  };
+  const m4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m4) return v4(parseInt(m4[1], 10), parseInt(m4[2], 10));
+  if (h.includes(':')) {
+    if (h === '::' || h === '::1') return 'loopback or unspecified address';
+    if (/^fe[89ab]/.test(h)) return 'link-local address';
+    if (/^f[cd]/.test(h)) return 'private (unique-local) address';
+    if (/^2002:/.test(h)) return 'private (6to4) address range';
+    if (/^64:ff9b:/.test(h)) return 'private (NAT64) address range';
+    if (/^::[0-9a-f]{1,4}:[0-9a-f]{1,4}$/.test(h) || /^::\d+\.\d+\.\d+\.\d+$/.test(h)) return 'IPv4-compatible address';
+    const mapped = h.match(/^::ffff:(?:(\d+)\.(\d+)\.\d+\.\d+|([0-9a-f]{1,4}):[0-9a-f]{1,4})$/);
+    if (mapped) {
+      const hi = mapped[3] !== undefined ? parseInt(mapped[3], 16) : null;
+      return mapped[1] !== undefined ? v4(parseInt(mapped[1], 10), parseInt(mapped[2], 10)) : v4(hi >> 8, hi & 255);
+    }
   }
+  return null;
+}
+
+// Literal check, then (unless offline) every address the name resolves to. A failed lookup is left to fetch,
+// which then reports the URL unreachable. Best effort: the connection is not pinned to the checked address.
+async function blockedUrlReason(hostname, offline) {
+  const lit = blockedHostReason(hostname);
+  if (lit || offline) return lit;
+  const h = String(hostname || '').replace(/^\[|\]$/g, '');
+  if (/^[\d.]+$/.test(h) || h.includes(':')) return null;
+  let addrs;
+  try { addrs = await dns.promises.lookup(h, { all: true }); } catch (_) { return null; }
+  for (const a of addrs) {
+    const why = blockedHostReason(a.family === 6 ? `[${a.address}]` : a.address);
+    if (why) return `resolves to ${why}`;
+  }
+  return null;
+}
+
+// Manual redirects: every hop passes the same host check as the first URL.
+async function fetchOnce(url, method) {
+  let current = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), NETWORK_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(current, {
+        method,
+        redirect: 'manual',
+        signal: ac.signal,
+        // Some servers reject HEAD without a UA
+        headers: { 'User-Agent': 'sdlc-links-validator/1.0' },
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    const loc = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    if (!loc) return { status: res.status };
+    let next;
+    try { next = new URL(loc, current); } catch (_) { return { status: res.status }; }
+    if (next.protocol !== 'http:' && next.protocol !== 'https:') return { blocked: `redirect to ${next.protocol} URL` };
+    const why = await blockedUrlReason(next.hostname, false);
+    if (why) return { blocked: `redirect to ${why}` };
+    current = next.toString();
+  }
+  return { tooManyRedirects: true };
 }
 
 async function checkGenericUrl(c, ctx) {
@@ -272,6 +410,8 @@ async function checkGenericUrl(c, ctx) {
   if (BUILT_IN_SKIP_HOSTS.has(host) || (ctx.skipHostsSet && ctx.skipHostsSet.has(host))) {
     return { skip: true, reason: 'skip-list' };
   }
+  const why = await blockedUrlReason(c.parsed.hostname, ctx.offline);
+  if (why) return { ok: false, reason: 'url-blocked-host', detail: `${why}: not fetched` };
   if (ctx.offline) {
     return { skip: true, reason: 'offline' };
   }
@@ -285,6 +425,8 @@ async function checkGenericUrl(c, ctx) {
   } catch (err) {
     return { ok: false, reason: 'url-unreachable', detail: err.message || String(err) };
   }
+  if (res.blocked) return { ok: false, reason: 'url-blocked-host', detail: `${res.blocked}: not followed` };
+  if (res.tooManyRedirects) return { ok: false, reason: 'url-unreachable', detail: `more than ${MAX_REDIRECTS} redirects` };
   if (res.status >= 200 && res.status < 400) return { ok: true };
   if (res.status >= 400 && res.status < 500) return { ok: false, reason: 'url-not-found', detail: `HTTP ${res.status}` };
   return { ok: false, reason: 'url-server-error', detail: `HTTP ${res.status}` };
@@ -316,7 +458,7 @@ async function validateLinks(text, ctx = {}) {
   // Resolve context with defaults
   const offline = ctx.offline === true || process.env.SDLC_LINKS_OFFLINE === '1';
   let expectedRepo = ctx.expectedRepo || null;
-  if (!expectedRepo && parseRemoteOwner) {
+  if (!expectedRepo && !ctx.github && parseRemoteOwner) {
     try {
       expectedRepo = parseRemoteOwner(ctx.projectRoot || process.cwd());
     } catch (_) {
@@ -331,6 +473,7 @@ async function validateLinks(text, ctx = {}) {
     offline,
     expectedRepo,
     jiraSite: ctx.jiraSite || null,
+    github: ctx.github || null,
     skipHostsSet,
   };
 
@@ -339,7 +482,19 @@ async function validateLinks(text, ctx = {}) {
   const skipped = [];
 
   // Classify and partition
-  const classified = found.map(({ url, line }) => ({ url, line, c: classifyUrl(url) }));
+  const classified = found.map(({ url, line }) => ({ url, line, c: classifyUrl(url, resolvedCtx.github && resolvedCtx.github.host) }));
+
+  // Issue references (owner/repo#N, #N) — existence only, ctx.github opt-in
+  if (resolvedCtx.github) {
+    const g = resolvedCtx.github;
+    for (const r of extractIssueRefs(text)) {
+      if (offline) break;
+      const ex = ghApiIssueExists(g.host, r.owner || g.owner, r.repo || g.repo, r.number, g.env, g.host);
+      if (!ex.ok) {
+        violations.push({ url: r.ref, line: r.line, reason: 'github-ref-not-found', detail: ex.detail });
+      }
+    }
+  }
 
   // Synchronous (or sync-ish) checks — github needs gh exec, atlassian needs nothing network for host match
   for (const item of classified) {
@@ -425,7 +580,7 @@ function parseCliArgs(argv) {
         'Validates URLs in stdin (or --file) per issue #198 link verification.',
         'Exit 0 if ok, 1 if any violation, 2 on usage error.',
         '',
-        '--ctx accepts: { expectedRepo: {host,owner,repo}, jiraSite, offline, skipHosts[] }',
+        '--ctx accepts: { expectedRepo: {host,owner,repo}, github: {host,owner,repo,env}, jiraSite, offline, skipHosts[] }',
         '',
         'Env: SDLC_LINKS_OFFLINE=1 — skip network reachability checks',
       ].join('\n') + '\n');
@@ -480,7 +635,9 @@ if (require.main === module) {
     validateLinks,
     formatViolations,
     extractUrls,
+    extractIssueRefs,
     classifyUrl,
     BUILT_IN_SKIP_HOSTS,
+    blockedHostReason,
   };
 }

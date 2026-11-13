@@ -50,6 +50,8 @@ tests:
   - file://datasets/jira-sdlc-exec.yaml
   - file://datasets/jira-sdlc-guardrail-exec.yaml
   - file://datasets/jira-assemble-exec.yaml
+  - file://datasets/github-sdlc-exec.yaml
+  - file://datasets/mcp-failure-github-exec.yaml
   - file://datasets/state-gc-migrate-exec.yaml
   - file://datasets/manifest-persist-exec.yaml
   - file://datasets/plan-state-cleanup-exec.yaml

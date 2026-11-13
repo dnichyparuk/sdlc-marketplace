@@ -24,6 +24,9 @@ const { execSync, spawnSync } = require('node:child_process');
 const MAX_BUFFER = 50 * 1024 * 1024; // 50 MB
 // #9188: a `gh` call that never answers must not hang a prepare script. Applies to every
 // exec() command that starts with `gh `; an explicit opts.timeout wins. Tuning value, not contract.
+// Slug grammar shared by selectGhAccountForTarget (host may carry a port, as in skill/github.js).
+const GH_SLUG_PART_RE = /^[A-Za-z0-9._-]+$/;
+const GH_HOST_RE = /^[A-Za-z0-9.-]+(:\d+)?$/;
 const GH_TIMEOUT_MS = 30 * 1000;
 
 /**
@@ -55,6 +58,31 @@ function exec(cmd, opts = {}) {
     if (throwOnError) throw err;
     return null;
   }
+}
+
+/**
+ * Run `gh` with an argv array (no shell) and report the outcome instead of throwing.
+ * @param {string[]} args
+ * @param {{ env?: object, timeout?: number, input?: string }} [opts]  `env` replaces process.env when given.
+ * @returns {{ ok: boolean, stdout: string, stderr: string, status: number|null, timedOut: boolean }}
+ */
+function execGh(args, { env, timeout, input } = {}) {
+  const effectiveTimeout = timeout ?? (Number(process.env.SDLC_GH_TIMEOUT_MS) || GH_TIMEOUT_MS);
+  const r = spawnSync('gh', args, {
+    encoding: 'utf8',
+    maxBuffer: MAX_BUFFER,
+    timeout: effectiveTimeout,
+    ...(env ? { env } : {}),
+    ...(input !== undefined ? { input } : {}),
+  });
+  const timedOut = !!r.error && (r.error.code === 'ETIMEDOUT' || r.signal === 'SIGTERM');
+  return {
+    ok: !r.error && r.status === 0,
+    stdout: (r.stdout || '').trim(),
+    stderr: (r.stderr || '').trim(),
+    status: r.status ?? null,
+    timedOut,
+  };
 }
 
 /**
@@ -425,7 +453,16 @@ function parseRemoteOwner(projectRoot) {
  * @returns {{ accounts: Array<{ login: string, active: boolean }>, error: string|null }}
  */
 function getGhAccounts(host) {
-  const raw = exec('gh auth status --json hosts');
+  return parseGhAccounts(exec('gh auth status --json hosts'), host);
+}
+
+/**
+ * Parse `gh auth status --json hosts` output into the accounts of one host.
+ * @param {string|null} raw
+ * @param {string} host
+ * @returns {{ accounts: Array<{ login: string, active: boolean }>, error: string|null }}
+ */
+function parseGhAccounts(raw, host) {
   if (!raw) return { accounts: [], error: null }; // gh not installed — silent skip
 
   let parsed;
@@ -445,6 +482,104 @@ function getGhAccounts(host) {
     .map(e => ({ login: e.login, active: Boolean(e.active) }));
 
   return { accounts, error: null };
+}
+
+/**
+ * Argv variant of getGhAccounts: accounts of one host via an injectable runner (default execGh).
+ * @param {string} host
+ * @param {{ run?: function, env?: object }} [opts]
+ * @returns {{ accounts: Array<{ login: string, active: boolean }>, error: string|null }}
+ */
+function getGhAccountsForHost(host, { run = execGh, env } = {}) {
+  const r = run(['auth', 'status', '--hostname=' + host, '--json=hosts'], env ? { env } : {});
+  return parseGhAccounts(r.ok ? r.stdout : null, host);
+}
+
+/**
+ * Read the token of one gh account. The token goes to the caller only and is never logged.
+ * @param {string} login
+ * @param {string} host
+ * @param {{ run?: function }} [opts]
+ * @returns {string|null}
+ */
+function getGhTokenFor(login, host, { run = execGh } = {}) {
+  const r = run(['auth', 'token', '--user=' + login, '--hostname=' + host]);
+  return r.ok && r.stdout ? r.stdout : null;
+}
+
+/**
+ * Pick the gh account for a target repo WITHOUT `gh auth switch` (no global state change).
+ * Phase 1: active login equals owner. Phase 2: an inactive account equals owner (its token is returned).
+ * Phase 3: probe repo access with the active account, then with each other account's token.
+ *
+ * @param {{ host: string, owner: string, repo: string, run?: function }} p
+ * @returns {{ activeAccount: string|null, actingAccount: string|null, token: string|null,
+ *   accountSwitch: { switched: boolean, account: string|null, previousAccount: string|null, reason: string|null },
+ *   warning: string|null }}
+ */
+function selectGhAccountForTarget({ host, owner, repo, run = execGh }) {
+  const result = (active, acting, token, reason, warning = null) => ({
+    activeAccount: active,
+    actingAccount: acting,
+    token,
+    accountSwitch: {
+      switched: token !== null,
+      account: token !== null ? acting : null,
+      previousAccount: token !== null ? active : null,
+      reason,
+    },
+    warning,
+  });
+
+  if (!GH_SLUG_PART_RE.test(String(owner)) || !GH_SLUG_PART_RE.test(String(repo)) || !GH_HOST_RE.test(String(host))) {
+    return result(null, null, null, null, 'invalid host/owner/repo');
+  }
+
+  const { accounts, error } = getGhAccountsForHost(host, { run });
+  if (error) return result(null, null, null, null, `GitHub account detection failed: ${error}`);
+  const active = accounts.find(a => a.active);
+  if (!active) return result(null, null, null, null, null);
+
+  // Phase 1: the active account owns the repository.
+  const ownerLower = owner.toLowerCase();
+  if (active.login.toLowerCase() === ownerLower) return result(active.login, active.login, null, 'active account matches owner');
+
+  // Phase 2: an inactive account is the owner.
+  const match = accounts.find(a => !a.active && a.login.toLowerCase() === ownerLower);
+  if (match) {
+    const token = getGhTokenFor(match.login, host, { run });
+    if (token) return result(active.login, match.login, token, 'account matches owner');
+  }
+
+  // Phase 3: probe access — active account first, then each other account's token.
+  const probeArgs = ['api', 'repos/' + owner + '/' + repo, '--hostname=' + host];
+  if (run(probeArgs).ok) return result(active.login, active.login, null, 'active account has access');
+  for (const candidate of accounts.filter(a => !a.active)) {
+    const token = getGhTokenFor(candidate.login, host, { run });
+    if (!token) continue;
+    if (run(probeArgs, { env: ghTokenEnv(host, token) }).ok) {
+      return result(active.login, candidate.login, token, 'account has access');
+    }
+  }
+  return result(active.login, active.login, null, null,
+    `No authenticated gh account has access to ${owner}/${repo}. Run "gh auth switch" to select the correct account manually.`);
+}
+
+/**
+ * Env for a `gh` child that acts as the account owning `token` on `host`. gh reads GH_TOKEN
+ * only for github.com and *.ghe.com; other (GitHub Enterprise Server) hosts read
+ * GH_ENTERPRISE_TOKEN. The token is never set for the other variable.
+ * @param {string} host - may carry a port
+ * @param {string|null} token
+ * @returns {NodeJS.ProcessEnv}
+ */
+function ghTokenEnv(host, token) {
+  const env = { ...process.env };
+  if (!token) return env;
+  const name = String(host || '').toLowerCase().replace(/:\d+$/, '');
+  if (name === 'github.com' || name.endsWith('.ghe.com')) env.GH_TOKEN = token;
+  else env.GH_ENTERPRISE_TOKEN = token;
+  return env;
 }
 
 /**
@@ -723,10 +858,13 @@ function probeGhAuth(opts = {}) {
   }
 
   // Authenticated: query the active login.
-  const activeAccount = run('gh api user --jq .login');
+  const activeAccount = run(`gh api user --hostname ${host} --jq .login`);
+  const scopesLine = statusRaw.split('\n').find((l) => /Token scopes:/i.test(l));
+  const tokenScopes = scopesLine ? (scopesLine.match(/'([^']+)'/g) || []).map((s) => s.slice(1, -1)) : null;
   return {
     authenticated: true,
     activeAccount: activeAccount || null,
+    tokenScopes,
     expired: false,
     timedOut: false,
     errorMessage: null,
@@ -1396,6 +1534,11 @@ function fetchPrReviewThreads(owner, repo, prNumber) {
 module.exports = {
   // Core
   exec,
+  execGh,
+  getGhAccountsForHost,
+  getGhTokenFor,
+  selectGhAccountForTarget,
+  ghTokenEnv,
   GH_TIMEOUT_MS,
   retryExec,
   // Shared

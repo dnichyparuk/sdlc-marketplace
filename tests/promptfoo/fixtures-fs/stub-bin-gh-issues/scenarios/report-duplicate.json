@@ -1,0 +1,8 @@
+{
+  "extends": "default",
+  "routes": [
+    { "match": "issue list -R rnagrodzki/sdlc-marketplace",
+      "stdout": [ { "number": 77, "title": "gh-failure[validation]: create on acme/widgets",
+        "url": "https://github.com/rnagrodzki/sdlc-marketplace/issues/77" } ] }
+  ]
+}

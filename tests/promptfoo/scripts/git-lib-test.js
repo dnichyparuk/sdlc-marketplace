@@ -28,7 +28,10 @@
  *   execNormalFailure          — proves non-overflow failures still return null (throwOnError=false).
  *   execGhTimeoutApplied       — proves every gh call through exec() carries GH_TIMEOUT_MS and other commands none (#9188).
  *   probeGhAuthTimeout         — proves a timed-out gh auth status reports timedOut, a plain failure reports "Not logged in" (#9237).
- *   fetchBaseRefSha            — proves fetchBaseRef with a sha base creates no refs/heads/<sha> branch (review-sdlc R19).
+ *   execGhArgvTimeout          — proves execGh passes argv without a shell and reports timedOut on a timeout.
+ *   selectGhAccountForTarget   — proves target-based account selection reads a token and never runs `auth switch`.
+ *   probeGhAuthScopes          — proves probeGhAuth passes --hostname to gh api user and returns tokenScopes.
+ *   fetchBaseRefSha          — proves fetchBaseRef with a sha base creates no refs/heads/<sha> branch (review-sdlc R19).
  *   remoteStateTracking        — proves getRemoteState ignores an upstream whose branch name differs from the current branch (pr-sdlc R19).
  */
 'use strict';
@@ -202,6 +205,55 @@ switch (op) {
     mode = 'loggedOut';
     const loggedOut = pick(fresh.probeGhAuth());
     console.log(JSON.stringify({ timeout, loggedOut }));
+    break;
+  }
+
+  case 'execGhArgvTimeout': {
+    // execGh never uses a shell and reports a timeout instead of throwing (stub gh on PATH, 200ms timeout).
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'git-lib-execgh-'));
+    try {
+      const stub = path.join(tmp, 'gh');
+      fs.writeFileSync(stub, '#!/bin/sh\nif [ "$1" = "slow" ]; then sleep 5; fi\nprintf "%s" "$1"\n');
+      fs.chmodSync(stub, 0o755);
+      const env = { ...process.env, PATH: tmp + path.delimiter + process.env.PATH };
+      const meta = lib.execGh(['$(echo injected)'], { env });
+      const slow = lib.execGh(['slow'], { env, timeout: 200 });
+      console.log(JSON.stringify({ meta, slow }));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+    break;
+  }
+
+  case 'selectGhAccountForTarget': {
+    // alice (active) + acme, owner acme: token via `auth token`, no `auth switch`; and the owner-is-active case.
+    const calls = [];
+    const status = JSON.stringify({ hosts: { 'github.com': [
+      { state: 'success', active: true, login: 'alice' },
+      { state: 'success', active: false, login: 'acme' },
+    ] } });
+    const run = (argv) => {
+      calls.push(argv.join(' '));
+      if (argv[0] === 'auth' && argv[1] === 'status') return { ok: true, stdout: status, stderr: '', status: 0, timedOut: false };
+      if (argv[0] === 'auth' && argv[1] === 'token') return { ok: true, stdout: 'tok-' + argv[2].split('=')[1], stderr: '', status: 0, timedOut: false };
+      return { ok: false, stdout: '', stderr: '', status: 1, timedOut: false };
+    };
+    const acme = lib.selectGhAccountForTarget({ host: 'github.com', owner: 'acme', repo: 'widgets', run });
+    const own = lib.selectGhAccountForTarget({ host: 'github.com', owner: 'alice', repo: 'dotfiles', run });
+    console.log(JSON.stringify({ acme, own, calls }));
+    break;
+  }
+
+  case 'probeGhAuthScopes': {
+    // probeGhAuth passes --hostname to `gh api user` and parses the Token scopes line (null when absent).
+    const cmds = [];
+    const mk = (statusOut) => (cmd) => {
+      cmds.push(cmd);
+      return /^gh auth status/.test(cmd) ? statusOut : 'stub-user';
+    };
+    const withScopes = lib.probeGhAuth({ host: 'ghe.example.com', execFn: mk("Logged in to ghe.example.com account stub-user\n  - Token scopes: 'repo', 'read:org'") });
+    const without = lib.probeGhAuth({ execFn: mk('Logged in to github.com account stub-user') });
+    console.log(JSON.stringify({ cmds, scopes: withScopes.tokenScopes, none: without.tokenScopes, login: withScopes.activeAccount }));
     break;
   }
 
