@@ -320,7 +320,7 @@ const GIT_APPLY_WRITE = ['--apply', '--index', '--cached', '--3way', '-3'];
 const GIT_SUBCOMMAND_WINDOW = 4;
 
 // git global options that take their value as the next word (`--git-dir=x` carries it in the same word).
-const GIT_GLOBAL_WITH_VALUE = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--super-prefix', '--config-env'];
+const GIT_GLOBAL_WITH_VALUE = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--super-prefix', '--config-env', '--attr-source'];
 
 /** Index of the git subcommand: the first word that is not a global option or the value of one; -1 when there is none. */
 function gitSubcommandIndex(words) {
