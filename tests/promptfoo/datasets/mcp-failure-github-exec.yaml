@@ -106,3 +106,19 @@
           && o.json.errorText.includes('[REDACTED],[REDACTED]')
           && !o.stdout.includes('github_pat_') && !o.stdout.includes('ghp_');
         return ok ? true : `FAIL ${output}`;
+
+- description: "mcp-failure github: --telemetry --source github writes a github-format block with the github class kept"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--script plugins/sdlc-utilities/scripts/lib/mcp-failure.js -- --telemetry --source github --class rate-limit --operation view --repo acme/widgets --error forbidden --recovered no"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const log = o.stdout || '';
+        const ok = o.exit === 0 && /github-sdlc gh-failure\[rate-limit\]: view/.test(log)
+          && log.includes('- repo: acme/widgets') && !log.includes('jira-sdlc');
+        return ok ? true : `FAIL ${output}`;

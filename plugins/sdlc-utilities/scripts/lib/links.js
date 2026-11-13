@@ -143,7 +143,7 @@ function classifyUrl(url, githubHost) {
   const host = parsed.hostname.toLowerCase();
   // GitHub issues/PRs (githubHost: extra GitHub Enterprise host from ctx.github, may carry a port)
   const ghe = githubHost ? String(githubHost).toLowerCase() : null;
-  const isGhe = ghe !== null && (parsed.host.toLowerCase() === ghe || (!/:\d+$/.test(ghe) && host === ghe));
+  const isGhe = ghe !== null && parsed.host.toLowerCase() === ghe;
   if (host === 'github.com' || host === 'www.github.com' || isGhe) {
     const m = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)\b/);
     if (m) {
@@ -190,7 +190,16 @@ function ghViewExists(owner, repo, type, number) {
 function ghApiIssueExists(host, owner, repo, number, env, boundHost) {
   if (!execGh) return { ok: false, detail: 'gh helper unavailable' };
   // The acting account's token belongs to boundHost only: never present it to another host.
-  if (env && boundHost && String(host).toLowerCase() !== String(boundHost).toLowerCase()) env = undefined;
+  // Another host gets the process environment without any gh token (A10); the bound host gets the token env merged over it.
+  if (env && boundHost && String(host).toLowerCase() !== String(boundHost).toLowerCase()) {
+    env = { ...process.env };
+    delete env.GH_TOKEN;
+    delete env.GH_ENTERPRISE_TOKEN;
+    delete env.GITHUB_TOKEN;
+    delete env.GITHUB_ENTERPRISE_TOKEN;
+  } else if (env) {
+    env = { ...process.env, ...env };
+  }
   const r = execGh(
     ['api', `repos/${owner}/${repo}/issues/${number}`, `--hostname=${host}`, '--silent'],
     { env },

@@ -530,7 +530,9 @@ if (require.main === module) {
     const recovered = getArg('recovered') || 'no';
 
     try {
-      const block = appendTelemetry({ class: cls, tool, site, project, error, recovered });
+      const block = getArg('source') === 'github'
+        ? appendTelemetry({ class: cls, operation: getArg('operation') || '', repo: getArg('repo') || '', error, recovered }, undefined, 'github')
+        : appendTelemetry({ class: cls, tool, site, project, error, recovered });
       process.stdout.write(block);
       process.exit(0);
     } catch (err) {
