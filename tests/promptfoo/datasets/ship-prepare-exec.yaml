@@ -2607,6 +2607,23 @@
         if (/git push \|\|/.test(cmd)) return `FAIL: bare push ${cmd}`;
         return true;
 
+- description: "ship-lean: (learnings) c with --no-push the learnings commit does not push"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario after-pr --seed frozen --result results/pr-ok.json --gh-pr-url https://example/pr/1 --no-push"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[0].envelope;
+        if (e.status !== 'step' || e.step.id !== 'learnings_commit') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.error || ''}`;
+        const cmd = e.step.data.commands[0];
+        if (!cmd.includes('git commit')) return `FAIL: no commit ${cmd}`;
+        return cmd.includes('git push') ? `FAIL: pushes ${cmd}` : true;
+
 - description: "ship-step: (w46) --after dispatch_pr whose URL gh cannot confirm returns error and records pr failed"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
@@ -5865,6 +5882,102 @@
         if (JSON.stringify(e.ext.commands) !== JSON.stringify(['/sdlc:ship-sdlc --resume --auto'])) return `FAIL: commands ${JSON.stringify(e.ext.commands)}`;
         return o.ledgerExists === true ? true : `FAIL: ledgerExists ${o.ledgerExists}`;
 
+# R105: the printed resume line repeats the CLI-given flags that R11 takes only from the resuming CLI.
+- description: "ship-final-check: (r105) the final-check-open resume line repeats --bump, --draft, --rebase and --quality given on the CLI"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --final-summary medium-1.json --review-threshold medium --cli-flags bump=minor,draft=true,rebase=auto,quality=full"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const reviews = o.calls.filter(c => c.args[1] === 'dispatch_review');
+        const e = reviews.length ? reviews[reviews.length - 1].envelope : null;
+        if (!e || !e.ext || e.ext.reason !== 'final-check-open') return `FAIL: ${e && e.status} ${e && e.ext && e.ext.reason}`;
+        const want = '/sdlc:ship-sdlc --resume --auto --bump minor --draft --rebase auto --quality full';
+        return JSON.stringify(e.ext.commands) === JSON.stringify([want]) ? true : `FAIL: commands ${JSON.stringify(e.ext.commands)}`;
+
+# R105: the pending-question stop prints the same line; a flag whose source is not cli (quality here) is not repeated.
+- description: "ship-step: (r105) the pending-question resume line repeats the CLI-given --bump and --draft, not a seeded quality"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario pending --seed frozen-exec --quality balanced --result results/execute-pending-highrisk.json --answer gate-stop --cli-flags bump=minor,draft=true"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const d = o.calls[o.calls.length - 1].envelope;
+        if (d.status !== 'done' || !d.ext || d.ext.reason !== 'pending-question') return `FAIL: ${d.status} ${d.ext && d.ext.reason}`;
+        const cmds = d.ext.commands || [];
+        return cmds.length === 2 && cmds[1] === '/sdlc:ship-sdlc --resume --bump minor --draft' ? true : `FAIL: commands ${JSON.stringify(cmds)}`;
+
+# R104: a resume after final-check-open reviews a new fix commit once.
+- description: "ship-final-check: (g) a resume after a fix commit re-arms the final check once"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --final-summary medium-1.json --review-threshold medium --fc-resume fix"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const i = o.calls.findIndex(c => c.args[1] === 'confirm_pipeline' && c.envelope.step && c.envelope.step.id === 'dispatch_review');
+        if (i < 0) return `FAIL: no dispatch_review after the resume ${o.calls.map(c => c.args[1] + ':' + (c.envelope.step && c.envelope.step.id))}`;
+        const first = o.calls.slice(0, i).filter(c => c.envelope.ext && c.envelope.ext.reason === 'final-check-open');
+        if (!first.length) return 'FAIL: no final-check-open before the resume';
+        const old = first[first.length - 1].envelope.ext.summary.finalCheck.commit;
+        const inv = o.calls[i].envelope.step.data.invocation || '';
+        if (!inv.includes('--committed') || !inv.includes(`--base ${old}`)) return `FAIL: invocation ${inv} (old ${old})`;
+        const f = o.snapshots[o.snapshots.length - 2].finalCheck;
+        if (!f || f.status !== 'pending' || f.base !== old || f.commit === old || !/^[0-9a-f]{40}$/.test(f.commit) || f.recheck !== 1) return `FAIL: finalCheck ${JSON.stringify(f)}`;
+        const last = o.calls[o.calls.length - 1].envelope;
+        if (!last.ext || last.ext.reason !== 'final-check-open') return `FAIL: last ${last.status} ${last.ext && last.ext.reason}`;
+        const n = o.calls.slice(i).filter(c => c.envelope.step && c.envelope.step.id === 'dispatch_review').length;
+        return n === 1 ? true : `FAIL: ${n} dispatch_review after the resume`;
+
+- description: "ship-final-check: (h) a resume without a new commit stops with finalCheckOpen"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --final-summary medium-1.json --review-threshold medium --fc-resume again"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[o.calls.length - 1].envelope;
+        if (o.calls[o.calls.length - 1].args[1] !== 'confirm_pipeline') return `FAIL: last call ${o.calls[o.calls.length - 1].args[1]}`;
+        if (e.status !== 'done' || !e.ext || e.ext.reason !== 'pending-question') return `FAIL: ${e.status} ${e.ext && e.ext.reason} ${e.error}`;
+        const q = e.ext.pendingQuestion;
+        if (!q || q.id !== 'finalCheckOpen' || JSON.stringify(q.options) !== JSON.stringify(['fix', 'accept-open'])) return `FAIL: question ${JSON.stringify(q)}`;
+        return o.calls.some(c => c.envelope.step && c.envelope.step.id === 'dispatch_version') ? 'FAIL: dispatch_version emitted' : true;
+
+- description: "ship-final-check: (i) a second resume without a new commit accepts the open findings"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --final-summary medium-1.json --review-threshold medium --fc-resume twice"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const e = o.calls[o.calls.length - 1].envelope;
+        if (e.status !== 'step' || e.step.id !== 'dispatch_version') return `FAIL: ${e.status} ${e.step && e.step.id} ${e.error || ''}`;
+        if (!((e.ext && e.ext.warnings) || []).some(w => w.includes('open findings accepted (R104)'))) return `FAIL: warnings ${JSON.stringify(e.ext && e.ext.warnings)}`;
+        const f = o.snapshots[o.snapshots.length - 1].finalCheck;
+        return f && f.accepted === true && !('handoff' in f) ? true : `FAIL: finalCheck ${JSON.stringify(f)}`;
+
 # R97: received-review that committed its fixes itself (HEAD moved, clean tree) is adopted as commit-fixes.
 - description: "ship-self-commit: (a) a commit made by received-review is adopted"
   vars:
@@ -5905,6 +6018,71 @@
           if (e.step && e.step.id === 'dispatch_commit_fixes') return 'FAIL: dispatch_commit_fixes emitted';
         }
         return JSON.stringify(o).includes('git status failed after received-review') ? true : 'FAIL: no failure reason';
+
+# R103: an adopted fix commit is scope-checked against the plan Files; a mismatched subject only warns.
+- description: "ship-self-commit: (c) a committed path outside the plan Files refuses adoption with stageOutsideFiles"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-self-commit --seed frozen --summary high-1.json --self-commit-outside src/unrelated.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        for (const c of o.calls) {
+          if (((c.envelope.ext && c.envelope.ext.warnings) || []).some(w => w.includes('adopted as the commit-fixes commit'))) return `FAIL: adopted ${JSON.stringify(c.envelope.ext.warnings)}`;
+        }
+        const i = o.calls.findIndex(c => c.args[1] === 'dispatch_received_review');
+        const e = i >= 0 ? o.calls[i].envelope : null;
+        const q = e && e.ext && e.ext.pendingQuestion;
+        if (!e || e.ext.reason !== 'pending-question' || !q || q.id !== 'stageOutsideFiles') return `FAIL: after received-review ${JSON.stringify(e && e.ext)}`;
+        if (JSON.stringify(q.paths) !== JSON.stringify(['src/unrelated.js'])) return `FAIL: paths ${JSON.stringify(q.paths)}`;
+        const st = o.snapshots[0] && o.snapshots[0].stepStatuses['commit-fixes'];
+        return st && st !== 'completed' ? true : `FAIL: commit-fixes ${st}`;
+
+- description: "ship-self-commit: (d) a subject that differs from the plan fix subject warns and still adopts"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-self-commit --seed frozen --summary high-1.json --fix-subject"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const i = o.calls.findIndex(c => c.args[1] === 'dispatch_received_review');
+        const e = i >= 0 ? o.calls[i].envelope : null;
+        if (!e || e.status !== 'step' || e.step.id !== 'dispatch_review') return `FAIL: after received-review ${e && e.status} ${e && e.step && e.step.id}`;
+        const w = (e.ext && e.ext.warnings) || [];
+        if (!w.some(x => x.includes('adopted as the commit-fixes commit'))) return `FAIL: not adopted ${JSON.stringify(w)}`;
+        return w.some(x => x.includes('differs from the plan fix subject')) ? true : `FAIL: no subject warning ${JSON.stringify(w)}`;
+
+- description: "ship-self-commit: (e) a resume stops again until the outside path is reverted, then stage_fixes adopts"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-self-commit --seed frozen --summary high-1.json --self-commit-outside src/unrelated.js --resume-after-outside"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ids = o.calls.map(c => c.envelope.step && c.envelope.step.id);
+        if (ids.includes('dispatch_commit_fixes')) return `FAIL: ids ${ids}`;
+        const resumes = o.calls.filter(c => c.args[1] === 'confirm_pipeline').map(c => c.envelope);
+        if (resumes.length !== 2) return `FAIL: ${resumes.length} resumes`;
+        // Before the revert the resume stops on the same question (idempotent stop).
+        const q = resumes[0].ext && resumes[0].ext.pendingQuestion;
+        if (resumes[0].ext.reason !== 'pending-question' || !q || q.id !== 'stageOutsideFiles' || JSON.stringify(q.paths) !== JSON.stringify(['src/unrelated.js'])) return `FAIL: first resume ${JSON.stringify(resumes[0].ext)}`;
+        if (o.snapshots[1] && o.snapshots[1].stepStatuses['commit-fixes'] === 'completed') return 'FAIL: commit-fixes completed before the revert';
+        // After the revert stage_fixes adopts the commit and the final fix review follows.
+        const e = resumes[1];
+        if (e.status !== 'step' || e.step.id !== 'dispatch_review' || !/--committed --base [0-9a-f]{40}\b/.test(e.step.data.invocation || '')) return `FAIL: second resume ${e.status} ${e.step && e.step.data.invocation}`;
+        return ((e.ext && e.ext.warnings) || []).some(w => w.includes('adopted as the commit-fixes commit')) ? true : `FAIL: warnings ${JSON.stringify(e.ext && e.ext.warnings)}`;
 
 # #9228 / R11: --resume rewrites the ledger's non-frozen flags and their sources from the run's
 # merged CLI > config > default values. The fixture ledger holds auto: true, bump: "patch",

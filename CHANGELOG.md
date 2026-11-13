@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.3] - 2026-11-13
+
+### Fixed
+- ship-sdlc: a fix commit made by the received-review agent now goes through the plan-Files scope check before it is adopted, and a refused adoption stops with the existing outside-files question; the scope diff uses `--no-renames`, so a renamed path counts as a delete plus an add (#9373).
+- ship-sdlc: after a final-check-open stop, `--resume` re-arms the final check when a new commit exists, asks fix or accept-open when none does, and accepts the open findings on a second resume without a commit (#9373).
+- ship-sdlc: the printed resume line repeats every CLI-given flag (including `--no-push`, `--release-subject`, bump, draft, rebase, quality and review settings), `--rebase` is validated against auto, skip and prompt, and the learnings commit no longer pushes under `--no-push` (#9373).
+
 ## [0.54.2] - 2026-11-13
 
 ### Fixed

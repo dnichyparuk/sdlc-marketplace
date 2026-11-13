@@ -69,6 +69,12 @@
  *                        with --again the final-check review result is reported once more (a snapshot follows each)
  *                        rounds-self-commit: clean tree; received-review appends to fix.txt and commits it itself (R97);
  *                        a snapshot follows its --after call and headAfter is the fixture HEAD after that commit
+ *   --self-commit-outside <p>  (rounds-self-commit) the received-review commit also adds <p>, outside the plan Files (R103)
+ *   --fix-subject        (rounds-self-commit) the plan header carries **Fix commit:** `fix(#1): widget - review fixes` (R103)
+ *   --resume-after-outside  (rounds-self-commit, with --self-commit-outside) seeds execute and commit completed; after the
+ *                        stop: --after confirm_pipeline (yes), then a commit that deletes <p>, then --after confirm_pipeline
+ *                        (yes) again (a snapshot follows each)
+ *   --cli-flags <k=v,...>  (R105) seeds CLI-sourced flags into the ledger: value and sources entry (bump=minor,draft=true,rebase=auto)
  *   --no-tag             Patch data.flags.noTag = true into the seed (any scenario)
  *   --version-head       A successful dispatch_version result without artifacts.commit gets the fixture repo's HEAD sha
  *   --other-exec         Also copy seed/execute-complete.json to a second branch's execute state file (es2)
@@ -134,6 +140,8 @@ let osTasks = '1/3';
 let osValidate = 'ok';
 let osAnswer = null;
 let answerText = null;
+let selfCommitOutside = null;
+let fcResume = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
@@ -153,6 +161,8 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--os-answer' && args[i + 1]) osAnswer = args[++i];
   else if (args[i] === '--steps' && args[i + 1]) stepsCsv = args[++i];
   else if (args[i] === '--answer-text' && args[i + 1]) answerText = args[++i];
+  else if (args[i] === '--self-commit-outside' && args[i + 1]) selfCommitOutside = args[++i];
+  else if (args[i] === '--fc-resume' && args[i + 1]) fcResume = args[++i];
   else if (args[i] === '--no-plan') noPlan = true;
 }
 if (answerText !== null) {
@@ -253,10 +263,11 @@ function after(id, rel) {
 }
 
 // R83: rewrite plan.md so Task 1 lists the given paths under Files, and commit it (a clean plan file is not "outside").
-function setPlanFiles(paths) {
+function setPlanFiles(paths, { fixSubject = null } = {}) {
   if (!paths.length) return;
   const files = paths.map(p => `- Modify: \`${p}\``).join('\n');
-  fs.writeFileSync(path.join(projectRoot, 'plan.md'), `# Add widget support\n\n## Tasks\n\n### Task 1: Add the widget module\n\n**Files:**\n${files}\n\n### Task 2: Wire the widget into the CLI\n`);
+  const header = fixSubject ? `**Fix commit:** \`${fixSubject}\`\n\n` : '';
+  fs.writeFileSync(path.join(projectRoot, 'plan.md'), `# Add widget support\n\n${header}## Tasks\n\n### Task 1: Add the widget module\n\n**Files:**\n${files}\n\n### Task 2: Wire the widget into the CLI\n`);
   sh('git add plan.md && git commit -q -m "fixture: plan files"');
 }
 
@@ -319,7 +330,8 @@ function reviewRound(fixLine, { reviewResult = 'results/generic-ok.json', selfCo
   if (!is(c, 'dispatch_received_review')) return c;
   if (fixLine) fs.appendFileSync(path.join(projectRoot, 'fix.txt'), fixLine);
   if (selfCommit) {
-    sh('git add fix.txt && git commit -q -m "fixture: received-review commits its fixes"');
+    const extra = selfCommitOutside ? (fs.mkdirSync(path.dirname(path.join(projectRoot, selfCommitOutside)), { recursive: true }), fs.writeFileSync(path.join(projectRoot, selfCommitOutside), 'x\n'), ` ${selfCommitOutside}`) : '';
+    sh(`git add fix.txt${extra} && git commit -q -m "fixture: received-review commits its fixes"`);
     headAfter = sh('git rev-parse HEAD').stdout.trim();
   }
   if (gitStatusFail) fs.writeFileSync(statusFailFlag, '');
@@ -348,6 +360,20 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     if (roundsIdx >= 0) data.flags.reviewRounds = Number(process.argv[roundsIdx + 1]);
     if (scenario.startsWith('rounds-')) data.flags.auto = true;
     if (reviewThreshold) data.flags.reviewThreshold = reviewThreshold;
+    if (process.argv.includes('--no-push')) data.flags.noPush = true; // A16 (learnings c)
+    // R105: --cli-flags bump=minor,draft=true,rebase=auto seeds CLI-sourced flags (value and sources entry).
+    const cliFlagsIdx = process.argv.indexOf('--cli-flags');
+    if (cliFlagsIdx >= 0) {
+      data.flags.sources = data.flags.sources || {};
+      const cliFlagsArg = process.argv[cliFlagsIdx + 1];
+      if (!cliFlagsArg) { console.error('--cli-flags needs k=v,k=v'); process.exit(2); }
+      for (const pair of cliFlagsArg.split(',')) {
+        const [k, v] = pair.split('=');
+        if (!k || v === undefined || v === '') { console.error(`--cli-flags: bad pair "${pair}"`); process.exit(2); }
+        data.flags[k] = v === 'true' ? true : v;
+        data.flags.sources[k] = 'cli';
+      }
+    }
     if (process.argv.includes('--no-tag')) {
       data.flags.noTag = true; // A15: the ledger records an untagged release
       // verify_version_tag emits its command only after branch_prepare succeeded; seed that so an empty list is the noTag rule's doing.
@@ -395,6 +421,10 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
       const rv = data.steps.find(x => x.name === 'review'); if (rv) rv.status = 'completed';
       const rr = data.steps.find(x => x.name === 'received-review'); if (rr) rr.status = 'in_progress';
       data.history = [...(data.history || []), { step: 'dispatch_review', result: 'success' }];
+    }
+    if (process.argv.includes('--resume-after-outside')) {
+      // R103: execute and commit are done, so a resumed --after confirm_pipeline walks on to stage_fixes.
+      for (const nm of ['execute', 'commit']) { const e = data.steps.find(x => x.name === nm); if (e) e.status = 'completed'; }
     }
     if (scenario === 'review-gate-rows' && result && result.threshold) data.flags.reviewThreshold = result.threshold;
     if (process.argv.includes('--summary-stale')) { const e = data.steps.find(x => x.name === 'review'); if (e) e.startedAt = new Date().toISOString(); }
@@ -715,8 +745,8 @@ switch (scenario) {
     const fixes = scenario !== 'rounds-2-no-fixes';
     const selfCommit = scenario === 'rounds-self-commit';
     const reviewResult = scenario === 'rounds-final-check' || selfCommit ? 'results/review-approved.json' : 'results/generic-ok.json';
-    if (fixes && !selfCommit) setPlanFiles(['fix.txt']); // the fixes are inside the plan Files (R83)
-    else {
+    if (fixes) setPlanFiles(['fix.txt'], { fixSubject: process.argv.includes('--fix-subject') ? 'fix(#1): widget - review fixes' : null }); // R83/R103
+    if (!fixes || selfCommit) {
       fs.writeFileSync(path.join(projectRoot, '.gitignore'), '.sdlc/\n');
       sh('git add -A && git commit -q -m "fixture: clean tree"');
     }
@@ -726,10 +756,30 @@ switch (scenario) {
       // review-sdlc writes a new summary each round; the final check (R95) gets --final-summary.
       if (summaryRel) writeSummary(/--committed --base /.test(c.step.data.invocation || ''));
     }
+    if (selfCommit && selfCommitOutside && process.argv.includes('--resume-after-outside')) {
+      after('confirm_pipeline', 'results/yes.json');           // resume before the revert: stops again
+      snapshots.push(snap());
+      sh(`git rm -q ${selfCommitOutside} && git commit -q -m "fixture: revert outside path"`);
+      after('confirm_pipeline', 'results/yes.json');           // resume after the revert: stage_fixes adopts
+      snapshots.push(snap());
+    }
     if (scenario === 'rounds-final-check') {
       snapshots.push(snap());
       // R95 idempotency: the final-check review result reported once more.
       if (process.argv.includes('--again')) { after('dispatch_review', reviewResult); snapshots.push(snap()); }
+    }
+    const lastEnv = calls[calls.length - 1].envelope;
+    if (scenario === 'rounds-final-check' && fcResume && lastEnv.ext && lastEnv.ext.reason === 'final-check-open') {
+      if (fcResume === 'fix') {
+        fs.appendFileSync(path.join(projectRoot, 'fix.txt'), 'final fix\n');
+        sh('git add fix.txt && git commit -q -m "fixture: main session fixes the open findings"');
+      }
+      let c = after('confirm_pipeline', 'results/yes.json'); snapshots.push(snap());
+      if (fcResume === 'fix' && c.status === 'step' && c.step.id === 'dispatch_review') {
+        writeSummary(true);
+        after('dispatch_review', 'results/review-approved.json'); snapshots.push(snap());
+      }
+      if (fcResume === 'twice') { after('confirm_pipeline', 'results/yes.json'); snapshots.push(snap()); }
     }
     break;
   }

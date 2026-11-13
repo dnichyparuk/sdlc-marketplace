@@ -42,7 +42,7 @@ FROZEN_COMMON=$(cat <<EOF
     "executeWaveTimeout": 900, "executeWaveInterval": 60, "executeCommitWaves": false,
     "planFile": "$PWD/plan.md",
     "openspecContext": { "branchMatch": null, "isAlreadyArchived": false, "tasksDone": null, "tasksTotal": null },
-    "sources": { "steps": "cli", "auto": "default", "rebase": "cli", "workspace": "derived" }
+    "sources": { "steps": "cli", "auto": "default", "rebase": "default", "workspace": "derived" }
 EOF
 )
 
