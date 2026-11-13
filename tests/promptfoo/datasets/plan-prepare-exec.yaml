@@ -9,6 +9,9 @@
 #   fixtures-fs/plan-diff-material   - one before plan and four after plans (wording-only, scope change, reversed decision, whitespace reflow) for the `plan-diff:` cases
 #   fixtures-fs/plan-g17-prepare     - a plan, one review dimension, its Copilot instruction file and a learnings log
 #                                      for the `plan-g17:` cases
+#   fixtures-fs/plan-copy-rules      - a plan.copyRules config, demo skill copies, an approved lens-all result and three plans
+#                                      (missing copies, all listed, directory entries) for the `plan-copy:` cases;
+#                                      `plan-merge-lanes/copy-plan.md` is the no-config `plan-copy:` plan
 
 - description: "plan-prepare: openspec present emits authoritative field with path and specsCount"
   vars:
@@ -910,6 +913,75 @@
   assert:
     - type: icontains
       value: "unknown lane nope"
+
+# --- merge-lanes --plan copy check (R71(d)); `--lanes` is left out (an empty list) because script_args splits on whitespace ---
+
+- description: "plan-copy: (a) each unlisted required copy is one blocking copy-check issue"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-copy-rules"
+    script_args: "merge-lanes --dir {{project_root}}/iter --lenses all --plan {{project_root}}/plans/missing-doc.md"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const cc = r.issues.filter(i => i.lane === 'copy-check');
+        const one = p => cc.filter(i => i.blocking === true && i.gateId === null && i.message.startsWith(p + ' ')).length === 1;
+        return cc.length === 3 && one('docs/skills/demo-sdlc.md') && one('site/skills/demo-sdlc.md') && one('site/skills-meta.ts') &&
+          r.copyCheck.rules === 1 && r.copyCheck.missing.length === 3 && r.copyCheck.missing.every(m => m.rule === 0)
+
+- description: "plan-copy: (b) every required copy listed gives no copy-check issue"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-copy-rules"
+    script_args: "merge-lanes --dir {{project_root}}/iter --lenses all --plan {{project_root}}/plans/all-listed.md"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return !r.issues.some(i => i.lane === 'copy-check') && Array.isArray(r.copyCheck.missing) && r.copyCheck.missing.length === 0
+
+- description: "plan-copy: (c) no plan.copyRules gives copyCheck null and no copy-check issue"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --lenses all --plan {{project_root}}/copy-plan.md"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.copyCheck === null && !r.issues.some(i => i.lane === 'copy-check')
+
+- description: "plan-copy: (d) trigger and covered copies are never reported; every missing path exists"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-copy-rules"
+    script_args: "merge-lanes --dir {{project_root}}/iter --lenses all --plan {{project_root}}/plans/missing-doc.md"
+  assert:
+    - type: javascript
+      value: |
+        const fs = process.getBuiltinModule('fs');
+        const path = process.getBuiltinModule('path');
+        const r = JSON.parse(output);
+        const named = p => r.issues.some(i => i.lane === 'copy-check' && i.message.startsWith(p + ' ')) || r.copyCheck.missing.some(m => m.path === p);
+        return !named('skills/demo-sdlc/SKILL.md') && !named('skills/demo-sdlc/reference.md') &&
+          r.copyCheck.missing.every(m => fs.existsSync(path.join(context.vars.project_root, m.path)))
+
+- description: "plan-copy: (e) directory entries and a ./ prefix cover the required copies"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-copy-rules"
+    script_args: "merge-lanes --dir {{project_root}}/iter --lenses all --plan {{project_root}}/plans/dir-entry.md"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return !r.issues.some(i => i.lane === 'copy-check') && r.copyCheck !== null && r.copyCheck.rules === 1 && r.copyCheck.missing.length === 0
 
 - description: "plan-sdlc/lens-sentinels: R71 runtime-semantics and user-facing-files sentinels present in the risk lens, the reviewer and SKILL.md"
   vars:

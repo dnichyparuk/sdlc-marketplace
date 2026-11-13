@@ -1,0 +1,4 @@
+{ "plan": { "copyRules": [ {
+  "when": ["skills/{skill}/SKILL.md", "docs/specs/{skill}.md"],
+  "require": ["docs/skills/{skill}.md", "site/skills/{skill}.md", "site/skills-meta.ts", "skills/{skill}/*.md"]
+} ] } }

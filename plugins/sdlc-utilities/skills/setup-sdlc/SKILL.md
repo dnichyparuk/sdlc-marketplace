@@ -72,6 +72,8 @@ Run `/setup-sdlc --migrate` or `/version-sdlc --init` to update.
 
 Do not auto-fix. Do not block the rest of setup. This is a report-only warning (mirrors version-sdlc Step 7.5 pattern).
 
+**Copy rules report:** When `prepare.copyRules` is non-null, print each `prepare.copyRules.errors[]` entry as `ERROR: <message>` and each `prepare.copyRules.warnings[]` entry as `WARNING: <message>`, once each, in order. Do not edit `plan.copyRules` and do not block the rest of setup. <!-- implements R28 -->
+
 **Flag routing (check after pre-flight succeeds):**
 
 The legacy direct-entry flags map onto `--only` (which now drives Step 3 directly):

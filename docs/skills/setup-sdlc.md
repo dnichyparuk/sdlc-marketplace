@@ -151,6 +151,7 @@ Expansion mode: proposes only guardrails not already configured.
 
 - Must be inside a git repository
 - Node.js >= 16 (for `scripts/skill/setup.js`)
+- Optional: `plan.copyRules` in `.sdlc/config.json` (copy rules for the plan-sdlc copy check). setup-sdlc reports an invalid glob as an error and a rule whose `when` globs match no file as a warning; it does not edit the key. See [plan-sdlc](plan-sdlc.md).
 
 ---
 

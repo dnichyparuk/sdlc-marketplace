@@ -457,3 +457,26 @@
       value: |
         const s = JSON.parse(output).scan;
         return s && s.git.branch === 'feat/scan-root' ? true : 'FAIL: branch ' + (s && s.git.branch);
+
+- description: "setup-copy-rules: (a) reports rule count, one error and one warning"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-copy-rules"
+  assert:
+    - type: javascript
+      value: |
+        const c = JSON.parse(output).copyRules;
+        if (!c || c.rules !== 3) return 'FAIL: rules ' + JSON.stringify(c);
+        if (c.errors.length !== 1 || !c.errors[0].startsWith('plan.copyRules[2]')) return 'FAIL: errors ' + JSON.stringify(c.errors);
+        if (c.warnings.length !== 1 || !c.warnings[0].startsWith('plan.copyRules[1]')) return 'FAIL: warnings ' + JSON.stringify(c.warnings);
+        return true
+
+- description: "setup-copy-rules: (b) copyRules is null when plan.copyRules is absent"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-setup-empty"
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).copyRules === null"

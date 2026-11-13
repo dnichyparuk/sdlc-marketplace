@@ -144,6 +144,20 @@
         "description": "Tasks modifying a skill (SKILL.md), prepare script, or orchestrator must not introduce volatile bytes (Date.now, new Date(), toISOString, process.cwd, branch names, run IDs, random values) above the cache breakpoint in dispatched prompts. Static content (system prompt, tool schemas, project context, SKILL.md body) must be prefix-stable and byte-identical across sibling Agent dispatches. New dynamic content belongs in the tail after cache_control: ephemeral.",
         "severity": "warning"
       }
+    ],
+    "copyRules": [
+      {
+        "when": [
+          "plugins/sdlc-utilities/skills/{skill}/SKILL.md",
+          "docs/specs/{skill}.md"
+        ],
+        "require": [
+          "docs/skills/{skill}.md",
+          "site/src/content-source/skills/{skill}.md",
+          "site/src/data/skills-meta.ts",
+          "plugins/sdlc-utilities/skills/{skill}/*.md"
+        ]
+      }
     ]
   },
   "commit": {

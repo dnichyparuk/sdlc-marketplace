@@ -70,6 +70,10 @@
  *   --walk               (handoff) walk the remaining steps to cleanup
  *   --summary <name>     review-gate: copy fixtures-fs/review-summaries/<name> to the main
  *                        worktree's .sdlc/execution/review-summary-feat-ship.json before the scenario runs
+ *   --final-summary <n>  (rounds-*, walk) when the emitted dispatch_review has --committed --base, write review-summaries/<n>
+ *                        (default approved-0.json) instead of --summary; review-summaries/<n minus .json>.comment.md,
+ *                        when present, is copied beside it and set as its commentCopyPath
+ *   --review-threshold <t>  Patch data.flags.reviewThreshold = t into the seed (any scenario)
  *   --summary-stale      review-gate: the summary predates the review step's startedAt (treated as missing)
  *   --in-worktree        review-gate: run ship.js from a linked worktree of the fixture repo
  *   --summary-comment    with --summary: write <projectRoot>/review-comment.md and point the copied summary's commentPath at it
@@ -118,6 +122,8 @@ let answer = 'yes';
 let execSeed = 'none';
 let quality = null;
 let summaryRel = null;
+let finalSummaryRel = 'approved-0.json';
+let reviewThreshold = null;
 let osChange = 'add-auth';
 let osTasks = '1/3';
 let osValidate = 'ok';
@@ -134,6 +140,8 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--exec-seed' && args[i + 1]) execSeed = args[++i];
   else if (args[i] === '--quality' && args[i + 1]) quality = args[++i];
   else if (args[i] === '--summary' && args[i + 1]) summaryRel = args[++i];
+  else if (args[i] === '--final-summary' && args[i + 1]) finalSummaryRel = args[++i];
+  else if (args[i] === '--review-threshold' && args[i + 1]) reviewThreshold = args[++i];
   else if (args[i] === '--os-change' && args[i + 1]) osChange = args[++i];
   else if (args[i] === '--os-tasks' && args[i + 1]) osTasks = args[++i];
   else if (args[i] === '--os-validate' && args[i + 1]) osValidate = args[++i];
@@ -288,6 +296,8 @@ function walk(env0, stopAt = null, max = 12) {
   for (let i = 0; i < max && envelope && envelope.status === 'step'; i++) {
     const id = envelope.step.id;
     if (id === stopAt) break;
+    // R95: review-sdlc leaves a summary for the final check (--final-summary, default approved-0.json).
+    if (id === 'dispatch_review' && /--committed --base /.test((envelope.step.data && envelope.step.data.invocation) || '')) writeSummary(true);
     const decision = id === 'confirm_pipeline' || id === 'review_gate' || id.startsWith('confirm_');
     envelope = after(id, id === 'execute_tier' ? 'results/tier-balanced.json' : decision ? `results/${answer}.json` : 'results/generic-ok.json');
   }
@@ -331,6 +341,7 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
     const roundsIdx = process.argv.indexOf('--rounds');
     if (roundsIdx >= 0) data.flags.reviewRounds = Number(process.argv[roundsIdx + 1]);
     if (scenario.startsWith('rounds-')) data.flags.auto = true;
+    if (reviewThreshold) data.flags.reviewThreshold = reviewThreshold;
     if (process.argv.includes('--no-tag')) {
       data.flags.noTag = true; // A15: the ledger records an untagged release
       // verify_version_tag emits its command only after branch_prepare succeeded; seed that so an empty list is the noTag rule's doing.
@@ -395,11 +406,22 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
   });
 }
 // review-gate: the copy review-sdlc leaves in the main worktree's .sdlc/execution/ (P11); rounds-* write it again per round.
-function writeSummary() {
+// final: the R95 final-check summary (--final-summary); a review-summaries/<name>.comment.md beside it becomes its commentCopyPath.
+function writeSummary(final = false) {
   fs.mkdirSync(execDir, { recursive: true });
   const dest = path.join(execDir, 'review-summary-feat-ship.json');
-  fs.copyFileSync(path.join(repoRoot, 'tests', 'promptfoo', 'fixtures-fs', 'review-summaries', summaryRel), dest);
+  const summariesDir = path.join(repoRoot, 'tests', 'promptfoo', 'fixtures-fs', 'review-summaries');
+  const rel = final ? finalSummaryRel : summaryRel;
+  fs.copyFileSync(path.join(summariesDir, rel), dest);
   const t = new Date(Date.now() + (process.argv.includes('--summary-stale') ? -3600000 : 60000));
+  const commentSrc = path.join(summariesDir, rel.replace(/\.json$/, '') + '.comment.md');
+  if (final && fs.existsSync(commentSrc)) {
+    const commentCopy = dest.replace(/\.json$/, '') + '.comment.md';
+    fs.copyFileSync(commentSrc, commentCopy);
+    const doc = JSON.parse(fs.readFileSync(dest, 'utf8'));
+    doc.commentCopyPath = commentCopy;
+    fs.writeFileSync(dest, JSON.stringify(doc));
+  }
   if (process.argv.includes('--summary-comment')) {
     // Models review-sdlc Step 6: the comment copy sits beside the summary; the diff_dir path is gone.
     const commentCopy = dest.replace(/\.json$/, '') + '.comment.md';
@@ -662,7 +684,8 @@ switch (scenario) {
     for (let round = 1; round <= 3; round++) {
       const c = reviewRound(fixes ? `review fix ${round}\n` : null, { reviewResult, selfCommit });
       if (!(c.status === 'step' && c.step.id === 'dispatch_review')) break;
-      if (summaryRel) writeSummary(); // review-sdlc writes a new summary each round
+      // review-sdlc writes a new summary each round; the final check (R95) gets --final-summary.
+      if (summaryRel) writeSummary(/--committed --base /.test(c.step.data.invocation || ''));
     }
     if (scenario === 'rounds-final-check') {
       snapshots.push(snap());

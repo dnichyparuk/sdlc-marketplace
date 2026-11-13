@@ -59,6 +59,7 @@ const { PRE_RELEASE_LABEL_RE } = require(path.join(LIB, 'version'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
 const { MODEL_ALIASES, MODEL_ID_RE, VALID_EFFORTS } = require(path.join(LIB, 'dimensions'));
 const { parsePlanCommit, extractTasks, taskSection, parseFilesEntries } = require(path.join(LIB, 'plan-parse'));
+const { parseReviewComment } = require(path.join(__dirname, 'received-review'));
 
 const VALID_QUALITY = ['full', 'balanced', 'minimal'];
 
@@ -1854,6 +1855,21 @@ function receivedReviewInput(ledger) {
   return '';
 }
 
+/** R95: open findings of the final check, at or above flags.reviewThreshold. Never throws. */
+function finalCheckOpen(ledger) {
+  const d = reviewGateDecision(ledger);
+  if (!d.met) return [];
+  let text = '';
+  try { text = fs.readFileSync(d.commentCopyPath || d.commentPath, 'utf8'); } catch { text = ''; }
+  const limit = SEVERITIES.indexOf(d.threshold);
+  const rows = parseReviewComment(text)
+    .filter(f => SEVERITIES.includes(f.severity) && SEVERITIES.indexOf(f.severity) <= limit)
+    .map(f => ({ id: f.id, severity: f.severity, path: f.path }));
+  if (rows.length) return rows;
+  const top = d.counts ? SEVERITIES.find(k => d.counts[k] > 0) : undefined;
+  return [{ id: null, severity: top || null, path: null }];
+}
+
 /** R89: `--testing-file "<path>"` with the latest successful execute summary, or null. */
 function prTestingInput(ledger) {
   let row = null;
@@ -2330,7 +2346,7 @@ function afterFixesCommitted(ledger, { sha, round, flags, warnings }) {
   });
   if (last) {
     const commit = sha || exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
-    ledger.finalCheck = { base, commit, status: 'pending', verdict: null };
+    ledger.finalCheck = { base, commit, status: 'pending', verdict: null, open: [] };
   } else {
     ledger.round = round + 1;
   }
@@ -2607,6 +2623,14 @@ function runAfter(stepArgs) {
       stateFile: ledgerPath, progress: progress(),
     }));
   };
+  // R95: open final-check findings under --auto hand off to the caller; the ledger stays for --resume.
+  const finalCheckStop = () => {
+    ledger.paused = { at: new Date().toISOString(), reason: 'final check open' };
+    return finish(createEnvelope('done', null, {
+      ext: { ...ext, reason: 'final-check-open', summary: buildSummary(ledger), commands: ['/sdlc:ship-sdlc --resume --auto'] },
+      stateFile: ledgerPath, progress: progress(),
+    }));
+  };
 
   // Failure rows.
   if (pq) {
@@ -2733,6 +2757,9 @@ function runAfter(stepArgs) {
     if (ledger.finalCheck.status === 'pending') {
       ledger.finalCheck.status = 'completed';
       ledger.finalCheck.verdict = (output.artifacts && output.artifacts.verdict) ?? null;
+      ledger.finalCheck.open = finalCheckOpen(ledger); // R95
+      ledger.finalCheck.threshold = SEVERITIES.includes(ledger.flags.reviewThreshold) ? ledger.flags.reviewThreshold : BUILT_IN_DEFAULTS.reviewThreshold; // R95
+      if (flags.auto && ledger.finalCheck.open.length > 0) return finalCheckStop(); // R95: hand off to the caller
     }
     from = 'dispatch_commit_fixes';
   }

@@ -325,6 +325,16 @@ function detect(projectRoot) {
     localIsV1;
   result.localIsV1 = localIsV1;
 
+  // plan.copyRules validation (P-copyRules): same matcher as the plan copy check.
+  const copyRules = parsedProjectConfig?.plan?.copyRules;
+  if (copyRules === undefined) {
+    result.copyRules = null;
+  } else {
+    const { validateCopyRules } = require(path.join(LIB, 'plan-parse'));
+    const { errors, warnings } = validateCopyRules(copyRules, projectRoot);
+    result.copyRules = { rules: Array.isArray(copyRules) ? copyRules.length : 0, errors, warnings };
+  }
+
   // ---------------------------------------------------------------------------
   // sections[] — joined view of SETUP_SECTIONS × detect() state. Drives the
   // selective-section menu in setup-sdlc/SKILL.md Step 1 and the verbose

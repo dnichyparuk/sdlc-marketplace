@@ -52,7 +52,7 @@ const {
   fetchPrReviewThreads,
 } = require(path.join(LIB, 'git'));
 const { writeOutput, writeJsonLine } = require(path.join(LIB, 'output'));
-const { extractTasks, taskSection, parseFilesEntries } = require(path.join(LIB, 'plan-parse'));
+const { planFilesPaths } = require(path.join(LIB, 'plan-parse'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { readSection, readProjectConfig, resolveSdlcRoot } = require(path.join(LIB, 'config'));
 const { getPluginVersion } = require(path.join(LIB, 'config-version'));
@@ -291,12 +291,7 @@ const SEVERITY_RANK = ['low', 'medium', 'high', 'critical'];
 /** R28: sorted, unique Files paths of every plan task, every kind. Throws when the plan is unreadable. */
 function allowedFilesFromPlan(planFile) {
   const text = fs.readFileSync(planFile, 'utf8');
-  const paths = new Set();
-  for (const t of extractTasks(text)) {
-    // Same normalisation as ship's stageScope: no leading "./", no trailing "/".
-    for (const e of parseFilesEntries(taskSection(t.body))) paths.add(e.path.replace(/^\.\//, '').replace(/\/$/, ''));
-  }
-  return [...paths].sort();
+  return planFilesPaths(text); // same normalisation as ship's stageScope (plan-parse normalisePlanPath)
 }
 
 /** NUL-separated path list from a git command run in cwd. Throws on a git failure. */
@@ -352,7 +347,7 @@ function checkScope({ manifestPath, fixedIds, cwd }) {
  * @param {object} knownData  Result of loadKnownHardenData
  * @returns {Array<{id:string,title:string,severity:string|null,path:string|null,line:number|null,body:string,hardenSurfaceHint:string|null,hardenTargetFileHint:string|null}>}
  */
-function parseReviewComment(text, projectRoot, knownData) {
+function parseReviewComment(text, projectRoot = process.cwd(), knownData = { dimensionNames: new Set(), planGuardrailIds: new Set(), executeGuardrailIds: new Set() }) {
   const lines = String(text).split(/\r?\n/);
   const headingRe = /^#### \[(CRITICAL|HIGH|MEDIUM|LOW|INFO)\] (.+)$/;
   const endRe = /^(#### \[|### |<\/details>|---)/;

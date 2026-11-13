@@ -9,7 +9,7 @@
  *   node plan-prepare.js --mark <name> [--path <abs>]
  *   node plan.js diff-material --before <path> --after <path> [--full] [--prev-dir <iterDir>]
  *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
- *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>] [--carry <prevIterDir>] [--g17-not-run]
+ *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>] [--carry <prevIterDir>] [--g17-not-run] [--plan <path>]
  *
  * Options:
  *   --from-openspec <name>  Validate a specific OpenSpec change for direct bridging
@@ -43,6 +43,7 @@ const { initState, findStateFile, readState, writeState, slugifyBranch, pruneSta
 const { exec, parseRemoteOwner } = require(path.join(LIB, 'git'));
 const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes } = require(path.join(LIB, 'plan-critique'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
+const { validateCopyRules, requiredCopies } = require(path.join(LIB, 'plan-parse'));
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -341,7 +342,7 @@ const SUBCOMMANDS = { 'diff-material': runDiffMaterial, 'g17-prepare': runG17Pre
 const SUBCOMMAND_FLAGS = {
   'diff-material': ['before', 'after', 'full', 'prev-dir'],
   'g17-prepare': ['plan', 'dimensions-dir', 'instructions-dir', 'learnings', 'window', 'github-hosting', 'root', 'today'],
-  'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory', 'carry', 'g17-not-run'],
+  'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory', 'carry', 'g17-not-run', 'plan'],
 };
 
 // Value-less flags (`--<name>` → flags key); every other flag takes one value.
@@ -387,9 +388,24 @@ function runG17Prepare(flags) {
   });
 }
 
+/** `--plan` copy check (R71(d)): null without `--plan` or without `plan.copyRules`. */
+function buildCopyCheck(planPath) {
+  if (planPath === undefined) return null;
+  const text = readPlanFile(planPath);
+  const rules = (readSection(resolveSdlcRoot(), 'plan') || {}).copyRules;
+  if (rules === undefined || rules === null) return null;
+  const valid = Array.isArray(rules) ? rules.filter(r => validateCopyRules([r]).errors.length === 0).length : 0;
+  return {
+    rules: valid,
+    missing: requiredCopies(text, rules, process.cwd()).filter(c => !c.covered).map(({ path: p, rule, trigger }) => ({ path: p, rule, trigger })),
+    errors: validateCopyRules(rules).errors,
+  };
+}
+
 function runMergeLanes(flags) {
   const dir = requireFlag(flags, 'dir');
   const list = v => (v === undefined ? [] : v.split(',').map(s => s.trim()).filter(Boolean));
+  const copyCheck = buildCopyCheck(flags.plan);
   return mergeLanes({
     dir,
     lanes: list(flags.lanes),
@@ -399,6 +415,7 @@ function runMergeLanes(flags) {
     inventoryPath: flags.inventory ?? null,
     carryDir: flags.carry ?? null,
     g17NotRun: flags.g17NotRun === true,
+    copyCheck,
   });
 }
 

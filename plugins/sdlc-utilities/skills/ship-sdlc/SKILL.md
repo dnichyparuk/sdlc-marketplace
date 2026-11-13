@@ -266,7 +266,7 @@ Dispatch every `will_run` step as computed by `ship.js`, even when the change lo
 Running a step and the `--after` call that records it are one uninterrupted sequence; do not end the turn between them (the Stop hook blocks such turns).
 
 1. `ENVELOPE_FILE` is the prepare output from Step 1 (first call). Loop:
-2. Parse `ENVELOPE_FILE` (the literal path). If `ext.todos` is present, call `TodoWrite` with `ext.todos.todos` and echo `ext.todos.marker`. Then: If `status === "done"`: `ext.reason` `edit` → the Step 4 edit path (re-run Step 1c; `ship.js` has deleted the ledger when no step had run, otherwise it is kept); `cancel`, `paused` or `dry-run` → stop and print the reason; `pending-question` → print `ext.pendingQuestion.prompt` with its options, then each line of `ext.commands` in order, and stop; anything else → Step 6 with `ext.summary`. If `status === "error"` → print `error`, stop (state is preserved for `--resume`).
+2. Parse `ENVELOPE_FILE` (the literal path). If `ext.todos` is present, call `TodoWrite` with `ext.todos.todos` and echo `ext.todos.marker`. Then: If `status === "done"`: `ext.reason` `edit` → the Step 4 edit path (re-run Step 1c; `ship.js` has deleted the ledger when no step had run, otherwise it is kept); `cancel`, `paused` or `dry-run` → stop and print the reason; `pending-question` → print `ext.pendingQuestion.prompt` with its options, then each line of `ext.commands` in order, and stop; `final-check-open` → Step 6 with `ext.summary`, but the run is a resumable stop, not a finished pipeline: print the header as `Ship Pipeline Stopped (final check open)` and replace the `State file cleaned up` line with `State kept for --resume: <stateFile>`; then print each `ext.summary.finalCheck.open` entry as `[<severity>] <path> (<id>)` (a null `path` prints `[<severity>] (no finding parsed from the review comment; see the review summary)`; a null `id` omits ` (<id>)`); then print each line of `ext.commands` and stop (implements R95); anything else → Step 6 with `ext.summary`. If `status === "error"` → print `error`, stop (state is preserved for `--resume`).
 3. Print `step.action`. If `step.data.todos` is present, call `TodoWrite` with it and echo `step.data.marker`.
 4. If `llm_decision` is non-null: resolve it — ask the user with `AskUserQuestion` using `prompt`/`options` (never in `--auto`; the script sets it to null there) — and put the answer in `output.answer`.
 5. Execute by `step.id` family:
@@ -327,7 +327,7 @@ Step  Skill                 Result
 3     review-sdlc           [done] APPROVED WITH NOTES (2 medium)
 4     received-review-sdlc  — not triggered (no critical/high)
 5     commit-sdlc (fixes)   — not triggered
-3b    review-sdlc (final)   [done] <verdict> on <short sha>
+3b    review-sdlc (final)   [done] <verdict> on <short sha>[ — <n> open finding(s) at or above <finalCheck.threshold>]
 6     version-sdlc          — skipped (config default)
 7     pr-sdlc               [done] https://github.com/.../pull/42
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -346,7 +346,7 @@ Deferred review findings (2 medium):
 State file cleaned up: .sdlc/execution/ship-<branch>-<epoch>.json deleted
 ```
 
-Print the 3b row only when `ext.summary.finalCheck` is non-null.
+Print the 3b row only when `ext.summary.finalCheck` is non-null. Add the bracketed part only when `finalCheck.open` is non-empty, with `<n>` its length (implements R95).
 
 An `execute` row whose summary entry has `source: "user-attested"` is reported as `[done] finished outside the pipeline (user-attested)`.
 

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.53.1] - 2026-11-13
+
+### Fixed
+- plan-sdlc, ship-sdlc: the plan copy check and the final-check hand-off match the revised behaviour in the skills, specs, docs, scripts and copy-rules fixtures; a final-check-open stop prints "Ship Pipeline Stopped (final check open)" and keeps the state file for `--resume`; the final fix review records the applied review threshold on the ledger (`finalCheck.threshold`) (#9368).
+
 ## [0.53.0] - 2026-11-13
 
 ### Added
