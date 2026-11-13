@@ -1,7 +1,7 @@
 #!/bin/bash
 # Fixture for plan-explore.js --check-brief (R72). Generates one brief variant per
 # directory: ok/, skipped/ (brief names dimensions, no dim-*.md), no-ids/, no-dims/.
-# No git init: the check reads only the outDir.
+# No repository is created here: the check reads only the outDir.
 set -e
 
 brief() { # <dir> <with-ids: 1|0>
