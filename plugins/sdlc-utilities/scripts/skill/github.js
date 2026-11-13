@@ -240,8 +240,9 @@ function parseArgs(argv) {
   }
   if (args.initTemplates) {
     if (!args.subcommand) args.subcommand = 'init-templates';
-    else if (args.subcommand !== 'check') errors.push(`--init-templates: only one subcommand is allowed (already --${args.subcommand})`);
+    else if (args.subcommand !== 'check' && !args.clear) errors.push(`--init-templates: only one subcommand is allowed (already --${args.subcommand})`);
   }
+  if (args.clear && args.initTemplates) errors.push('--clear and --init-templates cannot be combined');
   if (args.clear) {
     if (!args.subcommand) args.subcommand = 'clear';
     else if (args.subcommand !== 'check') errors.push(`--clear: only one subcommand is allowed (already --${args.subcommand})`);

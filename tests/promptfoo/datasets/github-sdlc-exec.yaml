@@ -626,6 +626,20 @@
           && o.json.errors.length === 0;
         return ok ? true : `FAIL ${output}`;
 
+- description: "github-sdlc/clear A6: --check --clear --init-templates exits 1 naming both flags"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--no-gh-path -- --check --clear --init-templates --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.json.errors.some((e) => e.includes('--clear') && e.includes('--init-templates'));
+        return ok ? true : `FAIL ${output}`;
+
 - description: "github-sdlc/clear A6: --check --clear with no repository resolves nothing and still exits 0 without gh"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
