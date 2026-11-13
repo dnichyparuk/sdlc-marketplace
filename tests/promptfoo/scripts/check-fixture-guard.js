@@ -37,23 +37,43 @@ function findSetupScripts(dir) {
   return found;
 }
 
-function isGitLine(line) {
-  const trimmed = line.trim();
-  return !trimmed.startsWith('#') && (trimmed.includes('git init') || trimmed.includes('git config'));
+/** Text of `line` before its shell comment: a `#` at the line start or after whitespace, outside single and double quotes; a backslash outside single quotes escapes the next character. */
+function stripComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote === "'") {
+      if (c === "'") quote = null;
+    } else if (c === '\\') {
+      i++;
+    } else if (quote === '"') {
+      if (c === '"') quote = null;
+    } else if (c === "'" || c === '"') {
+      quote = c;
+    } else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
 }
 
-function scanGuards() {
+function isGitLine(line) {
+  const code = stripComment(line);
+  return code.includes('git init') || code.includes('git config');
+}
+
+function scanGuards(dir = FIXTURES_DIR) {
   let scanned = 0;
   const unguarded = [];
-  for (const file of findSetupScripts(FIXTURES_DIR)) {
+  for (const file of findSetupScripts(dir)) {
     const content = fs.readFileSync(file, 'utf8');
-    if (!content.includes('git init') && !content.includes('git config')) continue;
-    scanned++;
     const lines = content.split('\n');
+    if (!lines.some(isGitLine)) continue;
+    scanned++;
     const guardAt = lines.findIndex((l) => l.trimEnd() === GUARD_LINE);
     const gitAt = lines.findIndex(isGitLine);
     if (guardAt === -1 || (gitAt !== -1 && guardAt > gitAt)) {
-      unguarded.push(path.relative(FIXTURES_DIR, path.dirname(file)).split(path.sep).join('/'));
+      unguarded.push(path.relative(dir, path.dirname(file)).split(path.sep).join('/'));
     }
   }
   return { ok: unguarded.length === 0, scanned, unguarded };
@@ -83,7 +103,17 @@ try {
   if (process.argv.includes('--probe')) {
     process.stdout.write(JSON.stringify(probe()) + '\n');
   } else {
-    const result = scanGuards();
+    let dir = FIXTURES_DIR;
+    const dirAt = process.argv.indexOf('--dir');
+    if (dirAt !== -1) {
+      const value = process.argv[dirAt + 1];
+      const resolved = value ? path.resolve(value) : null;
+      if (!resolved || !fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+        throw new Error('--dir needs an existing directory');
+      }
+      dir = resolved;
+    }
+    const result = scanGuards(dir);
     process.stdout.write(JSON.stringify(result) + '\n');
     if (!result.ok) process.exit(1);
   }

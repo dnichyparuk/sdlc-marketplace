@@ -154,7 +154,7 @@ The explore tempdir (`dirname` of `explorePack.manifestPath`, under `os.tmpdir()
      ```
      as one plain Bash call. Exit 0: Read the brief at `<explorePack.outDir>/discovery-brief.md`; it is the source of truth for Step 2 task provenance. Exit 1 (the script prints its JSON with a `reason` code): take `reason` from the JSON and use the **Error fallback** below. Exit 1 without parseable JSON (for example a node crash), or any other non-zero exit (2 is an input error and prints no JSON): use the **Error fallback** with reason `check-brief failed (exit <n>): <first stderr line>`. A brief with no findings cannot satisfy G15 (Brief citation coverage), so the fallback is cleaner.
 
-  **Brief consumption (when brief is present AND validation passed):**
+  **Brief consumption (when brief is present AND the brief check passed):**
   - Step 2 tasks MUST cite at least one `F-<DIM>-<n>` finding ID from the brief OR be explicitly marked "out-of-scope addition" with rationale <!-- implements R27 -->
   - When the brief contains a `## Best-Practice Synthesis` section: Key Decisions MUST explicitly ADOPT / REJECT-with-rationale / mark NOT-APPLICABLE each web finding by its `F-<DIM>-<n>` ID <!-- implements R27 -->
 
