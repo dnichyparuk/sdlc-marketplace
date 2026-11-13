@@ -29,7 +29,7 @@ function has(rel, sentinels) {
 const USERS = 'every file that documents that skill for users';
 const risk = has('agents/plan-lens-risk.md', ['Runtime semantics (R71', USERS]);
 const reviewer = has('agents/plan-reviewer.md', ['Runtime semantics (R71, under Verification strategy and Scope discipline)', USERS]);
-const skill = has('skills/plan-sdlc/SKILL.md', ['(implements R71)', USERS]);
+const skill = has('skills/plan-sdlc/SKILL.md', ['(implements R71)', USERS, 'plan.copyRules']);
 
 const ok = risk && reviewer && skill;
 

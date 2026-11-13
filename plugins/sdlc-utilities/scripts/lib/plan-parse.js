@@ -300,7 +300,140 @@ function parsePlanCommit(content, subjectPattern, label = 'Commit') {
   return { subject, failure: null };
 }
 
+// ---------------------------------------------------------------------------
+// Copy rules: plan Files paths and the capture-aware glob matcher
+// ---------------------------------------------------------------------------
+
+/** "./a/b/" → "a/b" (no leading "./", no trailing "/"). Same normalisation as ship's stageScope. */
+function normalisePlanPath(p) {
+  return String(p).replace(/^\.\//, '').replace(/\/$/, '');
+}
+
+/** Sorted, unique, normalised Files paths of every task, every kind. */
+function planFilesPaths(planText) {
+  const paths = new Set();
+  for (const t of extractTasks(planText)) {
+    for (const e of parseFilesEntries(taskSection(t.body))) paths.add(normalisePlanPath(e.path));
+  }
+  return [...paths].sort();
+}
+
+const CAPTURE_RE = /\{([a-z][a-z0-9]*)\}/;
+
+/** Capture names of a glob, in order. */
+function globCaptureNames(glob) {
+  return glob.split(CAPTURE_RE).filter((_, i) => i % 2 === 1);
+}
+
+/**
+ * The one capture-aware matcher. Compiles a glob with {name} tokens into
+ * (path) => captures object | null. A token matches one path segment ([^/]+);
+ * with `bound`, a token matches that literal value instead.
+ * globToRegex is required lazily: review.js must not load with plan-parse.js,
+ * and review.js must never require plan-parse.js (load cycle).
+ */
+function compileCaptureGlob(glob, bound) {
+  const { globToRegex } = require('../skill/review');
+  const names = [];
+  const src = glob.split(CAPTURE_RE).map((piece, i) => {
+    if (i % 2 === 0) return piece === '' ? '' : globToRegex(piece).source.slice(1, -1);
+    if (bound && Object.prototype.hasOwnProperty.call(bound, piece)) return bound[piece].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    names.push(piece);
+    return '([^/]+)';
+  }).join('');
+  const re = new RegExp('^' + src + '$');
+  return p => {
+    const m = re.exec(p);
+    if (!m) return null;
+    const caps = {};
+    names.forEach((n, i) => { if (!(n in caps)) caps[n] = m[i + 1]; });
+    return caps;
+  };
+}
+
+/** Existing files under cwd matching `glob` (walk the static directory prefix; recursive only for `**`). */
+function expandGlob(glob, cwd, bound) {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const match = compileCaptureGlob(glob, bound);
+  const segs = glob.split('/');
+  const prefix = [];
+  while (segs.length > 1 && !/[*?[\]{}]/.test(segs[0])) prefix.push(segs.shift());
+  const recursive = glob.includes('**');
+  const maxDepth = segs.length;
+  const out = [];
+  const walk = (rel, depth) => {
+    let entries;
+    try { entries = fs.readdirSync(path.join(cwd, rel), { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name === '.git' || e.name === 'node_modules') continue;
+      const p = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) { if (recursive || depth + 1 < maxDepth) walk(p, depth + 1); }
+      else if (match(p)) out.push(p);
+    }
+  };
+  walk(prefix.join('/'), 0);
+  return out;
+}
+
+const isStringList = a => Array.isArray(a) && a.length > 0 && a.every(s => typeof s === 'string' && s !== '');
+
+/** Rule indexes and the reasons they are invalid. */
+function ruleProblems(rule) {
+  const { isValidGlob } = require('./dimensions');
+  const problems = [];
+  if (!rule || typeof rule !== 'object') return ['is not an object'];
+  if (!isStringList(rule.when)) problems.push('`when` must be a non-empty string array');
+  if (!isStringList(rule.require)) problems.push('`require` must be a non-empty string array');
+  if (problems.length > 0) return problems;
+  for (const g of [...rule.when, ...rule.require]) if (!isValidGlob(g)) problems.push(`glob "${g}" is not valid`);
+  const known = new Set(rule.when.flatMap(globCaptureNames));
+  for (const g of rule.require) for (const n of globCaptureNames(g)) if (!known.has(n)) problems.push(`capture {${n}} in "${g}" is absent from every \`when\` glob`);
+  return problems;
+}
+
+/** → { errors, warnings }; each message starts with `plan.copyRules[<i>]`. Warnings only when cwd is given. */
+function validateCopyRules(rules, cwd) {
+  const errors = [];
+  const warnings = [];
+  if (!Array.isArray(rules)) return { errors: ['plan.copyRules must be an array'], warnings };
+  rules.forEach((rule, i) => {
+    const problems = ruleProblems(rule);
+    for (const p of problems) errors.push(`plan.copyRules[${i}] ${p}`);
+    if (problems.length === 0 && cwd && !rule.when.some(g => expandGlob(g, cwd).length > 0)) {
+      warnings.push(`plan.copyRules[${i}] no existing file matches any \`when\` glob`);
+    }
+  });
+  return { errors, warnings };
+}
+
+/** → [{ path, rule, trigger, covered }], sorted by path then rule. Invalid rules are skipped. */
+function requiredCopies(planText, rules, cwd) {
+  if (!Array.isArray(rules)) return [];
+  const files = planFilesPaths(planText);
+  const found = new Map();
+  rules.forEach((rule, i) => {
+    if (ruleProblems(rule).length > 0) return;
+    const whenMatchers = rule.when.map(g => compileCaptureGlob(g));
+    for (const file of files) {
+      for (const match of whenMatchers) {
+        const caps = match(file);
+        if (!caps) continue;
+        for (const req of rule.require) {
+          for (const p of expandGlob(req, cwd, caps)) {
+            if (whenMatchers.some(m => m(p))) continue;
+            const key = `${p}\0${i}`;
+            if (!found.has(key)) found.set(key, { path: p, rule: i, trigger: file, covered: files.some(a => p === a || p.startsWith(a + '/')) });
+          }
+        }
+      }
+    }
+  });
+  return [...found.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.rule - b.rule));
+}
+
 module.exports = {
   extractField, stripFences, extractTasks, parsePlan,
   extractTasksRaw, taskSection, parseFilesEntries, parseDependsOn, sectionBody, parsePlanCommit,
+  normalisePlanPath, planFilesPaths, validateCopyRules, requiredCopies,
 };

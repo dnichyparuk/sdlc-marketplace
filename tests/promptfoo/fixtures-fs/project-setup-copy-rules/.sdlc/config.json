@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 4,
+  "plan": {
+    "copyRules": [
+      { "when": ["docs/specs/{skill}.md"], "require": ["docs/skills/{skill}.md"] },
+      { "when": ["nowhere/{skill}.md"], "require": ["x/{skill}.md"] },
+      { "when": ["a/***"], "require": ["b"] }
+    ]
+  }
+}

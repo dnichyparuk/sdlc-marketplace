@@ -5657,7 +5657,8 @@
           if (o.ledger.stepStatuses[s] !== 'skipped' || o.ledger.stepReasons[s] !== want) return `FAIL: ${s} ${o.ledger.stepStatuses[s]} ${o.ledger.stepReasons[s]}`;
         }
         const f = o.ledger.finalCheck;
-        return f && f.status === 'completed' && f.verdict === 'APPROVED' ? true : `FAIL: finalCheck ${JSON.stringify(f)}`;
+        if (!f || f.status !== 'completed' || f.verdict !== 'APPROVED') return `FAIL: finalCheck ${JSON.stringify(f)}`;
+        return JSON.stringify(f.open) === '[]' ? true : `FAIL: finalCheck.open ${JSON.stringify(f.open)}`;
 
 - description: "ship-final-check: (b) two rounds review three times"
   vars:
@@ -5723,6 +5724,26 @@
         const [withCheck, without] = JSON.parse(output);
         if (JSON.stringify(withCheck) !== JSON.stringify({ base: 'aaaaaaa', commit: 'bbbbbbb', status: 'completed', verdict: 'APPROVED' })) return `FAIL: with ${JSON.stringify(withCheck)}`;
         return without === null ? true : `FAIL: without ${JSON.stringify(without)}`;
+
+# R95: under --auto, final-check findings at or above reviewThreshold stop the run and hand off to the caller.
+- description: "ship-final-check: (f) open final-check findings under --auto stop with final-check-open"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --final-summary medium-1.json --review-threshold medium"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const reviews = o.calls.filter(c => c.args[1] === 'dispatch_review');
+        const e = reviews.length ? reviews[reviews.length - 1].envelope : null;
+        if (!e || e.status !== 'done' || !e.ext || e.ext.reason !== 'final-check-open') return `FAIL: after the final review ${e && e.status} ${e && e.ext && e.ext.reason} ${e && e.error}`;
+        const open = e.ext.summary && e.ext.summary.finalCheck && e.ext.summary.finalCheck.open;
+        if (JSON.stringify(open) !== JSON.stringify([{ id: 'F1', severity: 'medium', path: 'src/widget.js' }])) return `FAIL: open ${JSON.stringify(open)}`;
+        if (JSON.stringify(e.ext.commands) !== JSON.stringify(['/sdlc:ship-sdlc --resume --auto'])) return `FAIL: commands ${JSON.stringify(e.ext.commands)}`;
+        return o.ledgerExists === true ? true : `FAIL: ledgerExists ${o.ledgerExists}`;
 
 # R97: received-review that committed its fixes itself (HEAD moved, clean tree) is adopted as commit-fixes.
 - description: "ship-self-commit: (a) a commit made by received-review is adopted"

@@ -595,7 +595,7 @@ function renderScorecard(lensResults, gateAFindings, inventory, g17NotRun = fals
 }
 
 /** Merge lane, validator, lens and G17 results from one critique iteration directory. */
-function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAPath = null, inventoryPath = null, carryDir = null, g17NotRun = false }) {
+function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAPath = null, inventoryPath = null, carryDir = null, g17NotRun = false, copyCheck = null }) {
   const usage = message => Object.assign(new Error(message), { code: 'USAGE' });
   if (!lanes.length && !lenses.length) throw usage('--lanes or --lenses is required');
   for (const name of lanes) {
@@ -714,6 +714,17 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
     recommendations: dedupBy(lensResults.flatMap(l => l.recommendations), s => String(s).slice(0, 60)),
   } : null;
 
+  // Copy check (R71(d)): built by plan.js from --plan and plan.copyRules
+  if (copyCheck !== null) {
+    for (const m of copyCheck.missing) {
+      laneIssues.push({ gateId: null, taskRef: null, severity: 'error', blocking: true, lane: 'copy-check',
+        message: `${m.path} is a required copy that no task lists under Files (plan.copyRules[${m.rule}], trigger ${m.trigger})` });
+    }
+    for (const err of copyCheck.errors) {
+      laneIssues.push({ gateId: null, taskRef: null, severity: 'warning', blocking: false, lane: 'copy-check', message: `${err} — rule skipped` });
+    }
+  }
+
   const issues = dedupBy(
     [...dedupBy(laneIssues, i => `${i.gateId}\0${i.taskRef}\0${prefix(i.message)}`), ...lensIssues],
     i => `${i.taskRef}\0${prefix(i.message)}`,
@@ -730,6 +741,7 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
     scorecard: lenses.length ? renderScorecard(lensResults, isObject(gateA) && Array.isArray(gateA.findings) ? gateA.findings : [], inventory, g17NotRun) : null,
     blockingCount: issues.filter(i => i.blocking === true).length,
     carried,
+    copyCheck: copyCheck === null ? null : { rules: copyCheck.rules, missing: copyCheck.missing },
   };
 }
 

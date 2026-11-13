@@ -225,6 +225,7 @@ Critique 2 (responses):
 | R31 | (issue #9302) |
 | R32 | (issue #9302) |
 | R34 | doc-versus-spec findings checked against the code (ledger F-58), #9365 |
+| R28 | run-time scope widening for copies (ledger F-62(b)) rejected in favour of the plan-time copy check (plan-sdlc R71(d)), #9368 |
 | R22 | per issue #429 table |
 | P8 | (issue #233) |
 | P9 | (issue #233) |
