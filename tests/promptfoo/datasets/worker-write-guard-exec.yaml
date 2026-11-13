@@ -1017,3 +1017,31 @@
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
         const o = JSON.parse(r.stdout).hookSpecificOutput;
         return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l77) git apply --apply before a later apply word denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git apply --apply p.patch apply --check"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l78) git log --grep apply is not denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git log --grep apply"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l79) git -C path apply --check is not denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git -C /repo -c a=b apply --check p.patch"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"

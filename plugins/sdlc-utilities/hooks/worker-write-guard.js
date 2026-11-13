@@ -319,11 +319,25 @@ const GIT_APPLY_WRITE = ['--apply', '--index', '--cached', '--3way', '-3'];
 // A word that may name the subcommand sits within the first words after `git`.
 const GIT_SUBCOMMAND_WINDOW = 4;
 
+// git global options that take their value as the next word (`--git-dir=x` carries it in the same word).
+const GIT_GLOBAL_WITH_VALUE = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--super-prefix', '--config-env'];
+
+/** Index of the git subcommand: the first word that is not a global option or the value of one; -1 when there is none. */
+function gitSubcommandIndex(words) {
+  for (let i = 0; i < words.length; i++) {
+    const w = shellWord(words[i]);
+    if (!w.startsWith('-')) return i;
+    if (GIT_GLOBAL_WITH_VALUE.includes(w)) i++;
+  }
+  return -1;
+}
+
 function gitApplyDenied(cmd, masked) {
   for (const { s, e, overflow } of findCommands(masked, 'git')) {
     if (overflow) return true;
     const words = argWords(cmd, masked, s, e);
-    const at = words.map((w) => shellWord(w)).lastIndexOf('apply');
+    const sub = gitSubcommandIndex(words);
+    const at = sub >= 0 && shellWord(words[sub]) === 'apply' ? sub : -1;
     if (at < 0) {
       // No `apply` word: deny only an unquoted escape or $'..' quote near the subcommand slot, where it can hide `apply`.
       if (words.slice(0, GIT_SUBCOMMAND_WINDOW).some((w) => /\\|\$['"]/.test(w.masked))) return true;
