@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.4] - 2026-11-13
+
+### Fixed
+- worker write guard: the shell-write check for `tee`, `dd`, `git apply` and `patch` now uses a linear command scanner instead of a backtracking regex, so a crafted command can no longer stall the hook; it reads commands after newlines, `{`, keywords, case labels, wrapper words (env, sudo, timeout, nice and others) and leading `VAR=val` words, and follows command substitutions in quotes, backticks and assignments (#9375).
+- worker write guard: backslash-escaped words (`te\e`, `\tee`), `eval` and `coproc` are read as the shell reads them; very long words or prefixes of 256 or more words fail closed; `git apply --index/--cached/--3way`, `patch -o` and quoted `dd of=` writes are denied unless every target is an allowed path (#9375).
+- plan copy check finds missing copies from a subdirectory, the link validator blocks more reserved address ranges and frees unread bodies, and the blocking wave wait returns within seconds after the last worker reports (#9375).
+
 ## [0.54.3] - 2026-11-13
 
 ### Fixed

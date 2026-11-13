@@ -74,6 +74,15 @@
     - type: equals
       value: '{"wave":3,"reported":["T5","T6"],"inFlight":[],"timedOut":false}'
 
+- description: "execute-plan-sdlc/liveness/wave-progress: --wait returns within the reporting poll after the last task reports"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-wave-progress-wait-timing.js"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.result.timedOut === false && r.result.inFlight.length === 0 && r.elapsedMs < 15000
+
 - description: "execute-plan-sdlc/liveness/wave-progress: --wait times out with unreported tasks still in flight"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"

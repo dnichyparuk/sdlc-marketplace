@@ -137,6 +137,16 @@ The agent tiers are execute-worker-batch → execute-worker → execute-worker-c
 | `GH_TIMEOUT_MS` | 30 000 ms (test override `SDLC_GH_TIMEOUT_MS`) | `plugins/sdlc-utilities/scripts/lib/git.js` |
 | `github.cacheMaxAgeHours` | 0 (no expiry) | `schemas/sdlc-config.schema.json` |
 
+### execute-plan-sdlc wave wait tuning
+
+| Knob | Default | Defined in |
+|---|---|---|
+| `execute.waveInterval` | 60 s (`--wave-interval`, minimum 10) | `plugins/sdlc-utilities/scripts/skill/execute.js` |
+| `WAIT_REPORTING_POLL_SECONDS` | 5 s once any task reports | `plugins/sdlc-utilities/scripts/state/execute.js` |
+| `WAIT_MAX_GRACE_SECONDS` | 30 s (cap and default of `--grace`) | `scripts/state/execute.js` |
+| `--grace` passed by the skill | 10 s | `skills/execute-plan-sdlc/SKILL.md`, `wave-runner-template.md` |
+| `WAIT_MAX_TIMEOUT_SECONDS` | 540 s | `scripts/state/execute.js` |
+
 ## 6. Why tuning changes do not require spec updates
 
 Specs (`docs/specs/<skill>.md`) are behavioural contracts: inputs, state, step order, dispatch targets, gates, failure handling and invariants. A spec names each tuning knob and says where it is defined; it never states the value. The values live outside the spec:

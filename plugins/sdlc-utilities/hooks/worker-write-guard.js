@@ -32,28 +32,231 @@ const WORKER_RE = /(^|:)execute-worker(-complex|-batch)?$/;
 
 const ALLOWED_TARGET_RE = /^(\/dev\/|\/tmp\/|\$TMPDIR\/|\$\{TMPDIR\}\/)/;
 
-/** Replace the interior of quoted strings with `_`, keeping length and quote marks. */
+/**
+ * Replace the interior of quoted strings with `_`, keeping length and quote marks.
+ * A command substitution inside double quotes (`$(...)` or backticks) is code the shell
+ * runs, so it stays unmasked (its own quotes are masked as usual); single-quoted text
+ * is always masked.
+ */
 function maskQuotes(cmd) {
   let out = '';
-  let quote = null;
+  const stack = []; // open contexts: {t:'"'} {t:"'"} {t:'$(', depth} {t:'`'}
   for (let i = 0; i < cmd.length; i++) {
     const ch = cmd[i];
-    if (quote) {
-      if (quote === '"' && ch === '\\' && i + 1 < cmd.length) {
-        out += '__';
+    const top = stack[stack.length - 1];
+    if (!top || top.t === '$(' || top.t === '`') {
+      if (top && top.t === '$(') {
+        if (ch === '(') top.depth++;
+        else if (ch === ')') {
+          if (top.depth === 0) {
+            stack.pop();
+            out += ch;
+            continue;
+          }
+          top.depth--;
+        }
+      } else if (top && ch === '`') {
+        stack.pop();
+        out += ch;
+        continue;
+      }
+      if (ch === '\\' && i + 1 < cmd.length) {
+        // An escaped char outside quotes is literal: `\'` or `\"` opens no quote context.
+        // An escaped letter or digit is the plain char to the shell (`\tee` is `tee`): keep it.
+        if (/[A-Za-z0-9]/.test(cmd[i + 1])) {
+          out += ch + cmd[i + 1];
+        } else {
+          out += '__';
+        }
         i++;
-      } else if (ch === quote) {
-        quote = null;
+        continue;
+      }
+      if (ch === '"' || ch === "'") stack.push({ t: ch });
+      out += ch;
+    } else if (top.t === "'") {
+      if (ch === "'") {
+        stack.pop();
         out += ch;
       } else {
         out += '_';
       }
-    } else {
-      if (ch === '"' || ch === "'") quote = ch;
+    } else if (ch === '\\' && i + 1 < cmd.length) {
+      out += '__';
+      i++;
+    } else if (ch === '"') {
+      stack.pop();
       out += ch;
+    } else if (ch === '$' && cmd[i + 1] === '(') {
+      out += '$(';
+      i++;
+      stack.push({ t: '$(', depth: 0 });
+    } else if (ch === '`') {
+      out += ch;
+      stack.push({ t: '`' });
+    } else {
+      out += '_';
     }
   }
   return out;
+}
+
+const WRAPPER_WORDS = ['env', 'sudo', 'exec', 'command', 'nohup', 'time', 'xargs', 'timeout', 'nice', 'stdbuf', 'setsid', 'ionice', 'eval', 'coproc'];
+const MAX_PREFIX_TOKENS = 256;
+const MAX_ESCAPED_WORD = 64; // longest word whose backslashes are removed before comparing; a longer one that holds a backslash is denied
+const NO_COMMAND = -1; // scanPrefix: no such command at this position
+const TOO_LONG = -2; // scanPrefix: the prefix is too long to scan (fail closed)
+const KEYWORDS = ['then', 'do', 'else', 'if', 'elif', 'while', 'until', '!'];
+
+/** Words of the command, as [start, end, segment] offsets; a word never crosses `|`, `;`, `&` or whitespace. */
+function tokenize(masked) {
+  const toks = [];
+  const re = /[^\s|;&]+/g;
+  let m;
+  let seg = 0;
+  let prevEnd = 0;
+  while ((m = re.exec(masked)) !== null) {
+    if (toks.length > 0 && /[|;&\n]/.test(masked.slice(prevEnd, m.index))) seg++;
+    toks.push({ s: m.index, e: m.index + m[0].length, seg });
+    prevEnd = m.index + m[0].length;
+  }
+  return toks;
+}
+
+/** The word [ws, we) is `word`, or ends in `/word` (a path-qualified command). */
+function isCommandWord(masked, ws, we, word) {
+  const len = word.length;
+  if (we - ws < len || !masked.startsWith(word, we - len)) return false;
+  return we - ws === len || masked[we - len - 1] === '/';
+}
+
+function isWordEqual(masked, ws, we, word) {
+  return we - ws === word.length && masked.startsWith(word, ws);
+}
+
+function isAssignment(masked, ws, we) {
+  if (!/[A-Za-z_]/.test(masked[ws])) return false;
+  let i = ws + 1;
+  while (i < we && /[A-Za-z0-9_]/.test(masked[i])) i++;
+  return i < we && masked[i] === '=';
+}
+
+/** A wrapper numeric argument: digits and dots, then an optional s, m, h or d (`5`, `1.5`, `2m`). */
+function isDuration(masked, ws, we) {
+  if (!/[0-9]/.test(masked[ws])) return false;
+  let i = ws + 1;
+  while (i < we && /[0-9.]/.test(masked[i])) i++;
+  if (i < we && /[smhd]/.test(masked[i])) i++;
+  return i === we;
+}
+
+/**
+ * Scan the words from token `j` (whose first word starts at `first`, inside the token when
+ * the start follows `(`, `{` or a backtick). Returns the offset after the command word,
+ * NO_COMMAND, or TOO_LONG.
+ */
+function scanPrefix(masked, toks, j, first, name, nextBackslash) {
+  const seg = toks[j].seg;
+  let inWrapper = false;
+  let afterOption = false;
+  let keywords = true; // leading shell keywords (`if`, `!`, `then` ...) come before the command
+  let open = 0; // unclosed `$(` or backtick text of an assignment value
+  for (let n = 0; ; n++) {
+    const k = j + n;
+    if (k >= toks.length || toks[k].seg !== seg) return NO_COMMAND;
+    if (n >= MAX_PREFIX_TOKENS) return TOO_LONG; // only prefix words so far: fail closed
+    const ws0 = n === 0 ? first : toks[k].s;
+    const we0 = toks[k].e;
+    // The shell removes backslashes from an unquoted word (`te\e` is `tee`): compare the word without them.
+    let src = masked;
+    let ws = ws0;
+    let we = we0;
+    if (nextBackslash[ws0] < we0) {
+      if (we0 - ws0 > MAX_ESCAPED_WORD) return TOO_LONG; // a long escaped word: fail closed
+      src = masked.slice(ws0, we0).replace(/\\/g, '');
+      ws = 0;
+      we = src.length;
+      if (we === 0) continue;
+    }
+    if (open !== 0) {
+      open = openDepth(masked, ws0, we0, open); // a spaced command substitution inside an assignment value
+      continue;
+    }
+    if (keywords && KEYWORDS.some((w) => isWordEqual(src, ws, we, w))) continue;
+    keywords = false;
+    if (isAssignment(src, ws, we)) {
+      afterOption = false;
+      open = openDepth(masked, ws0, we0, 0);
+    } else if (isCommandWord(src, ws, we, name)) {
+      return we0;
+    } else if (WRAPPER_WORDS.some((w) => isCommandWord(src, ws, we, w))) {
+      inWrapper = true;
+      afterOption = false;
+    } else if (inWrapper && src[ws] === '-') {
+      afterOption = true;
+    } else if (inWrapper && (isWordEqual(src, ws, we, '{}') || isDuration(src, ws, we))) {
+      afterOption = false;
+    } else if (inWrapper && afterOption) {
+      afterOption = false; // the option's own argument
+    } else {
+      return NO_COMMAND;
+    }
+  }
+}
+
+/** Open `(` (after `$`) and backtick count after the word [ws, we), starting from `open`; never below 0. */
+function openDepth(masked, ws, we, open) {
+  let depth = open;
+  for (let i = ws; i < we; i++) {
+    const ch = masked[i];
+    if (ch === '(' && i > ws && masked[i - 1] === '$') depth++;
+    else if (ch === ')' && depth > 0) depth--;
+    else if (ch === '`') depth = depth > 0 ? depth - 1 : depth + 1;
+  }
+  return depth;
+}
+
+/**
+ * One command-position scanner shared by the tee, dd, git-apply and patch rules, so they
+ * cannot drift (R90). It is code, not one backtracking regex, and it works on offsets
+ * without slicing words, so its cost is linear in the command length: the work per start
+ * position is bounded by MAX_PREFIX_TOKENS. A command starts at the line start, after
+ * `| ; &`, `(`, `)` (a case label), `{`, a backtick or a newline, after the keywords
+ * `then`, `do`, `else`, `if`, `elif`, `while`, `until` and `!`, after leading `VAR=val` words
+ * (also with a spaced `$(...)` value), and after wrapper words (`env`, `sudo`, `exec`,
+ * `command`, `nohup`, `time`, `xargs`, `timeout`, `nice`, `stdbuf`, `setsid`, `ionice`, `eval`,
+ * `coproc`) with
+ * their own options, option arguments, `VAR=val` words and numbers. The command name may
+ * carry a path (`/usr/bin/tee`) or backslashes inside the word (`\\tee`, `te\\e`: the shell removes them from an unquoted word; a word of more than MAX_ESCAPED_WORD characters that holds a backslash is denied, fail closed). A prefix of
+ * MAX_PREFIX_TOKENS or more words before the command is denied (fail closed). Accepted gaps
+ * (best-effort filter, not a sandbox; R90): a command run through another interpreter or wrapper
+ * string (`bash -c`, `sh -c`, `find -exec`, `xargs sh -c`, busybox applets), a quoted command
+ * name (`"tee"`), and path-qualified or escaped `sed`/`perl`/`awk` in-place forms.
+ */
+function findCommands(masked, name) {
+  const toks = tokenize(masked);
+  const segEnd = [];
+  toks.forEach((t) => {
+    segEnd[t.seg] = t.e;
+  });
+  const nextBackslash = new Int32Array(masked.length + 1); // first backslash at or after each offset
+  nextBackslash[masked.length] = masked.length;
+  for (let i = masked.length - 1; i >= 0; i--) nextBackslash[i] = masked[i] === '\\' ? i : nextBackslash[i + 1];
+  const found = [];
+  const add = (j, first) => {
+    const s = scanPrefix(masked, toks, j, first, name, nextBackslash);
+    if (s >= 0) found.push({ s, e: segEnd[toks[j].seg] });
+    else if (s === TOO_LONG) found.push({ overflow: true });
+  };
+  for (let j = 0; j < toks.length; j++) {
+    if (j === 0 || toks[j].seg !== toks[j - 1].seg) add(j, toks[j].s);
+    for (let i = toks[j].s; i < toks[j].e; i++) {
+      const ch = masked[i];
+      if (ch !== '(' && ch !== ')' && ch !== '`' && ch !== '{') continue;
+      if (i + 1 < toks[j].e) add(j, i + 1);
+      else if (j + 1 < toks.length && toks[j + 1].seg === toks[j].seg) add(j + 1, toks[j + 1].s);
+    }
+  }
+  return found;
 }
 
 function isAllowedTarget(target) {
@@ -75,13 +278,49 @@ function redirectDenied(cmd, masked) {
 
 function teeDenied(cmd, masked) {
   // `tee` counts only in command position, so `grep -n tee f` is not denied.
-  const re = /(^|[|;&(])[ \t]*tee\b([^|;&\n]*)/g;
-  let m;
-  while ((m = re.exec(masked)) !== null) {
-    const argsEnd = m.index + m[0].length;
-    const argsStart = argsEnd - m[2].length;
-    const args = cmd.slice(argsStart, argsEnd).split(/\s+/).filter((a) => a && !a.startsWith('-'));
+  for (const { s, e, overflow } of findCommands(masked, 'tee')) {
+    if (overflow) return true;
+    const args = cmd.slice(s, e).split(/\s+/).filter((a) => a && !a.startsWith('-'));
     if (args.some((a) => !isAllowedTarget(a))) return true;
+  }
+  return false;
+}
+
+function ddDenied(cmd, masked) {
+  for (const { s, e, overflow } of findCommands(masked, 'dd')) {
+    if (overflow) return true;
+    const outs = cmd.slice(s, e).split(/\s+/).filter(Boolean).map((a) => a.replace(/^["']/, '')).filter((a) => a.startsWith('of='));
+    if (outs.some((a) => !isAllowedTarget(a.slice(3)))) return true;
+  }
+  return false;
+}
+
+function gitApplyDenied(cmd, masked) {
+  for (const { s, e, overflow } of findCommands(masked, 'git')) {
+    if (overflow) return true;
+    const maskedWords = masked.slice(s, e).split(/\s+/).filter(Boolean);
+    const at = maskedWords.lastIndexOf('apply');
+    if (at < 0) continue;
+    const args = cmd.slice(s, e).split(/\s+/).filter(Boolean).slice(at + 1);
+    const writes = args.some((a) => ['--apply', '--index', '--cached', '--3way', '-3'].includes(a));
+    const readOnly = args.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a));
+    if (writes || !readOnly) return true;
+  }
+  return false;
+}
+
+function patchDenied(cmd, masked) {
+  for (const { s, e, overflow } of findCommands(masked, 'patch')) {
+    if (overflow) return true;
+    const args = cmd.slice(s, e).split(/\s+/).filter(Boolean);
+    if (args.includes('--dry-run')) continue;
+    const outputs = [];
+    args.forEach((a, i) => {
+      if (a === '-o') outputs.push(args[i + 1] || '');
+      else if (a.startsWith('--output=')) outputs.push(a.slice(9));
+      else if (a.startsWith('-o') && !a.startsWith('--')) outputs.push(a.slice(2));
+    });
+    if (!(outputs.length > 0 && outputs.every((t) => t && isAllowedTarget(t)))) return true;
   }
   return false;
 }
@@ -97,8 +336,11 @@ function classifyCommand(cmd) {
     ['awk-in-place', () => /(^|[\s|;&(])g?awk\b[^|;&\n]*\s-i\s*inplace/.test(masked)],
     ['tee', () => teeDenied(command, masked)],
     ['redirect', () => redirectDenied(command, masked)],
-    ['python-write', () => /\bpython[0-9.]*\b[^|;&\n]*\s-c\b/.test(masked) && /open\(|write_text/.test(command)],
+    ['python-write', () => /\bpython[0-9.]*\b[^|;&\n]*(\s-c\b|\s-(?=\s|$)|<<)/.test(masked) && /open\(|write_text/.test(command)],
     ['node-write', () => /\bnode\b[^|;&\n]*\s(-e|--eval)\b/.test(masked) && /writeFileSync|appendFileSync/.test(command)],
+    ['dd-write', () => ddDenied(command, masked)],
+    ['git-apply', () => gitApplyDenied(command, masked)],
+    ['patch', () => patchDenied(command, masked)],
   ];
   for (const [name, test] of rules) {
     if (test()) return { deny: true, rule: name };

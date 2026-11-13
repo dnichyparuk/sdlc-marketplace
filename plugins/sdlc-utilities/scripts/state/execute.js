@@ -1295,6 +1295,8 @@ const VALID_WAVE_PROGRESS_PHASES = ['started', 'reading', 'editing', 'verifying'
 // 600-second Bash limit (R92). Do not raise without checking that margin.
 const WAIT_MAX_TIMEOUT_SECONDS = 540;
 const WAIT_MAX_GRACE_SECONDS = 30;
+// Once any listed task reports, poll at most this often so a wave does not idle a full --interval (R92).
+const WAIT_REPORTING_POLL_SECONDS = 5;
 
 /**
  * `wave-progress --wait` — block until every task in --tasks has reached the
@@ -1325,13 +1327,15 @@ function waitForWaveProgress(opts, stateDir) {
   };
 
   const tick = () => {
-    if (snapshot().inFlight.length === 0) {
+    const { reported, inFlight } = snapshot();
+    if (inFlight.length === 0) {
       setTimeout(() => finish(false), graceMs);
       return;
     }
     if (Date.now() - startedAt >= timeoutMs) { finish(true); return; }
     const remaining = timeoutMs - (Date.now() - startedAt);
-    setTimeout(tick, Math.min(intervalMs, remaining));
+    const pollMs = reported.length > 0 ? Math.min(intervalMs, WAIT_REPORTING_POLL_SECONDS * 1000) : intervalMs;
+    setTimeout(tick, Math.min(pollMs, remaining));
   };
   tick();
 }

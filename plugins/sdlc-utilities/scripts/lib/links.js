@@ -345,26 +345,32 @@ function blockedHostReason(hostname) {
   const isIp = /^[\d.]+$/.test(h) || h.includes(':');
   if (!isIp && !h.includes('.')) return 'single-label host';
   if (!isIp && /\.(?:internal|local|localdomain|svc|lan)$/.test(h)) return 'internal host name';
-  const v4 = (a, b) => {
+  const v4 = (a, b, c) => {
     if (a === 0 || a === 127) return 'loopback or unspecified address';
     if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) return 'private address';
     if (a === 169 && b === 254) return 'link-local or metadata address';
     if (a === 100 && b >= 64 && b <= 127) return 'shared address space';
+    if (a === 192 && b === 0 && c === 0) return 'reserved address';
+    if (a === 198 && (b === 18 || b === 19)) return 'reserved address';
+    if (a >= 224) return 'multicast or reserved address';
     return null;
   };
   const m4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (m4) return v4(parseInt(m4[1], 10), parseInt(m4[2], 10));
+  if (m4) return v4(parseInt(m4[1], 10), parseInt(m4[2], 10), parseInt(m4[3], 10));
   if (h.includes(':')) {
     if (h === '::' || h === '::1') return 'loopback or unspecified address';
     if (/^fe[89ab]/.test(h)) return 'link-local address';
+    if (/^fe[c-f]/.test(h)) return 'site-local address';
     if (/^f[cd]/.test(h)) return 'private (unique-local) address';
     if (/^2002:/.test(h)) return 'private (6to4) address range';
     if (/^64:ff9b:/.test(h)) return 'private (NAT64) address range';
     if (/^::[0-9a-f]{1,4}:[0-9a-f]{1,4}$/.test(h) || /^::\d+\.\d+\.\d+\.\d+$/.test(h)) return 'IPv4-compatible address';
-    const mapped = h.match(/^::ffff:(?:(\d+)\.(\d+)\.\d+\.\d+|([0-9a-f]{1,4}):[0-9a-f]{1,4})$/);
+    const mapped = h.match(/^::ffff:(?:(\d+)\.(\d+)\.(\d+)\.\d+|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/);
     if (mapped) {
-      const hi = mapped[3] !== undefined ? parseInt(mapped[3], 16) : null;
-      return mapped[1] !== undefined ? v4(parseInt(mapped[1], 10), parseInt(mapped[2], 10)) : v4(hi >> 8, hi & 255);
+      if (mapped[1] !== undefined) return v4(parseInt(mapped[1], 10), parseInt(mapped[2], 10), parseInt(mapped[3], 10));
+      const hi = parseInt(mapped[4], 16);
+      const lo = parseInt(mapped[5], 16);
+      return v4(hi >> 8, hi & 255, lo >> 8);
     }
   }
   return null;
@@ -405,6 +411,7 @@ async function fetchOnce(url, method) {
       clearTimeout(timer);
     }
     const loc = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    if (res.body) res.body.cancel().catch(() => {}); // body never read: free the socket (R15)
     if (!loc) return { status: res.status };
     let next;
     try { next = new URL(loc, current); } catch (_) { return { status: res.status }; }
