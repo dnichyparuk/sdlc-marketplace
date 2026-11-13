@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.2] - 2026-11-13
+
+### Fixed
+- github-sdlc: `github.js --apply` now refuses a real write without `--expect-hash` (exit 1, no gh call, also under `--auto`), so the approval gate no longer rests on the model alone; `--dry-run` still needs no hash; the spec, skill, user doc and site copies state the rule and the exec cases cover the refusal and a hash mismatch (#9374).
+
 ## [0.54.1] - 2026-11-13
 
 ### Fixed
