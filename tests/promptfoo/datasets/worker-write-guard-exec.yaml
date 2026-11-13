@@ -853,3 +853,39 @@
   assert:
     - type: javascript
       value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l62) backslash inside the command word denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"te\\e src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l63) eval before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"eval tee src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
+
+- description: "worker-write-guard: (l64) coproc before tee denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"coproc tee src/a"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
