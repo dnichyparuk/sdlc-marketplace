@@ -96,6 +96,8 @@
   - Acceptance: exec cases whose descriptions start with `rr-plan:`.
 - R34: Doc-versus-spec findings. In Step 3, a finding that says a doc or skill text disagrees with the spec is first checked against the code. When the code does what the doc says, the status is "partially correct": the fix documents the gap between spec and code, or the reply names the spec/code mismatch, and the doc is never rewritten to claim behaviour the code does not have. When the code does what the spec says, the doc is wrong and the doc fix goes ahead. This holds also under `--auto` and the R18 bypass.
   - Acceptance: exec case `rr-verify: (a)` (SKILL.md Step 3 carries the R34 rule).
+- R35: Open decisions stop an unattended run. Under `--auto` with `flags.minSeverity` set, when one or more items whose severity ranks at or above `minSeverity` end with the verdict "needs discussion" (for any reason, for example R28 scope or C19), the skill still implements its "will fix" items, runs the R30 scope check and Steps 11.6 to 12, and then stops with a failure and a `pendingQuestion`: prompt `Open decisions: <id> (<one-line point>); … Fix them, or defer them to a follow-up?`, options `["fix", "defer"]`. A scope-check stop (R30) comes first. Without `--auto`, or without `minSeverity`, nothing changes.
+  - Acceptance: behavioural; verified by review: an `--auto --min-severity high` run with one high "needs discussion" item returns failure with options fix and defer.
 
 ### Step-emitter contract
 
@@ -225,6 +227,7 @@ Critique 2 (responses):
 | R31 | (issue #9302) |
 | R32 | (issue #9302) |
 | R34 | doc-versus-spec findings checked against the code (ledger F-58), #9365 |
+| R35 | open decisions stop an unattended run (ledger F-53), #9372 |
 | R28 | run-time scope widening for copies (ledger F-62(b)) rejected in favour of the plan-time copy check (plan-sdlc R71(d)), #9368 |
 | R22 | per issue #429 table |
 | P8 | (issue #233) |

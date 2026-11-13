@@ -23,8 +23,13 @@
  *                        openspec | resume-plan | resume-plan-auto | resume-plan-quick |
  *                        stale-plan | other-worktree-plan | finished-plan | rebase-conflict |
  *                        rerun-version-moved | rerun-version-same | rerun-execute-finished | rerun-execute-clean | after-received-review-changes | stage-outside-files |
- *                        rounds-2-fixes | rounds-2-no-fixes | rounds-1-default | rounds-final-check | rounds-self-commit
- *   --plan <path>       Plan passed to initial calls only (never to --after, L8)
+ *                        rounds-2-fixes | rounds-2-no-fixes | rounds-1-default | rounds-final-check | rounds-self-commit |
+ *                        guard-received-open | guard-earlier-open | guard-release-ahead | guard-release-ahead-resume
+ *                        guard-received-open: received-review in_progress, answered with --result (R100, R82)
+ *                        guard-earlier-open: received-review in_progress, commit-fixes done; --after stage_fixes walks to version (R101)
+ *                        guard-release-ahead: dispatch_version, then release commit R and commit F, then --after dispatch_version
+ *                        with artifacts.commit = R (R102a); -resume: the same commits, then two re-emissions (R102b)
+ *   --plan <path>      Plan passed to initial calls only (never to --after, L8)
  *   --steps <csv>        Appended to every initial call as `--steps <csv>`
  *   --no-plan            Initial calls pass --has-plan without --plan (ship-sdlc/SKILL.md always passes --has-plan)
  *   --result <rel>       Result file (relative to project-root) for the scenario's --after call
@@ -94,7 +99,7 @@
  * repo's HEAD sha injected (W4.6: ship.js cross-checks the reported commit against HEAD).
  *
  * Output JSON (one line):
- *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], ledger, ledgerExists, ledgerFiles, execFiles, execPreGate, otherFiles,
+ *   { scenario, calls: [{ args, exitCode, envelope, stateFlags }], snapshots, headAfter, releaseSha, ledger, ledgerExists, ledgerFiles, execFiles, execPreGate, otherFiles,
  *     summarySidecars, commandScripts, stopCapExists, mdPrompts: { incomplete, allDone }, seedUnchanged }
  *   seedUnchanged = true when the seeded ledger file is byte-identical at the end; null when no seed was written
  *   ledger = { stepStatuses, history, stepReasons, currentStep, flagsKeys, flags, paused, stepResults, finalCheck } | null
@@ -269,6 +274,7 @@ function seedLedger(name, patch) {
 // Ledger facts after one call (rerun-version-* scenarios).
 const snapshots = [];
 let headAfter = null;
+let releaseSha = null; // guard-release-ahead*: the release commit R (R102)
 function snap() {
   const d = readJson(statePath) || {};
   return {
@@ -371,13 +377,19 @@ if (seed !== 'none' && !['initial', 'initial-dry-run', 'step-list-equal', 'ttl-d
       data.flags.auto = true;
       data.flags.quality = 'balanced'; // execute_tier is skipped, so confirm_pipeline emits dispatch_execute
     }
-    if (scenario.startsWith('rerun-version-')) {
+    if (scenario === 'guard-earlier-open') {
+      // R101: received-review still open, everything else before version done.
+      data.flags.auto = true;
+      for (const nm of ['execute', 'commit', 'review', 'commit-fixes']) { const e = data.steps.find(x => x.name === nm); if (e) e.status = 'completed'; }
+      const rr = data.steps.find(x => x.name === 'received-review'); if (rr) rr.status = 'in_progress';
+    }
+    if (scenario.startsWith('rerun-version-') || scenario.startsWith('guard-release-ahead')) {
       // R80: everything before version is done, so confirm_pipeline emits dispatch_version.
       data.flags.auto = true;
       for (const nm of ['execute', 'commit', 'review']) { const e = data.steps.find(x => x.name === nm); if (e) e.status = 'completed'; }
       for (const nm of ['received-review', 'commit-fixes']) { const e = data.steps.find(x => x.name === nm); if (e) { e.status = 'skipped'; e.reason = 'fixture'; } }
     }
-    if (scenario === 'after-received-review-changes' || (scenario === 'stage-outside-files' && process.argv.includes('--fixes'))) {
+    if (scenario === 'after-received-review-changes' || scenario === 'guard-received-open' || (scenario === 'stage-outside-files' && process.argv.includes('--fixes'))) {
       // review done, received-review running: its result decides whether stage_fixes is emitted.
       data.flags.auto = true;
       const rv = data.steps.find(x => x.name === 'review'); if (rv) rv.status = 'completed';
@@ -525,6 +537,33 @@ switch (scenario) {
     after('confirm_pipeline', 'results/yes.json');
     snapshots.push(snap());
     if (moved) { after('confirm_pipeline', 'results/yes.json'); snapshots.push(snap()); }
+    break;
+  }
+  case 'guard-received-open':
+    after('dispatch_received_review', resultRel);
+    snapshots.push(snap());
+    break;
+  case 'guard-earlier-open':
+    after('stage_fixes', 'results/generic-ok.json');
+    snapshots.push(snap());
+    break;
+  case 'guard-release-ahead':
+  case 'guard-release-ahead-resume': {
+    // R102: the version step made release commit R, then commit F landed after it.
+    after('confirm_pipeline', 'results/yes.json');
+    snapshots.push(snap());
+    sh('git commit -q --allow-empty -m "release commit"');
+    releaseSha = sh('git rev-parse HEAD').stdout.trim();
+    sh('git commit -q --allow-empty -m "commit after the release"');
+    headAfter = sh('git rev-parse HEAD').stdout.trim();
+    if (scenario === 'guard-release-ahead') {
+      const file = path.join(stubDir, 'version-ahead.json');
+      fs.writeFileSync(file, JSON.stringify({ success: true, output: { summary: 'released', artifacts: { commit: releaseSha } } }));
+      ship(['--after', 'dispatch_version', '--result-file', file, '--state', statePath || '']);
+      snapshots.push(snap());
+    } else {
+      for (let i = 0; i < 2; i++) { after('confirm_pipeline', 'results/yes.json'); snapshots.push(snap()); }
+    }
     break;
   }
   case 'rerun-execute-finished':
@@ -846,6 +885,7 @@ console.log(JSON.stringify({
   calls,
   snapshots,
   headAfter,
+  releaseSha,
   ledger,
   ledgerExists: Boolean(data),
   ledgerFiles: ledgerFiles(),

@@ -537,8 +537,83 @@ function loadAndMatchDimensions(projectRoot, changedFiles, dimensionFilter) {
 // Main
 // ---------------------------------------------------------------------------
 
+// Bounds keep the worst case (540 s timeout + 30 s grace) under the 600-second Bash limit.
+const WAIT_MAX_TIMEOUT_SECONDS = 540;
+const WAIT_MAX_GRACE_SECONDS = 30;
+
+/**
+ * `--wait-summary` — block until the manifest's summary file parses and its
+ * commentPath is this run's review-comment.md (then keep blocking graceS
+ * seconds) or timeoutS elapses; print one JSON line and exit 0. Implements R21.
+ */
+function waitForSummary({ manifestPath, intervalS, timeoutS, graceS }) {
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch {
+    process.stderr.write(`Error: manifest unreadable: ${manifestPath}\n`);
+    process.exit(2);
+  }
+  if (!manifest || !manifest.summary_copy_path || !manifest.diff_dir) {
+    process.stderr.write('Error: manifest lacks summary_copy_path or diff_dir\n');
+    process.exit(2);
+  }
+  const summaryPath = path.resolve(manifest.summary_copy_path);
+  const commentPath = path.resolve(manifest.diff_dir, 'review-comment.md');
+  const intervalMs = intervalS * 1000;
+  const timeoutMs = Math.min(timeoutS, WAIT_MAX_TIMEOUT_SECONDS) * 1000;
+  const graceMs = Math.min(graceS, WAIT_MAX_GRACE_SECONDS) * 1000;
+  const startedAt = Date.now();
+
+  const isReady = () => {
+    try {
+      const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+      return typeof summary.commentPath === 'string' && path.resolve(summary.commentPath) === commentPath;
+    } catch {
+      return false;
+    }
+  };
+  const finish = (ready) => {
+    process.stdout.write(JSON.stringify({ ready, summaryPath, commentPath, timedOut: !ready }) + '\n');
+    process.exit(0);
+  };
+  const tick = () => {
+    if (isReady()) { setTimeout(() => finish(true), graceMs); return; }
+    const remaining = timeoutMs - (Date.now() - startedAt);
+    if (remaining <= 0) { finish(false); return; }
+    setTimeout(tick, Math.min(intervalMs, remaining));
+  };
+  tick();
+}
+
+// Runs before any git or config work, so it also works outside a repository.
+function runWaitSummary(args) {
+  const value = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
+  const num = (flag, def, min) => {
+    const v = value(flag);
+    if (v === undefined) return def;
+    if (!/^\d+$/.test(v) || Number(v) < min) {
+      process.stderr.write(`Error: ${flag} requires an integer >= ${min}\n`);
+      process.exit(2);
+    }
+    return Number(v);
+  };
+  const manifestPath = value('--manifest');
+  if (!manifestPath) {
+    process.stderr.write('Error: --wait-summary requires --manifest\n');
+    process.exit(2);
+  }
+  waitForSummary({
+    manifestPath,
+    intervalS: num('--interval', 5, 1),
+    timeoutS: num('--timeout', 300, 1),
+    graceS: num('--grace', 15, 0),
+  });
+}
+
 function main() {
-  const { projectRoot, baseBranch, dimensionFilter, scope: cliScope, setDefault, auto, post, plan } = parseArgs(process.argv);
+  if (process.argv.includes('--wait-summary')) { runWaitSummary(process.argv.slice(2)); return; }
+  const { projectRoot,baseBranch, dimensionFilter, scope: cliScope, setDefault, auto, post, plan } = parseArgs(process.argv);
   const activeRoot = resolveActiveWorktreeSafe(); // issue #490: HEAD-relative git ops target the active worktree
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).

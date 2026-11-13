@@ -414,6 +414,8 @@ node "<PLUGIN_ROOT>/scripts/skill/received-review.js" --check-scope --manifest "
 Exit 0: continue. Exit 1 or 2: stop. Return failure with `pendingQuestion` = the printed JSON and
 "Revert or keep the listed changes?" (options: keep, revert). Do not revert. Skip Step 12 (E9). Exit 2 prints no JSON: report the stderr text as the failure, and use the printed JSON only on exit 1.
 
+**Open decisions (R35):** when `flags.auto` is true and `flags.minSeverity` is set, and one or more items at or above `minSeverity` have the verdict "needs discussion", finish Steps 11.6 to 12 as usual (a scope-check stop above comes first). Then stop: return failure with `pendingQuestion` `{"prompt": "Open decisions: <id> (<one-line point>); … Fix them, or defer them to a follow-up?", "options": ["fix", "defer"]}`. Do not implement those items.
+
 ---
 
 ## Step 11.6 — META-ANALYZE: Cluster Findings and Dispatch harden-sdlc (R21–R26)
@@ -517,7 +519,7 @@ Step 11.6 — meta-analyze-findings: completed | dispatched=<N> deferred=<N> sup
 
 ## Step 11.7 — LINK VERIFICATION — HARD GATE <!-- R17 -->
 
-When `manifest.pr` is null (`manifest.source` is `comment-file`), there is no PR: skip this step and the posting in Step 12; show the Step 12 summary and stop there. This rule needs a Step 1a manifest: after Step 1b (no manifest), a PR number or URL from Step 1b is a PR, and this step and Step 12 run as before.
+When `manifest.pr` is null (`manifest.source` is `comment-file`), there is no PR: skip this step and the posting in Step 12; show the Step 12 summary, then apply the R35 open-decisions stop from Step 11 when it applies. This rule needs a Step 1a manifest: after Step 1b (no manifest), a PR number or URL from Step 1b is a PR, and this step and Step 12 run as before.
 
 Before any `gh api` reply is posted, validate every URL embedded in every drafted reply body via the shared link validator. Concatenate all reply bodies (one per line) and feed them to the validator on stdin. The script auto-derives `expectedRepo` from `parseRemoteOwner(cwd)` and `jiraSite` from `~/.sdlc-cache/jira/` — the skill MUST NOT construct ctx JSON.
 
@@ -536,7 +538,7 @@ On zero exit, proceed to Step 12. `SDLC_LINKS_OFFLINE=1` skips network reachabil
 
 ## Step 12 — REPLY & RESOLVE: Post PR Thread Replies
 
-With no PR (`manifest.pr` null, the Step 11.7 rule): show the summary in item 1 and stop; no consent gate, no posting (R27).
+With no PR (`manifest.pr` null, the Step 11.7 rule): show the summary in item 1; no consent gate, no posting (R27). Then apply the R35 open-decisions stop from Step 11 when it applies.
 
 **Mandatory step — always presented after Step 11 completes.**
 
@@ -605,6 +607,8 @@ Replied to N threads:
 - M replied with pushback (left open for reviewer)
 - J replied with skip reason (left open for reviewer)
 ```
+
+5. **Open decisions (R35):** apply the R35 open-decisions stop from Step 11 when it applies: return failure with its `pendingQuestion`.
 
 ---
 
