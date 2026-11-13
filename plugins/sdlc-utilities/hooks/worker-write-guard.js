@@ -107,7 +107,9 @@ function gitApplyDenied(cmd, masked) {
   let m;
   while ((m = re.exec(masked)) !== null) {
     const args = matchArgs(cmd, m, 2);
-    if (!args.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a))) return true;
+    const writes = args.some((a) => ['--apply', '--index', '--cached', '--3way', '-3'].includes(a));
+    const readOnly = args.some((a) => ['--check', '--stat', '--numstat', '--summary'].includes(a));
+    if (writes || !readOnly) return true;
   }
   return false;
 }
@@ -124,7 +126,7 @@ function patchDenied(cmd, masked) {
       else if (a.startsWith('--output=')) outputs.push(a.slice(9));
       else if (a.startsWith('-o') && !a.startsWith('--')) outputs.push(a.slice(2));
     });
-    if (!outputs.some((t) => t && isAllowedTarget(t))) return true;
+    if (!(outputs.length > 0 && outputs.every((t) => t && isAllowedTarget(t)))) return true;
   }
   return false;
 }
