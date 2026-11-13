@@ -22,4 +22,4 @@
     project_root: "file://fixtures-fs/fixture-guard-comments"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output); r.ok === true && r.scanned === 1 && r.unguarded.length === 0"
+      value: "const r = JSON.parse(output); r.ok === true && r.scanned === 2 && r.unguarded.length === 0"

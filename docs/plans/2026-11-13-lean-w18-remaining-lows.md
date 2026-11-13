@@ -318,6 +318,7 @@ All finding ids below come from the discovery brief (`F-<dimension>-<n>`).
 - Modify: `tests/promptfoo/datasets/fixture-guard-exec.yaml` — new case (c)
 - Create: `tests/promptfoo/fixtures-fs/fixture-guard-comments/comment-only/setup.sh` — mentions git only in comments, no guard line
 - Create: `tests/promptfoo/fixtures-fs/fixture-guard-comments/guarded-git/setup.sh` — guard line, then a real `git init` with a trailing comment
+- Create: `tests/promptfoo/fixtures-fs/fixture-guard-comments/quoted-hash/setup.sh` — guard line, then `echo "a # b" && git init` (review F1, owner 2026-11-13: quoted-# fixture only; the unguarded negative case is deferred to todo #9385)
 - Create: `docs/plans/2026-11-13-lean-w18-remaining-lows.md`
 
 **Notes:** Implements item 9 (F-fixture-guard-setup-sh-matching-1 to -9; todo #9383, ledger F-83). Threat model: a best-effort lint for fixture authors; it catches a `setup.sh` that runs `git init` or `git config` before the guard line. Accepted gaps: a quoted mention (`echo "git init"`) still counts as a git line (fails safe), git run through a variable or alias (`$G init`) or with options between `git` and the subcommand (`git -C x init`) is not seen, and heredoc bodies are read as command lines. The new fixture directory has no top-level `setup.sh`, so the exec runner only copies it (`extract-skill-content.js:48-67`).
