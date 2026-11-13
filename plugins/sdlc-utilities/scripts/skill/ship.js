@@ -1466,7 +1466,7 @@ function stageCommands(planFile, cwd) {
  * R83, G9: changed paths (git status, rename targets included) outside every plan Files path.
  * `.sdlc/` is never outside (R8 rule); an unreadable plan or git status yields none (R8 behaviour).
  */
-function stageScope(planFile, cwd, approved = []) {
+function stageScope(planFile, cwd, approved = [], base = null) {
   let text = '';
   try { text = fs.readFileSync(planFile, 'utf8'); } catch { return { outside: [] }; }
   const st = spawnSync('git', ['status', '--porcelain', '-z', '--untracked-files=all'], { cwd, encoding: 'utf8', timeout: 8000 });
@@ -1486,8 +1486,14 @@ function stageScope(planFile, cwd, approved = []) {
     changed.push(parts[i].slice(3));
     if (/^[RC]/.test(parts[i])) i++; // the next entry is the rename source
   }
+  // R103: paths committed since received-review started count as changed too.
+  let diffFailed = false;
+  if (base) {
+    const d = spawnSync('git', ['diff', '--name-only', '-z', `${base}..HEAD`], { cwd, encoding: 'utf8', timeout: 8000 });
+    if (d.status === 0) changed.push(...d.stdout.split('\0').filter(Boolean)); else diffFailed = true;
+  }
   const outside = changed.filter(p => !p.startsWith('.sdlc/') && ![...allowed].some(a => p === a || p.startsWith(`${a}/`)));
-  return { outside: [...new Set(outside)].sort() };
+  return { outside: [...new Set(outside)].sort(), diffFailed };
 }
 
 /** R83: the pending-question return for stage_changes / stage_fixes when paths fall outside the plan Files. */
@@ -1499,7 +1505,13 @@ function stageOutsidePending(outside) {
 }
 
 // ship R36: push to the current branch's own name, also when its upstream names another branch (pr-sdlc R19).
-const LEARNINGS_COMMIT_COMMAND ='git diff --quiet -- .sdlc/learnings/log.md || { git add .sdlc/learnings/log.md && git commit -m "chore(ship-sdlc): capture pipeline learnings" && { git push --set-upstream origin HEAD || echo "push failed (non-fatal)" >&2; }; }';
+// ship R36/A16: with --no-push the learnings commit stays local.
+function learningsCommitCommand(noPush) {
+  const commit = 'git add .sdlc/learnings/log.md && git commit -m "chore(ship-sdlc): capture pipeline learnings"';
+  return noPush
+    ? `git diff --quiet -- .sdlc/learnings/log.md || { ${commit}; }`
+    : `git diff --quiet -- .sdlc/learnings/log.md || { ${commit} && { git push --set-upstream origin HEAD || echo "push failed (non-fatal)" >&2; }; }`;
+}
 
 /**
  * W44-R2 (a): the archive_openspec prompt and --decision are fixed at emission, from fresh
@@ -2067,7 +2079,7 @@ function versionGuardCommands(sha) {
 /**
  * Pick the next step after `after` in P-TRANS-1 order (L6, L19) and build its
  * payload. Conditional steps whose condition is not met are recorded skipped.
- * @returns {{ step, planTasks?, llmDecision, warnings: string[] } | { pending: object, commands: string[] } | { error: string } | { done: true }}
+ * @returns {{ step, planTasks?, llmDecision, warnings: string[] } | { pending: object, commands: string[] } | { adopted: string, warnings: string[] } | { error: string } | { done: true }}
  */
 function pickNextStep(after, ctx) {
   const { ledger, flags, steps, ledgerPath, recorded, skipped } = ctx;
@@ -2131,6 +2143,19 @@ function pickNextStep(after, ctx) {
       }
       case 'stage_changes':
       case 'stage_fixes': {
+        // R103: committed fixes since fixBaseHead are checked (and adopted) before the clean-tree skip.
+        if (id === 'stage_fixes') {
+          const rr = entryOf('received-review');
+          const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
+          if (rr && rr.status === 'completed' && !isDone('commit-fixes') && rr.fixBaseHead && head && head !== rr.fixBaseHead) {
+            const as0 = ledger.approvedScope;
+            const ok0 = as0 && as0.round === (ledger.round || 1) && Array.isArray(as0.paths) ? as0.paths : [];
+            const { outside } = stageScope(flags.planFile, resolveActiveWorktreeSafe(), ok0, rr.fixBaseHead);
+            if (outside.length) return stageOutsidePending(outside);
+            const a = adoptFixCommit(ledger, { flags, planFixSubject: ctx.planFixSubject || null, warnings });
+            if (a.adopted) return { adopted: a.adopted, warnings }; // warnings: pickNextStep's per-step array
+          }
+        }
         if (id === 'stage_changes'
           ? !(entryOf('execute') && entryOf('execute').status === 'completed' && !isDone('commit'))
           : unmetCondition('commit-fixes', ledger) !== null) continue;
@@ -2210,7 +2235,7 @@ function pickNextStep(after, ctx) {
           skipped.push('learnings-commit');
           continue;
         }
-        data = { commands: [LEARNINGS_COMMIT_COMMAND] };
+        data = { commands: [learningsCommitCommand(flags.noPush === true)] };
         break;
       case 'cleanup': {
         const force = ledger.steps.some(s => s.status === 'failed');
@@ -2369,6 +2394,32 @@ function pickNextStep(after, ctx) {
     };
   }
   return { done: true };
+}
+
+/**
+ * R97/R103: adopt HEAD as the commit-fixes commit when received-review committed its fixes itself.
+ * @returns {{ adopted: string|null, pending: object|null }} pending = stageOutsidePending(outside)
+ */
+function adoptFixCommit(ledger, { flags, planFixSubject, warnings }) {
+  const none = { adopted: null, pending: null };
+  const rr = ledger.steps.find(s => s.name === 'received-review');
+  const wt = resolveActiveWorktreeSafe();
+  const head = exec('git rev-parse HEAD', { cwd: wt });
+  if (!rr || !rr.fixBaseHead || !head || head === rr.fixBaseHead) return none;
+  if (exec('git status --porcelain', { cwd: wt }) !== '') return none; // dirty or failed: commit-fixes path
+  const as = ledger.approvedScope;
+  const approved = as && as.round === (ledger.round || 1) && Array.isArray(as.paths) ? as.paths : [];
+  const { outside, diffFailed } = stageScope(flags.planFile, wt, approved, rr.fixBaseHead);
+  if (diffFailed) return none;
+  if (outside.length) return { adopted: null, pending: stageOutsidePending(outside) };
+  const cf = ledger.steps.find(s => s.name === 'commit-fixes');
+  if (cf) Object.assign(cf, { status: 'completed', reason: 'adopted: received-review committed its fixes', artifacts: { commit: head } });
+  warnings.push(`received-review committed ${head} itself; adopted as the commit-fixes commit (R97)`);
+  const subject = exec('git log -1 --format=%s HEAD', { cwd: wt });
+  if (planFixSubject && subject !== null && subject !== planFixSubject) {
+    warnings.push(`adopted commit subject "${subject}" differs from the plan fix subject "${planFixSubject}" (R103)`);
+  }
+  return { adopted: head, pending: null };
 }
 
 /**
@@ -2680,6 +2731,7 @@ function runAfter(stepArgs) {
   };
   // R95: open final-check findings under --auto hand off to the caller; the ledger stays for --resume.
   const finalCheckStop = () => {
+    ledger.finalCheck.handoff = true; // R104: the next resume re-checks or asks
     ledger.paused = { at: new Date().toISOString(), reason: 'final check open' };
     return finish(createEnvelope('done', null, {
       ext: { ...ext, reason: 'final-check-open', summary: buildSummary(ledger), commands: ['/sdlc:ship-sdlc --resume --auto'] },
@@ -2794,17 +2846,39 @@ function runAfter(stepArgs) {
     if (answer === 'not finished') return pendingStop(lastHistory(ledger, 'dispatch_execute').data.pendingQuestion, true);
     return failStep(`execute_handoff: unknown answer "${answer}" (expected finished or not finished).`);
   }
+  // R104: a resume after final-check-open reviews a new fix commit once, or asks, then accepts.
+  const fc = ledger.finalCheck;
+  if (after === 'confirm_pipeline' && fc && fc.handoff === true && fc.status === 'completed' && Array.isArray(fc.open) && fc.open.length > 0) {
+    const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
+    if (head && head !== fc.commit) {
+      ledger.finalCheck = { base: fc.commit, commit: head, status: 'pending', verdict: null, open: [], recheck: (fc.recheck || 0) + 1 };
+      const i = ledger.steps.findIndex(s => s.name === 'review');
+      if (i >= 0) {
+        const fresh = { name: 'review', status: 'pending' };
+        if (ledger.steps[i].condition) fresh.condition = ledger.steps[i].condition;
+        ledger.steps[i] = fresh;
+      }
+      from = 'dispatch_commit';
+      steps = recomputeSteps(); // the review args carry --base <old commit>
+    } else if (fc.asked !== true) {
+      fc.asked = true;
+      return pendingStop({
+        id: 'finalCheckOpen', open: fc.open, options: ['fix', 'accept-open'],
+        prompt: `The final fix review left ${fc.open.length} finding(s) open at ${fc.threshold || 'the threshold'}. Commit a fix and resume to review it, or resume again without a new commit to accept them.`,
+      }, false);
+    } else {
+      fc.accepted = true;
+      delete fc.handoff;
+      from = 'dispatch_commit_fixes'; // the review loop is over: continue past it, as after a completed final check
+      warnings.push('final check: open findings accepted (R104)');
+    }
+  }
   // R97: received-review committed its fixes itself; adopt that commit as commit-fixes.
   let adopted = null;
   if (after === 'dispatch_received_review' && result.success === true) {
-    const rr = ledger.steps.find(s => s.name === 'received-review');
-    const head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() });
-    if (rr && rr.fixBaseHead && head && head !== rr.fixBaseHead && exec('git status --porcelain', { cwd: resolveActiveWorktreeSafe() }) === '') {
-      const cf = ledger.steps.find(s => s.name === 'commit-fixes');
-      if (cf) Object.assign(cf, { status: 'completed', reason: 'adopted: received-review committed its fixes', artifacts: { commit: head } });
-      warnings.push(`received-review committed ${head} itself; adopted as the commit-fixes commit (R97)`);
-      adopted = head;
-    }
+    const a = adoptFixCommit(ledger, { flags, planFixSubject: planCommit.fixSubject, warnings });
+    if (a.pending) return pendingStop(a.pending.pending, false, a.pending.commands); // R103
+    adopted = a.adopted;
   }
   // R84/R95/R97: one transition for a completed commit-fixes, reached from commit-fixes or from adoption.
   const round = ledger.round || 1;
@@ -2825,7 +2899,14 @@ function runAfter(stepArgs) {
   }
 
   // 5. Pick the next step.
-  const next = pickNextStep(from, { ledger, flags, steps, ledgerPath, recorded, skipped });
+  const ctx = { ledger, flags, steps, ledgerPath, recorded, skipped, planFixSubject: planCommit.fixSubject };
+  let next = pickNextStep(from, ctx);
+  if (next.adopted) { // R103: stage_fixes adopted a clean committed fix
+    warnings.push(...next.warnings);
+    from = afterFixesCommitted(ledger, { sha: next.adopted, round, flags, warnings }) || 'dispatch_commit_fixes';
+    ctx.steps = steps = recomputeSteps();
+    next = pickNextStep(from, ctx);
+  }
   if (next.error) return failStep(next.error);
   if (next.pending) return pendingStop(next.pending, false, next.commands);
   if (next.done) {
