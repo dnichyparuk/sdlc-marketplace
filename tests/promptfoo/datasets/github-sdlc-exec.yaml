@@ -609,6 +609,51 @@
         const ok = o.exit === 0 && o.json.cleared === false && o.json.errors.length === 0;
         return ok ? true : `FAIL ${output}`;
 
+- description: "github-sdlc/clear A6: --check --clear deletes the cache with no gh on PATH and reports flags.clear"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--no-gh-path --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --check --clear --repo acme/widgets"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.flags.clear === true && o.json.cleared === true
+          && o.json.cachePath.endsWith('/.sdlc-cache/github/github_com/acme/widgets.json')
+          && o.dumps['~/.sdlc-cache/github/github_com/acme/widgets.json'] === null
+          && o.json.errors.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/clear A6: --check --clear with no repository resolves nothing and still exits 0 without gh"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--no-gh-path -- --check --clear"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.flags.clear === true && !('cleared' in o.json) && o.json.errors.length === 0;
+        return ok ? true : `FAIL ${output}`;
+
+- description: "github-sdlc/content R34: a very long backtick run is scanned in linear time"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--script tests/promptfoo/scripts/github-content-timing.js --"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/github-sdlc-home"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 0 && o.json.ms < 1500 && o.json.logins.includes('bob') && o.json.logins.includes('carol');
+        return ok ? true : `FAIL ${output}`;
+
 - description: "github-sdlc/load A7: prints every R5 key with no gh call"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-github-case.js"

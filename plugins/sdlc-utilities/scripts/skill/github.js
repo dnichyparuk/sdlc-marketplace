@@ -99,11 +99,9 @@ const SUBCOMMANDS = {
   '--check': 'check',
   '--refresh': 'refresh',
   '--load': 'load',
-  '--clear': 'clear',
   '--view': 'view',
   '--search': 'search',
   '--validate-links': 'validate-links',
-  '--init-templates': 'init-templates',
   '--check-payload': 'check-payload',
   '--apply': 'apply',
 };
@@ -150,7 +148,7 @@ function cachePath(repo) {
 function parseArgs(argv) {
   const errors = [];
   const args = {
-    subcommand: null, initTemplates: false, viewNumber: null, repo: null, forceRefresh: false, skipProjects: false,
+    subcommand: null, initTemplates: false, clear: false, viewNumber: null, repo: null, forceRefresh: false, skipProjects: false,
     sections: null, auto: false, templatesDir: null, queryFile: null, file: null, input: null, outputFile: null,
     dryRun: false, expectHash: null, errors,
   };
@@ -168,6 +166,8 @@ function parseArgs(argv) {
     const a = argv[i];
     // `--init-templates` may ride along with `--check` (the skill forwards its arguments to Step 1); alone it is the subcommand.
     if (a === '--init-templates') { args.initTemplates = true; continue; }
+    // `--clear` rides along with `--check` the same way (A6); alone it is the subcommand.
+    if (a === '--clear') { args.clear = true; continue; }
     if (Object.prototype.hasOwnProperty.call(SUBCOMMANDS, a)) {
       if (args.subcommand) errors.push(`${a}: only one subcommand is allowed (already --${args.subcommand})`);
       else args.subcommand = SUBCOMMANDS[a];
@@ -241,6 +241,10 @@ function parseArgs(argv) {
   if (args.initTemplates) {
     if (!args.subcommand) args.subcommand = 'init-templates';
     else if (args.subcommand !== 'check') errors.push(`--init-templates: only one subcommand is allowed (already --${args.subcommand})`);
+  }
+  if (args.clear) {
+    if (!args.subcommand) args.subcommand = 'clear';
+    else if (args.subcommand !== 'check') errors.push(`--clear: only one subcommand is allowed (already --${args.subcommand})`);
   }
   args.subcommand = args.subcommand || 'check';
   return args;
@@ -1824,6 +1828,7 @@ function main() {
     skipProjects: args.skipProjects,
     forceRefresh: args.forceRefresh,
     initTemplates: args.initTemplates,
+    clear: args.clear,
     auto: args.auto,
   };
   // A1/P17: invalid arguments stop before any config, gh or cache access.
@@ -1860,6 +1865,12 @@ function main() {
 
   switch (args.subcommand) {
     case 'check': {
+      if (args.clear) {
+        // A6: `--check --clear` deletes the cache file and needs no gh and no authentication.
+        const cleared = repo.slug ? clearCache(repo) : {};
+        emit({ repo, candidateRepos: resolved.candidateRepos, ...cleared, config: { github }, flags, migration: cv.migration, warnings, errors: [] }, 0);
+        return;
+      }
       const a = resolveAuth(repo);
       const out = {
         repo,

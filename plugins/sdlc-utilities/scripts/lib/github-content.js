@@ -22,11 +22,50 @@ const DUPLICATE_RE = /^\s*duplicate of\s+(?:#\d+|[\w-]+\/[\w.-]+#\d+|https?:\/\/
 /** Replace every match with spaces of the same length (newlines kept), so line numbers and offsets hold. */
 const blank = (s) => s.replace(/[^\n]/g, ' ');
 
+/**
+ * Mask inline code spans in one linear pass (A04): a backtick run of length n opens a span that the next run of
+ * exactly n backticks closes, within one paragraph (a blank line ends it). A run with no closer is plain text.
+ */
+function maskCodeSpans(text) {
+  const runs = [];
+  for (const m of text.matchAll(/`+/g)) runs.push({ start: m.index, len: m[0].length });
+  if (runs.length < 2) return text;
+  const byLen = new Map();
+  runs.forEach((r, i) => {
+    if (!byLen.has(r.len)) byLen.set(r.len, { at: [], next: 0 });
+    byLen.get(r.len).at.push(i);
+  });
+  const breaks = [];
+  for (const m of text.matchAll(/\n[ \t]*\n/g)) breaks.push(m.index);
+  let b = 0;
+  const parts = [];
+  let last = 0;
+  let i = 0;
+  while (i < runs.length) {
+    const open = runs[i];
+    while (b < breaks.length && breaks[b] < open.start) b++;
+    const limit = b < breaks.length ? breaks[b] : text.length;
+    const q = byLen.get(open.len);
+    while (q.next < q.at.length && q.at[q.next] <= i) q.next++;
+    const j = q.next < q.at.length ? q.at[q.next] : -1;
+    if (j !== -1 && runs[j].start < limit) {
+      const end = runs[j].start + runs[j].len;
+      parts.push(text.slice(last, open.start), blank(text.slice(open.start, end)));
+      last = end;
+      i = j + 1;
+    } else {
+      i++;
+    }
+  }
+  parts.push(text.slice(last));
+  return parts.join('');
+}
+
 /** Mask fenced blocks and code spans; HTML comments too when `comments` is true. */
 function mask(text, comments) {
   let out = String(text);
-  out = out.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^\1[`~]*[ \t]*$|(?![\s\S]))/gm, blank);
-  out = out.replace(/(`+)(?!`)(?:(?!\n[ \t]*\n)[\s\S])*?[^`]\1(?!`)/g, blank);
+  out = out.replace(/^(`{3,}(?!`)|~{3,}(?!~))[^\n]*\n[\s\S]*?(?:^\1[`~]*[ \t]*$|(?![\s\S]))/gm, blank);
+  out = maskCodeSpans(out);
   if (comments) out = out.replace(/<!--[\s\S]*?-->/g, blank);
   return out;
 }

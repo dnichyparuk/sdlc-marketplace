@@ -32,7 +32,7 @@ Every `<…>` value in a Bash call is a single-quoted literal (write a `'` insid
 
 `--output-file` stands last in each call: it takes the next token as its path, so nothing a user typed may follow it.
 
-The first Bash call of every run is the check (C9). When `$ARGUMENTS` holds `--clear` (A6, P15), drop that one token from the forwarded arguments: the parser allows one subcommand, and `--check` is it. The `--clear` call follows in item 3 once the repository is resolved.
+The first Bash call of every run is the check (C9). It forwards `$ARGUMENTS` unchanged: `--init-templates` and `--clear` ride along with `--check` (A3, A6).
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/skill/github.js" --check $ARGUMENTS --output-file
@@ -54,14 +54,15 @@ result without an error is exit code 0). Use the literal path in every later ste
 **On exit 0**, read only these fields; every decision below comes from them (R28, C10–C12):
 
 1. `warnings[]` — show each entry (for example the SSH-alias host note of R3).
-2. `flags.initTemplates === true` (A3, R10) — run the template copy, report, and stop:
+2. `flags.clear === true` (A6, P15) — the check call already deleted the cache and needed no `gh` and no authentication. With `repo.source` `none`, ask which repository as in item 4 and run the check again with `--repo '<ANSWER_SLUG>'`; otherwise report `cleared` and `cachePath` ("no cache" when `cleared` is false) and stop. Run no issue operation.
+3. `flags.initTemplates === true` (A3, R10) — run the template copy, report, and stop:
 
    ```bash
    node "<PLUGIN_ROOT>/scripts/skill/github.js" $ARGUMENTS --output-file
    ```
 
    Run it as one plain Bash call (the forwarded `--init-templates` selects the subcommand; `--templates-dir` (A9) is forwarded with it) and read the printed path. Exit 1: show `errors[]` and stop (R10 refuses a target that is not this checkout's origin). Exit 0: report "`<created count>` templates created, `<skipped count>` skipped (already exist) in `<targetDir>`." and stop. Run no issue operation.
-3. `repo.source` (R1, P1, P2):
+4. `repo.source` (R1, P1, P2):
    - `flag`, `config` or `origin` — the repository is `repo.slug`.
    - `none` — ask which repository with AskUserQuestion: a closed list of `candidateRepos` when it is non-empty (R1 step 4), else a free-form question (R1 step 5). When `flags.auto === true`, ask nothing: stop with a `pendingQuestion` (see **Questions under --auto**) whose options are `candidateRepos`. After the answer, run this block once and read its output as `GITHUB_CONTEXT_FILE` again:
 
@@ -69,14 +70,8 @@ result without an error is exit code 0). Use the literal path in every later ste
      node "<PLUGIN_ROOT>/scripts/skill/github.js" --check --repo '<ANSWER_SLUG>' $ARGUMENTS --output-file
      ```
 
-   When `$ARGUMENTS` held `--clear` (A6, P15), run this call once `repo.slug` is known, report `cleared` and `cachePath` ("no cache" when `cleared` is false) and stop, with no issue operation. Exit 1: show `errors[]` and stop.
-
-   ```bash
-   node "<PLUGIN_ROOT>/scripts/skill/github.js" --clear --repo '<SLUG>' --output-file
-   ```
-
-4. `auth.actingAccount` — the login every write of this run uses; the approval view shows it as `as @<actingAccount>` (R27, R30). `auth.accountSwitch.switched` tells that the script picked another local account through a per-process token; never run `gh auth switch` (R30).
-5. `cache.refreshNeeded` — `true` → Step 2 refreshes; otherwise Step 2 only loads (P4, R6).
+5. `auth.actingAccount` — the login every write of this run uses; the approval view shows it as `as @<actingAccount>` (R27, R30). `auth.accountSwitch.switched` tells that the script picked another local account through a per-process token; never run `gh auth switch` (R30).
+6. `cache.refreshNeeded` — `true` → Step 2 refreshes; otherwise Step 2 only loads (P4, R6).
 
 ---
 
