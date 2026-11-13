@@ -458,7 +458,12 @@ function runCheckBrief(argv) {
     process.stderr.write('plan-explore.js: --check-brief requires an <outDir> value\n');
     process.exit(2);
   }
-  const res = checkBrief(outDir);
+  let res;
+  try {
+    res = checkBrief(outDir);
+  } catch (err) {
+    res = { ok: false, reason: 'check-error', dimensions: [], missingResults: [], findingIds: 0, error: String(err && err.message) };
+  }
   process.stdout.write(JSON.stringify(res) + '\n');
   process.exit(res.ok ? 0 : 1);
 }

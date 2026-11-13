@@ -1060,3 +1060,14 @@
       value: |
         const r = JSON.parse(output);
         return r.ok === false && r.reason === 'brief-missing' && r.findingIds === 0;
+
+- description: "plan-explore --check-brief: outDir that is a file still prints JSON with a reason (R72)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan-explore.js"
+    script_args: "--check-brief {{project_root}}/ok/discovery-brief.md"
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.ok === false && typeof r.reason === 'string' && r.reason.length > 0;
