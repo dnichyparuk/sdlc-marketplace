@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.11] - 2026-11-14
+
+### Fixed
+- headless runner: `snapshot_files` is read from JSON strings, failures return grading result objects, and the tool-result and final-result tails are recorded so a failed run can be diagnosed (#9389).
+- github-sdlc, jira-sdlc: only an explicit flag allow list is passed as `<FLAGS>`, so request text never reaches a Bash call; `github.js` rejects stray non-flag tokens (#9389).
+- ship-sdlc: the dry run keeps the prepare output file (#9389).
+
 ## [0.54.10] - 2026-11-14
 
 ### Fixed

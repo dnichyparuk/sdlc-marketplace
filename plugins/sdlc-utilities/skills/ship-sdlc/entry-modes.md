@@ -62,3 +62,5 @@ Step  Skill                 Status       Args              Pause?
 Review threshold: critical or high findings trigger fix loop
 Interactive pauses: received-review (if triggered)
 ```
+
+Leave `PREPARE_OUTPUT_FILE` in place: the dry run runs no `rm` (prepare manifests persist, R15). The `rm` of the plan-mode path in SKILL.md Step 0 is for that path only.

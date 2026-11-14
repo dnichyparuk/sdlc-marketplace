@@ -14,6 +14,8 @@ Specification: docs/specs/github-sdlc.md
 /github-sdlc [--repo <[HOST/]OWNER/REPO>] [--force-refresh] [--init-templates] [--skip-projects] [--auto] [--templates-dir <path>] [--clear]
 ```
 
+Write the request in words after the flags; only the listed flags reach the script.
+
 ---
 
 ## Flags

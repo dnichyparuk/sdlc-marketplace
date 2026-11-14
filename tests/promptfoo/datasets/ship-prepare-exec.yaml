@@ -968,6 +968,16 @@
         if (!o.sameBytes) return 'FAIL: ledger bytes changed under --dry-run';
         return o.sameMtime ? true : 'FAIL: ledger mtime changed under --dry-run';
 
+- description: "ship-prepare (R15): the dry-run section keeps PREPARE_OUTPUT_FILE and runs no rm"
+  vars:
+    script_path: "-e"
+    script_args: '((s)=>((c)=>console.log(JSON.stringify({keep:c("Leave\x20\x60PREPARE_OUTPUT_FILE\x60\x20in\x20place"),rm:c("rm\x20-")})))((x)=>s.split(x).length-1))(((t)=>t.slice(t.indexOf("##\x20Dry-run\x20mode")))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/ship-sdlc/entry-modes.md","utf8")))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.keep === 1 && o.rm === 0 ? true : { pass: false, score: 0, reason: output };
+
 # ---------------------------------------------------------------------------
 # Issue #337 — Per-step isolation field (agent dispatch worktree isolation)
 # ---------------------------------------------------------------------------

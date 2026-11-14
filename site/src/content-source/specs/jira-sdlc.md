@@ -12,6 +12,8 @@
 - A3: `--init-templates` — copy default description templates to `.sdlc/jira-templates/` (default: false)
 - A4: `--skip-workflow-discovery` — bypass Phase 5 workflow discovery; per non-subtask issue type, cache `workflows: { <type>: { unsampled: true } }`. Transition operations fall back to a live `getTransitionsForJiraIssue` call per issue when workflow data is marked `unsampled`. Use in CI or pre-seeded environments where Phase 5 MCP calls are too expensive.
 - A5: `--site <host>` — disambiguator for `--check`/`--load` when multiple cache files for the same project key exist under different site subdirectories of `~/.sdlc-cache/jira/`. Value is the sanitized site host (lowercased, `.` → `_`, e.g., `acme_atlassian_net`). A dotted host is accepted and normalised to that form; a value holding `/`, `\` or `..`, or one that does not normalise to a host of `[a-z0-9_-]` only (for example one with a port), is rejected (P9).
+- A6: Arguments — only `--project <KEY>`, `--force-refresh`, `--init-templates`, `--site <host>` and `--skip-workflow-discovery` (A1–A5) reach `skill/jira.js` from the user's arguments. The skill takes them from `$ARGUMENTS` before its first Bash call: a token is a flag only when it is outside quotes and is exactly one of these names, and the value of `--project` and `--site` is the next token. It passes them as `<FLAGS>`, each value a single-quoted literal. Every other token is the request: it stays with the model and never reaches a command line (C16). An unknown `--` token outside quotes is request text, and the skill says so: `Not a jira-sdlc flag, read as request text: <token>`.
+  - Acceptance: exec — the SKILL.md has no `$ARGUMENTS` inside a bash fence, the check call is `jira.js --output-file <FLAGS> --check`, and the allow-list rule text is present.
 - R4: Project key resolution follows 5-step ordered fallback: (1) `--project` argument, (2) branch name pattern `[A-Z]{2,10}-\d+` — when `jira.projects` is configured, only keys that match a member of `jira.projects` accept this signal, (3) `.sdlc/config.json` → `jira.defaultProject`, (4) when `jira.projects` has ≥2 entries, AskUserQuestion with a closed list matching `jira.projects`, (5) free-form AskUserQuestion. Backward compatible: repos without `jira.projects` behave as before (steps 1/2/3/5).
 - R10: When `--init-templates` is passed, initialize templates and stop — do not execute any Jira operation
 - R13: `jira.projects` (string[]) may be set in `.sdlc/config.json` alongside or instead of `jira.defaultProject`. When set with ≥2 entries, the skill (1) rejects `--project <KEY>` arguments whose value is not a member of `jira.projects` (prepare script exits 1 with a descriptive error), and (2) presents a closed-list AskUserQuestion prompt using only the configured projects when no other signal resolves the project key. Single-project repos (no `jira.projects`, or fewer than 2 entries) retain the prior behavior with `defaultProject`.
@@ -166,6 +168,8 @@
 - C-projectroot: Scripts that use `process.cwd()` as the project root silently break when invoked from a sub-directory or a git worktree. All projectRoot resolutions in this skill's scripts MUST route through `resolveSdlcRoot()` (lib/config.js); `process.cwd()` is forbidden except in documented bootstrap entry points.
   - Acceptance: `resolveSdlcRoot()` is called to establish `projectRoot` in `skill/jira.js`; no bare `process.cwd()` usage contributes to any path resolved against the project root; invoking the script from a repo sub-directory yields the correct root.
 - C15: Must not introduce free prose paragraphs into `## ` section bodies of issue descriptions — bullet lists, numbered lists, or sub-headings only (R25.1). Must not emit `## Acceptance Criteria` content as sentences — every item MUST be a `- [ ] <discrete criterion>` checklist line (R25.2). Must not add filler transitional sentences between sections (`This ticket covers…`, `The goal of…`, `In summary…`) (R25.4). Release Notes MAY be a single sentence (R25.5 exception); two or more sentences in that section fail C15.
+- C16: Must not put `$ARGUMENTS` or request text into a Bash call; request content reaches a script only through a file written with the Write tool. Threat model: a best-effort rule in skill prose that keeps request words and quoted bodies off the command line. Accepted gaps: no code checks how the model splits `$ARGUMENTS`; a request word outside quotes that is exactly an allowed flag name is read as that flag; `jira.js` ignores stray tokens (its argument parsing is a followup).
+  - Acceptance: exec — the static SKILL.md case of A6.
 
 ## Integration
 
@@ -176,6 +180,12 @@
 - I5: `execute-plan-sdlc` — common follow-up to execute a plan
 
 ## Appendix — history
+
+### Decisions
+
+| Date | Source | Decision | Ids |
+|---|---|---|---|
+| 2026-11-14 | architect, owner delegation (#9389, F-95) | Only an explicit flag allow list reaches the prepare script; `$ARGUMENTS` never goes into a Bash call. | A6, C16 |
 
 ### Issue trail
 

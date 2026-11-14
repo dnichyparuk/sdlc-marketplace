@@ -103,7 +103,8 @@ Output fields the assertions read:
 | `exitCode`, `signal`, `timedOut` | how the `claude` process ended |
 | `isError`, `resultSubtype` | the session's final result record |
 | `costUsd` | cost the session reported |
-| `toolUses` | list of `{id, name, input, isError}` for each tool call (`isError` is null until its result arrives) |
+| `toolUses` | list of `{id, name, input, isError, resultTail}` for each tool call (`isError` and `resultTail`, the last 300 chars of the result text, are null until its result arrives) |
+| `resultText` | last 1000 characters of the final `result` event's text, or null |
 | `files` | files present in the workspace after the run |
 | `contents` | contents of the files a case asks to read back |
 | `stderrTail` | last lines of the process's stderr |

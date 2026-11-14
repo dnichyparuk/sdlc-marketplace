@@ -29,8 +29,8 @@
 - A18: `--review-threshold critical|high|medium|low` — CLI > config `ship.reviewThreshold` > default `high` (R40) (default: from config or high)
 - A19: `--review-rounds <n>` — integer 1–3; the number of review → received-review → commit-fixes rounds (R84) (default: 1)
 
-- R15: `--dry-run` displays pipeline table and stops without executing. It writes no ship state: no init, no prune and no `claimSession`, so a ledger it resumes, explicitly or implicitly, keeps its bytes and its mtime (the prepare output file is still written).
-  - Acceptance: exec cases in `tests/promptfoo/datasets/ship-prepare-exec.yaml` whose descriptions start with `ship-prepare (R15)`.
+- R15: `--dry-run` displays pipeline table and stops without executing. It writes no ship state: no init, no prune and no `claimSession`, so a ledger it resumes, explicitly or implicitly, keeps its bytes and its mtime (the prepare output file is still written, and it stays in place: the dry run runs no `rm` on it, because prepare manifests persist).
+  - Acceptance: exec cases in `tests/promptfoo/datasets/ship-prepare-exec.yaml` whose descriptions start with `ship-prepare (R15)`, including the static case that finds the keep rule in `entry-modes.md`.
 - R16: `--init-config` redirects to `/setup-sdlc`; runs interactive wizard if user insists
 - R28: `--openspec-change <name>` flag explicitly selects the change to archive, overriding branch matching.
 - R63: When `version.preRelease` is set in `.sdlc/config.json` AND the resolved ship `flags.bump` was NOT sourced from the CLI (`flagSources.bump !== 'cli'`), the version step invocation MUST forward `--bump <version.preRelease>` instead of `--bump <flags.bump>`. An explicit CLI `--bump` graduates out of the pre-release train (consistent with version-sdlc R16). The prepare output MUST record the override by setting `flagSources.bump` to `'config (version.preRelease)'`.
