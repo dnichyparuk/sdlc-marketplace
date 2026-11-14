@@ -1,6 +1,11 @@
 const { execFile } = require('child_process');
 
 const MAX_ATTEMPTS = 3;
+// A `claude -p` usage-limit refusal ("You've hit your ... limit ... resets ..."); text mode prints it to stdout.
+const USAGE_LIMIT_RE = /hit your[^\n]*limit/i;
+const STDOUT_TAIL_CHARS = 500;
+// Set on the first refusal; every later call in this process returns it without spawning `claude -p`.
+let usageLimitError = null;
 
 // One `claude -p` run. The execFile call happens synchronously inside the Promise executor.
 function runClaudeOnce(prompt) {
@@ -29,6 +34,7 @@ class ClaudeCliProvider {
   }
 
   async callApi(prompt, context) {
+    if (usageLimitError) return { error: usageLimitError };
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const { error, stdout, stderr } = await runClaudeOnce(prompt);
       // The binary is briefly absent while the CLI auto-updates: retry only ENOENT.
@@ -39,7 +45,14 @@ class ClaudeCliProvider {
         continue;
       }
       if (error) {
-        return { error: error.message, output: stderr };
+        const limitLine = [stdout, stderr].join('\n').split('\n').find((l) => USAGE_LIMIT_RE.test(l));
+        if (limitLine) {
+          usageLimitError = `claude -p usage limit reached: ${limitLine.trim().slice(0, 300)}`;
+          return { error: usageLimitError };
+        }
+        const exit = typeof error.code === 'number' ? error.code : (error.signal || error.code);
+        const tail = (stdout || '').trim().slice(-STDOUT_TAIL_CHARS) || '(empty)';
+        return { error: `${error.message} | exit: ${exit} | stdout tail: ${tail}`, output: stderr };
       }
       return { output: stdout };
     }

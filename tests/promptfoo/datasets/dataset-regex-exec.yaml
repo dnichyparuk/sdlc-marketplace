@@ -1,0 +1,16 @@
+# Script execution tests for tests/promptfoo/scripts/check-dataset-regex.js (#9391).
+
+- description: "dataset-regex: (a) every regex and not-regex value in the behavioural and headless datasets compiles in JavaScript"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-dataset-regex.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.invalid.length === 0 && r.configs === 2 && r.datasets >= 19 && r.checked >= 320"
+
+- description: "dataset-regex: (b) an inline-flag regex and an inline-flag not-regex are reported; valid values are not"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-dataset-regex.js"
+    script_args: "--probe-invalid"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.checked === 4 && r.invalid.map(i => i.dataset + ':' + i.line).join(',') === 'datasets/a.yaml:3,datasets/b.yaml:3'"

@@ -81,7 +81,9 @@ function probeMissing() {
   }
 }
 
-try {
+module.exports = { CONFIGS, DATASET_RE };
+
+if (require.main === module) try {
   if (process.argv.includes('--probe-missing')) {
     // Self-test of the reporting path: exits 0 when the scan ran, whatever it reports.
     process.stdout.write(JSON.stringify(probeMissing()) + '\n');

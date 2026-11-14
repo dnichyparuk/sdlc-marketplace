@@ -301,7 +301,7 @@
     - type: not-icontains
       value: "breaking change"
     - type: not-regex
-      value: '(?i)suggest.*major'
+      value: '[Ss][Uu][Gg][Gg][Ee][Ss][Tt].*[Mm][Aa][Jj][Oo][Rr]'
     - type: llm-rubric
       value: >
         The response uses bumpOptions.preRelease (1.2.4-rc.1) as the resolved release
@@ -385,7 +385,7 @@
     - type: icontains
       value: "1bad"
     - type: regex
-      value: '(?i)(invalid|reject|cannot)'
+      value: '([Ii][Nn][Vv][Aa][Ll][Ii][Dd]|[Rr][Ee][Jj][Ee][Cc][Tt]|[Cc][Aa][Nn][Nn][Oo][Tt])'
     - type: not-icontains
       value: "Release Plan"
     - type: llm-rubric
@@ -443,9 +443,9 @@
     - type: icontains
       value: "1.2.4-rc.1"
     - type: regex
-      value: '(?i)(config|preRelease|sdlc\.json)'
+      value: '([Cc][Oo][Nn][Ff][Ii][Gg]|[Pp][Rr][Ee][Rr][Ee][Ll][Ee][Aa][Ss][Ee]|[Ss][Dd][Ll][Cc]\.[Jj][Ss][Oo][Nn])'
     - type: not-regex
-      value: '(?i)suggest.*major'
+      value: '[Ss][Uu][Gg][Gg][Ee][Ss][Tt].*[Mm][Aa][Jj][Oo][Rr]'
     - type: llm-rubric
       value: >
         The response uses bumpOptions.preRelease (1.2.4-rc.1) and explicitly mentions
@@ -524,7 +524,7 @@
       value: 'git diff (--?[a-z]+ )*plugin\.json'
     # Must NOT touch description, author, keywords (no mention of changing these in the response)
     - type: not-regex
-      value: '(?i)(rewrite|regenerate|update).*(description|author|keywords)'
+      value: '([Rr][Ee][Ww][Rr][Ii][Tt][Ee]|[Rr][Ee][Gg][Ee][Nn][Ee][Rr][Aa][Tt][Ee]|[Uu][Pp][Dd][Aa][Tt][Ee]).*([Dd][Ee][Ss][Cc][Rr][Ii][Pp][Tt][Ii][Oo][Nn]|[Aa][Uu][Tt][Hh][Oo][Rr]|[Kk][Ee][Yy][Ww][Oo][Rr][Dd][Ss])'
     - type: llm-rubric
       value: >
         The response describes Step 8.1 by performing a single targeted Edit-tool call against
