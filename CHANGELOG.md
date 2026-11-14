@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.10] - 2026-11-14
+
+### Fixed
+- behavioural tests: the three harden-sdlc fixtures now live under `tests/promptfoo/fixtures/` in the standard format, so the behavioural suite no longer aborts on unresolved fixture references; a new exec-only check (`check-fixture-refs.js`) reports every unresolved `file://fixtures` or `file://fixtures-fs` reference in the behavioural and headless datasets (#9388).
+
 ## [0.54.9] - 2026-11-14
 
 ### Fixed
