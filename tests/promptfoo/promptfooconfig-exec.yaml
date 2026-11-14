@@ -90,3 +90,4 @@ tests:
   - file://datasets/session-cost-exec.yaml
   - file://datasets/session-map-exec.yaml
   - file://datasets/fixture-guard-exec.yaml
+  - file://datasets/dataset-regex-exec.yaml

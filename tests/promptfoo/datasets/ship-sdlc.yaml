@@ -483,7 +483,7 @@
     - type: icontains
       value: "version-sdlc rc"
     - type: regex
-      value: '(?i)(rc|pre[- ]?release|label)'
+      value: '([Rr][Cc]|[Pp][Rr][Ee][- ]?[Rr][Ee][Ll][Ee][Aa][Ss][Ee]|[Ll][Aa][Bb][Ee][Ll])'
     - type: not-icontains
       value: "1foo"
     - type: llm-rubric
@@ -508,7 +508,7 @@
     - type: icontains
       value: "1foo"
     - type: regex
-      value: '(?i)(invalid|reject)'
+      value: '([Ii][Nn][Vv][Aa][Ll][Ii][Dd]|[Rr][Ee][Jj][Ee][Cc][Tt])'
     - type: not-icontains
       value: "Pipeline:"
     - type: llm-rubric

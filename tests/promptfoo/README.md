@@ -52,6 +52,12 @@ Assertion pattern per test:
 1. **Structural** (`regex`, `icontains`, `not-icontains`) — fast, deterministic
 2. **Behavioral** (`llm-rubric`) — LLM-graded semantic check
 
+When `claude -p` exits non-zero, the provider error adds the exit code and the last 500
+characters of stdout. A usage-limit refusal (a line matching `USAGE_LIMIT_RE`, "hit your …
+limit") gives the error `claude -p usage limit reached: <message with its reset time>`. Every
+later call in the same promptfoo run returns that error at once and does not start `claude -p`,
+so a run stops spending after the limit. Re-run after the reset time.
+
 ### Script execution tests (`promptfooconfig-exec.yaml`)
 
 Runs the three validator scripts directly against filesystem fixture directories

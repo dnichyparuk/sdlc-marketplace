@@ -436,7 +436,7 @@
       Run /jira-sdlc. Create a Task in PROJ about making sure we update the event bus integration from polling to webhook-driven delivery so that we can eliminate the polling overhead and enable reliable at-least-once delivery.
   assert:
     - type: not-regex
-      value: "(?i)(This (ticket|task|story) (covers|addresses)|The goal of|We need to make sure)"
+      value: "([Tt][Hh][Ii][Ss] ([Tt][Ii][Cc][Kk][Ee][Tt]|[Tt][Aa][Ss][Kk]|[Ss][Tt][Oo][Rr][Yy]) ([Cc][Oo][Vv][Ee][Rr][Ss]|[Aa][Dd][Dd][Rr][Ee][Ss][Ss][Ee][Ss])|[Tt][Hh][Ee] [Gg][Oo][Aa][Ll] [Oo][Ff]|[Ww][Ee] [Nn][Ee][Ee][Dd] [Tt][Oo] [Mm][Aa][Kk][Ee] [Ss][Uu][Rr][Ee])"
     - type: llm-rubric
       value: >
         The proposed summary is an imperative phrase of 100 characters or fewer.

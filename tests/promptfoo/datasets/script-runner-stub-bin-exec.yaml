@@ -51,3 +51,27 @@
       value: "STUB-OK"
     - type: not-icontains
       value: "ENOENT"
+
+- description: "claude-cli-provider: a usage-limit refusal names the limit and latches (second call does not spawn)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-claude-cli-limit-stub.js"
+    script_args: "limit"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.calls === 1 && r.first.error.includes('claude -p usage limit reached') && r.first.error.includes('resets 9pm') && r.second.error === r.first.error"
+
+- description: "claude-cli-provider: a non-limit failure reports the exit code and stdout tail"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-claude-cli-limit-stub.js"
+    script_args: "exit"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.result.error.includes('exit: 3') && r.result.error.includes('TAIL-MARKER-77') && !r.result.error.includes('usage limit')"
+
+- description: "claude-cli-provider: limit text on a zero exit is returned as output, not an error"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-claude-cli-limit-stub.js"
+    script_args: "ok"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.result.output.includes('hit your') && r.result.error === undefined"

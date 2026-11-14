@@ -383,7 +383,7 @@
       Describe exactly what Step 4 does next, in order, including each shell command.
   assert:
     - type: regex
-      value: '(?s)links\.js.*?gh api'
+      value: 'links\.js[\s\S]*?gh api'
     - type: not-contains
       value: "Post this review comment"
     - type: llm-rubric
@@ -507,7 +507,7 @@
     # Posting prompt must appear, and must appear AFTER the findings (login.ts:42 is
     # the first finding in the body) — regex enforces ordering
     - type: regex
-      value: "(?s)src/auth/login\\.ts:42.*?yes\\s*/\\s*save\\s*/\\s*cancel"
+      value: 'src/auth/login\.ts:42[\s\S]*?yes\s*/\s*save\s*/\s*cancel'
     # Behavioral rubric
     - type: llm-rubric
       value: >
@@ -584,7 +584,7 @@
     - type: not-icontains
       value: "model: claude-haiku"
     - type: not-regex
-      value: "(?im)^model:\\s"
+      value: '(?:^|[\n\r  ])[Mm][Oo][Dd][Ee][Ll]:\s'
     # Must explicitly mention the Omit transform behavior
     - type: regex
       value: "(omit|Omit|drop|stripped|excluded)"
@@ -645,7 +645,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -666,7 +666,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A01"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"critical"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Cc][Rr][Ii][Tt][Ii][Cc][Aa][Ll]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removed admin authorization check.
@@ -678,7 +678,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -697,7 +697,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A02"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"critical"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Cc][Rr][Ii][Tt][Ii][Cc][Aa][Ll]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the introduction of MD5 password hashing.
@@ -708,7 +708,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -724,7 +724,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A03"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"critical"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Cc][Rr][Ii][Tt][Ii][Cc][Aa][Ll]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the SQL string concatenation introducing
@@ -735,7 +735,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -756,7 +756,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A04"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"high"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Hh][Ii][Gg][Hh]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removal of rate limiting on login.
@@ -767,7 +767,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -785,7 +785,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A05"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"high"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Hh][Ii][Gg][Hh]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the overly permissive CORS configuration
@@ -796,7 +796,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -815,7 +815,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A06"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"high"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Hh][Ii][Gg][Hh]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for adding a dependency at a version with
@@ -826,7 +826,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -845,7 +845,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A07"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"critical"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Cc][Rr][Ii][Tt][Ii][Cc][Aa][Ll]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removal of authentication from a
@@ -856,7 +856,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -877,7 +877,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A08"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"high"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Hh][Ii][Gg][Hh]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for replacing JSON.parse with the unsafe
@@ -888,7 +888,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -910,7 +910,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A09"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"medium"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Mm][Ee][Dd][Ii][Uu][Mm]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removal of failed-login audit
@@ -921,7 +921,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/review-sdlc/REFERENCE.md"
     user_request: "Produce the security finding for the diff above. Print the JSON object inline instead of writing it."
-    skill_content: |
+    project_context: |
       You are running the review-sdlc security-review dimension subagent against this diff:
 
       ```
@@ -941,7 +941,7 @@
     - type: regex
       value: '"owasp"\s*:\s*"A10"'
     - type: regex
-      value: '(?i)"severity"\s*:\s*"high"'
+      value: '"[Ss][Ee][Vv][Ee][Rr][Ii][Tt][Yy]"\s*:\s*"[Hh][Ii][Gg][Hh]"'
     - type: llm-rubric
       value: >
         The response surfaces a security-review finding for the removal of the URL allowlist check
