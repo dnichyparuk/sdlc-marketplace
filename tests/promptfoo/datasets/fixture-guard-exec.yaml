@@ -1,4 +1,5 @@
-# Script execution tests for tests/promptfoo/scripts/check-fixture-guard.js (W8.29).
+# Script execution tests for tests/promptfoo/scripts/check-fixture-guard.js (W8.29)
+# and tests/promptfoo/scripts/check-fixture-refs.js (#9388).
 
 - description: "fixture-guard: (a) every git-init fixture setup.sh, at any depth, carries the guard before its first git init or git config"
   vars:
@@ -31,3 +32,18 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.scanned === 2 && r.unguarded.join(',') === 'guard-after,no-guard'"
+
+- description: "fixture-refs: (a) every file://fixtures and file://fixtures-fs reference in the behavioural and headless datasets resolves"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-fixture-refs.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.missing.length === 0 && r.configs === 2 && r.datasets >= 19 && r.refs >= 316"
+
+- description: "fixture-refs: (b) a missing fixture and a missing fixtures-fs reference are reported; a commented reference is skipped"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-fixture-refs.js"
+    script_args: "--probe-missing"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.refs === 3 && r.missing.map(m => m.dataset + ':' + m.line + ':' + m.ref).join(',') === 'datasets/a.yaml:3:fixtures/absent.md,datasets/b.yaml:2:fixtures-fs/absent-dir'"
