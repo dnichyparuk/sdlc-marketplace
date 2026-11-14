@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.12] - 2026-11-14
+
+### Fixed
+- claude-cli test provider: a failed `claude -p` call reports the exit code and the end of stdout, names a usage limit with its reset time, and a module-level latch stops later calls in the same run from spawning `claude -p` (#9391).
+- behavioural tests: twenty-one regex assertions that used JavaScript-invalid inline flags such as `(?i)` are rewritten, and a new exec check compiles every regex value in the behavioural and headless datasets (#9391).
+- review-sdlc tests: the ten OWASP cases put their diff in `project_context`, so the model receives it (#9391).
+
 ## [0.54.11] - 2026-11-14
 
 ### Fixed
