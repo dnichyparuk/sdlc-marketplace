@@ -10,7 +10,8 @@
  *   timeout_seconds  — SIGTERM the run after this many seconds (default 600)
  *   max_budget_usd   — --max-budget-usd value (default 2)
  *   tier             — cheap | costly (default cheap); costly needs SDLC_HEADLESS_COSTLY=1
- *   snapshot_files   — workspace-relative files whose text goes to `contents` (default [])
+ *   snapshot_files   — workspace-relative files whose text goes to `contents` (default []): an array,
+ *                      a JSON-array string like '["a","b"]', or a plain string naming one file
  *   stub_bin         — directory prepended to the child's PATH (resolved absolute; must exist)
  *   script_env       — extra child env vars, an object or JSON-object string (applied before stub_bin)
  */
@@ -23,6 +24,8 @@ const REPO = path.resolve(__dirname, '../../..');
 const BUILDER = path.join(REPO, 'tests/promptfoo/fixtures-headless/build-fixture-repo.js');
 const PLUGIN_DIR = path.join(REPO, 'plugins/sdlc-utilities');
 const STDERR_TAIL = 2000;
+const RESULT_TAIL = 300; // chars kept from each tool result
+const RESULT_TEXT = 1000; // chars kept from the final result text
 
 // Spawn claude with the prompt on stdin; resolves (never rejects) once.
 function runClaude(prompt, { cwd, args, timeoutMs, extraEnv = {}, stubBin = null }) {
@@ -71,6 +74,29 @@ function parseScriptEnv(value) {
   return parsed;
 }
 
+// snapshot_files: array, or a string. A string starting with '[' (after trim) must be a JSON
+// array of strings; any other non-empty string is a one-item list. Throws on bad input.
+function parseSnapshotFiles(value) {
+  if (value === undefined || value === null || value === '') return [];
+  let list = value;
+  if (typeof value === 'string') {
+    list = value.trim().startsWith('[') ? JSON.parse(value) : [value];
+  }
+  if (!Array.isArray(list) || !list.every((x) => typeof x === 'string')) {
+    throw new Error('snapshot_files must be an array of strings');
+  }
+  return list;
+}
+
+// tool_result content: a string, or an array of blocks whose text blocks are joined by newline.
+function toolResultText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.filter((b) => b && b.type === 'text' && typeof b.text === 'string').map((b) => b.text).join('\n');
+  }
+  return '';
+}
+
 function parseStream(stdout) {
   const toolUses = [];
   let result = null;
@@ -86,14 +112,17 @@ function parseStream(stdout) {
     if (ev.type === 'assistant') {
       for (const item of content) {
         if (item && item.type === 'tool_use') {
-          toolUses.push({ id: item.id, name: item.name, input: item.input, isError: null });
+          toolUses.push({ id: item.id, name: item.name, input: item.input, isError: null, resultTail: null });
         }
       }
     } else if (ev.type === 'user') {
       for (const item of content) {
         if (!item || item.type !== 'tool_result') continue;
         const use = toolUses.find((u) => u.id === item.tool_use_id);
-        if (use) use.isError = item.is_error === true;
+        if (use) {
+          use.isError = item.is_error === true;
+          use.resultTail = toolResultText(item.content).slice(-RESULT_TAIL);
+        }
       }
     } else if (ev.type === 'result') {
       result = ev;
@@ -139,7 +168,12 @@ class HeadlessCaseProvider {
     }
     const timeoutSeconds = vars.timeout_seconds ?? 600;
     const maxBudget = vars.max_budget_usd ?? 2;
-    const snapshotFiles = vars.snapshot_files || [];
+    let snapshotFiles = [];
+    try {
+      snapshotFiles = parseSnapshotFiles(vars.snapshot_files);
+    } catch (err) {
+      return { error: `headless-case: invalid snapshot_files: ${err.message}` };
+    }
 
     let extraEnv = {};
     if (vars.script_env) {
@@ -188,6 +222,7 @@ class HeadlessCaseProvider {
         costUsd: result && typeof result.total_cost_usd === 'number' ? result.total_cost_usd : null,
         resultSubtype: result ? result.subtype ?? null : null,
         toolUses,
+        resultText: result && typeof result.result === 'string' ? result.result.slice(-RESULT_TEXT) : null,
         files: listFiles(W).sort(),
         contents: snapshotContents(W, snapshotFiles),
         stderrTail: run.stderr.slice(-STDERR_TAIL),

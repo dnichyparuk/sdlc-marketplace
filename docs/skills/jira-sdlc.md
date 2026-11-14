@@ -12,6 +12,8 @@ Manages Jira issues via the Atlassian MCP with a project metadata cache that eli
 /jira-sdlc [--project <KEY>] [--force-refresh] [--init-templates] [--site <host>] [--skip-workflow-discovery]
 ```
 
+Write the request in words after the flags; only the listed flags reach the script.
+
 ---
 
 ## Flags

@@ -3,6 +3,7 @@
 // Usage: run-headless-case-stub.js --scenario <scaffold|scaffold-in-worktree> [--kind <kind>]
 //        run-headless-case-stub.js --scenario provider [--mode <ok|error|crash>] [--kind <kind>] [--tier <cheap|costly>]
 //        run-headless-case-stub.js --scenario provider-env [--variant <ok|missing|badjson>]
+//        run-headless-case-stub.js --scenario provider-stream [--variant <stream|snap-json|snap-plain|snap-bad>]
 // The provider scenario drives providers/headless-case.js against the stub claude
 // in fixtures-fs/stub-bin-claude; it never starts a real claude.
 const fs = require('fs');
@@ -95,6 +96,49 @@ async function runProviderEnv(D) {
   };
 }
 
+// Stream parsing and snapshot_files forms: a `claude` in D/bin prints two tool results
+// (array content, string content) and a long result text. Variants: stream | snap-json |
+// snap-plain | snap-bad. The harness prints { error, result }.
+async function runProviderStream(D) {
+  const variant = arg('--variant') || 'stream';
+  const bin = path.join(D, 'bin');
+  fs.mkdirSync(bin);
+  const events = [
+    { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'echo 1' } }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't1', content: [{ type: 'text', text: 'x'.repeat(500) + 'END1' }] }] } },
+    { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'echo 2' } }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't2', content: 'short' }] } },
+    { type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0, result: 'y'.repeat(1500) + 'FINAL' },
+  ];
+  fs.writeFileSync(path.join(bin, 'claude'), [
+    '#!/usr/bin/env node',
+    `const events = ${JSON.stringify(events)};`,
+    "process.stdin.resume();",
+    "process.stdin.on('end', () => events.forEach((e) => console.log(JSON.stringify(e))));",
+    '',
+  ].join('\n'), { mode: 0o755 });
+  process.env.TMPDIR = D;
+
+  const snapshot = {
+    stream: '["README.md"]',
+    'snap-json': '["README.md",".git/HEAD"]',
+    'snap-plain': 'README.md',
+    'snap-bad': '[oops',
+  }[variant];
+  const vars = {
+    scaffold: 'commit',
+    allowed_tools: 'Read',
+    stub_bin: bin,
+    snapshot_files: snapshot,
+    script_env: JSON.stringify({ STUB_SECRET: 'stub-secret-9389' }),
+  };
+  const res = await new HeadlessCaseProvider().callApi('stub prompt', { vars });
+  return {
+    error: res.error ?? null,
+    result: res.output !== undefined ? JSON.parse(res.output) : null,
+  };
+}
+
 async function main() {
   const scenario = arg('--scenario');
   const kind = arg('--kind');
@@ -104,6 +148,8 @@ async function main() {
       process.stdout.write(JSON.stringify(await runProvider(D)) + '\n');
     } else if (scenario === 'provider-env') {
       process.stdout.write(JSON.stringify(await runProviderEnv(D)) + '\n');
+    } else if (scenario === 'provider-stream') {
+      process.stdout.write(JSON.stringify(await runProviderStream(D)) + '\n');
     } else if (scenario === 'scaffold') {
       const r = spawnSync('node', [BUILDER, kind], { cwd: D, encoding: 'utf8' });
       const out = { exit: r.status };

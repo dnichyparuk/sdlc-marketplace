@@ -976,6 +976,34 @@
         const ok = o.exit === 1 && o.calls.length === 0 && o.json.errors.some((e) => e.includes('--bogus'));
         return ok ? true : `FAIL ${output}`;
 
+- description: "github-sdlc/check P17 A14: request words on the command line exit 1 naming show"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "-- --check --repo acme/widgets show issue 7"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.exit === 1 && o.calls.length === 0 && o.json.errors.some((e) => e.startsWith('show: unexpected argument'));
+        return ok ? true : { pass: false, score: 0, reason: output };
+
+- description: "github-sdlc/skill-text A14 C21: no $ARGUMENTS in a bash fence, <FLAGS> in the Step 1 calls, the allow-list rule present"
+  vars:
+    script_path: "-e"
+    script_args: 'const[fs,r]=[require("fs"),"{{repo_root}}"];const[t]=[fs.readFileSync(r+"/plugins/sdlc-utilities/skills/github-sdlc/SKILL.md","utf8")];const[fence]=[[...t.matchAll(/^```bash[^\n]*\n([\s\S]*?)^```/gm)].map((m)=>m[1]).join("\n")];const[n]=[(s)=>t.split(s).length-1];console.log(JSON.stringify({inFence:fence.split("$ARGUMENTS").length-1,flagsCalls:n("<FLAGS>\x20--output-file"),rule:n("**Flags\x20(A14,\x20C21).**"),notFlag:n("Not\x20a\x20github-sdlc\x20flag,\x20read\x20as\x20request\x20text:")}))'
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.inFence === 0 && o.flagsCalls === 3 && o.rule === 1 && o.notFlag === 1;
+        return ok ? true : { pass: false, score: 0, reason: output };
+
 - description: "github-sdlc/check P17: an unreadable cache directory is a crash (exit 2)"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-github-case.js"

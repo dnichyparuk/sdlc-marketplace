@@ -236,7 +236,7 @@ function parseArgs(argv) {
       case '--skip-projects': args.skipProjects = true; break;
       case '--auto': args.auto = true; break;
       case '--skip-config-check': break; // read by resolveSkipConfigCheck (CLI > env > default)
-      default: errors.push(`${a}: unknown flag`);
+      default: errors.push(a.startsWith('--') ? `${a}: unknown flag` : `${a}: unexpected argument (request text never goes on the command line, A14)`);
     }
   }
   if (args.initTemplates) {
