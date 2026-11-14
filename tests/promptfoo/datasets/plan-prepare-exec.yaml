@@ -1003,6 +1003,14 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true"
 
+- description: "plan-sdlc/explore-sentinels: R72 fan-out, Brief file none, dim result files and dispatch sentinels present in the orchestrator agent and SKILL.md"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-plan-explore-sentinels.js"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.ok === true && r.orchestrator === true && r.skill === true"
+
 # --- plan-explore.js --check-brief (R72) ---
 
 - description: "plan-explore --check-brief: complete brief and results yield ok (R72)"
@@ -1071,3 +1079,51 @@
       value: |
         const r = JSON.parse(output);
         return r.ok === false && r.reason === 'brief-missing' && r.findingIds === 0;
+
+- description: "plan-explore --check-brief: no outDir value exits 2 with one plan-explore.js: stderr line and no stdout (R72(d))"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-explore-check-brief.js"
+    script_args: ""
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const lines = o.err.trim().split('\n');
+        return o.status === 2 && o.out === '' && lines.length === 1 && lines[0].startsWith('plan-explore.js:') ? true : `FAIL: ${output}`;
+
+- description: "plan-explore --check-brief: complete brief exits 0 (R72)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-explore-check-brief.js"
+    script_args: "{{project_root}}/ok"
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = o.out ? JSON.parse(o.out) : null;
+        return o.status === 0 && r && r.reason === null ? true : `FAIL: ${output}`;
+
+- description: "plan-explore --check-brief: missing dimension results exit 1 (R72)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-explore-check-brief.js"
+    script_args: "{{project_root}}/skipped"
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = o.out ? JSON.parse(o.out) : null;
+        return o.status === 1 && r && r.reason === 'missing-dimension-results' ? true : `FAIL: ${output}`;
+
+- description: "plan-explore --check-brief: unexpected error yields check-error and exits 1 (R72)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-explore-check-brief.js"
+    script_args: "--fault {{project_root}}/ok"
+    project_root: "file://fixtures-fs/plan-explore-brief-check"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = o.out ? JSON.parse(o.out) : null;
+        return o.status === 1 && r && r.reason === 'check-error' && typeof r.error === 'string' && r.error.length > 0 ? true : `FAIL: ${output}`;

@@ -325,6 +325,8 @@ function shellWord(w) {
 
 const GIT_APPLY_READ_ONLY = ['--check', '--stat', '--numstat', '--summary'];
 const GIT_APPLY_WRITE = ['--apply', '--index', '--cached', '--3way', '-3'];
+const BUNDLED_3WAY_RE = /^-[^-=]*3[^=]*$/; // single-dash option word without '=' that holds 3 (-v3 includes -3)
+const PATCH_OUTPUT_LONG = '--output'; // GNU patch accepts any unambiguous abbreviation (--o, --out, --outp)
 // A word that may name the subcommand sits within the first words after `git`.
 const GIT_SUBCOMMAND_WINDOW = 4;
 
@@ -353,11 +355,15 @@ function gitApplyDenied(cmd, masked) {
       continue;
     }
     if (words.slice(at + 1).some((w) => w.unsafe)) return true;
-    const args = words.slice(at + 1).map((w) => w.text);
-    const writes = args.some((a) => GIT_APPLY_WRITE.includes(a));
+    const all = words.slice(at + 1).map((w) => w.text);
+    // git reads every word after a bare `--` as a file name, so options come only from the words before it.
+    const end = all.indexOf('--');
+    const args = end < 0 ? all : all.slice(0, end);
+    // `-p3` and `-C3` match too and are denied (fail closed); `-p 3` stays allowed.
+    const writes = args.some((a) => GIT_APPLY_WRITE.includes(a) || BUNDLED_3WAY_RE.test(a));
     const readOnly = args.some((a) => GIT_APPLY_READ_ONLY.includes(a));
     // Any other long option is denied: git accepts unambiguous abbreviations (`--ap` is `--apply`).
-    const otherLong = args.some((a) => a.startsWith('--') && a !== '--' && !GIT_APPLY_READ_ONLY.includes(a));
+    const otherLong = args.some((a) => a.startsWith('--') && !GIT_APPLY_READ_ONLY.includes(a));
     if (writes || otherLong || !readOnly) return true;
   }
   return false;
@@ -373,7 +379,12 @@ function patchDenied(cmd, masked) {
     const outputs = [];
     args.forEach((a, i) => {
       if (a === '-o') outputs.push(args[i + 1] || '');
-      else if (a.startsWith('--output=')) outputs.push(a.slice(9));
+      else if (a.startsWith('--o')) {
+        // GNU patch obeys the last output option, so every target must be a scratch path.
+        const eq = a.indexOf('=');
+        const name = eq < 0 ? a : a.slice(0, eq);
+        if (PATCH_OUTPUT_LONG.startsWith(name)) outputs.push(eq < 0 ? args[i + 1] || '' : a.slice(eq + 1));
+      }
       else if (a.startsWith('-o') && !a.startsWith('--')) outputs.push(a.slice(2));
     });
     if (!(outputs.length > 0 && outputs.every((t) => t && isAllowedTarget(t)))) return true;

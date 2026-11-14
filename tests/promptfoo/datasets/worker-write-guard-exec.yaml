@@ -1057,3 +1057,99 @@
         if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
         const o = JSON.parse(r.stdout).hookSpecificOutput;
         return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l81) git apply read-only option after a bare -- denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git apply p.diff -- --check"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l82) git apply -- --stat denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git apply -- --stat"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l83) git apply --check -- p.diff is not denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git apply --check -- p.diff"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l84) git apply bundled -v3 option denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "git apply --check -v3 p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: git-apply\./.test(o.permissionDecisionReason) || 'FAIL: not denied by git-apply';
+
+- description: "worker-write-guard: (l85) patch later --output to a non-scratch path denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "patch -o /tmp/x --output src/a.js < /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: patch\./.test(o.permissionDecisionReason) || 'FAIL: not denied by patch';
+
+- description: "worker-write-guard: (l86) patch abbreviated --out= to a non-scratch path denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "patch -o /tmp/x --out=src/a.js < /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: patch\./.test(o.permissionDecisionReason) || 'FAIL: not denied by patch';
+
+- description: "worker-write-guard: (l87) patch abbreviated --outp= to a non-scratch path denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "patch -o /tmp/x --outp=src/a.js < /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode}`;
+        const o = JSON.parse(r.stdout).hookSpecificOutput;
+        return o.permissionDecision === 'deny' && /Blocked rule: patch\./.test(o.permissionDecisionReason) || 'FAIL: not denied by patch';
+
+- description: "worker-write-guard: (l88) patch --output with a separate scratch value is not denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "patch --output /tmp/x < /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+
+- description: "worker-write-guard: (l89) patch abbreviated --o= to a scratch path is not denied"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
+    script_stdin: '{"tool_name": "Bash", "agent_type": "sdlc:execute-worker", "tool_input": {"command": "patch --o=/tmp/x < /tmp/p.diff"}}'
+  assert:
+    - type: javascript
+      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
