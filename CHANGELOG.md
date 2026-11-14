@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.9] - 2026-11-14
+
+### Fixed
+- worker write guard: `git apply` options are read only before a bare `--`, bundled `-3` short options are denied, and `patch --output` abbreviations are matched (#9387).
+- execute-plan-sdlc, plan-sdlc: spec R90 and R72 wording matches the guard and the tests; plan-prepare exec cases cover the `--check-brief` exit codes and an R72 sentinel (#9387).
+- ship-sdlc: the user doc gives the null condition for the fixed, declined and deferred counts (#9387).
+
 ## [0.54.8] - 2026-11-14
 
 ### Fixed
