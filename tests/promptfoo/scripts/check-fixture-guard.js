@@ -18,6 +18,10 @@ if (!fs.existsSync(MARKER)) {
 // W8.29 (#9161): every fixture setup.sh that runs `git init` or `git config` must refuse to run inside an
 // existing git work tree, before its first such command. Without the guard, a setup.sh run from the wrong
 // directory of a linked worktree rewrites the SHARED .git/config.
+// Threat model: a best-effort lint for fixture authors. It catches a setup.sh that runs `git init` or `git config`
+// before the guard line. Accepted gaps: a quoted mention (echo "git init") counts as a git line (fails safe); git run
+// through a variable or alias, or with options between `git` and the subcommand (git -C x init), is not seen;
+// heredoc bodies are read as command lines. --probe-unguarded proves that the scan reports an unguarded setup.sh.
 const FIXTURES_DIR = path.join(REPO_ROOT, 'tests/promptfoo/fixtures-fs');
 const GUARD_LINE = 'if git rev-parse --show-toplevel >/dev/null 2>&1; then echo "refusing: inside a git work tree" >&2; exit 1; fi';
 const PROBE_FIXTURE = 'project-execute-prepare';
@@ -99,9 +103,31 @@ function probe() {
   }
 }
 
+// Negative self-test: build setup.sh files that must be reported (no guard; guard after git config) in a temp dir
+// outside fixtures-fs, so the whole-tree scan never sees them, and scan them with the real scanGuards.
+function probeUnguarded() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fixture-guard-unguarded-'));
+  try {
+    const files = {
+      'no-guard': ['#!/bin/bash', 'git init -q', ''],
+      'guard-after': ['#!/bin/bash', 'git config user.email test@example.com', GUARD_LINE, ''],
+    };
+    for (const [name, lines] of Object.entries(files)) {
+      fs.mkdirSync(path.join(root, name));
+      fs.writeFileSync(path.join(root, name, 'setup.sh'), lines.join('\n'));
+    }
+    return scanGuards(root);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
 try {
   if (process.argv.includes('--probe')) {
     process.stdout.write(JSON.stringify(probe()) + '\n');
+  } else if (process.argv.includes('--probe-unguarded')) {
+    // Self-test of the reporting path: exits 0 when the scan ran, whatever it reports.
+    process.stdout.write(JSON.stringify(probeUnguarded()) + '\n');
   } else {
     let dir = FIXTURES_DIR;
     const dirAt = process.argv.indexOf('--dir');

@@ -23,3 +23,11 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true && r.scanned === 2 && r.unguarded.length === 0"
+
+- description: "fixture-guard: (d) an unguarded setup.sh (no guard line, or the guard after git config) is reported"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-fixture-guard.js"
+    script_args: "--probe-unguarded"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.scanned === 2 && r.unguarded.join(',') === 'guard-after,no-guard'"

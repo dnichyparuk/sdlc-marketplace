@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.8] - 2026-11-14
+
+### Fixed
+- fixture guard: `check-fixture-guard` gains `--probe-unguarded`, and an exec case now pins that an unguarded `setup.sh` (no guard line, or `git config` before the guard line) is reported as a failure (#9386).
+
 ## [0.54.7] - 2026-11-13
 
 ### Fixed
