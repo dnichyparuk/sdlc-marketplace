@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.13] - 2026-11-15
+
+### Fixed
+- behavioural tests: assertions in the commit, plan, pr, review, received-review, setup, ship, version, jira, harden and verify-pipeline datasets check behaviour instead of wording, and the review-sdlc spec carries an archive hint (#9393).
+
 ## [0.54.12] - 2026-11-14
 
 ### Fixed
