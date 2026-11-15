@@ -41,6 +41,6 @@ Post this review comment to PR #42? (yes / save / cancel)
 The user replied: **save**
 
 Describe precisely what the skill does. It must NOT call `gh api`. It MUST save the
-comment to `.sdlc/reviews/<branch>-<YYYY-MM-DD>.md` by copying the `Comment file`
-path from the summary. After saving, both the manifest file and the diff dir at
-`/tmp/review-diff-ghi789` must be cleaned up.
+comment to the `Save path:` value from the summary
+(`.sdlc/reviews/feat-search-api-2026-11-05.md`), using the `Comment file` content.
+After saving, the diff dir at `/tmp/review-diff-ghi789` is removed. The manifest file is kept.

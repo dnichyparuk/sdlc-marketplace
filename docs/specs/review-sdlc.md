@@ -52,7 +52,7 @@
   - The `review-orchestrator` MUST read only the thin index; it MUST forward `slice_file` and `diff_file` **paths** into each dispatch prompt and MUST NOT read slice/diff content into its own context. Each dispatched subagent reads its own slice and diff. The orchestrator's context therefore scales with dimension **count**, not content.
   - Acceptance: the manifest's `dimensions[]` entries contain no `body`/`matched_files`/`file_context`/`warnings`; each dispatched dimension has a `slice_file` path whose JSON contains those four fields; the top-level manifest has no `git.commit_log`, no `dirty_files`, and a numeric `git.changed_files_count`.
 - R-reviews-path: The save post-confirmation action writes the saved review markdown to `.sdlc/reviews/<branch>-<YYYY-MM-DD>.md` (branch slashes replaced with `-`), making reviews a sibling of other `.sdlc/` artifacts. The directory is auto-gitignored by the existing `.sdlc/.gitignore` managed block.
-- R8: Clean up the manifest temp file after completion
+- R8: Remove `diff_dir` after the terminal branch (Step 6); the manifest file is kept (G3)
 
 ## Step composition
 
@@ -64,7 +64,7 @@
    - **Output:** manifest file path → P1-P10 (base branch, changed-files count, dimension counts/thin-index entries, plan critique); also writes per-dimension `.diff` files and `.slice.json` slice files to tmpdir. Skill must NOT read manifest into main context
 2. DO — dispatch review-orchestrator agent (or display dry-run plan)
 3. REPORT — display orchestrator summary and full consolidated comment body
-4. POST — skill handles PR posting decision in main context (`yes` / `save` / `cancel` or no-PR options), then cleans up manifest and diff dir
+4. POST — skill handles PR posting decision in main context (`yes` / `save` / `cancel` or no-PR options); Step 6 then removes the diff dir and keeps the manifest file (G3)
 5. OFFER — conditionally offer self-fix based on review verdict
 
 ### Pipeline steps
@@ -197,3 +197,4 @@
 | R20 | example URLs quoted as code, #9371 |
 | R21 | blocking orchestrator wait (ledger F-48), #9372 |
 | R21 | tuning values moved to cost-tiers.md, #9381 |
+| R8 | wording aligned with G3, manifest kept, #9393 |

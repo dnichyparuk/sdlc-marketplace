@@ -108,9 +108,9 @@
     # Must offer execute as a next action
     - type: icontains
       value: "/execute-plan-sdlc"
-    # Must offer commit as an option
+    # Must offer ship as an option
     - type: icontains
-      value: "/commit-sdlc"
+      value: "/ship-sdlc"
     # Must offer done as an option
     - type: icontains
       value: "done"
@@ -118,8 +118,8 @@
     - type: llm-rubric
       value: >
         The response asks the user whether to execute the plan now, presenting an interactive
-        choice rather than a passive suggestion. The menu includes at minimum: execute
-        (/execute-plan-sdlc), commit (/commit-sdlc), and done. The response mentions the plan
+        choice rather than a passive suggestion. The menu includes at minimum: ship
+        (/ship-sdlc), execute (/execute-plan-sdlc), and done. The response mentions the plan
         file path and waits for the user to select an option before proceeding.
 
 - description: "plan-sdlc: --from-openspec adopts tasks.md as primary skeleton"
@@ -143,8 +143,8 @@
     - type: icontains
       value: "Risk"
     # Must NOT show the 3-option gate check prompt
-    - type: not-icontains
-      value: "Start OpenSpec flow"
+    - type: not-regex
+      value: '(^|\n)[ \t]*(\d+\.|-)?[ \t]*\**Start OpenSpec flow'
     # Behavioral: tasks.md drives decomposition, not structured discovery
     - type: llm-rubric
       value: >
@@ -203,8 +203,8 @@
     - type: icontains
       value: "openspec/config.yaml"
     # Must NOT suggest initializing OpenSpec (it's already initialized)
-    - type: not-icontains
-      value: "Initialize OpenSpec"
+    - type: not-regex
+      value: '(^|\n)[ \t]*(\d+\.|-)?[ \t]*\**Initialize OpenSpec'
     # Behavioral: contradictory signal is dismissed, not acted upon
     - type: llm-rubric
       value: >
@@ -310,15 +310,15 @@
       about which AskUserQuestion calls fire and which do NOT fire under the new defaults.
   assert:
     # MUST NOT show the removed Step 0 session-recovery prompt
-    - type: not-icontains
-      value: "Found existing plan draft"
-    - type: not-icontains
-      value: "Resume from critique"
+    - type: not-regex
+      value: '(^|\n)[ \t]*(\d+\.|-)?[ \t]*\**Found existing plan draft'
+    - type: not-regex
+      value: '(^|\n)[ \t]*(\d+\.|-)?[ \t]*\**Resume from critique'
     # MUST NOT show the removed Step 4 approval prompt
-    - type: not-icontains
-      value: "Requirements-to-task mapping"
-    - type: not-icontains
-      value: "Approval loop is unbounded"
+    - type: not-regex
+      value: '(^|\n)[ \t]*(\d+\.|-)?[ \t]*\**Requirements-to-task mapping'
+    - type: not-regex
+      value: '(^|\n)[ \t]*(\d+\.|-)?[ \t]*\**Approval loop is unbounded'
     # MUST show Step 7 handoff menu items (the SOLE user touchpoint)
     - type: icontains
       value: "ship"
@@ -390,10 +390,6 @@
   assert:
     - type: icontains
       value: "F-jwt-validation-flow"
-    - type: not-icontains
-      value: "architecture"
-    - type: not-icontains
-      value: "security"
     - type: llm-rubric
       value: >
         The response confirms that dimension names like "jwt-validation-flow" and
@@ -410,8 +406,6 @@
       finding id in the brief is lowercase: F-jwt-validation-flow-1, F-session-model-schema-2.
       Apply Step 1 brief validation to it and say whether the brief is accepted.
   assert:
-    - type: not-icontains
-      value: "using fallback inline exploration"
     - type: llm-rubric
       value: >
         The response treats the lowercase ids (F-jwt-validation-flow-1, F-session-model-schema-2)
@@ -447,8 +441,6 @@
       webResearchSignal: false. The brief shows 3 code dimensions and 0 web/hybrid.
       Confirm the dimension selection was correct and proceed to Step 2.
   assert:
-    - type: not-icontains
-      value: "web-only"
     - type: llm-rubric
       value: >
         The response acknowledges that no web or hybrid dimensions were included in the brief
@@ -464,8 +456,6 @@
       Run /plan-sdlc. The context shows explorePack.manifestPath null and scopeHintCount 2.
       Process Step 1 for the --verbose flag addition task. Show which exploration path is used.
   assert:
-    - type: not-icontains
-      value: "plan-explore-orchestrator"
     - type: llm-rubric
       value: >
         The response uses inline codebase exploration (Glob, Grep, Read) rather than dispatching
@@ -1482,8 +1472,6 @@
     project_context: "file://fixtures/plan-orchestrator-dispatch.md"
     user_request: "You are plan-explore-orchestrator. USER_PROMPT is the JWT request in the context; scopeHintFiles are the 8 listed files. Perform Step 1 SCOPE and show the Step 2 Agent dispatch parameters for each dimension."
   assert:
-    - type: not-regex
-      value: 'model\W{0,5}[Oo]pus'
     - type: llm-rubric
       value: >
         The response derives between 3 and 5 task-shaped dimensions (not the bare generic

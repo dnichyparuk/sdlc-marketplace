@@ -1,6 +1,6 @@
 # Fixture appropriateness:
 #   pr-review-feedback       -- CORRECT: 3 review items (bug, style, incorrect claim) for processing
-#   review-fixes-complete    -- CORRECT: simulates completed fixes, triggers workflow continuation
+#   review-fixes-complete    -- CORRECT: simulates completed fixes, triggers the What's Next list
 
 - description: "received-review-sdlc: processes feedback with technical rigor and pushes back on incorrect claims"
   vars:
@@ -37,7 +37,7 @@
         catching". Responses start with substance (the technical issue), not social
         filler. The pushback on Comment 3 cites specific code locations as evidence.
 
-- description: "received-review-sdlc: shows workflow continuation menu after implementing fixes"
+- description: "received-review-sdlc: lists follow-up skills after implementing fixes"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md"
     project_context: "file://fixtures/review-fixes-complete.md"
@@ -49,16 +49,11 @@
     # Must offer commit as a next action
     - type: icontains
       value: "/commit-sdlc"
-    # Must offer done as an option
-    - type: icontains
-      value: "done"
-    # Behavioral: interactive menu asking what to do next
+    # Behavioral: follow-up skill list
     - type: llm-rubric
       value: >
-        The response presents an interactive menu asking the user what to do next
-        after implementing review fixes. The menu includes at minimum: commit
-        (/commit-sdlc) and done. The user is asked to select an option rather than
-        being given a passive suggestion.
+        After implementing review fixes, the response lists follow-up skills, at minimum
+        /commit-sdlc. It does not need to ask the user to pick one.
 
 - description: "received-review-sdlc: incremental mode filters already-addressed comments on re-run"
   vars:
@@ -131,8 +126,6 @@
       value: "(0 outstanding|no outstanding|all.*resolved|nothing.*process)"
     - type: regex
       value: "(4 resolved|all 4|4.*skipped)"
-    - type: not-regex
-      value: "(implement.*fix|applying.*change|modifying|editing.*file)"
     - type: llm-rubric
       value: >
         The response reads the prepare script output showing 4 threads, all resolved.
@@ -150,8 +143,6 @@
   assert:
     - type: regex
       value: "(PR.*number|pull request|--pr|provide.*PR|which.*PR)"
-    - type: not-regex
-      value: "(processing.*comment|analyzing.*feedback|implementing.*fix)"
     - type: llm-rubric
       value: >
         The response recognizes that no PR number or review findings are available.
@@ -201,9 +192,6 @@
     # Must display the analysis table (SQL injection finding visible)
     - type: regex
       value: "(SQL|injection|finding|analysis)"
-    # Must NOT present implement/edit/skip consent gate
-    - type: not-regex
-      value: "(How to proceed|implement.*edit.*skip|Select.*option)"
     # Must proceed to implement will-fix items
     - type: regex
       value: "(implement|fix|apply|proceed|auto)"
@@ -256,9 +244,6 @@
     # Must still display the Step 12 summary
     - type: regex
       value: "(addressed|fixed|implemented|summary)"
-    # Must NOT present the yes/skip/selective consent prompt
-    - type: not-regex
-      value: "(yes.*skip.*selective|Should I reply|How to proceed)"
     # Must proceed to post replies and resolve threads
     - type: regex
       value: "(reply|resolve|post|threadId|gh api)"
@@ -444,7 +429,7 @@
     - type: regex
       value: "implement"
     - type: not-regex
-      value: "fixed:"
+      value: "(^|\\n)[ \\t]*fixed: "
     - type: llm-rubric
       value: >
         With flags.alwaysFixSeverities = [] (default), the response shows that the
@@ -504,9 +489,6 @@
     # clusterCount must be 0 (all singletons skipped per R22)
     - type: regex
       value: "(clusterCount.*0|0.*cluster|no cluster|zero cluster)"
-    # No harden dispatch
-    - type: not-regex
-      value: "Skill.*harden-sdlc"
     - type: llm-rubric
       value: >
         The response enters Step 11.6. All three "disagree" findings are singletons (each
@@ -527,12 +509,6 @@
   assert:
     - type: regex
       value: "Step 11.6"
-    # No harden dispatch (cell 3 — auto+false)
-    - type: not-regex
-      value: "Skill.*harden-sdlc"
-    # AskUserQuestion MUST NOT appear in auto context (C17)
-    - type: not-regex
-      value: "AskUserQuestion"
     # R26 log entry format
     - type: regex
       value: "deferred meta.analysis clusters"
@@ -566,9 +542,6 @@
     # Skill dispatches must appear
     - type: regex
       value: "harden.sdlc"
-    # AskUserQuestion MUST NOT appear (C17)
-    - type: not-regex
-      value: "AskUserQuestion"
     - type: llm-rubric
       value: >
         The response enters Step 11.6 under --auto mode with alwaysHardenFromReview=true

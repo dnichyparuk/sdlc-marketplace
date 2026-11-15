@@ -1,9 +1,9 @@
 # Fixture appropriateness:
-#   plan-execution-complete        -- CORRECT: simulates completed plan execution, triggers workflow continuation
+#   plan-execution-complete        -- CORRECT: simulates completed plan execution, triggers the What's Next list
 #   feature-branch-with-commits   -- CORRECT: provides branch context for plan execution with --quality
 #   plan-execution-with-guardrails -- CORRECT: provides execution guardrails context for guardrail evaluation testing
 
-- description: "execute-plan-sdlc: shows workflow continuation menu after plan execution"
+- description: "execute-plan-sdlc: lists follow-up skills after plan execution"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md"
     project_context: "file://fixtures/plan-execution-complete.md"
@@ -21,16 +21,14 @@
     # Must offer version as a next action
     - type: icontains
       value: "/version-sdlc"
-    # Must offer done as an option
+    # Must offer review as a next action
     - type: icontains
-      value: "done"
-    # Behavioral: interactive menu with skill options
+      value: "/review-sdlc"
+    # Behavioral: follow-up skill list
     - type: llm-rubric
       value: >
-        The response presents an interactive menu asking the user what to do next after plan
-        execution, with specific skill options to choose from. The menu includes at minimum:
-        commit (/commit-sdlc), review (/review-sdlc), version (/version-sdlc), pr (/pr-sdlc),
-        and done. The user is asked to select an option rather than being given a passive suggestion.
+        After plan execution, the response lists follow-up skills, at minimum /commit-sdlc,
+        /review-sdlc, /version-sdlc and /pr-sdlc. It does not need to ask the user to pick one.
 
 - description: "execute-plan-sdlc: skips quality-tier selection when --quality balanced is provided"
   vars:

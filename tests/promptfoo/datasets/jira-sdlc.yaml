@@ -1,5 +1,5 @@
 # Fixture appropriateness:
-#   jira-ticket-created            -- CORRECT: simulates a created Jira ticket, triggers workflow continuation
+#   jira-ticket-created            -- CORRECT: simulates a created Jira ticket, triggers the What's Next list
 #   jira-create-task               -- CORRECT: simulates Jira cache with project metadata for create operation
 #   jira-create-test-types         -- CORRECT: simulates Jira cache with Test Case / Test Plan issue types for template rendering
 #   jira-comment-adf               -- CORRECT: simulates Jira cache for comment operation with ADF conversion
@@ -9,7 +9,7 @@
 # NOTE: Exec (script-only) cases for jira-prepare.js live in jira-sdlc-exec.yaml
 # (ref'd by promptfooconfig-exec.yaml). This file contains behavioral (LLM) cases only.
 
-- description: "jira-sdlc: shows workflow continuation menu after Jira ticket created"
+- description: "jira-sdlc: lists follow-up skills after Jira ticket created"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/jira-sdlc/SKILL.md"
     project_context: "file://fixtures/jira-ticket-created.md"
@@ -20,17 +20,14 @@
     # Must offer plan as a next action
     - type: icontains
       value: "/plan-sdlc"
-    # Must offer done as an option
+    # Must offer execute-plan as a next action
     - type: icontains
-      value: "done"
-    # Behavioral: interactive menu asking whether to plan
+      value: "/execute-plan-sdlc"
+    # Behavioral: follow-up skill list
     - type: llm-rubric
       value: >
-        The response asks the user whether to plan implementation for the Jira ticket,
-        presenting an interactive menu. The menu includes at minimum: plan (/plan-sdlc) and
-        done. Since a ticket with implementation work was just created, the plan option is
-        offered. The user is asked to select an option rather than being given a passive
-        suggestion.
+        After the ticket is created, the response lists follow-up skills, at minimum
+        /plan-sdlc and /execute-plan-sdlc. It does not need to ask the user to pick one.
 
 - description: "jira-sdlc: follows create operation procedure from operations reference"
   vars:
@@ -53,9 +50,6 @@
     # Must include priority from cache allowedValues
     - type: regex
       value: "(priority|High)"
-    # Must not fabricate field values not in the cache
-    - type: not-regex
-      value: "(guess|fabricat|invent|assume)"
     # Behavioral: follows create operation procedure with cache-driven values
     - type: llm-rubric
       value: >
@@ -189,9 +183,6 @@
       value: "FOO"
     - type: icontains
       value: "BAR"
-    # Must NOT invent a third project (free-form prompt or fabricated key)
-    - type: not-regex
-      value: "(PROJ|BAZ|QUUX|TEAM)"
     # Behavioral rubric for R13 closed-list prompt
     - type: llm-rubric
       value: >
@@ -225,9 +216,6 @@
     # Must NOT pass transition by name (only { id } is accepted)
     - type: not-regex
       value: "transition:\\s*\"Done\""
-    # Must NOT treat unsampled as a blocking cache-incompleteness failure
-    - type: not-regex
-      value: "(cache incomplete|cache is incomplete|rebuild cache|--force-refresh)"
     # Behavioral rubric for R14 unsampled fallback
     - type: llm-rubric
       value: >

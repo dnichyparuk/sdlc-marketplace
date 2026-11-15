@@ -51,7 +51,7 @@
         PR patterns, it proposes minimal changes. It presents the current state and proposed
         adaptations (if any) and asks the user for feedback.
 
-- description: "setup-sdlc --pr-template: shows workflow continuation menu after template customization"
+- description: "setup-sdlc --pr-template: finishes with a summary after template customization"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/setup-sdlc/SKILL.md"
     project_context: "file://fixtures/pr-template-customized.md"
@@ -63,16 +63,8 @@
     # Must offer PR creation as a next action
     - type: icontains
       value: "/pr-sdlc"
-    # Must offer commit as a next action
-    - type: icontains
-      value: "/commit-sdlc"
-    # Must offer done as an option
-    - type: icontains
-      value: "done"
-    # Behavioral: interactive menu with skill options
     - type: llm-rubric
       value: >
-        The response presents an interactive menu asking the user what to do next after
-        PR template customization, with specific skill options to choose from. The menu
-        includes at minimum: pr (/pr-sdlc), commit (/commit-sdlc), and done. The user
-        is asked to select an option rather than being given a passive suggestion.
+        After template customization, the response confirms the template was saved
+        and validated and points to /pr-sdlc, which uses the template. It does not need
+        to ask the user to pick a next action.

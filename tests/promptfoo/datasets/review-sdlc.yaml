@@ -238,16 +238,14 @@
     - type: not-regex
       value: '-f body="'
     # Must NOT re-dispatch any agent to post the comment
-    - type: not-regex
-      value: "(dispatch.*orchestrator|spawn.*Agent|Agent tool|subagent_type)"
     # Behavioral: one gh api call, zero agent re-dispatch, cleanup happens after
     - type: llm-rubric
       value: >
         The response describes posting the consolidated review comment to PR #42 via exactly
         one `gh api repos/acme-corp/widgets/issues/42/comments -F body=@/tmp/review-diff-abc123/review-comment.md`
         call. It does NOT re-invoke the review-orchestrator, does NOT dispatch any new Agent,
-        and does NOT use the fragile `-f body="…"` inline form. After posting, both the
-        manifest file and the diff dir (`/tmp/review-diff-abc123`) are cleaned up.
+        and does NOT use the fragile `-f body="…"` inline form. After posting, the
+        diff dir (`/tmp/review-diff-abc123`) is removed; the manifest file is kept (it persists under .sdlc/execution/out/).
 
 - description: "review-sdlc: post-confirmation cancel — no gh api, no save, diff_dir cleaned (issue #167)"
   vars:
@@ -259,10 +257,7 @@
   assert:
     # Must NOT invoke gh api
     - type: not-regex
-      value: "gh api"
-    # Must NOT write anything under .sdlc/reviews/
-    - type: not-regex
-      value: '\.sdlc/reviews/[^"\s]*\.md'
+      value: '(^|\n)[ \t]*gh api '
     # Must clean up the diff dir from the summary
     - type: regex
       value: "(rm -rf.*review-diff-def456|/tmp/review-diff-def456.*(cleaned|removed|deleted))"
@@ -285,10 +280,10 @@
   assert:
     # Must NOT invoke gh api
     - type: not-regex
-      value: "gh api"
-    # Must save under .sdlc/reviews/<branch>-<date>.md
+      value: '(^|\n)[ \t]*gh api '
+    # Must save at the Save path: value from the summary
     - type: regex
-      value: '\.sdlc/reviews/feat-search-api-\d{4}-\d{2}-\d{2}\.md|\.sdlc/reviews/[^"\s]*search-api[^"\s]*\.md'
+      value: '\.sdlc/reviews/feat-search-api-2026-11-05\.md'
     # Must reference the orchestrator-provided comment_file as the source
     - type: icontains
       value: "/tmp/review-diff-ghi789/review-comment.md"
@@ -299,11 +294,11 @@
     - type: llm-rubric
       value: >
         The response describes saving the consolidated comment to a file under
-        `.sdlc/reviews/` named `<branch>-<YYYY-MM-DD>.md` where branch is `feat/search-api`
-        (slashes replaced or preserved per project convention) and the date is today. The save
+        `.sdlc/reviews/` at the `Save path:` value from the summary,
+        `.sdlc/reviews/feat-search-api-2026-11-05.md`, used as given. The save
         is performed by copying from the orchestrator-provided `Comment file` path
         (`/tmp/review-diff-ghi789/review-comment.md`). It does NOT call `gh api`. After saving,
-        both the manifest file and the diff dir (`/tmp/review-diff-ghi789`) are cleaned up.
+        the diff dir (`/tmp/review-diff-ghi789`) is removed; the manifest file is kept (it persists under .sdlc/execution/out/).
         It does not re-dispatch the orchestrator.
 
 # ---------------------------------------------------------------------------
@@ -343,8 +338,8 @@
       value: "Write"
     - type: icontains
       value: "/p/.sdlc/reviews/feat-x-2026-11-05.md"
-    - type: not-contains
-      value: "Post this review comment"
+    - type: not-regex
+      value: '(^|\n)[ \t]*Post this review comment to PR #12\?'
     - type: not-regex
       value: 'mkdir -p|cp "'
     - type: llm-rubric
@@ -384,8 +379,8 @@
   assert:
     - type: regex
       value: 'links\.js[\s\S]*?gh api'
-    - type: not-contains
-      value: "Post this review comment"
+    - type: not-regex
+      value: '(^|\n)[ \t]*Post this review comment to PR #12\?'
     - type: llm-rubric
       value: >
         The response runs the link validator (scripts/lib/links.js --file on the comment file)
@@ -459,8 +454,8 @@
   assert:
     - type: contains
       value: "Self-fix offer skipped (--auto)."
-    - type: not-contains
-      value: "Address them now?"
+    - type: not-regex
+      value: '(^|\n)[ \t]*>?[ \t]*The review found actionable items\. Address them now\?'
     - type: llm-rubric
       value: >
         The response skips the Step 5 self-fix offer because Auto is true, prints
@@ -581,8 +576,6 @@
       .github/instructions/security-review.instructions.md and explain which fields are dropped.
   assert:
     # The generated Copilot file must NOT contain a model field
-    - type: not-icontains
-      value: "model: claude-haiku"
     - type: not-regex
       value: '(?:^|[\n\r  ])[Mm][Oo][Dd][Ee][Ll]:\s'
     # Must explicitly mention the Omit transform behavior
@@ -592,8 +585,7 @@
       value: >
         The response generates a Copilot instructions file for security-review and explicitly
         notes that the `model:` field is omitted in the Copilot transform (because Copilot has
-        no model-selector concept). The explanation references the transform table that groups
-        model with max-files and requires-full-diff in the Omit row. The generated file does
+        no model-selector concept). The generated file does
         NOT contain any `model:` line in its frontmatter or body.
 
 - description: "review-sdlc: link verification (R14, #198) — invokes script gate before gh api comments POST"

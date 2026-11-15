@@ -38,7 +38,7 @@
     scaffold: github
     allowed_tools: "Read,Glob,Grep,Skill,Write,Bash"
     stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_DATA": "live"}'
     timeout_seconds: 600
     max_budget_usd: 2
     tier: cheap
@@ -66,7 +66,7 @@
     scaffold: github
     allowed_tools: "Read,Glob,Grep,Skill,Write,Bash"
     stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_DATA": "live"}'
     timeout_seconds: 600
     max_budget_usd: 2
     tier: cheap
@@ -96,7 +96,7 @@
     scaffold: github
     allowed_tools: "Read,Glob,Grep,Skill,Write,Bash"
     stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_DATA": "live"}'
     timeout_seconds: 600
     max_budget_usd: 2
     tier: cheap
@@ -126,7 +126,7 @@
     scaffold: github
     allowed_tools: "Read,Glob,Grep,Skill,Write,Bash"
     stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_DATA": "live"}'
     timeout_seconds: 600
     max_budget_usd: 2
     tier: cheap
@@ -162,7 +162,7 @@
     scaffold: github
     allowed_tools: "Read,Glob,Grep,Skill,Write,Bash"
     stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1"}'
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_STUB_DATA": "live"}'
     timeout_seconds: 600
     max_budget_usd: 2
     tier: cheap

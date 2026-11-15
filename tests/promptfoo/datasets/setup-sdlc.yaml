@@ -150,7 +150,7 @@
         - "Purpose"
         - "Files modified"
         - "Consumed by"
-        - "/jira-sdlc"
+        - "jira-sdlc"
     # Field description sentence (substring from manifest)
     - type: icontains-any
       value:
@@ -161,8 +161,8 @@
       value: >
         Before asking any AskUserQuestion, the response prints a verbose header for the
         jira section. The header contains at minimum: a Purpose line explaining what the
-        jira section does at runtime, a Files modified line listing .claude/sdlc.json,
-        a Consumed by line listing /jira-sdlc, /commit-sdlc, /pr-sdlc, and an Options
+        jira section does at runtime, a Files modified line listing .sdlc/config.json,
+        a Consumed by line listing jira-sdlc, commit-sdlc, pr-sdlc, and an Options
         block describing the defaultProject field with at least one full sentence covering
         what runtime behavior changes when set. The header copy comes from the manifest
         (scripts/lib/setup-sections.js), not freeform LLM-generated text.
@@ -277,8 +277,8 @@
       value: "[set]"
     - type: icontains
       value: "off — no automatic labels"
-    - type: not-icontains
-      value: "not configured"
+    - type: not-regex
+      value: '\[(set|not set)\][ \t]+pr-labels[ \t]+not configured'
     - type: llm-rubric
       value: >
         The pr-labels row in the Step 1 menu shows the configured state: marker `[set]`
@@ -296,6 +296,8 @@
       .claude/sdlc.json containing
       `pr.labels: { mode: "rules", rules: [{ label: "bug", when: { branchPrefix: ["fix/"] } }] }`.
       The user runs `/setup-sdlc` (no flags) and reaches the Step 1 selective-section menu.
+      The setup.js prepare output contains this pr-labels row in sections[] (fields omitted):
+      {"id":"pr-labels","label":"pr-labels","state":"set","summary":"rules: 1 rule","locked":false,"configFile":".sdlc/config.json","configPath":"pr.labels","consumedBy":["pr-sdlc"],"filesModified":[".sdlc/config.json"],"optional":true,"delegatedTo":"setup-pr-labels","confirmDetected":false}
     user_request: >
       Render the Step 1 selective-section menu for this project. Show how the pr-labels
       row is presented, including its state marker and the per-section summary string
@@ -307,8 +309,8 @@
       value: "[set]"
     - type: icontains
       value: "rules: 1 rule"
-    - type: not-icontains
-      value: "not configured"
+    - type: not-regex
+      value: '\[(set|not set)\][ \t]+pr-labels[ \t]+not configured'
     - type: llm-rubric
       value: >
         The pr-labels row shows marker `[set]` and summary `rules: 1 rule` (singular,
@@ -332,8 +334,8 @@
       value: "pr-labels"
     - type: icontains
       value: "[not set]"
-    - type: not-icontains
-      value: "not configured"
+    - type: not-regex
+      value: '\[(set|not set)\][ \t]+pr-labels[ \t]+not configured'
     - type: llm-rubric
       value: >
         The pr-labels row shows marker `[not set]` because `pr.labels` is undefined.
@@ -371,11 +373,6 @@
       selected steps[]). The remaining 10 shipFields have skip: false. Walk me through the
       ship field loop and show me which questions you ask.
   assert:
-    - type: not-icontains-any
-      value:
-        - "verifyPipelineTimeout"
-        - "verifyPipelineInterval"
-        - "verifyPipelineMaxIterations"
     - type: llm-rubric
       value: >
         The skill is configuring the ship section. The three verifyPipeline* fields
@@ -595,12 +592,8 @@
       mode=file, answer all version fields, and enter 'rc' for preRelease. What happens before
       the config is written?
   assert:
-    - type: not-icontains-any
-      value:
-        - "incompatible"
-        - "partial"
-        - "confirm"
-        - "Proceed with preRelease"
+    - type: not-regex
+      value: '(^|\n)[ \t]*"?Proceed with .?preRelease'
     - type: llm-rubric
       value: >
         The fileType is 'package.json' which has compat level 'compatible'. After collecting

@@ -18,7 +18,7 @@
     - type: regex
       value: '"status":"fix-applied"|fix-applied'
     - type: not-regex
-      value: "(git commit|git push)"
+      value: '(^|\n)[ \t]*git (commit|push)\b'
 
 - description: "verify-pipeline-sdlc: build-error always emits proposal (never auto-applies)"
   vars:
@@ -32,8 +32,10 @@
       value: "(build-error|build error)"
     - type: regex
       value: '"status":"proposal"|proposal'
-    - type: not-regex
-      value: "(apply.*fix.*automatically|auto.*apply.*Edit)"
+    - type: llm-rubric
+      value: >
+        The response emits a proposal for the build error and does not apply the fix
+        automatically.
 
 - description: "verify-pipeline-sdlc: interactive (no --auto) emits proposal regardless of category"
   vars:
@@ -46,7 +48,7 @@
     - type: regex
       value: '"status":"proposal"|proposal'
     - type: not-regex
-      value: "(auto.apply|fix-applied)"
+      value: '"status":\s*"fix-applied"'
 
 - description: "verify-pipeline-sdlc: missing both --pr and --logs aborts (E1)"
   vars:
