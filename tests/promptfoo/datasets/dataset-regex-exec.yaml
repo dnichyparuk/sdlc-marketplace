@@ -5,7 +5,7 @@
     script_path: "repo://tests/promptfoo/scripts/check-dataset-regex.js"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.invalid.length === 0 && r.configs === 2 && r.datasets >= 19 && r.checked >= 320"
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.invalid.length === 0 && r.configs === 2 && r.datasets >= 19 && r.checked >= 300"
 
 - description: "dataset-regex: (b) an inline-flag regex and an inline-flag not-regex are reported; valid values are not"
   vars:

@@ -116,7 +116,7 @@
       value: "## Changes Overview"
     # Must NOT produce a PR title in conventional commit format (no feat/fix/chore:)
     - type: not-regex
-      value: '^feat(\(.+\))?:'
+      value: '(^|\n)PR Title: feat(\(.+\))?:'
     # Behavioral: clearly refuses and instructs to switch branches
     - type: llm-rubric
       value: >
@@ -182,10 +182,10 @@
   assert:
     # Must generate a type from allowedTypes
     - type: regex
-      value: '^(feat|fix|chore|refactor|docs)(\([a-z-]+\))?:'
+      value: '(^|\n)PR Title: (feat|fix|chore|refactor|docs)(\([a-z-]+\))?:'
     # Must NOT generate an invalid type (e.g., "perf" or "style" which aren't in allowedTypes)
     - type: not-regex
-      value: '^(perf|style|test|ci)(\([a-z-]+\))?:'
+      value: '(^|\n)PR Title: (perf|style|test|ci)(\(|:)'
     # Behavioral: type constraint respected in critique/planning
     - type: llm-rubric
       value: >
@@ -205,10 +205,7 @@
   assert:
     # Must produce title matching the pattern (type:scope format)
     - type: regex
-      value: '^(feat|fix|chore|refactor|docs)(\([a-z-]+\))?:'
-    # Must include scope from allowedScopes: api, auth, db
-    - type: regex
-      value: '\((api|auth|db)\):'
+      value: '(^|\n)PR Title: (feat|fix|chore|refactor|docs)\((api|auth|db)\):'
     # Behavioral: pattern validation in quality gate
     - type: llm-rubric
       value: >
@@ -285,20 +282,15 @@
       Labels line, if any? Justify your answer against the Step 2b dispatch rules.
   assert:
     # The Labels line must NOT appear in the approval prompt
-    - type: not-icontains
-      value: "Labels:"
-    # No fabricated labels regardless of repoLabels content
-    - type: not-icontains
-      value: "(rule)"
-    - type: not-icontains
-      value: "(llm)"
+    - type: not-regex
+      value: '(^|\n)[ \t]*Labels:'
     - type: llm-rubric
       value: >
         The response correctly states that under mode = "off" with no forced labels, no
         Labels line is shown in the Step 5 approval output. It cites the Step 2b "Off mode"
         rule and the Step 5 instruction to omit the Labels line entirely when there are no
         labels. It does NOT fabricate any label suggestions, does NOT fall back to fuzzy
-        matching, and does NOT mention "(llm)" or "(rule)" provenance tags.
+        matching, and does NOT show any label with an (llm) or (rule) provenance tag.
 
 - description: "pr-sdlc labels: mode=rules + matching branchPrefix → only the matched label is suggested"
   vars:
@@ -316,11 +308,11 @@
     - type: icontains
       value: "small-change"
     # commitType "feat" rule does NOT match (commits start with "fix")
-    - type: not-icontains
-      value: "feature (rule)"
+    - type: not-regex
+      value: '(^|\n)[ \t]*(Labels:|suggestedLabels[^\n]*:)[^\n]*feature \(rule\)'
     # pathGlob "**/*.md" rule does NOT match (only .ts files)
-    - type: not-icontains
-      value: "documentation (rule)"
+    - type: not-regex
+      value: '(^|\n)[ \t]*(Labels:|suggestedLabels[^\n]*:)[^\n]*documentation \(rule\)'
     - type: llm-rubric
       value: >
         The response correctly evaluates each rule. It identifies that the branchPrefix
@@ -345,11 +337,13 @@
     - type: icontains
       value: "needs-review (forced)"
     # bug must NOT also appear with (rule) — forced wins
-    - type: not-icontains
-      value: "bug (rule)"
+    - type: not-regex
+      value: '(^|\n)[ \t]*Labels:[^\n]*bug \(rule\)'
     # small-change still emerges from the diffSizeUnder rule
     - type: icontains
       value: "small-change (rule)"
+    - type: regex
+      value: '(^|\n)[ \t]*Labels: bug \(forced\), needs-review \(forced\), small-change \(rule\)'
     - type: llm-rubric
       value: >
         The response shows forced labels first ("bug (forced)", "needs-review (forced)"),
@@ -373,8 +367,8 @@
     # Warning text from pr.js
     - type: regex
       value: "(does not exist|will be ignored|not in the repo|not in repoLabels)"
-    - type: not-icontains
-      value: "wontfix (rule)"
+    - type: not-regex
+      value: '(^|\n)[ \t]*(Labels:|suggestedLabels[^\n]*:)[^\n]*wontfix \(rule\)'
     - type: llm-rubric
       value: >
         The response correctly explains that pr.js validates rules[].label against repoLabels
@@ -416,12 +410,8 @@
       with NO `labels` block at all (legacy project that never ran setup-sdlc --only pr-labels).
       What does Step 2b dispatch to, and what is the Labels line in Step 5?
   assert:
-    - type: not-icontains
-      value: "Labels:"
-    - type: not-icontains
-      value: "(llm)"
-    - type: not-icontains
-      value: "(rule)"
+    - type: not-regex
+      value: '(^|\n)[ \t]*Labels:'
     - type: llm-rubric
       value: >
         The response identifies that when prConfig.labels is absent, the Step 2b mode

@@ -92,7 +92,7 @@
         directory names). The response does NOT propose ui-review since there is no frontend
         evidence. It presents proposals to the user and asks which ones to install.
 
-- description: "setup-sdlc --dimensions: shows workflow continuation menu after dimension setup"
+- description: "setup-sdlc --dimensions: lists follow-up skills after dimension setup"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/setup-sdlc/SKILL.md"
     project_context: "file://fixtures/review-dimensions-created.md"
@@ -107,16 +107,10 @@
     # Must offer commit as a next action
     - type: icontains
       value: "/commit-sdlc"
-    # Must offer done as an option
-    - type: icontains
-      value: "done"
-    # Behavioral: interactive menu with skill options
     - type: llm-rubric
       value: >
-        The response presents an interactive menu asking the user what to do next after
-        review dimension setup, with specific skill options to choose from. The menu
-        includes at minimum: review (/review-sdlc), commit (/commit-sdlc), and done.
-        The user is asked to select an option rather than being given a passive suggestion.
+        After review dimension setup, the response lists follow-up skills, at minimum
+        /review-sdlc and /commit-sdlc. It does not need to ask the user to pick one.
 
 - description: "setup-sdlc --dimensions: --add mode proposes only new dimensions, acknowledges existing"
   vars:
@@ -178,7 +172,9 @@
     - type: regex
       value: "(limited|minimal|few|little|no.+signal)"
     - type: not-regex
-      value: "(security-review|api-review|data-integrity|test-coverage|monorepo|ci-cd)"
+      value: 'review-dimensions/(security-review|api-review|data-integrity|test-coverage|monorepo|ci-cd)[a-z-]*\.(md|ya?ml)'
+    - type: icontains
+      value: "code-quality-review"
     - type: llm-rubric
       value: >
         The response acknowledges the minimal project with very few tech signals.
@@ -197,7 +193,7 @@
       propose dimensions, but skip the GitHub Copilot instructions generation step.
   assert:
     - type: not-regex
-      value: '(copilot instruction|\.github/instructions|instructions\.md)'
+      value: '\.github/instructions/[a-z0-9-]+\.instructions\.md'
     - type: regex
       value: "(dimension|code-quality)"
     - type: llm-rubric

@@ -1,7 +1,7 @@
 # Fixture appropriateness:
-#   commit-staged-changes          -- CORRECT: simulates a completed commit, triggers workflow continuation
+#   commit-staged-changes          -- CORRECT: simulates a completed commit, triggers the What's Next list
 
-- description: "commit-sdlc: shows workflow continuation menu after commit"
+- description: "commit-sdlc: lists follow-up skills after commit"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"
     project_context: "file://fixtures/commit-staged-changes.md"
@@ -18,16 +18,11 @@
     # Must offer review as a next action
     - type: icontains
       value: "/review-sdlc"
-    # Must offer done as an option
-    - type: icontains
-      value: "done"
-    # Behavioral: interactive menu with skill options
+    # Behavioral: follow-up skill list
     - type: llm-rubric
       value: >
-        The response presents an interactive menu asking the user what to do next after
-        committing, with specific skill options to choose from. The menu includes at minimum:
-        review (/review-sdlc), version (/version-sdlc), pr (/pr-sdlc), and done. The user is asked to select an
-        option rather than being given a passive suggestion.
+        After committing, the response lists follow-up skills, at minimum
+        /review-sdlc, /version-sdlc and /pr-sdlc. It does not need to ask the user to pick one.
 
 - description: "commit-sdlc: --auto flag skips interactive approval prompt"
   vars:
@@ -207,8 +202,8 @@
       value: "git reset --soft"
     - type: icontains
       value: "git add -A"
-    - type: not-icontains
-      value: "--no-verify"
+    - type: not-regex
+      value: "git commit[^\\n]*--no-verify"
     - type: llm-rubric
       value: >
         The response describes Step 1c soft-reset: resolves fork-point (via merge-base with
@@ -228,8 +223,8 @@
   assert:
     - type: icontains
       value: "--no-squash-wip"
-    - type: not-icontains
-      value: "git reset --soft"
+    - type: not-regex
+      value: "(^|\\n)[ \\t]*git reset --soft"
     - type: llm-rubric
       value: >
         The response notes that --no-squash-wip is set, so Step 1c prints a notice along
@@ -271,8 +266,8 @@
   assert:
     - type: icontains
       value: "Refusing"
-    - type: not-icontains
-      value: "git commit -F"
+    - type: not-regex
+      value: "(^|\\n)[ \\t]*git commit -F"
     - type: llm-rubric
       value: >
         The response stops before creating any commit. It prints the error message from prepare

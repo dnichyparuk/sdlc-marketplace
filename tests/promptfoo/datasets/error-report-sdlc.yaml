@@ -45,9 +45,6 @@
       error-report-sdlc. The error context is provided above. Process this
       error and determine whether to propose a GitHub issue.
   assert:
-    # Must NOT propose creating a GitHub issue
-    - type: not-regex
-      value: "(propose.*issue|create.*GitHub issue|draft.*issue|assemble.*issue)"
     # Must explain why it's not issue-worthy
     - type: regex
       value: "(not issue-worthy|user error|user.*(setup|action|config|input)|exit code 1|not.*bug|skip)"

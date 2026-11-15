@@ -101,3 +101,4 @@ If `openspecSpecs` was loaded in Step 1 (the plan was OpenSpec-sourced), also su
    <stderr output>
    Fix validation issues before archiving.
    ```
+   Print no `openspec archive` command anywhere in this run's output, not even as a later or conditional step ("when it passes, run ..."). The line `Fix validation issues before archiving.` is the only archive wording. <!-- implements R24 -->

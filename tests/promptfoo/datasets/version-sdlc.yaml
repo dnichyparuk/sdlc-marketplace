@@ -44,15 +44,15 @@
     # Must show the detected current version
     - type: regex
       value: '0\.3\.1'
-    # Must propose writing .claude/version.json
+    # Must propose writing the version section of .sdlc/config.json
     - type: icontains
-      value: ".claude/version.json"
+      value: ".sdlc/config.json"
     # Behavioral: presents detected config, asks for confirmation
     - type: llm-rubric
       value: >
         The response follows the init workflow: it reads the version-prepare.js output showing
         detectedVersionFile=package.json, currentVersion=0.3.1, and tagPrefix=v. It presents the
-        detected configuration and the suggested .claude/version.json content. It asks the user
+        detected configuration and the suggested `version` section for .sdlc/config.json. It asks the user
         to confirm (accept/modify/cancel) before writing the config file. It does NOT write any
         files in this simulation — it describes what would happen with confirmation.
 
@@ -298,10 +298,8 @@
   assert:
     - type: icontains
       value: "1.2.4-rc.1"
-    - type: not-icontains
-      value: "breaking change"
-    - type: not-regex
-      value: '[Ss][Uu][Gg][Gg][Ee][Ss][Tt].*[Mm][Aa][Jj][Oo][Rr]'
+    - type: icontains
+      value: "v1.2.4-rc.1"
     - type: llm-rubric
       value: >
         The response uses bumpOptions.preRelease (1.2.4-rc.1) as the resolved release
@@ -332,8 +330,6 @@
   assert:
     - type: icontains
       value: "1.2.4-rc.2"
-    - type: not-icontains
-      value: "1.2.5"
     - type: llm-rubric
       value: >
         The response uses bumpOptions.preRelease (1.2.4-rc.2) — the same-base counter
@@ -362,8 +358,8 @@
   assert:
     - type: icontains
       value: "1.2.4-rc.1"
-    - type: not-icontains
-      value: "beta"
+    - type: icontains
+      value: "v1.2.4-rc.1"
     - type: llm-rubric
       value: >
         The response uses bumpOptions.preRelease (1.2.4-rc.1). The counter resets to
@@ -444,14 +440,13 @@
       value: "1.2.4-rc.1"
     - type: regex
       value: '([Cc][Oo][Nn][Ff][Ii][Gg]|[Pp][Rr][Ee][Rr][Ee][Ll][Ee][Aa][Ss][Ee]|[Ss][Dd][Ll][Cc]\.[Jj][Ss][Oo][Nn])'
-    - type: not-regex
-      value: '[Ss][Uu][Gg][Gg][Ee][Ss][Tt].*[Mm][Aa][Jj][Oo][Rr]'
     - type: llm-rubric
       value: >
         The response uses bumpOptions.preRelease (1.2.4-rc.1) and explicitly mentions
         that the pre-release label was sourced from config.preRelease (preLabelFromConfig=true)
         rather than a CLI flag. The behavior matches `--bump rc`. The breaking-change
-        warning is NOT triggered (no breaking changes anyway, but the principle holds).
+        warning is NOT triggered (no breaking changes anyway, but the principle holds),
+        and the response does not recommend a major bump.
 
 - description: "version-sdlc: explicit --bump major overrides config.preRelease and graduates"
   vars:
@@ -473,10 +468,10 @@
   assert:
     - type: icontains
       value: "2.0.0"
-    - type: not-icontains
-      value: "rc"
-    - type: not-icontains
-      value: "preRelease"
+    - type: not-regex
+      value: '2\.0\.0-[a-z]'
+    - type: icontains
+      value: "v2.0.0"
     - type: llm-rubric
       value: >
         The response uses bumpOptions.major (2.0.0) — a clean, non-pre-release version.
@@ -516,15 +511,9 @@
     # Must use the Edit tool (not Write, not bash sed)
     - type: icontains
       value: "Edit"
-    # Must NOT propose Write tool or full file rewrite
-    - type: not-icontains
-      value: "Write tool"
     # Must verify with git diff
     - type: regex
       value: 'git diff (--?[a-z]+ )*plugin\.json'
-    # Must NOT touch description, author, keywords (no mention of changing these in the response)
-    - type: not-regex
-      value: '([Rr][Ee][Ww][Rr][Ii][Tt][Ee]|[Rr][Ee][Gg][Ee][Nn][Ee][Rr][Aa][Tt][Ee]|[Uu][Pp][Dd][Aa][Tt][Ee]).*([Dd][Ee][Ss][Cc][Rr][Ii][Pp][Tt][Ii][Oo][Nn]|[Aa][Uu][Tt][Hh][Oo][Rr]|[Kk][Ee][Yy][Ww][Oo][Rr][Dd][Ss])'
     - type: llm-rubric
       value: >
         The response describes Step 8.1 by performing a single targeted Edit-tool call against

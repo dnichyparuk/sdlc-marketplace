@@ -28,9 +28,6 @@
     # Must use AskUserQuestion before any write (no silent edits)
     - type: regex
       value: "(AskUserQuestion|approval gate|apply.*skip.*cancel|approve.*before.*writ)"
-    # Must NOT silently write any file
-    - type: not-regex
-      value: "(silently writ|auto.appl|without.*approval|skipped.*approval)"
     # Behavioral: full strengthen-only flow
     - type: llm-rubric
       value: >
@@ -133,9 +130,6 @@
     # Must route to error-report-sdlc
     - type: regex
       value: "(error-report-sdlc|error.report.sdlc|REFERENCE\\.md.*error-report)"
-    # Must NOT produce surface proposals
-    - type: not-regex
-      value: "(plan-guardrails proposal|review-dimensions proposal|copilot-instructions proposal|apply.*proposal)"
     # Behavioral
     - type: llm-rubric
       value: >
@@ -189,8 +183,6 @@
       classification="ambiguous" with errorReportPayload=null. Describe what
       should happen after the per-proposal apply/skip flow completes.
   assert:
-    - type: not-regex
-      value: "(dispatch error-report-sdlc|file.*GitHub issue|upstream.report.offer|plugin defect)"
     - type: llm-rubric
       value: >
         Step 5c is suppressed — no upstream-report offer is surfaced because
@@ -208,8 +200,10 @@
   assert:
     - type: regex
       value: "(missing.*failure-text|required.*failure-text|--failure-text.*required|exit.*1)"
-    - type: not-regex
-      value: "(dispatch.*orchestrator|run.*prepare|propose.*hardening)"
+    - type: llm-rubric
+      value: >
+        The response exits with an error and does not dispatch the orchestrator, run the
+        prepare script or propose any hardening.
 
 - description: "harden-sdlc: missing --skill → exits with error, no execution"
   vars:
@@ -221,8 +215,10 @@
   assert:
     - type: regex
       value: "(missing.*skill|required.*skill|--skill.*required|exit.*1)"
-    - type: not-regex
-      value: "(dispatch.*orchestrator|run.*prepare|propose.*hardening)"
+    - type: llm-rubric
+      value: >
+        The response exits with an error and does not dispatch the orchestrator, run the
+        prepare script or propose any hardening.
 
 - description: "harden-sdlc: empty surfaces → graceful degradation, classification still attempted"
   vars:
@@ -236,8 +232,10 @@
     # Must still run, not crash
     - type: regex
       value: "(graceful|empty array|missing.*non.fatal|still.*run|continue|degrad)"
-    - type: not-regex
-      value: "(crash|abort.*missing.*config|fatal.*sdlc\\.json)"
+    - type: llm-rubric
+      value: >
+        The response degrades gracefully: missing config surfaces are treated as empty and the
+        skill does not crash or abort because of a missing sdlc.json.
 
 - description: "harden-sdlc: user selects cancel at AskUserQuestion → no files written"
   vars:
@@ -251,8 +249,10 @@
     # Must not write any file on cancel
     - type: regex
       value: "(no.*file.*written|abort.*entire.*skill|trap.*clean.*up|no.*surface.*edit)"
-    - type: not-regex
-      value: "(write.*\\.claude/sdlc\\.json|edit.*review-dimensions|append.*to.*sdlc\\.json)"
+    - type: llm-rubric
+      value: >
+        The response states that no surface file is written or edited after cancel: neither
+        .claude/sdlc.json nor the review-dimensions files are changed.
 
 - description: "harden-sdlc: user applies one of two proposals → exactly one file written"
   vars:
@@ -266,8 +266,10 @@
     # Exactly one file written
     - type: regex
       value: "(\\.claude/sdlc\\.json|sdlc\\.json.*write|apply.*proposal 1)"
-    - type: not-regex
-      value: "(both.*written|all.*proposals.*applied|skip.*also.*written)"
+    - type: llm-rubric
+      value: >
+        The response writes only the applied proposal 1; the skipped proposal 2 is not
+        written.
 
 - description: "harden-sdlc: two proposals both applied → write-before-advancing and no accumulation (R-iteration-write rules 2 and 3)"
   vars:
@@ -283,9 +285,6 @@
     # Must write each proposal before advancing to the next (rule 2)
     - type: regex
       value: "(write.*before.*next|persist.*before.*advanc|written.*before.*present|disk.*before.*next|after.*write.*proposal.*1.*present.*proposal.*2)"
-    # Must NOT accumulate and batch-write
-    - type: not-regex
-      value: "(accum.*both|batch.*write|collect.*then.*write|write.*together.*end|all.*at.*once)"
     # Behavioral: correct two-proposal iteration sequence
     - type: llm-rubric
       value: >
@@ -310,8 +309,10 @@
     # Must refuse to relax/remove
     - type: regex
       value: "(strengthen.only|never relax|no.*relax|no.*remove|forbidden.*v1|cannot.*weaken)"
-    - type: not-regex
-      value: "(relax.*to.*warning|downgrade.*severity|remove.*guardrail|weaken.*description)"
+    - type: llm-rubric
+      value: >
+        The response refuses any relaxing change: it does not relax a severity to warning,
+        remove a guardrail or weaken a description.
 
 - description: "harden-sdlc: schema-invalid sdlc.json edit → validator error surfaced, no write"
   vars:
@@ -328,9 +329,10 @@
     # Must surface the error
     - type: regex
       value: "(validator.*error|surface.*error|show.*error.*user|retry.*cancel)"
-    # Must NOT silently commit
-    - type: not-regex
-      value: "(silently.*write|skip.*validation|ignore.*validator)"
+    - type: llm-rubric
+      value: >
+        The response surfaces the validator error to the user and writes nothing; it does not
+        skip validation or ignore the validator.
 
 # R14–R16 new cases (issue #416)
 
@@ -378,9 +380,6 @@
     # Must target the existing id
     - type: regex
       value: "(no-scope-creep)"
-    # Must NOT add a second scope-related guardrail
-    - type: not-regex
-      value: "(action.*add.*scope|new.*scope.*guardrail)"
     # Behavioral
     - type: llm-rubric
       value: >

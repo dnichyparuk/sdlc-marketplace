@@ -42,4 +42,4 @@ The user replied: **yes**
 
 Describe precisely what the skill's main context does next. Include the exact `gh api`
 invocation the skill runs. Do not dispatch any additional Agent calls or re-invoke the
-orchestrator. State how cleanup proceeds.
+orchestrator. State how cleanup proceeds (the diff dir is removed; the manifest file is kept).

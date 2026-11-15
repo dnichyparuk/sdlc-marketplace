@@ -13,7 +13,7 @@ README.md
 ## Current State
 
 - `package.json` version: **0.3.1**
-- **No `.claude/version.json`** — versioning not yet initialized
+- **No `version` section in `.sdlc/config.json`** — versioning not yet initialized
 - Tags exist: `v0.3.1`, `v0.2.0`, `v0.1.0`
 
 ## version-prepare.js Output (JSON) — Init Mode

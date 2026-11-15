@@ -41,5 +41,5 @@ Post this review comment to PR #42? (yes / save / cancel)
 The user replied: **cancel**
 
 Describe precisely what the skill does. It must NOT call `gh api`, must NOT write any
-file under `.sdlc/reviews/`, and must still clean up both the manifest file and the
-diff dir at `/tmp/review-diff-def456`.
+file under `.sdlc/reviews/`, and must still remove the diff dir at
+`/tmp/review-diff-def456`. The manifest file is kept.

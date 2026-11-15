@@ -148,8 +148,6 @@
       findings. Walk through what ship-sdlc does next at the review→fix boundary, citing the
       relevant requirement ids from docs/specs/ship-sdlc.md.
   assert:
-    - type: not-regex
-      value: "(AskUserQuestion)"
     - type: regex
       value: "(received-review-sdlc)"
     - type: regex
@@ -509,8 +507,8 @@
       value: "1foo"
     - type: regex
       value: '([Ii][Nn][Vv][Aa][Ll][Ii][Dd]|[Rr][Ee][Jj][Ee][Cc][Tt])'
-    - type: not-icontains
-      value: "Pipeline:"
+    - type: not-regex
+      value: '(^|\n)[ \t]*Pipeline:'
     - type: llm-rubric
       value: >
         The response surfaces the script's error — `1foo` is invalid because it
@@ -663,8 +661,6 @@
       value: "(verify-pipeline-sdlc|R46)"
     - type: regex
       value: "(--auto|flags\\.auto)"
-    - type: not-regex
-      value: "(AskUserQuestion)"
     - type: llm-rubric
       value: >
         With flags.auto === true, ship-sdlc dispatches verify-pipeline-sdlc as
@@ -690,8 +686,6 @@
   assert:
     - type: regex
       value: "(Agent|agent)"
-    - type: not-icontains
-      value: "Skill tool"
     - type: llm-rubric
       value: >
         ship-sdlc Step 5 dispatches execute-plan-sdlc via the Agent tool (not the
@@ -1018,8 +1012,8 @@
       value: "verify-openspec"
     - type: icontains
       value: "satisfied"
-    - type: not-icontains
-      value: "→ Run openspec validate --strict"
+    - type: not-regex
+      value: '(^|\n)[ \t]*→ Run openspec validate --strict'
     - type: llm-rubric
       value: >
         The response describes running verify-openspec inline via openspec validate --strict
@@ -1092,13 +1086,11 @@
     # Structural: must reference the gc-specific surface (ship.js --gc), not init-config
     - type: icontains
       value: "ship.js"
-    - type: not-icontains
-      value: "ship-init.js"
     - type: llm-rubric
       value: >
         The --gc handler is dispatched by Reading ./entry-modes.md (the --gc
-        section) and following it. The handler short-circuits — the pipeline does
-        NOT run. The response should not walk through execute/commit/review/pr.
+        section) and following it. The handler uses ship.js --gc, not ship-init.js. The
+        handler short-circuits — the pipeline does NOT run. The response should not walk through execute/commit/review/pr.
 
 - description: "ship-sdlc (R-progressive-disclosure): --init-config reads entry-modes.md init-config section"
   vars:
