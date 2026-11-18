@@ -1,0 +1,11 @@
+{
+  "guardrailCompliancePayload": "| Guardrail | Severity | Status | Rationale |\n|---|---|---|---|\n| no-scope-creep | warning | PASS | Tasks stay in scope |",
+  "g17Findings": {
+    "findings": [{ "kind": "CREATE", "dimension": "docs" }],
+    "suppressed_count": 0,
+    "rendering": "## Suggested Review Dimensions\n\n- CREATE `docs`: add a docs dimension"
+  },
+  "scorecard": {
+    "markdown": "## Verification Scorecard\n\n| Dimension | CRITICAL | WARNING | SUGGESTION | PASS |\n|---|---|---|---|---|\n| Architecture | 0 | 0 | 0 | 1 |\n\n**Verdict:** All checks passed. Ready for archive."
+  }
+}

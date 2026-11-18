@@ -319,23 +319,31 @@ G1–G21 are partitioned: the four lanes own the judgment gates (G20 and G21 in 
 
 **Iteration directory:** `<ITER_DIR>` is `<critiqueDir>/iter-0` at Step 3 and `<critiqueDir>/iter-<k>` at Step 5 iteration k (`critiqueDir` is P22). Do not add an EXIT trap: each Bash tool call is its own shell. Any stop, cancel or exit before Step 7 first removes `<critiqueDir>` (one `rm -rf` on the literal path, only when it is non-null); this is the same rule as the Error Recovery table.
 
-**Deterministic checks (before the lane dispatch):**
+**Critique round (R75):** Dispatch `critiqueDispatch` (P26) once: `subagent_type: critiqueDispatch.agent`, `description: "plan critique step3"`. Do not pass `model`, `effort`, isolation or background; the agent file sets them. The prompt is one `NAME: value` line per name in `critiqueDispatch.inputNames`:
 
-```bash
-mkdir -p "<ITER_DIR>"
+```
+ROUND: step3
+ITER: 0
+CRITIQUE_DIR: <critiqueDir>
+PLAN_FILE_PATH: <PLAN_PATH>
+PREPARE_OUTPUT: <PLAN_OUTPUT_FILE>
+DISPATCH: {"lanes":[<every lanes[].name, each in double quotes>],"lenses":[]}
+CARRY: none
+BEFORE_PLAN: none
+G17_NOT_RUN: false
+AUTHOR_MODEL: <your model: opus or sonnet>
 ```
 
-```bash
-node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --json --file "<PLAN_PATH>" --root "$PWD" > "<ITER_DIR>/pf-report.json"
-```
+`DISPATCH` names every lane (the `all` set of Step 3); the orchestrator applies the skip rules itself. `REQUIREMENTS_SUMMARY`, `SOURCE_REQUIREMENTS`, `BRIEF_FILE`, `BRIEF_FINDING_IDS` and `PLAN_TEMPLATE_PATH` take their values from the run-time table below, a multi-line value inside one fenced `text` block after its `NAME:` line. Every later round (R74, Step 5) uses the same lines with its own `ROUND`, `ITER`, `DISPATCH`, `CARRY`, `BEFORE_PLAN` and `G17_NOT_RUN`.
 
-```bash
-node "<PLUGIN_ROOT>/scripts/skill/plan.js" g17-prepare --plan "<PLAN_PATH>" --dimensions-dir .sdlc/review-dimensions --instructions-dir .github/instructions --learnings .sdlc/learnings/log.md --window 14 --github-hosting <githubHosting.detected> > "<ITER_DIR>/g17-prepare.json"
-```
+Read only the orchestrator's fenced `json` block `{ status, iterDir, blockingCount, summary, lensStatus, verdict, guardrailErrors, g17NotRun, g17Error, skipped }`; never read `merged.json`. By `status`:
 
-Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2 means stop and invoke `error-report-sdlc` (E9). A non-zero exit from g17-prepare does not stop the run (R31): G17 is not run, so do not dispatch `dimension-coverage`, leave it out of `--lanes`, log `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare exited <code>` to `.sdlc/learnings/log.md`, and pass `--g17-not-run` to every Step 4 (R74) and Step 5 `merge-lanes` call of this run.
+- `no-agent-tool`: run the round yourself by **Fallback dispatch (no-agent-tool)** below; every later round of this run also uses its fallback path.
+- `error`: stop and invoke `error-report-sdlc` with `summary` as the error (E9).
+- `guardrail-block`: write the two markers below; in Step 4 try the fixes first and show the R19 harden offer only when an error-severity failure cannot be resolved by plan revision (suppressed under `--auto`).
+- `ok`: write the two markers below; the blocking issues to fix in Step 4 are the lines of `summary`.
 
-**Step 3 dispatch rule (fan-out dispatch):** For each `lane` in `lanes[]` (P16), issue one Agent call — all in one message: `subagent_type: lane.agent`, `description: "plan lane <lane.name>"`, `prompt`: one `NAME: value` line per name in `lane.inputNames`, taking the value from `lane.presetInputs` when present, otherwise from the run-time table below. A value that spans several lines goes after `NAME:` on the lines that follow, inside one fenced `text` block, so a line inside the value is never read as another input. Do not pass `model` or `effort`; the agent file sets both (`agent-dispatch-script-driven` guardrail). Skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. When `lane.agentPath` is null, do not dispatch that lane (see below).
+**Learnings-log rule (one rule for every round and for the no-agent-tool fallback):** log a given line below only when no earlier round of this run logged that same line. When `g17NotRun` is `true` and `g17Error` is non-null, append `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare failed: <g17Error>` to `.sdlc/learnings/log.md` (the orchestrator writes only under `critiqueDir`) and pass `G17_NOT_RUN: true` to every later round of this run (R31). For each lane entry of `skipped`, append `## YYYY-MM-DD — plan-sdlc: <entry> skipped — agent file not found` (for `dimension-coverage`: `G17 skipped — plan-lane-g17 agent file not found`); for each lens entry (Step 5), append `## YYYY-MM-DD — plan-sdlc: lens "<name>" skipped — agent file not found`, both to the same log. Keep `iterDir` for the Step 4 splice.
 
 Run-time input table (values the prepare script cannot know; Step 5 and Gate A use the same table):
 
@@ -352,7 +360,45 @@ Run-time input table (values the prepare script cannot know; Step 5 and Gate A u
 
 Inputs not in this table come from the entry's `presetInputs` (P15), which `plan.js` computes: `FORMAT_REFERENCE_PATH`, `ACTIVE_GUARDRAILS`, `GUARDRAILS`, `OPENSPEC_TASKS`, `REQUIREMENTS_JSON`, `LENS` and `LENS_FOCUS`. Never rebuild them by hand.
 
-**Null `agentPath`:** a lane whose `agentPath` is null is not dispatched and gets no file; merge-lanes reports the missing result as a blocking lane failure (dimension-coverage: advisory, R31). For dimension-coverage also log `## YYYY-MM-DD — plan-sdlc: G17 skipped — plan-lane-g17 agent file not found` to `.sdlc/learnings/log.md`.
+**JOIN barrier — `guardrailsEvaluated`:** After the Step 3 round has returned (status `ok` or `guardrail-block`), or after the fallback `merge-lanes` has returned (with the guardrail-compliance result or its synthesized constant), record the checkpoint. The orchestrator never writes it. <!-- implements R20, R35 -->
+
+```bash
+# writes planIntegrity marker consumed by stop-plan-integrity Stop hook
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark guardrailsEvaluated 2>/dev/null || true
+```
+
+**JOIN barrier — `critiqueRan`:** After the Step 3 round has returned (status `ok` or `guardrail-block`), or on the fallback path after every dispatched lane has returned and `merged.json` has been read, record the checkpoint. **Do NOT write this marker before then.** <!-- implements R20, R35 -->
+
+```bash
+# writes planIntegrity marker consumed by stop-plan-integrity Stop hook
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark critiqueRan 2>/dev/null || true
+```
+
+**Once-per-run checkpoints:** `guardrailsEvaluated` and `critiqueRan` are written exactly once — after the initial Step 3 round. When Step 3 lanes are re-dispatched in a later round (R74, or the merged dispatch in Step 5, see "Material change detection and merged re-dispatch" in `./review-loop.md`), these markers are NOT re-written; the Stop hook already holds the proof from the first pass.
+
+### Fallback dispatch (no-agent-tool)
+
+Used only when a round returned `status: "no-agent-tool"`: you run the round's steps yourself, then write the two markers above.
+
+**Deterministic checks (before the lane dispatch):**
+
+```bash
+mkdir -p "<ITER_DIR>"
+```
+
+```bash
+node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --json --file "<PLAN_PATH>" --root "$PWD" > "<ITER_DIR>/pf-report.json"
+```
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" g17-prepare --plan "<PLAN_PATH>" --dimensions-dir .sdlc/review-dimensions --instructions-dir .github/instructions --learnings .sdlc/learnings/log.md --window 14 --github-hosting <githubHosting.detected> > "<ITER_DIR>/g17-prepare.json"
+```
+
+Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2 means stop and invoke `error-report-sdlc` (E9). A non-zero exit from g17-prepare does not stop the run (R31): G17 is not run, so do not dispatch `dimension-coverage`, leave it out of `--lanes`, log `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare exited <code>` to `.sdlc/learnings/log.md` by the Step 3 learnings-log rule, and pass `--g17-not-run` to every Step 4 (R74) and Step 5 `merge-lanes` call of this run.
+
+**Step 3 dispatch rule (fan-out dispatch):** For each `lane` in `lanes[]` (P16), issue one Agent call — all in one message: `subagent_type: lane.agent`, `description: "plan lane <lane.name>"`, `prompt`: one `NAME: value` line per name in `lane.inputNames`, taking the value from `lane.presetInputs` when present, otherwise from the run-time table above. A value that spans several lines goes after `NAME:` on the lines that follow, inside one fenced `text` block, so a line inside the value is never read as another input. Do not pass `model` or `effort`; the agent file sets both (`agent-dispatch-script-driven` guardrail). Skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. When `lane.agentPath` is null, do not dispatch that lane (see below).
+
+**Null `agentPath`:** a lane whose `agentPath` is null is not dispatched and gets no file; merge-lanes reports the missing result as a blocking lane failure (dimension-coverage: advisory, R31). For dimension-coverage also log `## YYYY-MM-DD — plan-sdlc: G17 skipped — plan-lane-g17 agent file not found` to `.sdlc/learnings/log.md` by the Step 3 learnings-log rule.
 
 **No `isolation` parameter on lane dispatches:** lanes read the plan file by absolute path, and a worktree copy would read a stale or absent file.
 
@@ -362,23 +408,7 @@ Inputs not in this table come from the entry's `presetInputs` (P15), which `plan
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "<lane names, comma-separated>" [--no-guardrails] --plan "<PLAN_PATH>" > "<ITER_DIR>/merged.json"
 ```
 
-Pass `--no-guardrails` exactly when `guardrail-compliance` was skipped. `merge-lanes` reads `<ITER_DIR>/pf-report.json` itself from `--dir` and turns the validator's failures into blocking G3, G4, G10 and G12 issues; do not pass it separately. Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Read `merged.json`: `issues` is the Step 3 issue list (blocking ones carry `blocking: true`); `guardrailCompliancePayload` feeds Step 4's `## Guardrail Compliance`; `g17Findings` feeds Step 4's `## Suggested Review Dimensions`. Do NOT write to the plan file in this step.
-
-**JOIN barrier — `guardrailsEvaluated`:** After `merge-lanes` has returned (with the guardrail-compliance result or its synthesized constant), record the checkpoint. <!-- implements R20, R35 -->
-
-```bash
-# writes planIntegrity marker consumed by stop-plan-integrity Stop hook
-node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark guardrailsEvaluated 2>/dev/null || true
-```
-
-**JOIN barrier — `critiqueRan`:** After every dispatched lane has returned and `merged.json` has been read, record the checkpoint. **Do NOT write this marker before then.** <!-- implements R20, R35 -->
-
-```bash
-# writes planIntegrity marker consumed by stop-plan-integrity Stop hook
-node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark critiqueRan 2>/dev/null || true
-```
-
-**Once-per-run checkpoints:** `guardrailsEvaluated` and `critiqueRan` are written exactly once — during the initial Step 3 pass. When Step 3 lanes are re-dispatched via the merged dispatch in Step 5 (see "Material change detection and merged re-dispatch" in `./review-loop.md`), these markers are NOT re-written; the Stop hook already holds the proof from the first pass.
+Pass `--no-guardrails` exactly when `guardrail-compliance` was skipped. `merge-lanes` reads `<ITER_DIR>/pf-report.json` itself from `--dir` and turns the validator's failures into blocking G3, G4, G10 and G12 issues; do not pass it separately. Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Read `merged.json`: `issues` is the Step 3 issue list (blocking ones carry `blocking: true`); `guardrailCompliancePayload` feeds Step 4's `## Guardrail Compliance`; `g17Findings` feeds Step 4's `## Suggested Review Dimensions` (both through the Step 4 splice, with `iterDir` = `<ITER_DIR>`). Do NOT write to the plan file in this step. Then write the two markers above.
 
 ## Step 4 (IMPROVE): Revise Plan and Present for Approval
 
@@ -388,9 +418,17 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark critiqueRan 2>/dev/null || tru
 cp "<PLAN_PATH>" "<critiqueDir>/iter-0/plan-before.md"
 ```
 
-Fix all issues from Step 3. Rewrite the plan file with fixes applied (edit the existing file, don't append). If any revision changes the scope or approach from what was originally recorded, update the `## Deviations & assumptions` table accordingly.
+Fix all issues from Step 3 (the lines of the round's `summary`, or the blocking `issues` of `merged.json` on the fallback path). Rewrite the plan file with fixes applied (edit the existing file, don't append). If any revision changes the scope or approach from what was originally recorded, update the `## Deviations & assumptions` table accordingly.
 
-If `activeGuardrails` is non-empty, append a `## Guardrail Compliance` section to the plan file listing each guardrail's evaluation result. Error-severity failures must be resolved before presenting to user. When an error-severity failure cannot be resolved by plan revision and blocks the workflow, offer **harden** (run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time — opt-in, no surface is edited without your approval) alongside the user-revision options. When the user selects **harden** (interactive mode only — suppressed when `--auto` is set), dispatch `Skill(harden-sdlc)` with `--failure-text "Plan blocked by error-severity guardrail <id>: <description> — <rationale>"`, `--skill plan-sdlc`, `--step "Step 4 — IMPROVE"`, `--operation "error-severity guardrail block"`. Implements R19. Format:
+**Splice the Step 3 sections (R34, R67 (f)):** after the fixes, with `iterDir` from the Step 3 round's return (`<critiqueDir>/iter-0` on the fallback path), run as one plain Bash call, adding `--no-guardrails` when `activeGuardrails` is empty (the guardrail lane was skipped):
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" splice --plan "<PLAN_PATH>" --merged "<iterDir>/merged.json" [--no-guardrails]
+```
+
+It writes `## Guardrail Compliance` and `## Suggested Review Dimensions` from that file into the plan, replacing an earlier copy, and leaves untouched a section whose data is null there. Do not write these sections by hand. A non-zero exit means stop and invoke `error-report-sdlc`.
+
+When `activeGuardrails` is non-empty, the spliced `## Guardrail Compliance` section lists each guardrail's evaluation result. Error-severity failures (a `guardrail-block` status) must be resolved before presenting to user. When an error-severity failure cannot be resolved by plan revision and blocks the workflow, offer **harden** (run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time — opt-in, no surface is edited without your approval) alongside the user-revision options. When the user selects **harden** (interactive mode only — suppressed when `--auto` is set), dispatch `Skill(harden-sdlc)` with `--failure-text "Plan blocked by error-severity guardrail <id>: <description> — <rationale>"`, `--skill plan-sdlc`, `--step "Step 4 — IMPROVE"`, `--operation "error-severity guardrail block"`. Implements R19. The spliced section looks like:
 
 ```markdown
 ## Guardrail Compliance
@@ -403,11 +441,11 @@ If `activeGuardrails` is non-empty, append a `## Guardrail Compliance` section t
 
 **Suggested Review Dimensions (R34, KD6 placement):**
 
-When `g17Findings.findings` is non-empty, append the `g17Findings.rendering` markdown verbatim to the plan file. Placement (KD6):
-- If `## Guardrail Compliance` was written above, splice immediately after that section.
-- Otherwise, splice immediately after the last `### Task N:` block.
+The splice above writes the `g17Findings.rendering` markdown verbatim when `g17Findings.findings` is non-empty. Placement (KD6), done by the script:
+- If `## Guardrail Compliance` exists, immediately after that section.
+- Otherwise, immediately after the last `### Task N:` block.
 
-When `g17Findings.findings` is empty (or `g17Findings` is the empty-fallback from a dispatch failure), do nothing. Absent proposals are not a failure — G17 is advisory. <!-- R31 -->
+When `g17Findings.findings` is empty (or `g17Findings` is the empty-fallback from a dispatch failure), the splice writes nothing for it. Absent proposals are not a failure — G17 is advisory. <!-- R31 -->
 
 **OpenSpec Appendix generation:** branches (a) and (b) are in `./openspec-flow.md` Step 4 and apply only when that file was read. Otherwise:
 
@@ -419,7 +457,18 @@ When `g17Findings.findings` is empty (or `g17Findings` is the empty-fallback fro
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<critiqueDir>/iter-0/plan-before.md" --after "<PLAN_PATH>" --prev-dir "<critiqueDir>/iter-0"
 ```
 
-Read `recheckLanes` from its JSON. A non-zero exit counts as material with `recheckLanes` = every lane (E9 rule). Then, with `<ITER_DIR>` = `<critiqueDir>/iter-1`:
+Read `recheckLanes` from its JSON. A non-zero exit counts as material with `recheckLanes` = every lane (E9 rule). Then dispatch `critiqueDispatch` once, as in Step 3, with `description: "plan critique r74"` and:
+
+```
+ROUND: r74
+ITER: 1
+DISPATCH: {"lanes":[<recheckLanes, each in double quotes; may be empty>],"lenses":[]}
+CARRY: <critiqueDir>/iter-0
+BEFORE_PLAN: none
+G17_NOT_RUN: <true when a round returned g17NotRun: true, else false>
+```
+
+plus the other Step 3 lines (`CRITIQUE_DIR`, `PLAN_FILE_PATH`, `PREPARE_OUTPUT`, `AUTHOR_MODEL` and the run-time values). Handle `status` as in Step 3, without the markers and with the learnings-log writes of the Step 3 rule (G17 and `skipped` lines): `error` stops (E9); `guardrail-block` shows the harden offer above; `ok`: fix the lines of `summary` once. There is no further critique round, no splice, and `guardrailsEvaluated` and `critiqueRan` are not re-written. On `no-agent-tool`, run the fallback below, with `<ITER_DIR>` = `<critiqueDir>/iter-1`:
 
 1. Run the Step 3 deterministic block (its `mkdir -p "<ITER_DIR>"` creates `iter-1`; `iter-0` exists from Step 3).
 2. When `recheckLanes` is non-empty, dispatch those lanes in one message (Step 3 dispatch rule, skip rules and run-time table), write their JSON to `<ITER_DIR>/<lane name>.json`, and run, with `--lanes` set to `recheckLanes` minus the lanes the skip rules left out (as in Step 3):
@@ -433,13 +482,15 @@ Read `recheckLanes` from its JSON. A non-zero exit counts as material with `rech
    When `recheckLanes` is empty, run merge-lanes checks-only:
 
    ```bash
-   node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --plan "<PLAN_PATH>" > "<ITER_DIR>/merged.json"
+   node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --plan "<PLAN_PATH>" [--g17-not-run] > "<ITER_DIR>/merged.json"
    ```
+
+   Pass `--g17-not-run` by the same rule as above (R31).
 
    A non-zero merge-lanes exit means stop and invoke `error-report-sdlc`, as in Step 3.
 3. Fix the blocking `issues` in `merged.json` once. There is no further critique round, and `guardrailsEvaluated` and `critiqueRan` are not re-written. <!-- R74 -->
 
-Step 4 is autonomous (implements R22 single-touchpoint handoff). After fixes are applied (Guardrail Compliance section written when `activeGuardrails` is non-empty, and Suggested Review Dimensions spliced when `g17Findings.findings` is non-empty per R34), proceed directly to Step 5 on the full pipeline, or to Step 6.5 on the Lightweight route without escalation. The single user touchpoint for the finalized plan is Step 7 (Handoff); the error-severity guardrail-block harden offer above is the one decision gate inside Step 4. <!-- R19 -->
+Step 4 is autonomous (implements R22 single-touchpoint handoff). After fixes are applied (the `plan.js splice` above has written Guardrail Compliance when `activeGuardrails` is non-empty and Suggested Review Dimensions when `g17Findings.findings` is non-empty, per R34), proceed directly to Step 5 on the full pipeline, or to Step 6.5 on the Lightweight route without escalation. The single user touchpoint for the finalized plan is Step 7 (Handoff); the error-severity guardrail-block harden offer above is the one decision gate inside Step 4. <!-- R19 -->
 
 ## Steps 5–6 (CRITIQUE / IMPROVE): Review loop — full pipeline only (R36, R40–R44, R64)
 Full-pipeline runs, including a Lightweight run that R73 escalated: Read `./review-loop.md` now and follow it for Steps 5–6. Lightweight runs without escalation skip Steps 5–6 and continue at Step 6.5.
@@ -574,7 +625,7 @@ On selection, invoke the chosen skill using the Skill tool. On "done", end witho
 ## See Also
 
 - `./plan-template-default.md` — shipped default plan template (section list, discovery questions, verification patterns)
-- `agents/` (`plan-lane-*`, `plan-lens-*`, `plan-reviewer`, `plan-intake-verify`) — critique lanes, lenses, reviewer and Gate A
+- `agents/` (`plan-critique-orchestrator`, `plan-lane-*`, `plan-lens-*`, `plan-reviewer`, `plan-intake-verify`) — critique round orchestrator (R75), lanes, lenses, reviewer and Gate A
 - `./plan-format-reference.md` — plan document format specification
 - `./openspec-flow.md` — the OpenSpec rules of Steps 0, 1, 2 and 4, read only when OpenSpec applies
 - `./review-loop.md` — Steps 5 and 6 (review loop, material change detection and merged re-dispatch), read only for the full pipeline
