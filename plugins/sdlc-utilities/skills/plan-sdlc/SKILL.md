@@ -283,7 +283,7 @@ Files + Contract + Acceptance criteria — do not restate it here.]
 - `## Contract Examples` — one worked `**Contract:**` block per column type (code / docs / openspec) actually used by the plan's tasks, per R60. Reuse the three worked examples from `./plan-format-reference.md` verbatim.
 - `## Final Shape` — describe the end-state once all tasks are complete (what the deliverable looks like when done, not how it gets there)
 - `## OpenSpec Appendix` — see "OpenSpec Appendix generation" in Step 4/5 below. During Step 2, leave the skeleton placeholder (either `[TBD]` or `Not applicable — no OpenSpec change` per the condition evaluated in Step 0).
-- Task blocks — all `### Task N:` blocks with per-task metadata
+- `## Tasks` — the literal `## Tasks` heading (PF10 checks it), then all `### Task N:` blocks with per-task metadata under it
 - Any project-custom sections from the template that are not in the list above — write them with the body format appropriate to their name, or `[TBD]` if the format is unknown
 
 **R62 plain-language style (applies to all narrative sections):** Sections marked `<!-- narrative: true -->` in the template (e.g. Context, Research Findings, Key Decisions, Final Shape) MUST follow these writing rules:

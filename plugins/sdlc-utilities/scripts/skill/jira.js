@@ -206,7 +206,7 @@ function parseArgs(argv) {
   let site                   = null;
   let skipWorkflowDiscovery  = false;
   let forceRefresh           = false;
-  let bodyFile              = null;   // for --validate-body
+  let bodyFile               = null;   // for --validate-body
   let wantJson               = false;  // for --validate-body output format
   let inputFile              = null;   // for --assemble / --check-payload
   let saveSeen               = false;  // --save is a modifier under --assemble

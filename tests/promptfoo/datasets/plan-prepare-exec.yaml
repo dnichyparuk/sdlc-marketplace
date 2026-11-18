@@ -1059,6 +1059,17 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true && r.orchestrator === true && r.skill === true"
 
+- description: "plan-sdlc/tasks-heading: plan-format-reference.md and SKILL.md name the literal ## Tasks heading that PF10 checks (R61, #9405)"
+  vars:
+    script_path: "-e"
+    script_args: '((r)=>((f,s)=>((c)=>console.log(JSON.stringify({order:c(f,"8.\x20**Tasks**\x20—\x20the\x20literal\x20\x60##\x20Tasks\x60\x20heading,\x20then\x20the\x20\x60###\x20Task\x20N\x60\x20blocks\x20(required;\x20PF10\x20checks\x20the\x20heading)"),perTask:c(f,"Every\x20\x60###\x20Task\x20N\x60\x20block\x20goes\x20under\x20the\x20literal\x20\x60##\x20Tasks\x60\x20heading;\x20PF10\x20checks\x20the\x20heading."),example:c(f,"\n##\x20Tasks\n\n###\x20Task\x201:\x20JWT\x20utility\x20module"),skill:c(s,"the\x20literal\x20\x60##\x20Tasks\x60\x20heading\x20(PF10\x20checks\x20it)")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/plan-format-reference.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8")))(require("fs").readFileSync)'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.order === 1 && o.perTask === 1 && o.example === 1 && o.skill === 1) return true;
+        return { pass: false, score: 0, reason: output };
+
 # --- plan-explore.js --check-brief (R72) ---
 
 - description: "plan-explore --check-brief: complete brief and results yield ok (R72)"

@@ -1,6 +1,6 @@
 # Jira Project Context — multi-project config, no branch signal
 
-## Project Config (`.claude/sdlc.json`)
+## Project Config (`.sdlc/config.json`)
 ```json
 {
   "jira": {

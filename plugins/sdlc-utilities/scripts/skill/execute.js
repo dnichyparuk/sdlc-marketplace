@@ -53,8 +53,6 @@ const EXECUTE_DEFAULTS = {
   specReviewer: 'once',
 };
 
-const VALID_QUALITY = ['full', 'balanced', 'minimal'];
-const LEGACY_QUALITY = { A: 'full', B: 'balanced', C: 'minimal' };
 const VALID_REBASE = ['auto', 'skip', 'prompt'];
 const VALID_SPEC_REVIEWER = ['once', 'per-wave'];
 const VALID_COMPLEXITY = ['Trivial', 'Standard', 'Complex'];

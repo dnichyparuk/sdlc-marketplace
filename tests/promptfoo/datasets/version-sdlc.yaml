@@ -422,7 +422,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/version-sdlc/SKILL.md"
     project_context: >
-      The user has set `version.preRelease: "rc"` in .claude/sdlc.json. Running
+      The user has set `version.preRelease: "rc"` in .sdlc/config.json. Running
       version-prepare.js with no positional bump and no flags produces:
       {"flow": "release", "config": {"mode": "file", "versionFile": "package.json",
       "tagPrefix": "v", "preRelease": "rc"}, "versionSource": {"currentVersion": "1.2.3"},
@@ -452,7 +452,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/version-sdlc/SKILL.md"
     project_context: >
-      The user has `version.preRelease: "rc"` in .claude/sdlc.json but is graduating
+      The user has `version.preRelease: "rc"` in .sdlc/config.json but is graduating
       with --bump major. Running version-prepare.js with `major` produces:
       {"flow": "release", "config": {"mode": "file", "versionFile": "package.json",
       "tagPrefix": "v", "preRelease": "rc"}, "versionSource": {"currentVersion": "1.2.4-rc.1"},
@@ -529,7 +529,7 @@
   vars:
     skill_path: "plugins/sdlc-utilities/skills/version-sdlc/SKILL.md"
     project_context: >
-      The user has `version.changelog: true` in .claude/sdlc.json but did NOT pass --changelog
+      The user has `version.changelog: true` in .sdlc/config.json but did NOT pass --changelog
       on the CLI. Running version-prepare.js with `patch` produces this version-context JSON
       (excerpt):
       {"flow": "release", "config": {"mode": "file", "versionFile": "package.json",
