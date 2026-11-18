@@ -9,6 +9,7 @@
 #   fixtures-fs/plan-diff-material   - one before plan and four after plans (wording-only, scope change, reversed decision, whitespace reflow) for the `plan-diff:` cases
 #   fixtures-fs/plan-g17-prepare     - a plan, one review dimension, its Copilot instruction file and a learnings log
 #                                      for the `plan-g17:` cases
+#   fixtures-fs/plan-g17-u3          - one dimension and two plans (no rename, directory rename) for the plan-g17: U3 cases
 #   fixtures-fs/plan-copy-rules      - a plan.copyRules config, demo skill copies, an approved lens-all result and three plans
 #                                      (missing copies, all listed, directory entries) for the `plan-copy:` cases;
 #                                      `plan-merge-lanes/copy-plan.md` is the no-config `plan-copy:` plan
@@ -794,6 +795,33 @@
   assert:
     - type: icontains
       value: "--window must be"
+
+- description: "plan-g17: U3 does not fire for prose move, same-directory rename or a substring directory (#9407)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-g17-u3"
+    script_args: "g17-prepare --plan {{project_root}}/plans/no-dir-rename.md --dimensions-dir {{project_root}}/.sdlc/review-dimensions --instructions-dir {{project_root}}/.github/instructions --learnings {{project_root}}/.sdlc/learnings/log.md --window 14 --github-hosting false --root {{project_root}} --today 2026-11-18"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const covered = r.coveredDims.some(d => d.name === 'fixture-review');
+        const u3 = r.firedCriteria.filter(f => f.id === 'U3');
+        if (covered && u3.length === 0 && !r.candidates.some(c => (c.criteria || []).includes('U3'))) return true;
+        return { pass: false, score: 0, reason: JSON.stringify({ covered, u3 }) };
+
+- description: "plan-g17: U3 fires when a triggered directory is renamed (#9407)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-g17-u3"
+    script_args: "g17-prepare --plan {{project_root}}/plans/dir-rename.md --dimensions-dir {{project_root}}/.sdlc/review-dimensions --instructions-dir {{project_root}}/.github/instructions --learnings {{project_root}}/.sdlc/learnings/log.md --window 14 --github-hosting false --root {{project_root}} --today 2026-11-18"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const u = r.candidates.find(c => c.kind === 'UPDATE-path' && c.dimension === 'fixture-review');
+        if (u && u.criteria.includes('U3') && u.severity === 'high' && JSON.stringify(u.paths) === JSON.stringify(['src/new/a.js']) && u.patch === 'update triggers naming `src/old` after the rename') return true;
+        return { pass: false, score: 0, reason: JSON.stringify(u || r.candidates) };
 
 - description: "plan-merge: a flag followed directly by another flag is a usage error"
   vars:
