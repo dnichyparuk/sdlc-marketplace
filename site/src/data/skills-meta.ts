@@ -29,7 +29,7 @@ export const skillsMeta: SkillMeta[] = [
     command: '/plan-sdlc',
     category: 'planning',
     userInvocable: true,
-    tagline: 'Decomposes requirements into classified tasks; dispatches a dynamic-dimension orchestrator for 4+ file scopes; enforces Contract concreteness (G18/R45), render-don\'t-narrate (G19/R46), Notes rationale-only (G20/R48), and self-contained code refs (G21/R51) in critique; annotates OpenSpec tasks.md with per-task back-pointers when `--from-openspec` is active.',
+    tagline: 'Decomposes requirements into classified tasks; dispatches a dynamic-dimension orchestrator for 4+ file scopes unless --lightweight forces the Lightweight route; enforces Contract concreteness (G18/R45), render-don\'t-narrate (G19/R46), Notes rationale-only (G20/R48), and self-contained code refs (G21/R51) in critique; annotates OpenSpec tasks.md with per-task back-pointers when `--from-openspec` is active.',
     pipeline: [
       { id: 'requirements', label: 'Gather requirements', type: 'user', description: 'Free-form description, spec file, or clarification questions' },
       { id: 'guardrails', label: 'Load guardrails', type: 'script', description: 'Reads plan guardrails from project config for critique evaluation' },

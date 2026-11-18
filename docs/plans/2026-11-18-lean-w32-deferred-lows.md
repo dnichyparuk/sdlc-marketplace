@@ -397,6 +397,7 @@ Spec (Task 4):
 - Modify: `docs/skills/plan-sdlc.md` — items B, C, K, L
 - Modify: `site/src/content-source/skills/plan-sdlc.md` — byte copy (`cp docs/skills/plan-sdlc.md site/src/content-source/skills/plan-sdlc.md`)
 - Modify: `site/src/data/skills-meta.ts` — check only, do not edit: the plan-sdlc entry (around `:28-51`) states no routing, splice or critique-dir detail; no change expected (copy rule)
+- Modify: `README.md` — line 50, /plan-sdlc row: add "unless --lightweight forces the Lightweight route" after "4+ file scopes" (matches skills-meta.ts:32; A5)
 
 **Notes:** The doc drifted from the spec in w30 and w31. All four edits restate behaviour the spec already defines (A5, R73, R74, R67 (f), R75); no new behaviour.
 
