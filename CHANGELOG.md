@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.17] - 2026-11-18
+
+### Fixed
+- plan-sdlc: the U3 rename candidate fires only on a real rename (a rename verb, a path moved out of the trigger directory and a plan path at the new location), no longer on prose or substring matches such as `fixtures-fs` (#9408).
+
 ## [0.54.16] - 2026-11-18
 
 ### Fixed

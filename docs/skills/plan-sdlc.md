@@ -323,7 +323,7 @@ When G17 finds coverage gaps in the dimension catalog or Copilot mirror, Step 4 
 |-----------|-----------|-----------------|
 | U1 | Plan files use a different extension than the dimension's trigger globs | medium |
 | U2 | Plan files land in a subdirectory not matched by existing trigger globs | medium |
-| U3 | Plan renames/moves a directory explicitly named in a dimension trigger | high |
+| U3 | A task line renames or moves a path from inside a directory named in a dimension trigger to a new location outside it that a plan path uses (`git mv`, rename, move); prose "move" and a rename that keeps the directory do not fire | high |
 | U4 | Plan adds a new file extension to a path family the dimension covers | low |
 | U5 | Trigger glob uses `**` but new files fall outside its wildcard scope | medium |
 | U6 | 3+ files added to a path family where the trigger is a specific filename, not a glob | medium |

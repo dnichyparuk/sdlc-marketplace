@@ -270,6 +270,21 @@ function createFirings(uncovered, createSet, planSize, rootDir) {
   return out;
 }
 
+// U3: a rename verb, then path-like tokens of one task line. Best-effort text scan (advisory gate); accepted gaps
+// are listed in the w28 plan Key Decisions: a rename split over lines, a new location in no Files entry, a content
+// move into a new plan file, and a word equal to the trigger directory.
+const RENAME_VERB = /\b(?:renam(?:e|es|ed|ing)|mov(?:e|es|ed|ing)|mv)\b/i;
+const within = (x, d) => x === d || x.startsWith(`${d}/`);
+function pathTokens(line) {
+  return line.split(/[\s`'"(),;]+/).map(w => w.replace(/[.:]+$/, '').replace(/\/+$/, '')).filter(Boolean);
+}
+/** True when the line moves a path from inside `dir` to a location outside it that holds plan path `p`. */
+function movesOut(line, dir, p) {
+  if (!RENAME_VERB.test(line)) return false;
+  const tokens = pathTokens(line);
+  return tokens.some(s => within(s, dir)) && tokens.some(d => !within(d, dir) && within(p, d));
+}
+
 /** U1–U6 firings for one covered dimension. */
 function updateFirings(dim, planPaths, taskLines) {
   const out = [];
@@ -286,7 +301,7 @@ function updateFirings(dim, planPaths, taskLines) {
       if (globToRegex(`**/${t}`).test(p)) fire('U2', p, 'medium', `add trigger \`**/${t}\``);
       const glob = t.search(/[*?[]/);
       const dir = (glob === -1 ? path.posix.dirname(t) : t.slice(0, t.lastIndexOf('/', glob) + 1)).replace(/\/$/, '');
-      if (dir && dir !== '.' && taskLines.some(l => /\b(rename|move)\b/i.test(l) && l.includes(dir))) {
+      if (dir && dir !== '.' && taskLines.some(l => movesOut(l, dir, p))) {
         fire('U3', p, 'high', `update triggers naming \`${dir}\` after the rename`);
       }
       if (glob === -1) {
