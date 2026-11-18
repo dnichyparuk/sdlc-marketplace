@@ -2,6 +2,7 @@
 # Covers: (a) --event execute with valid plan file produces per-task substeps,
 #         (b) --event execute without --plan exits 2 with clear error,
 #         (c) --event commit without --plan succeeds (regression guard).
+#         (d) --event execute skips a task heading inside a fenced code block (#9409).
 
 # (a) --event execute with valid plan file produces ≥2 task-mirrored substeps.
 - description: "ship-todos (R-PLANFILE): --event execute with plan file mirrors task headings as substeps"
@@ -64,3 +65,20 @@
         } catch (e) {
           return `FAIL: JSON parse error: ${e.message}`;
         }
+
+# (d) --event execute skips a `### Task N:` line inside a fenced code block.
+- description: "ship-todos: --event execute skips a fenced task heading (#9409)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/lib/ship-todos.js"
+    script_args: "--state-file {{project_root}}/state-pre-execute.json --event execute --current-step execute --plan {{project_root}}/plan-fenced-task.md"
+    project_root: "file://fixtures-fs/ship-todos"
+  assert:
+    - type: javascript
+      value: |
+        const todos = JSON.parse(output).todos;
+        const tasks = todos.filter(t => t.content && /Task \d+:/.test(t.content));
+        if (tasks.length !== 2) return `FAIL: expected 2 task substeps, got ${tasks.length}`;
+        if (!tasks.some(t => t.content.includes('Task 1: Foo'))) return 'FAIL: Task 1: Foo missing';
+        if (!tasks.some(t => t.content.includes('Task 2: Bar'))) return 'FAIL: Task 2: Bar missing';
+        if (todos.some(t => t.content && t.content.includes('Phantom'))) return 'FAIL: phantom substep present';
+        return true;

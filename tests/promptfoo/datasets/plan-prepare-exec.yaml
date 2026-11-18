@@ -9,7 +9,8 @@
 #   fixtures-fs/plan-diff-material   - one before plan and four after plans (wording-only, scope change, reversed decision, whitespace reflow) for the `plan-diff:` cases
 #   fixtures-fs/plan-g17-prepare     - a plan, one review dimension, its Copilot instruction file and a learnings log
 #                                      for the `plan-g17:` cases
-#   fixtures-fs/plan-g17-u3          - one dimension and two plans (no rename, directory rename) for the plan-g17: U3 cases
+#   fixtures-fs/plan-g17-u3          - one dimension and three plans (no rename, directory rename, fenced-files) for the
+#                                      plan-g17: U3 cases and the fenced Files entries case (#9409)
 #   fixtures-fs/plan-copy-rules      - a plan.copyRules config, demo skill copies, an approved lens-all result and three plans
 #                                      (missing copies, all listed, directory entries) for the `plan-copy:` cases;
 #                                      `plan-merge-lanes/copy-plan.md` is the no-config `plan-copy:` plan
@@ -1214,3 +1215,15 @@
         const o = JSON.parse(output);
         const r = o.out ? JSON.parse(o.out) : null;
         return o.status === 1 && r && r.reason === 'check-error' && typeof r.error === 'string' && r.error.length > 0 ? true : `FAIL: ${output}`;
+
+- description: "plan-g17: planPaths ignore fenced Files entries (#9409)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-g17-u3"
+    script_args: "g17-prepare --plan {{project_root}}/plans/fenced-files.md --dimensions-dir {{project_root}}/.sdlc/review-dimensions --instructions-dir {{project_root}}/.github/instructions --learnings {{project_root}}/.sdlc/learnings/log.md --window 14 --github-hosting false --root {{project_root}} --today 2026-11-18"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (JSON.stringify(r.planPaths) === '["src/new/b.js"]') return true;
+        return { pass: false, score: 0, reason: JSON.stringify(r.planPaths) };

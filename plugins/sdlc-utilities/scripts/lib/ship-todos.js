@@ -24,6 +24,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { extractTasksRaw } = require('./plan-parse');
 
 // ---------------------------------------------------------------------------
 // Static substep map (single source of truth — do not duplicate in SKILL.md)
@@ -50,17 +51,11 @@ const SUBSTEP_MAP = {
 
 /**
  * Parse plan markdown and extract task titles.
- * Pattern: /^### Task (\d+): (.+)$/m (global)
+ * Headings inside fenced code blocks are skipped (plan-parse extractTasksRaw).
  * Returns array of { n, title } objects.
  */
 function parsePlanTasks(markdown) {
-  const re = /^### Task (\d+): (.+)$/gm;
-  const tasks = [];
-  let m;
-  while ((m = re.exec(markdown)) !== null) {
-    tasks.push({ n: Number(m[1]), title: m[2].trim() });
-  }
-  return tasks;
+  return extractTasksRaw(markdown).map(t => ({ n: t.number, title: t.title }));
 }
 
 /**
