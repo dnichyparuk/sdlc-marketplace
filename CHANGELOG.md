@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.14] - 2026-11-18
+
+### Fixed
+- skills: "request text never goes on a command line" is now a checked rule; the new validator `validate-args-rule.js` scans skill fenced blocks for `$ARGUMENTS`, received-review-sdlc uses an explicit flag allow list, and `jira.js` parses `--force-refresh` so jira-sdlc no longer reads raw arguments (#9395).
+- plan, execute and ship: `--quality` accepts `speed|balanced|quality` through a shared resolver; `full` and `minimal` remain as deprecated aliases with one warning line (#9395).
+- execute-plan-sdlc: `--quality` is forwarded from ship only when the user chose a tier (#9395).
+- received-review-sdlc: flag values with a single quote, newline or shell metacharacter, and a `--min-severity` outside `critical|high|medium|low`, are rejected before any Bash call (#9395).
+
 ## [0.54.13] - 2026-11-15
 
 ### Fixed
