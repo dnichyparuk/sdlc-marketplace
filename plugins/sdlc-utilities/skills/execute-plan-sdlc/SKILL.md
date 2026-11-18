@@ -258,7 +258,7 @@ Note every issue found.
 
 Fix each issue from the critique. Then present the final wave structure showing per-task worker routing:
 
-**Quality auto-selection:** Resolve `QUALITY_TIER` once: `flags.quality`, else (resume confirmed at the interactive prompt, resume detection step 6) the state file's `quality`. If `QUALITY_TIER` is set, apply that quality tier (preset) without presenting the selection prompt. Show the wave structure with the applied tier and proceed directly to Step 5. (When invoked from ship-sdlc, `--quality` is forwarded only when the user explicitly passed `--quality` to ship.)
+**Quality auto-selection:** Resolve `QUALITY_TIER` once: `flags.quality`, else (resume confirmed at the interactive prompt, resume detection step 6) the state file's `quality`. If `QUALITY_TIER` is set, apply that quality tier (preset) without presenting the selection prompt. Show the wave structure with the applied tier and proceed directly to Step 5. (When invoked from ship-sdlc, `--quality` is forwarded when the user passed it to ship or chose a tier at ship's `execute_tier` prompt; ship never invents a tier — R-tier-prompt-invariant.)
 
 Valid values: `speed` (Speed), `balanced` (Balanced), `quality` (Quality); `full` and `minimal` are deprecated aliases (internally `flags.quality` stays `full|balanced|minimal`, deprecated key names); legacy `A`/`B`/`C` are normalized by the prepare script. Under `--auto` an invalid value never reaches this step: the prepare call reports `invalidQuality` and stops (A2). In an interactive run an invalid value is a prepare warning and `flags.quality` is `null`. When `QUALITY_TIER` is `null` (interactive, no resumed tier), present the selection prompt below.
 
