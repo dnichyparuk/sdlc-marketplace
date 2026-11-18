@@ -333,7 +333,7 @@ node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --json --file "<PLAN_PAT
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" g17-prepare --plan "<PLAN_PATH>" --dimensions-dir .sdlc/review-dimensions --instructions-dir .github/instructions --learnings .sdlc/learnings/log.md --window 14 --github-hosting <githubHosting.detected> > "<ITER_DIR>/g17-prepare.json"
 ```
 
-Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2 means stop and invoke `error-report-sdlc` (E9). A non-zero exit from g17-prepare does not stop the run (R31): G17 is not run, so do not dispatch `dimension-coverage`, leave it out of `--lanes`, log `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare exited <code>` to `.sdlc/learnings/log.md`, and pass `--g17-not-run` to every Step 5 `merge-lanes` call of this run.
+Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2 means stop and invoke `error-report-sdlc` (E9). A non-zero exit from g17-prepare does not stop the run (R31): G17 is not run, so do not dispatch `dimension-coverage`, leave it out of `--lanes`, log `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare exited <code>` to `.sdlc/learnings/log.md`, and pass `--g17-not-run` to every Step 4 (R74) and Step 5 `merge-lanes` call of this run.
 
 **Step 3 dispatch rule (fan-out dispatch):** For each `lane` in `lanes[]` (P16), issue one Agent call — all in one message: `subagent_type: lane.agent`, `description: "plan lane <lane.name>"`, `prompt`: one `NAME: value` line per name in `lane.inputNames`, taking the value from `lane.presetInputs` when present, otherwise from the run-time table below. A value that spans several lines goes after `NAME:` on the lines that follow, inside one fenced `text` block, so a line inside the value is never read as another input. Do not pass `model` or `effort`; the agent file sets both (`agent-dispatch-script-driven` guardrail). Skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. When `lane.agentPath` is null, do not dispatch that lane (see below).
 
@@ -425,10 +425,10 @@ Read `recheckLanes` from its JSON. A non-zero exit counts as material with `rech
 2. When `recheckLanes` is non-empty, dispatch those lanes in one message (Step 3 dispatch rule, skip rules and run-time table), write their JSON to `<ITER_DIR>/<lane name>.json`, and run, with `--lanes` set to `recheckLanes` minus the lanes the skip rules left out (as in Step 3):
 
    ```bash
-   node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "<recheckLanes>" --carry "<critiqueDir>/iter-0" --plan "<PLAN_PATH>" [--no-guardrails] > "<ITER_DIR>/merged.json"
+   node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "<recheckLanes>" --carry "<critiqueDir>/iter-0" --plan "<PLAN_PATH>" [--no-guardrails] [--g17-not-run] > "<ITER_DIR>/merged.json"
    ```
 
-   Pass `--no-guardrails` exactly when `activeGuardrails` is empty (the Step 3 decision for the whole run), whether or not `guardrail-compliance` is in `recheckLanes`.
+   Pass `--no-guardrails` exactly when `activeGuardrails` is empty (the Step 3 decision for the whole run), whether or not `guardrail-compliance` is in `recheckLanes`. Pass `--g17-not-run` exactly when g17-prepare exited non-zero in Step 3 or in this iteration's deterministic block (R31), so the carry does not put `dimension-coverage` back.
 
    When `recheckLanes` is empty, run merge-lanes checks-only:
 
