@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.16] - 2026-11-18
+
+### Fixed
+- plan-sdlc: the format reference and Step 2 name the literal `## Tasks` heading that the plan check requires, and a new exec case guards that text (#9406).
+- cleanup: unused quality constants removed from `execute.js`, `jira.js` variable block aligned, `<FLAGS>` defined before first use in received-review-sdlc, and behavioural datasets and pr-labels fixtures use `.sdlc/config.json` (#9406).
+
 ## [0.54.15] - 2026-11-18
 
 ### Fixed
