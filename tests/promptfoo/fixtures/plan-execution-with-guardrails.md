@@ -20,7 +20,7 @@ Files: Modify `src/middleware/rateLimit.ts`
 **Complexity:** Standard | **Risk:** Low | **Depends on:** Task 2, Task 3 | **Verify:** tests
 Files: Create `tests/export.test.ts`
 
-## Project Config (.claude/sdlc.json)
+## Project Config (.sdlc/config.json)
 ```json
 {
   "execute": {

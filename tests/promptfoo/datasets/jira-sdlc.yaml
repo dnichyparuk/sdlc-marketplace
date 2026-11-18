@@ -174,7 +174,7 @@
     project_context: "file://fixtures/jira-multi-project-closed-list.md"
     user_request: >
       Run /jira-sdlc. No --project argument. Current branch is "main" (no
-      [A-Z]{2,10}-\d+ pattern). .claude/sdlc.json has jira.projects: ["FOO","BAR"]
+      [A-Z]{2,10}-\d+ pattern). .sdlc/config.json has jira.projects: ["FOO","BAR"]
       and jira.defaultProject is null. The user wants to create an issue but hasn't
       said which project. Show how the skill resolves the project key.
   assert:

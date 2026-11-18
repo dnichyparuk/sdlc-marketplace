@@ -41,7 +41,7 @@ presence only, not order.
 5. **Key Decisions** — architecture/design choices (optional, narrative; recommended for 5+ tasks)
 6. **Contract Examples** — one worked `**Contract:**` block per column type used by the plan's tasks (required)
 7. **Guardrail Compliance** — guardrail evaluation (optional; present when `plan.guardrails` configured)
-8. **Task 1…N** — per-task blocks (required)
+8. **Tasks** — the literal `## Tasks` heading, then the `### Task N` blocks (required; PF10 checks the heading)
 9. **Out-of-scope OpenSpec tasks** — intentional exclusions (optional; `--from-openspec` only)
 10. **Final Shape** — aggregated end-state once all tasks are done (required, narrative)
 11. **Verification Scorecard** — dimension table + traceability matrix + verdict (full-pipeline plans only)
@@ -156,6 +156,8 @@ Present when `plan.guardrails` are configured in `.sdlc/config.json`. Produced b
 ---
 
 ## Per-Task Block (required for every task)
+
+Every `### Task N` block goes under the literal `## Tasks` heading; PF10 checks the heading.
 
 ```markdown
 ### Task N: [Component Name]
@@ -645,6 +647,8 @@ other checks — it is not a deterministic gate. Apply these rules throughout ev
 | Token storage | "sessions or stateless?" | Stateless JWT, no session store | Spec defers to implementer; stateless avoids new infra |
 
 ---
+
+## Tasks
 
 ### Task 1: JWT utility module
 

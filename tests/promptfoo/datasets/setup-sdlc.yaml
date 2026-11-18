@@ -176,12 +176,12 @@
     skill_path: "plugins/sdlc-utilities/skills/setup-sdlc/SKILL.md"
     project_context: >
       Project at tests/promptfoo/fixtures-fs/setup-pr-labels-clean/ with an existing
-      .claude/sdlc.json that already has `pr.titlePattern` and `pr.allowedTypes`. The user
+      .sdlc/config.json that already has `pr.titlePattern` and `pr.allowedTypes`. The user
       runs `/setup-sdlc --only pr-labels` and at the mode prompt picks "off". `gh label list`
       returned a non-empty list (e.g. ["bug","feature","docs"]).
     user_request: >
       Walk through setup-pr-labels.md Steps 1-6 for this project and pick "off" at the
-      mode prompt. Show the exact JSON written into .claude/sdlc.json `pr` section,
+      mode prompt. Show the exact JSON written into .sdlc/config.json `pr` section,
       including how titlePattern and allowedTypes are preserved.
   assert:
     - type: icontains
@@ -198,7 +198,7 @@
         spreads it, and only sets/replaces the labels key with `{ mode: "off" }`. The
         existing pr.titlePattern and pr.allowedTypes survive unchanged (sub-flow gotcha #1).
         No `rules` array is written. The user is shown a one-line summary like
-        "Wrote pr.labels: mode=off to .claude/sdlc.json".
+        "Wrote pr.labels: mode=off to .sdlc/config.json".
 
 - description: "setup-sdlc --only pr-labels: mode=llm writes { mode: 'llm' } with no rules array"
   vars:
@@ -209,7 +209,7 @@
       runs `/setup-sdlc --only pr-labels` and at the mode prompt explicitly picks "llm".
     user_request: >
       Walk through setup-pr-labels.md and pick "llm" at the mode prompt. Show the JSON
-      block written to .claude/sdlc.json `pr.labels` and explain why this is opt-in.
+      block written to .sdlc/config.json `pr.labels` and explain why this is opt-in.
   assert:
     - type: icontains
       value: '"mode": "llm"'
@@ -232,7 +232,7 @@
       "branchPrefix" signal, and enters "fix/, bugfix/" as values, then picks "done".
     user_request: >
       Walk through setup-pr-labels.md Step 4 with the inputs above. Show the final JSON
-      block written to .claude/sdlc.json `pr.labels` and identify which schema keys it
+      block written to .sdlc/config.json `pr.labels` and identify which schema keys it
       uses (mode, rules[*].label, rules[*].when.branchPrefix).
   assert:
     - type: icontains
@@ -264,7 +264,7 @@
     skill_path: "plugins/sdlc-utilities/skills/setup-sdlc/SKILL.md"
     project_context: >
       Project at tests/promptfoo/fixtures-fs/setup-pr-labels-menu-off/ with an existing
-      .claude/sdlc.json containing `pr.labels: { mode: "off" }`. The user runs
+      .sdlc/config.json containing `pr.labels: { mode: "off" }`. The user runs
       `/setup-sdlc` (no flags) and reaches the Step 1 selective-section menu.
     user_request: >
       Render the Step 1 selective-section menu for this project. Show how the pr-labels
@@ -323,7 +323,7 @@
     skill_path: "plugins/sdlc-utilities/skills/setup-sdlc/SKILL.md"
     project_context: >
       Project at tests/promptfoo/fixtures-fs/setup-pr-labels-menu-unset/ with an existing
-      .claude/sdlc.json that has a `pr` block (titlePattern, allowedTypes) but NO
+      .sdlc/config.json that has a `pr` block (titlePattern, allowedTypes) but NO
       `pr.labels` key at all. The user runs `/setup-sdlc` (no flags) and reaches the
       Step 1 selective-section menu.
     user_request: >

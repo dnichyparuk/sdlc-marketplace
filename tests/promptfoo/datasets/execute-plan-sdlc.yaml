@@ -55,7 +55,7 @@
     project_context: "file://fixtures/plan-execution-with-guardrails.md"
     user_request: >
       Run /execute-plan-sdlc --quality balanced. A plan with 4 tasks has been loaded and validated.
-      The project has execution guardrails configured in .claude/sdlc.json under execute.guardrails.
+      The project has execution guardrails configured in .sdlc/config.json under execute.guardrails.
       Show how guardrails are loaded and describe how they will be evaluated during execution.
   assert:
     - type: icontains
@@ -65,7 +65,7 @@
     - type: llm-rubric
       value: >
         The response acknowledges that execution guardrails are configured and loaded from the
-        execute section of .claude/sdlc.json (not the plan section). It describes or references
+        execute section of .sdlc/config.json (not the plan section). It describes or references
         guardrail evaluation at the post-wave (5c-ter) checkpoint, and that the guardrails are
         injected into every worker prompt. It does not describe a pre-wave guardrail check.
         The response distinguishes execution guardrails from plan guardrails.
