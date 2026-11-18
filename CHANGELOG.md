@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-11-18
+
+### Added
+- plan-sdlc: a lightweight plan route with compact blocks for trivial work, a tier check against tier bounds (escalating to the full review loop on a breach), and one cheap lane re-check after fixes (#9413).
+
+### Fixed
+- plan-sdlc: a failed `g17-prepare` now passes `--g17-not-run` on the Step 4 re-check merges as well as on Step 5 merges, and the spec states it (#9413).
+
 ## [0.54.18] - 2026-11-18
 
 ### Fixed
