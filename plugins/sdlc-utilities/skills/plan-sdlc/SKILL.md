@@ -343,7 +343,7 @@ Read only the orchestrator's fenced `json` block `{ status, iterDir, blockingCou
 - `guardrail-block`: write the two markers below; in Step 4 try the fixes first and show the R19 harden offer only when an error-severity failure cannot be resolved by plan revision (suppressed under `--auto`).
 - `ok`: write the two markers below; the blocking issues to fix in Step 4 are the lines of `summary`.
 
-When `g17NotRun` is `true` and `g17Error` is non-null (log it once, in the round where the failure first appears), append `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare failed: <g17Error>` to `.sdlc/learnings/log.md` (the orchestrator writes only under `critiqueDir`) and pass `G17_NOT_RUN: true` to every later round of this run (R31). For each entry of `skipped` (Step 3 only), append `## YYYY-MM-DD — plan-sdlc: <entry> skipped — agent file not found` (for `dimension-coverage`: `G17 skipped — plan-lane-g17 agent file not found`) to the same log. Keep `iterDir` for the Step 4 splice.
+When `g17NotRun` is `true` and `g17Error` is non-null (log it once: only when no earlier round of this run logged it), append `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare failed: <g17Error>` to `.sdlc/learnings/log.md` (the orchestrator writes only under `critiqueDir`) and pass `G17_NOT_RUN: true` to every later round of this run (R31). For each entry of `skipped` (not in the R74 round; Step 5 logs its skipped lenses per review-loop.md), append `## YYYY-MM-DD — plan-sdlc: <entry> skipped — agent file not found` (for `dimension-coverage`: `G17 skipped — plan-lane-g17 agent file not found`) to the same log. Keep `iterDir` for the Step 4 splice.
 
 Run-time input table (values the prepare script cannot know; Step 5 and Gate A use the same table):
 
@@ -468,7 +468,7 @@ BEFORE_PLAN: none
 G17_NOT_RUN: <true when a round returned g17NotRun: true, else false>
 ```
 
-plus the other Step 3 lines (`CRITIQUE_DIR`, `PLAN_FILE_PATH`, `PREPARE_OUTPUT`, `AUTHOR_MODEL` and the run-time values). Handle `status` as in Step 3, without the markers and without the learnings-log writes for `g17NotRun` and `skipped` (logged once in Step 3): `error` stops (E9); `guardrail-block` shows the harden offer above; `ok`: fix the lines of `summary` once. There is no further critique round, no splice, and `guardrailsEvaluated` and `critiqueRan` are not re-written. On `no-agent-tool`, run the fallback below, with `<ITER_DIR>` = `<critiqueDir>/iter-1`:
+plus the other Step 3 lines (`CRITIQUE_DIR`, `PLAN_FILE_PATH`, `PREPARE_OUTPUT`, `AUTHOR_MODEL` and the run-time values). Handle `status` as in Step 3, without the markers and without the learnings-log write for `skipped`, and with the G17 line written by the Step 3 rule (only when `g17Error` is non-null and no earlier round logged it): `error` stops (E9); `guardrail-block` shows the harden offer above; `ok`: fix the lines of `summary` once. There is no further critique round, no splice, and `guardrailsEvaluated` and `critiqueRan` are not re-written. On `no-agent-tool`, run the fallback below, with `<ITER_DIR>` = `<critiqueDir>/iter-1`:
 
 1. Run the Step 3 deterministic block (its `mkdir -p "<ITER_DIR>"` creates `iter-1`; `iter-0` exists from Step 3).
 2. When `recheckLanes` is non-empty, dispatch those lanes in one message (Step 3 dispatch rule, skip rules and run-time table), write their JSON to `<ITER_DIR>/<lane name>.json`, and run, with `--lanes` set to `recheckLanes` minus the lanes the skip rules left out (as in Step 3):

@@ -86,7 +86,7 @@ When `materialChangeDetected` is false (or unset), dispatch only the Step 5 lens
 
 For each `lensReviewers[]` entry, dispatch by the Step 3 dispatch rule: `subagent_type: entry.agent`, `description: "plan lens <entry.lens>"`, `prompt`: one `NAME: value` line per name in `entry.inputNames`, the value from `entry.presetInputs` when present (`LENS` and `LENS_FOCUS` are preset), otherwise from the run-time table in Step 3. Pass `model: entry.dispatchModel` and `effort: entry.dispatchEffort` only when non-null; per-invocation parameters override the agent file. When `entry.dispatchModel` is null (the `balanced` preset), pass `model: opus` only when the plan author ran on sonnet (R8). <!-- R36, R8, P17 -->
 
-When `entry.agentPath` is null, skip that lens and log to `.sdlc/learnings/log.md`: `## YYYY-MM-DD — plan-sdlc: lens "<name>" skipped — agent file not found`. Continue with remaining lenses. When the round ran through the critique orchestrator, it returns these lenses in `skipped`: log one such line per entry.
+When `entry.agentPath` is null, skip that lens and log to `.sdlc/learnings/log.md`: `## YYYY-MM-DD — plan-sdlc: lens "<name>" skipped — agent file not found`. Continue with remaining lenses. When the round ran through the critique orchestrator, it returns these lenses in `skipped`: log one such line per entry. Log the G17-not-run line by the Step 3 rule too: only when `g17Error` is non-null and no earlier round of this run logged it.
 
 **No `isolation` parameter on lens reviewer dispatches:** lenses read the plan file by absolute path, and a worktree copy would read a stale or absent file.
 
