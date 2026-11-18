@@ -1421,7 +1421,8 @@
       value: |
         const o = JSON.parse(output);
         const r = JSON.parse(o.out);
-        const ok = o.status === 0 && r.g17NotRun === true && JSON.stringify(o.files) === '["pf-report.json"]';
+        const ok = o.status === 0 && r.g17NotRun === true && JSON.stringify(o.files) === '["pf-report.json"]' &&
+          typeof r.g17Error === 'string' && r.g17Error.includes('ENOTDIR') && String(o.err).includes('g17-prepare failed');
         return ok ? true : `FAIL: ${output}`;
 
 - description: "plan-merge: (compact) prints the rendered blocking list"

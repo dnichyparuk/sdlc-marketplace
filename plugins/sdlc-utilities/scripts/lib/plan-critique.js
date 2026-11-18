@@ -880,13 +880,13 @@ function splicePlan(text, merged, { noGuardrails = false } = {}) {
   const bodies = {
     'Guardrail Compliance': !noGuardrails && typeof merged.guardrailCompliancePayload === 'string'
       ? `## Guardrail Compliance\n\n${merged.guardrailCompliancePayload}` : null,
-    'Suggested Review Dimensions': g17 && Array.isArray(g17.findings) && g17.findings.length ? g17.rendering : null,
-    'Verification Scorecard': merged.scorecard && merged.scorecard.markdown ? merged.scorecard.markdown : null,
+    'Suggested Review Dimensions': g17 && Array.isArray(g17.findings) && g17.findings.length && typeof g17.rendering === 'string' ? g17.rendering : null,
+    'Verification Scorecard': merged.scorecard && typeof merged.scorecard.markdown === 'string' && merged.scorecard.markdown ? merged.scorecard.markdown : null,
   };
   const written = [];
   const replaced = [];
   for (const name of SPLICE_ORDER) {
-    if (bodies[name] === null) continue;
+    if (typeof bodies[name] !== 'string') continue;
     const old = findSection(lines, name);
     if (old) {
       lines = joinAround(lines, old.start, old.end, []);
