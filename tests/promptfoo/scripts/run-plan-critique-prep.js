@@ -34,8 +34,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'plan-critique-prep-'));
 function run(args) {
   const r = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
   if (r.error) {
-    process.stderr.write(`Script error: ${r.error.message}\n`);
-    process.exit(2);
+    throw new Error(r.error.message);
   }
   return r;
 }
@@ -63,10 +62,12 @@ try {
     const mergedFile = path.join(dir[dir.indexOf('--dir') + 1], 'merged.json');
     report = { status: r.status, out: r.stdout, err: r.stderr, merged: fs.existsSync(mergedFile) ? JSON.parse(fs.readFileSync(mergedFile, 'utf8')) : null };
   } else {
-    process.stderr.write('Script error: mode must be prep or merge\n');
-    process.exit(2);
+    throw new Error('mode must be prep or merge');
   }
-} finally {
+} catch (err) {
   fs.rmSync(tmp, { recursive: true, force: true });
+  process.stderr.write(`Script error: ${err.message}\n`);
+  process.exit(2);
 }
+fs.rmSync(tmp, { recursive: true, force: true });
 console.log(JSON.stringify(report));

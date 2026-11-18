@@ -459,7 +459,7 @@ function critiquePrep(flags) {
   try {
     failed = JSON.parse(pf.stdout).checks.filter(c => c.status === 'fail').map(c => c.id);
   } catch (_) { /* unparsable report: the merge reports it as a lane failure */ }
-  const out = { iterDir, pf: { exit: pf.status, failed }, g17NotRun: false, g17: null, skipDimensionCoverage: false };
+  const out = { iterDir, pf: { exit: pf.status, failed }, g17NotRun: false, g17: null, g17Error: null, skipDimensionCoverage: false };
   try {
     const g = g17Prepare({
       planPath: plan,
@@ -473,8 +473,10 @@ function critiquePrep(flags) {
     fs.writeFileSync(path.join(iterDir, 'g17-prepare.json'), JSON.stringify(g, null, 2) + '\n');
     out.g17 = { candidates: g.candidates.length, coveredDims: g.coveredDims.length };
     out.skipDimensionCoverage = g.candidates.length === 0 && g.coveredDims.length === 0;
-  } catch (_) {
+  } catch (err) {
     out.g17NotRun = true;
+    out.g17Error = err && err.message ? err.message : String(err);
+    process.stderr.write(`critique-prep: g17-prepare failed: ${out.g17Error}\n`);
   }
   return out;
 }

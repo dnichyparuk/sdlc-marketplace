@@ -57,7 +57,7 @@ In every other round, dispatch what `DISPATCH` names.
 node "<PLAN_JS>" critique-prep --critique-dir "<CRITIQUE_DIR>" --iter <ITER> --plan "<PLAN_FILE_PATH>" --github-hosting <githubHosting.detected from PREPARE_OUTPUT>
 ```
 
-Exit 2 means status `error`: skip to Step 7. Keep `iterDir`, `g17NotRun` and `skipDimensionCoverage` from its JSON. This round's `g17NotRun` is `true` when `G17_NOT_RUN` is `true` or the `g17NotRun` field of this output is `true`.
+A non-zero exit means status `error`: skip to Step 7. Keep `iterDir`, `g17NotRun`, `g17Error` and `skipDimensionCoverage` from its JSON. This round's `g17NotRun` is `true` when `G17_NOT_RUN` is `true` or the `g17NotRun` field of this output is `true`.
 
 An `r74` round whose `DISPATCH` has no lanes (part 1 `recheckLanes: []`) skips Steps 4 and 5 and runs the checks-only merge in Step 6.
 
@@ -77,7 +77,7 @@ Skip rules:
 
 - No `guardrail-compliance` lane when its `ACTIVE_GUARDRAILS` preset is `[]`.
 - No `dimension-coverage` lane when this round's `g17NotRun` is `true` (leave it out of `--lanes`), or when `skipDimensionCoverage` is `true` (Write `{"candidates":[]}` to `<iterDir>/dimension-coverage.json` instead and keep it in `--lanes`).
-- No entry whose `agentPath` is null. A lane skipped this way stays in `--lanes`, so `merge-lanes` reports its missing result; a lens skipped this way is left out of `--lenses`, and the reviewer always merges as `all`.
+- No entry whose `agentPath` is null (add its `name` or `lens` to `skipped` for Step 7). A lane skipped this way stays in `--lanes`, so `merge-lanes` reports its missing result; a lens skipped this way is left out of `--lenses`, and the reviewer always merges as `all`.
 
 **Await barrier (R56, R-c1):** Your turn is NOT complete until you have collected exactly one result per dispatched agent. Do NOT write the result files or run `merge-lanes` while any dispatched agent is still outstanding. If the runtime backgrounds a dispatch and re-invokes you via a task-completion notification, keep awaiting across notifications until the collected count equals the dispatched count. Never merge on partial or zero results.
 
@@ -118,17 +118,17 @@ Return one fenced `json` block and nothing else:
 ```json
 { "status": "ok", "iterDir": "/tmp/sdlc-plan-critique-x/iter-1", "blockingCount": 2,
   "summary": "- [G12] Task 3: …", "lensStatus": "Issues Found",
-  "verdict": "…Fix before archiving.", "guardrailErrors": 0, "g17NotRun": false }
+  "verdict": "…Fix before archiving.", "guardrailErrors": 0, "g17NotRun": false, "g17Error": null, "skipped": [] }
 ```
 
-`blockingCount`, `summary`, `lensStatus`, `verdict` and `guardrailErrors` are copied from the `merge-lanes --compact` output; never write the summary yourself. `g17NotRun` is this round's value from Step 3; the author passes it on as `G17_NOT_RUN` to every later round. On `error`, set the fields the round did not reach to null and put the failing command's stderr in `summary`.
+`blockingCount`, `summary`, `lensStatus`, `verdict` and `guardrailErrors` are copied from the `merge-lanes --compact` output; never write the summary yourself. `g17NotRun` and `g17Error` are this round's values from Step 3 (`g17Error` is the g17-prepare failure message, else null); `skipped` lists the lanes and lenses left out for a null `agentPath` (empty when none); the author passes it on as `G17_NOT_RUN` to every later round. On `error`, set the fields the round did not reach to null and put the failing command's stderr in `summary`.
 
 `status`, first matching row wins:
 
 | Condition | `status` |
 |---|---|
 | no Agent tool | `no-agent-tool` |
-| a script exit 2, or a non-zero `merge-lanes` exit | `error` |
+| a non-zero `critique-prep` or `merge-lanes` exit | `error` |
 | `guardrailErrors > 0` | `guardrail-block` |
 | `ROUND` = `step5` and `ITER` = 3 and `blockingCount > 0` | `max-iterations` |
 | otherwise | `ok` |

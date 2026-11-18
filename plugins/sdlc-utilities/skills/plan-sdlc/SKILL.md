@@ -336,14 +336,14 @@ AUTHOR_MODEL: <your model: opus or sonnet>
 
 `DISPATCH` names every lane (the `all` set of Step 3); the orchestrator applies the skip rules itself. `REQUIREMENTS_SUMMARY`, `SOURCE_REQUIREMENTS`, `BRIEF_FILE`, `BRIEF_FINDING_IDS` and `PLAN_TEMPLATE_PATH` take their values from the run-time table below, a multi-line value inside one fenced `text` block after its `NAME:` line. Every later round (R74, Step 5) uses the same lines with its own `ROUND`, `ITER`, `DISPATCH`, `CARRY`, `BEFORE_PLAN` and `G17_NOT_RUN`.
 
-Read only the orchestrator's fenced `json` block `{ status, iterDir, blockingCount, summary, lensStatus, verdict, guardrailErrors, g17NotRun }`; never read `merged.json`. By `status`:
+Read only the orchestrator's fenced `json` block `{ status, iterDir, blockingCount, summary, lensStatus, verdict, guardrailErrors, g17NotRun, g17Error, skipped }`; never read `merged.json`. By `status`:
 
 - `no-agent-tool`: run the round yourself by **Fallback dispatch (no-agent-tool)** below; every later round of this run also uses its fallback path.
 - `error`: stop and invoke `error-report-sdlc` with `summary` as the error (E9).
-- `guardrail-block`: write the two markers below, then show the Step 4 guardrail-block harden offer (R19) before the fixes.
+- `guardrail-block`: write the two markers below; in Step 4 try the fixes first and show the R19 harden offer only when an error-severity failure cannot be resolved by plan revision (suppressed under `--auto`).
 - `ok`: write the two markers below; the blocking issues to fix in Step 4 are the lines of `summary`.
 
-When `g17NotRun` is `true`, append `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare exited <code>` to `.sdlc/learnings/log.md` (the orchestrator writes only under `critiqueDir`) and pass `G17_NOT_RUN: true` to every later round of this run (R31). Keep `iterDir` for the Step 4 splice.
+When `g17NotRun` is `true`, append `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare failed: <g17Error>` to `.sdlc/learnings/log.md` (the orchestrator writes only under `critiqueDir`) and pass `G17_NOT_RUN: true` to every later round of this run (R31). For each entry of `skipped`, append `## YYYY-MM-DD — plan-sdlc: <entry> skipped — agent file not found` (for `dimension-coverage`: `G17 skipped — plan-lane-g17 agent file not found`) to the same log. Keep `iterDir` for the Step 4 splice.
 
 Run-time input table (values the prepare script cannot know; Step 5 and Gate A use the same table):
 
@@ -367,7 +367,7 @@ Inputs not in this table come from the entry's `presetInputs` (P15), which `plan
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark guardrailsEvaluated 2>/dev/null || true
 ```
 
-**JOIN barrier — `critiqueRan`:** After the Step 3 round has returned, or on the fallback path after every dispatched lane has returned and `merged.json` has been read, record the checkpoint. **Do NOT write this marker before then.** <!-- implements R20, R35 -->
+**JOIN barrier — `critiqueRan`:** After the Step 3 round has returned (status `ok` or `guardrail-block`), or on the fallback path after every dispatched lane has returned and `merged.json` has been read, record the checkpoint. **Do NOT write this marker before then.** <!-- implements R20, R35 -->
 
 ```bash
 # writes planIntegrity marker consumed by stop-plan-integrity Stop hook
