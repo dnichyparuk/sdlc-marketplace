@@ -1,0 +1,38 @@
+# Script execution tests for plugins/sdlc-utilities/scripts/ci/validate-args-rule.js
+# The real repository is clean; a fixture reports every finding code.
+
+- description: "validate-args-rule: the real repository has no findings"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-args-rule.js"
+    script_args: "--root {{repo_root}}"
+  assert:
+    - type: not-icontains
+      value: "ARGS_"
+    - type: icontains
+      value: "0 findings"
+
+- description: "validate-args-rule: fixture reports all three finding codes"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-args-rule.js"
+    script_args: "--root {{project_root}}"
+    project_root: "file://fixtures-fs/args-rule-bad"
+  assert:
+    - type: icontains
+      value: "ARGS_IN_REQUEST_SKILL: github-sdlc"
+    - type: icontains
+      value: "ARGS_NOT_FLAGS_ONLY: free-text-sdlc"
+    - type: icontains
+      value: "\"[request]\""
+    - type: icontains
+      value: "ARGS_NO_HINT: no-hint-sdlc"
+
+- description: "validate-args-rule: --json lists exactly three findings on the fixture"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-args-rule.js"
+    script_args: "--root {{project_root}} --json"
+    project_root: "file://fixtures-fs/args-rule-bad"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.findings.length === 3;

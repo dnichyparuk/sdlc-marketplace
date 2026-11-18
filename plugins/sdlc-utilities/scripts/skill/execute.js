@@ -8,7 +8,7 @@
  * openspec mapping (P3, P4, P6, P8).
  *
  * Usage:
- *   node execute.js [<plan>] [--plan <path>] [--quality full|balanced|minimal]
+ *   node execute.js [<plan>] [--plan <path>] [--quality speed|balanced|quality]
  *     [--resume] [--auto] [--commit-waves] [--strict-files] [--rebase auto|skip|prompt]
  *     [--wave-timeout <s>] [--wave-interval <s>] [--branch <name>]
  *     [--skip-config-check] [--project-root <dir>] [--output-file]
@@ -38,6 +38,7 @@ const { MAX_WAVE_TIMEOUT_SECONDS } = require(path.join(LIB, 'ship-fields'));
 const { parsePlan } = require(path.join(LIB, 'plan-parse'));
 const { computeWaveBudget, staticCap } = require(path.join(LIB, 'dispatch-budget'));
 const { resolveBranchName } = require(path.join(LIB, 'branch-name'));
+const { resolveQuality: resolveQualityName, QUALITY_EXPECTED } = require(path.join(LIB, 'quality'));
 
 const SKILL_DIR = path.join(__dirname, '..', '..', 'skills', 'execute-plan-sdlc');
 const TEMPLATE_FILES = ['wave-runner-template.md', 'classifying-and-waving-tasks.md'];
@@ -230,12 +231,8 @@ function resolveFlags(cli, execCfg, shipCfg, errors, warnings) {
   return { flags, sources };
 }
 
-/** Normalise a quality value (legacy A/B/C accepted); null when invalid. */
-function normaliseQuality(v) {
-  if (typeof v !== 'string') return null;
-  if (VALID_QUALITY.includes(v)) return v;
-  return LEGACY_QUALITY[v] || null;
-}
+/** Normalise a quality value (new names, deprecated names, legacy A/B/C); null when invalid. */
+function normaliseQuality(v) { return resolveQualityName(v, { allowLetters: true }).key; }
 
 /**
  * A6: CLI → resumed state (quality, or legacy preset) when --resume and the
@@ -243,10 +240,13 @@ function normaliseQuality(v) {
  */
 function resolveQuality(cli, stateData, errors, warnings) {
   if (cli.quality !== null) {
-    const q = normaliseQuality(cli.quality);
-    if (q) return { value: q, source: 'cli' };
+    const r = resolveQualityName(cli.quality, { allowLetters: true });
+    if (r.key) {
+      if (r.warning) warnings.push(r.warning);
+      return { value: r.key, source: 'cli' };
+    }
     if (cli.auto) {
-      errors.push({ id: 'invalidQuality', value: cli.quality, message: `Invalid --quality value "${cli.quality}"; expected one of ${VALID_QUALITY.join('|')}.` });
+      errors.push({ id: 'invalidQuality', value: cli.quality, message: `Invalid --quality value "${cli.quality}"; expected one of ${QUALITY_EXPECTED}.` });
     } else {
       warnings.push(`Invalid --quality value "${cli.quality}" ignored; the tier is chosen at the selection prompt.`);
     }

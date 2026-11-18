@@ -3,6 +3,19 @@
 # paths, so the cases that exercised runtime resolution were removed; only the
 # consistency-validator regression coverage remains here.
 
+- description: "script-resolution: (args-rule) EXPLICIT_FLAG_SKILLS lists the six request-text skills and the SKILL.md sentence names them"
+  vars:
+    script_path: "-e"
+    script_args: '((r)=>((j,m,s)=>console.log(JSON.stringify({list:j&&j[1],sentence:s})))(r(".claude/skills/validate-plugin-consistency/check-consistency.js").match(/EXPLICIT_FLAG_SKILLS\x20=\x20\[([^\]]*)\]/),0,["error-report-sdlc","github-sdlc","harden-sdlc","jira-sdlc","plan-sdlc","received-review-sdlc"].every((n)=>r(".claude/skills/validate-plugin-consistency/SKILL.md").includes("`"+n+"`"))))((p)=>require("fs").readFileSync("{{repo_root}}/"+p,"utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const names = (o.list || '').split(',').map((x) => x.trim().replace(/'/g, ''));
+        const want = ['error-report-sdlc', 'github-sdlc', 'harden-sdlc', 'jira-sdlc', 'plan-sdlc', 'received-review-sdlc'];
+        if (JSON.stringify(names) === JSON.stringify(want) && o.sentence === true) return true;
+        return { pass: false, score: 0, reason: output };
+
 # Validator regression (#485): the script-resolution-version rule in
 # .claude/skills/validate-plugin-consistency/check-consistency.js must flag
 # any plugin-script resolver that uses `find ~/.claude/plugins`.

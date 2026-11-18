@@ -5,7 +5,7 @@
  * Uses lib/openspec.js for detection and lib/config.js for guardrail loading.
  *
  * Usage:
- *   node plan-prepare.js [--from-openspec <change-name>] [--output-file] [--quality full|balanced|minimal]
+ *   node plan-prepare.js [--from-openspec <change-name>] [--output-file] [--quality speed|balanced|quality]
  *   node plan-prepare.js --mark <name> [--path <abs>]
  *   node plan.js diff-material --before <path> --after <path> [--full] [--prev-dir <iterDir>]
  *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
@@ -14,7 +14,7 @@
  * Options:
  *   --from-openspec <name>  Validate a specific OpenSpec change for direct bridging
  *   --output-file           Write JSON to temp file, print path (default: stdout)
- *   --quality <preset>     Plan-review preset (A4): full | balanced (default) | minimal
+ *   --quality <preset>     Plan-review preset (A4): speed | balanced (default) | quality (deprecated: full | minimal)
  *   --mark <name>           Update the latest plan state file with a checkpoint marker.
  *                           Valid names: plan-file, guardrailsEvaluated, critiqueRan
  *   --path <abs>            Absolute path to the plan file (required when --mark plan-file)
@@ -38,6 +38,7 @@ const { detectActiveChanges, validateChange, parseTasks, getRequirementInventory
 const { readSection, resolveSdlcRoot } = require(path.join(LIB, 'config'));
 const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { writeOutput } = require(path.join(LIB, 'output'));
+const { resolveQuality, QUALITY_EXPECTED } = require(path.join(LIB, 'quality'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { initState, findStateFile, readState, writeState, slugifyBranch, pruneStateFiles } = require(path.join(LIB, 'state'));
 const { exec, parseRemoteOwner } = require(path.join(LIB, 'git'));
@@ -188,7 +189,6 @@ const LENS_DEFS = [
 ];
 
 // A4/P24 — plan quality presets (docs/cost-tiers.md §5 "Plan quality presets"; tuning values).
-const VALID_QUALITY = ['full', 'balanced', 'minimal'];
 const QUALITY_DISPATCH = {
   full:     { dispatchModel: 'sonnet', dispatchEffort: 'low' },
   balanced: { dispatchModel: null,     dispatchEffort: null },
@@ -477,12 +477,14 @@ function main() {
   const errors = [];
 
   // A4/P24 — --quality (default balanced); an invalid value stops before any other work.
-  const flags = { quality: quality === null ? 'balanced' : quality, sources: { quality: quality === null ? 'default' : 'cli' } };
-  if (!VALID_QUALITY.includes(flags.quality)) {
-    errors.push(`Invalid --quality value "${flags.quality}"; expected one of ${VALID_QUALITY.join('|')}.`);
+  const resolved = quality === null ? { key: 'balanced', warning: null } : resolveQuality(quality);
+  const flags = { quality: resolved.key === null ? quality : resolved.key, sources: { quality: quality === null ? 'default' : 'cli' } };
+  if (resolved.key === null) {
+    errors.push(`Invalid --quality value "${quality}"; expected one of ${QUALITY_EXPECTED}.`);
     writeOutput({ errors, flags }, 'plan-prepare', 1);
     return;
   }
+  if (resolved.warning) process.stderr.write(`Warning: ${resolved.warning}\n`);
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
   const skipConfigCheck = resolveSkipConfigCheck(process.argv);

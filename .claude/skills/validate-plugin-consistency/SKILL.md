@@ -76,7 +76,7 @@ EXIT_CODE=$?
 ### `skill-passes-arguments` (warning)
 
 A skill that invokes its prepare script does not forward `$ARGUMENTS`. Add it to the node call.
-`error-report-sdlc`, `github-sdlc`, `harden-sdlc`, `jira-sdlc` and `plan-sdlc` pass explicit flags instead and are exempt.
+`error-report-sdlc`, `github-sdlc`, `harden-sdlc`, `jira-sdlc`, `plan-sdlc` and `received-review-sdlc` pass explicit flags instead and are exempt.
 
 ### `frontmatter-field-names` (error)
 

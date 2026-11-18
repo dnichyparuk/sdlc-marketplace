@@ -188,7 +188,7 @@ const SKILL_TO_SCRIPT = {
 };
 
 // Skills that pass explicit flags to their prepare script instead of $ARGUMENTS.
-const EXPLICIT_FLAG_SKILLS = ['error-report-sdlc', 'github-sdlc', 'harden-sdlc', 'jira-sdlc', 'plan-sdlc'];
+const EXPLICIT_FLAG_SKILLS = ['error-report-sdlc', 'github-sdlc', 'harden-sdlc', 'jira-sdlc', 'plan-sdlc', 'received-review-sdlc'];
 
 // All 10 skills that must declare user-invocable: true
 // (review-init-sdlc, pr-customize-sdlc, guardrails-init-sdlc absorbed into setup-sdlc)

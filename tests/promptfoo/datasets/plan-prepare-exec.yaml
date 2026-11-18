@@ -426,8 +426,56 @@
       value: |
         const o = JSON.parse(output);
         if (o.exitCode !== 1) return `exitCode: ${o.exitCode}`;
-        if (JSON.stringify(o.out.errors) !== JSON.stringify(['Invalid --quality value "bogus"; expected one of full|balanced|minimal.'])) return `errors: ${JSON.stringify(o.out.errors)}`;
+        if (JSON.stringify(o.out.errors) !== JSON.stringify(['Invalid --quality value "bogus"; expected one of speed|balanced|quality (deprecated: full|minimal).'])) return `errors: ${JSON.stringify(o.out.errors)}`;
         if (Object.keys(o.out).sort().join(',') !== 'errors,flags') return `keys: ${Object.keys(o.out).sort().join(',')}`;
+        return true;
+
+- description: "plan-prepare: (quality-alias) --quality speed resolves to full, sonnet, low"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_args: "--quality speed"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'full', sources: { quality: 'cli' } })) return `flags: ${JSON.stringify(data.flags)}`;
+        for (const e of [...data.lensReviewers, data.reviewerDispatch]) {
+          if (e.dispatchModel !== 'sonnet' || e.dispatchEffort !== 'low') return `${e.agent}: dispatchModel ${e.dispatchModel}, dispatchEffort ${e.dispatchEffort}`;
+        }
+        return true;
+
+- description: "plan-prepare: (quality-alias) --quality quality resolves to minimal, opus, high"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_args: "--quality quality"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'minimal', sources: { quality: 'cli' } })) return `flags: ${JSON.stringify(data.flags)}`;
+        for (const e of [...data.lensReviewers, data.reviewerDispatch]) {
+          if (e.dispatchModel !== 'opus' || e.dispatchEffort !== 'high') return `${e.agent}: dispatchModel ${e.dispatchModel}, dispatchEffort ${e.dispatchEffort}`;
+        }
+        return true;
+
+- description: "plan-prepare: (quality-alias) deprecated --quality full and minimal print exactly one warning each"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>console.log(JSON.stringify(["full","minimal"].map((v)=>((r)=>({v,exitCode:r.status,warnings:r.stderr.split("\n").filter((l)=>l.indexOf("Warning:")===0),flags:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")).flags}))(cp.spawnSync("node",[js,"--quality",v],{encoding:"utf8"}))))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const [f, m] = JSON.parse(output);
+        if (f.exitCode !== 0 || m.exitCode !== 0) return `exit: ${f.exitCode}/${m.exitCode}`;
+        if (JSON.stringify(f.warnings) !== JSON.stringify(['Warning: --quality full is deprecated; use --quality speed (same preset).'])) return `full warnings: ${JSON.stringify(f.warnings)}`;
+        if (JSON.stringify(m.warnings) !== JSON.stringify(['Warning: --quality minimal is deprecated; use --quality quality (same preset).'])) return `minimal warnings: ${JSON.stringify(m.warnings)}`;
+        if (f.flags.quality !== 'full' || m.flags.quality !== 'minimal') return `flags: ${JSON.stringify([f.flags, m.flags])}`;
         return true;
 
 # --- openspecContext.requirements (R38 — Fixes #445) ---

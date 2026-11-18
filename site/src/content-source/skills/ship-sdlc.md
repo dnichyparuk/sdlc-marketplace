@@ -29,7 +29,7 @@ This skill is for **expert users working on projects with established quality gu
 ## Usage
 
 ```text
-/ship-sdlc [--auto] [--steps <csv>] [--quality full|balanced|minimal] [--plan <path>] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--review-threshold critical|high|medium|low] [--review-rounds <n>] [--no-tag] [--no-push] [--release-subject <text>] [--init-config] [--gc] [--ttl-days <N>]
+/ship-sdlc [--auto] [--steps <csv>] [--quality speed|balanced|quality] [--plan <path>] [--bump patch|minor|major|<label>] [--draft] [--dry-run] [--resume] [--review-threshold critical|high|medium|low] [--review-rounds <n>] [--no-tag] [--no-push] [--release-subject <text>] [--init-config] [--gc] [--ttl-days <N>]
 ```
 
 ---
@@ -41,7 +41,7 @@ This skill is for **expert users working on projects with established quality gu
 | `--auto` | Non-interactive mode. No question is asked: `--auto` is forwarded to execute-plan-sdlc and to review-sdlc (only under `--auto`), and commit-sdlc, received-review-sdlc, version-sdlc and pr-sdlc always run with `--auto`. `--quality` is optional: under `--auto` execute-plan-sdlc resolves the tier as `--quality`, then the resumed state, then `balanced`. | Off |
 | `--steps <csv>` | Comma-separated list of steps to run, fully replacing the resolved step list. Valid values: `execute`, `commit`, `review`, `version`, `verify-openspec` (opt-in, OpenSpec-gated), `archive-openspec`, `pr`, `verify-pipeline` (opt-in), `await-remote-review` (opt-in), `learnings-commit`. The single source of truth for pipeline composition is `ship.steps[]` in `.sdlc/local.json`; CLI `--steps` is a one-shot override. | From config or built-in defaults |
 | `--quick` | Run the project's quick step profile (`ship.quick` in `.sdlc/local.json`) instead of `ship.steps[]`. Useful for fast local iterations (e.g. execute+commit+pr without review or versioning). Mutually exclusive with `--steps` (R-quick-5). Requires `ship.quick` to be configured (R-quick-6). | Off |
-| `--quality <full\|balanced\|minimal>` | Forwarded to execute-plan-sdlc as `--quality` (model tier). In interactive runs without `--quality`, ship asks for the tier (`execute_tier`) before execute and forwards the answer; it never picks a tier itself. | Not set (asked in interactive runs) |
+| `--quality <speed\|balanced\|quality>` | Forwarded to execute-plan-sdlc as `--quality` (model tier): `speed` is the cheapest, `quality` the costliest; `full` and `minimal` still work as deprecated aliases. In interactive runs without `--quality`, ship asks for the tier (`execute_tier`) before execute and forwards the answer; it never picks a tier itself. | Not set (asked in interactive runs) |
 | `--bump patch\|minor\|major\|<label>` | Version bump type forwarded to version-sdlc. The `<label>` form (e.g. `--bump rc`, `--bump beta`) is forwarded verbatim and interpreted by version-sdlc as `--bump patch --pre <label>`. Labels must match `^[a-z][a-z0-9]*$` (lowercase, start with a letter, alphanumeric). Example: `ship-sdlc --bump rc` produces a `1.2.4-rc.1` style release. | `patch`, or `version.preRelease` (R63), or the plan's commit type: `feat` → minor, `!` → major, others → patch (R96) |
 | `--draft` | Create the PR as a draft. | Off |
 | `--dry-run` | Display the full pipeline plan and stop. No steps are executed and no ship state is written (an existing ledger keeps its bytes and mtime). | Off |
@@ -65,7 +65,7 @@ To enable post-PR CI verification, add `verify-pipeline` to `ship.steps` in `.sd
 
 **Workspace is auto-detected (#378, #379):** There is no workspace flag. ship-sdlc derives the workspace from your cwd and current branch — on the **main worktree on the default branch** it auto-creates a feature branch (`git checkout -b`); on a **feature branch or inside a manual git worktree** it runs in place. The removed flags `--workspace`, `--branch`, and `--tree` are rejected with a clear error. The version step always runs when in `steps[]` (tags are repo-global, writable from any checkout) — there is no worktree-mode version skip or `skip-version-check` PR label.
 
-**Removed (#190 hard-remove):** `--preset` and `--skip` are no longer accepted. Passing either produces an error pointing at `--steps <csv>` (for step composition) and `--quality <full|balanced|minimal>` (for the execute-plan-sdlc model tier). Legacy on-disk v1 configs (`ship.preset`/`ship.skip`) are still auto-migrated to v2 by `lib/config.js`.
+**Removed (#190 hard-remove):** `--preset` and `--skip` are no longer accepted. Passing either produces an error pointing at `--steps <csv>` (for step composition) and `--quality <speed|balanced|quality>` (`full` and `minimal` are deprecated aliases) (for the execute-plan-sdlc model tier). Legacy on-disk v1 configs (`ship.preset`/`ship.skip`) are still auto-migrated to v2 by `lib/config.js`.
 
 **Removed: plan autodiscovery (#505):** ship-sdlc no longer scans `plansDirectory` (or any directory) for a recently-modified plan file. When a plan is present in the conversation and the `execute` step is not skipped, `--plan <path>` is now required (or `--resume`, which restores the plan of the branch's ledger) — pass the plan document explicitly (see [Prerequisites](#prerequisites) and [`/plan-sdlc`](plan-sdlc.md), which writes the plan files this flag points at). Without it, ship-sdlc halts before invoking execute-plan-sdlc:
 
@@ -454,7 +454,7 @@ Loads config (if present), detects context, presents the pipeline plan, and asks
 ### Full auto mode with preset
 
 ```text
-/ship-sdlc --auto --quality minimal --plan .claude/plans/my-feature-plan.md
+/ship-sdlc --auto --quality quality --plan .claude/plans/my-feature-plan.md
 ```
 
 Runs the quality preset with no confirmation prompts. `--auto` is forwarded to all sub-skills — received-review-sdlc auto-dispatches fixes without pausing (R71) and version-sdlc skips the release approval prompt (R20).
@@ -885,7 +885,7 @@ ship-sdlc also removes the intermediate prepare output file (`$PLAN_MODE_OUTPUT_
 
 | Field | Value |
 |---|---|
-| `argument-hint` | `[--auto] [--steps <csv>] [--quality full\|balanced\|minimal] [--draft] [--dry-run]` |
+| `argument-hint` | `[--auto] [--steps <csv>] [--quality speed\|balanced\|quality] [--draft] [--dry-run]` |
 | Plan mode | Graceful refusal at Step 0; pipeline state saved for auto-resume on next invocation (Fixes #400). |
 
 ---

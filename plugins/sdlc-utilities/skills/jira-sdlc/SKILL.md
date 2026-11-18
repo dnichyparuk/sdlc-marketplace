@@ -91,7 +91,7 @@ Read the check output:
 
 - If `exists: false` → cache not initialized. Proceed to **Step 1**.
 - If `missing` array contains required sections (`cloudId`, `project`, `issueTypes`, `fieldSchemas`) → cache incomplete. Proceed to **Step 1**.
-- If `--force-refresh` passed → rebuild regardless of age. Proceed to **Step 1**.
+- If `flags.forceRefresh` is `true` in the `--check` output → rebuild regardless of age. Proceed to **Step 1**.
 - If `fresh: false` AND `maxAgeHours > 0` → TTL-based expiry exceeded. Proceed to **Step 1**.
 - Otherwise (cache exists, complete, and either permanent or within TTL) → load cache via `--load`, skip to **Step 2**.
 
@@ -140,7 +140,7 @@ If `--init-templates` flag is present:
 
 ## Step 1 — Deterministic Cache Initialization
 
-> Run this phase only when the cache is missing, incomplete, `--force-refresh` is set,
+> Run this phase only when the cache is missing, incomplete, `flags.forceRefresh` is `true`,
 > a TTL-based expiry was exceeded, or an operation error triggered an auto-refresh.
 > After it completes, the skill never calls discovery endpoints again until the next refresh.
 

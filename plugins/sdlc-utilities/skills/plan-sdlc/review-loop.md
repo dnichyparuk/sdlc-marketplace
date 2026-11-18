@@ -31,11 +31,11 @@ For each `lensReviewers[]` entry, dispatch by the Step 3 dispatch rule: `subagen
 
 | Preset | Lanes | Lens / reviewer model | Lens / reviewer effort |
 |---|---|---|---|
-| `full` (Speed) | agent-file defaults | `sonnet` | `low` |
+| `speed` | agent-file defaults | `sonnet` | `low` |
 | `balanced` (default) | agent-file defaults | opposite of the plan author's model (R8: `opus` when the author ran on sonnet, else the agent file's `sonnet`) | agent-file default |
-| `minimal` (Quality) | agent-file defaults | `opus` | `high` |
+| `quality` | agent-file defaults | `opus` | `high` |
 
-`full` and `minimal` pass a fixed model whatever the plan author ran on, so they waive the R8 opposite-model rule; only `balanced` keeps it.
+`speed` and `quality` pass a fixed model whatever the plan author ran on, so they waive the R8 opposite-model rule; only `balanced` keeps it. `full` and `minimal` are deprecated aliases of `speed` and `quality`.
 
 When `entry.agentPath` is null, skip that lens and log to `.sdlc/learnings/log.md`: `## YYYY-MM-DD — plan-sdlc: lens "<name>" skipped — agent file not found`. Continue with remaining lenses.
 
