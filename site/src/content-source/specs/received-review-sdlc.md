@@ -15,7 +15,8 @@
 - A4: `--plan <path>` — the plan whose Files bound the fixes (R28) (default: unset)
 - A5: `--min-severity critical|high|medium|low` — the lowest severity that may be fixed (R29) (default: unset)
 - A6: `--check-scope --manifest <path> --fixed <ids>` — the post-Step-11 check mode (R30) (default: off)
-- A7: Arguments — only `--pr <number>`, `--auto`, `--comment-file <path>`, `--plan <path>` and `--min-severity <level>` reach `skill/received-review.js` from the user's arguments. The skill takes them from `$ARGUMENTS` before its first Bash call: a token is a flag only when it is outside quotes and is exactly one of these names, and the value of `--pr`, `--comment-file`, `--plan` and `--min-severity` is the next token, without its enclosing quotes. It passes them as `<FLAGS>`, each value a single-quoted literal. A PR the user names in words becomes `--pr '<N>'` only when `<N>` is all digits: a bare number, or the number after `/pull/` in a pull-request URL. Every other token is the request: it stays with the model and never reaches a command line (C20). An unknown `--` token outside quotes is request text, and the skill says so: `Not a received-review-sdlc flag, read as request text: <token>`.
+- A7: Arguments — only `--pr <number>`, `--auto`, `--comment-file <path>`, `--plan <path>` and `--min-severity <level>` reach `skill/received-review.js` from the user's arguments. The skill takes them from `$ARGUMENTS` before its first Bash call: a token is a flag only when it is outside quotes and is exactly one of these names, and the value of `--pr`, `--comment-file`, `--plan` and `--min-severity` is the next token, without its enclosing quotes. It passes them as `<FLAGS>`, each value a single-quoted literal. A PR the user names in words becomes `--pr '<N>'` only when `<N>` is all digits: a bare number, or the number after `/pull/` in a pull-request URL. Every other token is the request: it stays with the model and never reaches a command line (C20). An unknown `--` token outside quotes is request text, and the skill says so: `Not a received-review-sdlc flag, read as request text: <token>`. A flag value that holds a single quote, a newline or another shell metacharacter, or a `--min-severity` value outside A5's set (`critical|high|medium|low`), is not passed: the skill stops with failure and reports the invalid value before any Bash call (E10).
+  - Acceptance: static — SKILL.md Step 1a Flags paragraph states the invalid-value stop.
   - Acceptance: exec — the SKILL.md has no `$ARGUMENTS` inside a fenced block, the prepare call is `received-review.js --output-file <FLAGS>`, and the allow-list rule text is present.
 
 ### Configuration
@@ -177,6 +178,7 @@ Critique 2 (responses):
 - E7: GraphQL resolve mutation fails → retry once; invoke error-report-sdlc on second failure
 - E8: `--comment-file` names a path that is not a readable file → exit 2 with `Error: --comment-file <path> is not a readable file.` on stderr (the E2 path)
 - E9: `--check-scope` exit 1 or 2 → failure with `pendingQuestion`, Step 12 skipped
+- E10: a flag value with a single quote, newline or shell metacharacter, or a `--min-severity` value outside A5's set → failure naming the invalid value, before any Bash call (A7)
 
 ## Invariants and constraints
 
