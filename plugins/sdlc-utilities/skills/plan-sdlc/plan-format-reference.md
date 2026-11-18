@@ -274,6 +274,61 @@ A plan's own `## Contract Examples` section (R60) reuses these same three worked
 in shape — one entry per column type the plan's tasks actually use — substituting the plan's real
 task values for the placeholders above.
 
+### Compact Trivial blocks
+
+A Trivial task MAY write its `**Contract:**` and `**Notes:**` blocks as one label line each (R45,
+R46). The compact form is allowed on `**Complexity:** Trivial` tasks only, and only for these two
+blocks.
+
+Compact Contract line — `mirror`, `decisions` and `example` are left out:
+
+```markdown
+**Contract:** shape (<code|docs|openspec>): …; names: …[; sync: …]
+```
+
+Compact Notes line — one sentence of rationale:
+
+```markdown
+**Notes:** <one sentence of rationale>
+```
+
+Invariant (lift-planning): compaction applies only to `**Contract:**` and `**Notes:**`; every task keeps its own `### Task N:` heading (integer, colon, level 3) and its own `**Acceptance criteria:**` `- [ ]` list; tasks are never batched under one heading; compact blocks add no list checkboxes.
+
+PF7 enforces the Trivial-only rule: a Contract block with no `- ` list line is compact, and it
+passes only on a `**Complexity:** Trivial` task whose label line holds `shape` and `names:`.
+
+Worked example — a compact Trivial task:
+
+```markdown
+### Task 2: Fix the usage line
+
+**Complexity:** Trivial
+**Risk:** Low
+**Depends on:** Task 1
+**Verify:** manual
+
+**Files:**
+- Modify: `docs/usage.md` — fix the flag name
+
+**Notes:** The flag was renamed; only this line kept the old name.
+
+**Acceptance criteria:**
+- [ ] `docs/usage.md` names `--lightweight`
+
+**Contract:** shape (docs): one-line edit in Usage; names: `--lightweight`; sync: none
+```
+
+---
+
+## Stable fields (downstream tools)
+
+Downstream tools read the plan header and section bodies by pattern. Keep these stable:
+
+- `**Goal:**` and `**Source:**` are header lines that start at column 0.
+- `**Source:**` may be rewritten by downstream tools, such as lift-planning `add-plan`.
+- The header keeps its `**Field:**` lines (Architecture, Source, Verification) after `**Goal:**`.
+- Non-task sections add no list checkboxes (`- [ ]`); only the `**Acceptance criteria:**` lists in task blocks carry them.
+
 ---
 
 ## Concrete Artifacts (render don't narrate)

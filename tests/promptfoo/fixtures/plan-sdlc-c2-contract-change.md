@@ -1,6 +1,6 @@
 # Plan Contract Change Re-dispatch (R64)
 
-This fixture exercises the Step 6 diff-material detector for a Contract-only edit. When Step 6 IMPROVE changes one task's Contract and leaves the task count unchanged, the NEXT Step 5 iteration must re-dispatch only the lanes and lenses named in `affectedLanes` and carry the other results forward with `merge-lanes --carry`.
+This fixture exercises the Step 6 diff-material detector for a Contract-only edit. When Step 6 IMPROVE changes one task's Contract and leaves the task count unchanged, the NEXT Step 5 iteration must re-dispatch only the lanes and lenses named in `dispatch` and carry the other results forward with `merge-lanes --carry`.
 
 ## plan-prepare.js Output (pre-computed)
 
@@ -26,7 +26,7 @@ This fixture exercises the Step 6 diff-material detector for a Contract-only edi
 
 ## Plan under review: "Catalog price-sync" (5 tasks)
 
-The plan has 5 tasks, and the task count is unchanged by Step 6.
+The plan has 5 tasks, one of them (Task 2) Complex, so its review route is fan-out; the task count is unchanged by Step 6.
 
 ## Step 5 iteration 1 result (before Step 6)
 
@@ -46,5 +46,5 @@ Only Task 3's `**Contract:**` shape line changes. No task is added or removed, a
 ## diff-material output
 
 ```json
-{ "material": true, "triggers": ["contracts"], "details": { "contracts": ["Task 3"] }, "affectedGates": ["G14", "G18", "G19", "G20", "G21"], "affectedLanes": ["content-coverage", "guardrail-compliance", "lens:architecture", "lens:risk"] }
+{ "material": true, "triggers": ["contracts"], "details": { "contracts": ["Task 3"] }, "affectedGates": ["G14", "G18", "G19", "G20", "G21"], "affectedLanes": ["content-coverage", "guardrail-compliance", "lens:architecture", "lens:risk"], "rerun": [], "dispatch": { "lanes": ["content-coverage", "guardrail-compliance"], "lenses": ["architecture", "risk"] }, "recheckLanes": ["content-coverage", "guardrail-compliance"] }
 ```

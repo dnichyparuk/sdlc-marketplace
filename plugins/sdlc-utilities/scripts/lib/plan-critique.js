@@ -106,7 +106,45 @@ function contractOf(sec) {
   return block ? block.join('\n').trimEnd() : null;
 }
 
-// R64, R67: fixed trigger → gates and lanes/lenses map (taskCount means everything).
+// ---------------------------------------------------------------------------
+// One shape rule (R36, R74): tier bounds, review route and re-dispatch set
+// ---------------------------------------------------------------------------
+
+/** { tasks, complex, files, openspec } of a plan text. */
+function planShape(text) {
+  const sections = extractTasksRaw(text).map(t => taskSection(t.body));
+  const appendix = (sectionBody(text, /^## OpenSpec Appendix\s*$/) || '').trim();
+  return {
+    tasks: sections.length,
+    complex: sections.filter(sec => extractField(sec, 'Complexity') === 'Complex').length,
+    files: new Set(sections.flatMap(sec => parseFilesEntries(sec).map(e => e.path))).size,
+    openspec: /openspec\/changes\//.test(extractField(text, 'Source') || '')
+      || (appendix !== '' && !appendix.startsWith('Not applicable'))
+      || sections.some(sec => labelLines(sec, 'openspec-task') !== null),
+  };
+}
+
+/** Single reviewer or the three-lens fan-out for a plan shape. */
+function reviewRoute(shape) {
+  return shape.complex > 0 || shape.tasks >= 8 || shape.openspec
+    ? { route: 'fan-out', lenses: ['architecture', 'requirements', 'risk'] }
+    : { route: 'single', lenses: ['all'] };
+}
+
+const TIER_BOUNDS = { tasks: 6, complex: 0, files: 8 };
+
+/** Lightweight-tier bounds check: { tier, counts, openspec, breaches, review }. */
+function tierCheck(text) {
+  const shape = planShape(text);
+  const counts = { tasks: shape.tasks, complex: shape.complex, files: shape.files };
+  const breaches = Object.keys(TIER_BOUNDS)
+    .filter(bound => counts[bound] > TIER_BOUNDS[bound])
+    .map(bound => ({ bound, value: counts[bound], max: TIER_BOUNDS[bound] }));
+  if (shape.openspec) breaches.push({ bound: 'openspec', value: true, max: false });
+  return { tier: breaches.length ? 'full' : 'lightweight', counts, openspec: shape.openspec, breaches, review: reviewRoute(shape) };
+}
+
+// R64, R67: fixed trigger → gates and lanes/lenses map (taskCount and reviewRoute mean everything).
 const TRIGGER_MAP = {
   files:        { gates: ['G4', 'G6', 'G9', 'G10', 'G13', 'G14', 'G17'], lanes: ['content-coverage', 'dimension-coverage', 'guardrail-compliance'] },
   contracts:    { gates: ['G14', 'G18', 'G19', 'G20', 'G21'], lanes: ['content-coverage', 'guardrail-compliance', 'lens:architecture', 'lens:risk'] },
@@ -117,13 +155,13 @@ const TRIGGER_MAP = {
 };
 
 /** { affectedGates, affectedLanes } for the fired triggers (R67). */
-function affectedSets(triggers, afterTaskCount, full) {
-  if (full || triggers.includes('taskCount')) return { affectedGates: [...EXPECTED_GATES], affectedLanes: ['*'] };
+function affectedSets(triggers, afterRoute, full) {
+  if (full || triggers.includes('taskCount') || triggers.includes('reviewRoute')) return { affectedGates: [...EXPECTED_GATES], affectedLanes: ['*'] };
   const gates = new Set();
   const lanes = new Set();
   for (const t of triggers) {
     for (const g of TRIGGER_MAP[t].gates) gates.add(g);
-    for (const l of TRIGGER_MAP[t].lanes) lanes.add(afterTaskCount < 5 && l.startsWith('lens:') ? 'lens:all' : l);
+    for (const l of TRIGGER_MAP[t].lanes) lanes.add(afterRoute.route === 'single' && l.startsWith('lens:') ? 'lens:all' : l);
   }
   return {
     affectedGates: [...gates].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))),
@@ -131,7 +169,7 @@ function affectedSets(triggers, afterTaskCount, full) {
   };
 }
 
-/** Compare two plan texts: { material, triggers, details, affectedGates, affectedLanes }. */
+/** Compare two plan texts: { material, triggers, details, affectedGates, affectedLanes, rerun, dispatch, recheckLanes }. */
 function diffMaterial(beforeText, afterText, { full = false, prevDir = null } = {}) {
   const before = tasksOf(beforeText);
   const after = tasksOf(afterText);
@@ -161,15 +199,25 @@ function diffMaterial(beforeText, afterText, { full = false, prevDir = null } = 
   const keysOnly = m => new Map([...m.keys()].map(k => [k, '']));
   const devDelta = setDelta(keysOnly(sectionEntries(sectionBody(beforeText, dev), { bullets: false })), keysOnly(sectionEntries(sectionBody(afterText, dev), { bullets: false })));
   if (devDelta) fire('deviations', { added: devDelta.added, removed: devDelta.removed });
+  const beforeRoute = reviewRoute(planShape(beforeText));
+  const afterRoute = reviewRoute(planShape(afterText));
+  if (beforeRoute.route !== afterRoute.route) fire('reviewRoute', { before: beforeRoute.route, after: afterRoute.route });
 
-  const sets = affectedSets(triggers, after.size, full);
-  const rerun = prevDir === null ? [] : rerunFrom(prevDir, after.size);
+  const sets = affectedSets(triggers, afterRoute, full);
+  const rerun = prevDir === null ? [] : rerunFrom(prevDir, afterRoute);
   if (sets.affectedLanes[0] !== '*') sets.affectedLanes = [...new Set([...sets.affectedLanes, ...rerun])].sort();
-  return { material: triggers.length > 0, triggers, details, ...sets, rerun };
+  const laneTable = [...LANE_DEFS.map(d => d.name), 'dimension-coverage'];
+  const all = sets.affectedLanes[0] === '*';
+  const dispatch = {
+    lanes: all ? laneTable : laneTable.filter(n => sets.affectedLanes.includes(n)),
+    lenses: all ? afterRoute.lenses : sets.affectedLanes.filter(l => l.startsWith('lens:')).map(l => l.slice(5)).sort(),
+  };
+  const material = triggers.length > 0;
+  return { material, triggers, details, ...sets, rerun, dispatch, recheckLanes: material ? dispatch.lanes : [] };
 }
 
 /** Lanes and lenses whose previous result in prevDir is blocking or unreadable: they must be re-dispatched (R67). */
-function rerunFrom(prevDir, afterTaskCount) {
+function rerunFrom(prevDir, afterRoute) {
   let files;
   try { files = fs.readdirSync(prevDir); }
   catch (err) { throw Object.assign(new Error(`cannot read --prev-dir ${prevDir}: ${err.message}`), { code: 'USAGE' }); }
@@ -187,7 +235,7 @@ function rerunFrom(prevDir, afterTaskCount) {
     if (!files.includes(`lens-${lens}.json`)) continue;
     if (dirty(`lens-${lens}.json`, v => isObject(v) && Array.isArray(v.issues),
       v => v.issues.some(i => isObject(i) && (i.blocking === true || i.severity === 'CRITICAL')))) {
-      out.add(afterTaskCount < 5 ? 'lens:all' : `lens:${lens}`);
+      out.add(afterRoute.route === 'single' ? 'lens:all' : `lens:${lens}`);
     }
   }
   return [...out].sort();
@@ -610,9 +658,11 @@ function renderScorecard(lensResults, gateAFindings, inventory, g17NotRun = fals
 }
 
 /** Merge lane, validator, lens and G17 results from one critique iteration directory. */
-function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAPath = null, inventoryPath = null, carryDir = null, g17NotRun = false, copyCheck = null }) {
+function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAPath = null, inventoryPath = null, carryDir = null, g17NotRun = false, copyCheck = null, planGiven = false }) {
   const usage = message => Object.assign(new Error(message), { code: 'USAGE' });
-  if (!lanes.length && !lenses.length) throw usage('--lanes or --lenses is required');
+  // Checks-only mode: `--plan` alone merges the validator report and the copy check.
+  const checksOnly = !lanes.length && !lenses.length && carryDir === null && (planGiven || copyCheck !== null);
+  if (!lanes.length && !lenses.length && !checksOnly) throw usage('--lanes or --lenses is required');
   for (const name of lanes) {
     if (name !== 'dimension-coverage' && !LANE_DEFS.some(d => d.name === name)) throw usage(`unknown lane ${name}`);
   }
@@ -680,7 +730,7 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
 
   // Validator report (PF4, PF12, PF13) and gate coverage
   let coverage = null;
-  if (lanes.length) {
+  if (lanes.length || checksOnly) {
     const pf = readResult(path.join(dir, 'pf-report.json'), v => isObject(v) && Array.isArray(v.checks));
     if (pf.reason) {
       laneFailures.push({ lane: 'validate-plan-format', reason: pf.reason, advisory: false });
@@ -699,11 +749,13 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
         }
       }
     }
-    const missing = EXPECTED_GATES.filter(g => g !== 'G17' && !covered.includes(g));
-    for (const g of missing) {
-      laneIssues.push({ gateId: g, taskRef: null, severity: 'error', message: `Gate ${g} not evaluated by any lane`, blocking: true, lane: 'merge-lanes' });
+    if (!checksOnly) {
+      const missing = EXPECTED_GATES.filter(g => g !== 'G17' && !covered.includes(g));
+      for (const g of missing) {
+        laneIssues.push({ gateId: g, taskRef: null, severity: 'error', message: `Gate ${g} not evaluated by any lane`, blocking: true, lane: 'merge-lanes' });
+      }
+      coverage = { expected: EXPECTED_GATES, covered, missing };
     }
-    coverage = { expected: EXPECTED_GATES, covered, missing };
   }
 
   // Lens results
@@ -761,6 +813,6 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
 }
 
 module.exports = {
-  LANE_DEFS, TRIGGER_MAP, diffMaterial, g17Prepare, mirrorPath, rankCandidates, SEVERITY_RANK,
+  LANE_DEFS, TRIGGER_MAP, diffMaterial, planShape, reviewRoute, TIER_BOUNDS, tierCheck, g17Prepare, mirrorPath, rankCandidates, SEVERITY_RANK,
   EXPECTED_GATES, PF_GATES, mergeLanes, renderG17, renderScorecard,
 };

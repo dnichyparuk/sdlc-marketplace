@@ -609,3 +609,45 @@
   assert:
     - type: javascript
       value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "pass") && JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF15" && x.status === "pass")'
+
+- description: "plan-format-compact: (a) lift-planning-shaped lightweight plan passes --final"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/plan.md --final --template {{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/plan-template-default.md --json"
+    project_root: "file://fixtures-fs/project-plan-compact-lightweight"
+  assert:
+    - type: icontains
+      value: '"passed": true'
+    - type: regex
+      value: '"total":\s*13'
+    - type: regex
+      value: '"id":\s*"PF7",\s*"status":\s*"pass"'
+
+- description: "plan-format-compact: (b) plan-parse sees every task"
+  vars:
+    script_path: "-e"
+    script_args: '((p,r)=>((t)=>console.log(JSON.stringify({ids:p.parsePlan(t).tasks.map(x=>x.id||x.number),nums:p.extractTasks(t).map(x=>x.number),compact:p.parsePlan(t).tasks.slice(1).every(x=>x.contract&&x.notes)})))(r("{{repo_root}}/tests/promptfoo/fixtures-fs/project-plan-compact-lightweight/plans/plan.md","utf8")))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-parse.js"),require("fs").readFileSync)'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.ids.join() === "1,2,3" && o.nums.join() === "1,2,3" && o.compact === true) return true;
+        return { pass: false, score: 0, reason: output };
+
+- description: "plan-format-compact: (c) compact Contract on a Standard task fails PF7"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/plan.md --json"
+    project_root: "file://fixtures-fs/project-plan-compact-standard"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF7" && x.status === "fail" && x.message.includes("Task 1: compact **Contract:** is allowed only for Trivial tasks"))'
+
+- description: "plan-format-compact: (d) PF10 prints the exact fix"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/test-plan.md --final --template {{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/plan-template-default.md --json"
+    project_root: "file://fixtures-fs/project-valid-plan"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF10" && x.status === "fail" && x.message.includes("Fix: add a \"## <name>\" heading for each") && x.message.includes("put \"## Tasks\" directly above the first \"### Task\" heading"))'

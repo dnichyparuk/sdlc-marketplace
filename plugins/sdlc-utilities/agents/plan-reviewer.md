@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer
-description: Single plan reviewer for plan-sdlc Step 5 on plans with fewer than 5 tasks that checks every review category (lens all) and returns the lens JSON block.
+description: Single plan reviewer for plan-sdlc Step 5 on the single-reviewer route (R36) that checks every review category (lens all) and returns the lens JSON block.
 tools: Read, Grep, Glob
 model: sonnet
 effort: medium

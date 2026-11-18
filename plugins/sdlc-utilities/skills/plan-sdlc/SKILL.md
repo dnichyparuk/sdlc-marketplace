@@ -2,7 +2,7 @@
 name: plan-sdlc
 description: "Use when writing an implementation plan from requirements, a spec, a design doc, or a user description. ALWAYS use when plan mode is active — this is the designated plan-mode skill. Analyzes scope, maps file structure, decomposes into classified tasks with dependencies, and produces a plan ready for execute-plan-sdlc. Triggers on: write plan, create plan, plan this, break this into tasks, implementation plan, plan mode."
 user-invocable: true
-argument-hint: "[--spec] [--from-openspec <change-name>] [--quality speed|balanced|quality] [spec-file-path]"
+argument-hint: "[--spec] [--from-openspec <change-name>] [--quality speed|balanced|quality] [--lightweight] [spec-file-path]"
 model: opus
 ---
 
@@ -29,6 +29,8 @@ Write an implementation plan from requirements, a spec, or a user description. P
 | 2–3 files, clear scope | Lightweight: inline exploration only, no review loop | Lightweight |
 | 4+ files or unclear scope | Full pipeline (Steps 1–7) | Full pipeline |
 | Multiple independent subsystems | Decompose into separate plans | Decompose |
+
+When the plan.js output below has `flags.lightweight === true` (`--lightweight`, A5), take the Lightweight route whatever the scope signal; Step 2's tier check (R73) may still escalate it. <!-- A5, R1 -->
 
 **Progress tracking (full pipeline only):** Track Steps 1–7 with the harness's task list if one is available. Lightweight plans skip this.
 
@@ -60,6 +62,8 @@ Run this as one plain Bash call. Take the manifest path the command prints on st
 If `--from-openspec <name>` was passed to plan-sdlc, include it in the node command: `node "<PLUGIN_ROOT>/scripts/skill/plan.js" --output-file --from-openspec <name>`.
 
 If `--quality <preset>` was passed to plan-sdlc, include it the same way (`--quality <preset>`). plan.js resolves it into `flags.quality` (P24) and applies it as `dispatchModel`/`dispatchEffort` on the reviewer entries; no later step reads the raw flag.
+
+If `--lightweight` was passed to plan-sdlc, include it the same way (`--lightweight`). plan.js resolves it into `flags.lightweight` (P24); routing reads only `flags.lightweight === true`, never the raw flag. <!-- A5 -->
 
 If `EXIT_CODE` is non-zero, print the errors from the JSON output; when the output file holds a non-null `critiqueDir`, remove it (one `rm -rf` on that literal path) before you stop. If `EXIT_CODE` is 0, read the JSON output file. Print context detection summary:
 ```
@@ -94,10 +98,10 @@ Otherwise `openspecContext`, `fromOpenspecDirect` and `openspecInlineGenerate` s
 
 **Build the plan skeleton from the template.** For each entry in the parsed `## Required Sections` list, in the order defined by `./plan-format-reference.md`'s `## Section Order`:
 
-- **Unconditional sections** — write the `## <name>` heading with a placeholder body. For `Deviations & assumptions`, use the table format (Item | asked | does | why) with a placeholder row. For other sections, use `[TBD]`.
+- **Unconditional sections** — write the `## <name>` heading with a placeholder body. For `Deviations & assumptions`, use the table format (Item | asked | does | why) with a placeholder row. For `Tasks`, write the `## Tasks` heading verbatim; Step 2 keeps it and inserts the task blocks under it. For other sections, use `[TBD]`.
 - **Conditional sections** — evaluate the condition against the prepare output's signals, not against plan header placeholders which are still `[TBD]` at skeleton-build time. For OpenSpec conditions specifically, evaluate `fromOpenspecDirect || openspecInlineGenerate` — `fromOpenspecDirect` and `openspecInlineGenerate` are set in `./openspec-flow.md` Step 0 (the `--from-openspec` handling and the gate check Option 2 handling), and both stay unset when that file was not read. These are the same flags that gate OpenSpec Appendix generation in Step 4, so the skeleton decision and the fill decision never diverge. Recognize both the legacy condition string (`source matches openspec/changes/`) and the current condition string (`source matches openspec/changes/ or openspecInlineGenerate`), mapping both to the union check `fromOpenspecDirect || openspecInlineGenerate`. A plan with `openspecContext` populated via the interactive `--spec` flow but without `--from-openspec` or `openspecInlineGenerate` does NOT satisfy OpenSpec-conditional sections (no Step 4 branch renders content for that path). When the condition holds, write the heading with `[TBD]`. When it does not, write the heading with `Not applicable — <reason>` (e.g., `Not applicable — no OpenSpec change`). **Unknown condition strings** — a project-override template MAY declare a `<!-- conditional: ... -->` string this SKILL.md doesn't recognize (only the OpenSpec condition is currently defined). Default to treating the condition as NOT satisfied — write the heading with `Not applicable — condition "<condition string>" not recognized`. This fails toward a visible, grep-able placeholder rather than either silently dropping the heading (which PF10 would then flag as a genuine failure) or guessing the condition true and leaving a `[TBD]` nobody fills in. Since PF10 checks heading presence unconditionally, the heading itself is written either way — only the body differs. <!-- implements R63 --> <!-- R59 -->
 
-**Lightweight plan adjustment:** When Step 0 routing selects the lightweight branch (Step 5 skipped), sections whose content is produced exclusively by a skipped step (e.g., `Verification Scorecard` is produced by Step 5) get body `Not applicable — lightweight plan` instead of `[TBD]`. This prevents dead placeholders in the final plan. This is a best-effort readability improvement, not a correctness requirement: it names known step-owned sections by their default-template name, so a project override that renames or adds a step-5-owned section simply falls back to the generic `[TBD]` body for that section rather than breaking — the section still appears (per the "do not hardcode which sections appear" rule below), only the friendlier substitute body is skipped.
+**Lightweight plan adjustment:** When Step 0 routing selects the lightweight branch (Step 5 skipped), sections whose content is produced exclusively by a skipped step (e.g., `Verification Scorecard` is produced by Step 5) get body `Not applicable — lightweight plan` instead of `[TBD]`. This prevents dead placeholders in the final plan. The heading stays, so Step 6.6's PF9 and PF10 pass on this route too (R53); when R73 escalates the run, Step 5's Gate B replaces that body. This is a best-effort readability improvement, not a correctness requirement: it names known step-owned sections by their default-template name, so a project override that renames or adds a step-5-owned section simply falls back to the generic `[TBD]` body for that section rather than breaking — the section still appears (per the "do not hardcode which sections appear" rule below), only the friendlier substitute body is skipped.
 
 Do NOT hardcode which sections appear in the skeleton, or their order. The template's `## Required Sections` list (and `./plan-format-reference.md`'s `## Section Order`) is the single source of truth for section presence and ordering — never an explicit roster coded into this SKILL.md. Section-specific BODY FORMATTING for a small, named set of sections (the Deviations table above, the lightweight-adjustment substitution above) is a distinct, narrower exception: it improves the placeholder body for sections this doc already knows by name, and degrades gracefully to the generic `[TBD]` body for any section it doesn't recognize — it never controls whether a section is written.
 
@@ -258,6 +262,8 @@ Files + Contract + Acceptance criteria — do not restate it here.]
 
 **Contract block (required — implements R45):** Every artifact-touching task MUST include a `**Contract:**` block per `./plan-format-reference.md`, carrying the type-appropriate decided shape (code: signatures/types/flags/error-cases/import-paths; docs: template+sections+audience+cross-links; openspec/spec: requirement IDs ADD/MODIFY/REMOVE + delta text + numbering). The plan type is derived from the task's `Files:` paths; a mixed-artifact task uses its dominant artifact's column. A task whose Contract is absent or merely restates "update X to do Y" is flagged by G18 in Step 3.
 
+**Compact Trivial blocks (R45):** a `**Complexity:** Trivial` task MAY write `**Contract:**` and `**Notes:**` as one label line each, per `./plan-format-reference.md` "Compact Trivial blocks". Only those two blocks compact; every task keeps its own `### Task N:` heading and `**Acceptance criteria:**` list.
+
 **G18 — Settlement / contract concreteness (error-severity):** Flags any artifact-touching task whose `Contract:` is absent or merely restates "update X to do Y" without a concrete type-appropriate shape. Owned by the content-coverage lane. Blocks plan approval until the Contract pins the decided shape. Backed by deterministic presence floor PF7 (validate-plan-format.js, default check set); LLM G18 judges concreteness above the floor.
 
 **Render don't narrate (surface-conditional — implements R46):** When a task touches a concrete-artifact surface (payload, struct/schema field change, status enum, flow, config/flag delta, error mode, data-writing end-state), RENDER the artifact (fenced block / table / before→after diff) — do not describe it in prose. Use the catalog + conventions in ./plan-format-reference.md. Cap: one elided (…) example per distinct contract shape (a distinct contract shape is one unique combination of method + path for REST, or flag + type for CLI — two endpoints with the same method but different paths are distinct shapes). Trivial docs/rename tasks render nothing. (Mermaid fenced blocks allowed for flow/call-order/state surfaces; no MDX.) A task whose concrete-artifact surface is described in prose rather than rendered is flagged by G19 in Step 3.
@@ -297,6 +303,14 @@ R62 is a writing-quality convention judged by the Step 5 lens reviewers alongsid
 
 **Post-write cleanup:** Remove the `## Requirements` working section from the plan file. Requirements are traceable through task acceptance criteria; the section was temporary scaffolding.
 
+**Tier check (Lightweight route only, R73):** run
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" tier --plan "<PLAN_PATH>"
+```
+
+as one plain Bash call and read `tier`. `lightweight`: continue; Step 4 runs the cheap second critique (R74). `full`: print `--lightweight bounds exceeded: <bound> <value> > <max>, …` (one entry per `breaches[]` item) and continue as a full-pipeline run from Step 3: Steps 5–6 run and R74 does not. Exploration is not re-run. A non-zero exit code means stop and invoke `error-report-sdlc`. <!-- R73 -->
+
 ## Step 3 (CRITIQUE): Self-Review Plan — Four Lanes Plus Deterministic Checks <!-- R35 -->
 
 **Re-anchor:** Re-read the plan file before dispatching lanes. The file — not your memory of it — is the source of truth.
@@ -319,7 +333,7 @@ node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --json --file "<PLAN_PAT
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" g17-prepare --plan "<PLAN_PATH>" --dimensions-dir .sdlc/review-dimensions --instructions-dir .github/instructions --learnings .sdlc/learnings/log.md --window 14 --github-hosting <githubHosting.detected> > "<ITER_DIR>/g17-prepare.json"
 ```
 
-Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2 means stop and invoke `error-report-sdlc` (E9). A non-zero exit from g17-prepare does not stop the run (R31): G17 is not run, so do not dispatch `dimension-coverage`, leave it out of `--lanes`, log `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare exited <code>` to `.sdlc/learnings/log.md`, and pass `--g17-not-run` to every Step 5 `merge-lanes` call of this run.
+Run each block as one plain Bash call and take its exit code from the tool result. Validator 0 or 1 is normal; validator 2 means stop and invoke `error-report-sdlc` (E9). A non-zero exit from g17-prepare does not stop the run (R31): G17 is not run, so do not dispatch `dimension-coverage`, leave it out of `--lanes`, log `## YYYY-MM-DD — plan-sdlc: G17 not run — g17-prepare exited <code>` to `.sdlc/learnings/log.md`, and pass `--g17-not-run` to every Step 4 (R74) and Step 5 `merge-lanes` call of this run.
 
 **Step 3 dispatch rule (fan-out dispatch):** For each `lane` in `lanes[]` (P16), issue one Agent call — all in one message: `subagent_type: lane.agent`, `description: "plan lane <lane.name>"`, `prompt`: one `NAME: value` line per name in `lane.inputNames`, taking the value from `lane.presetInputs` when present, otherwise from the run-time table below. A value that spans several lines goes after `NAME:` on the lines that follow, inside one fenced `text` block, so a line inside the value is never read as another input. Do not pass `model` or `effort`; the agent file sets both (`agent-dispatch-script-driven` guardrail). Skip `guardrail-compliance` when `activeGuardrails` is empty (merge-lanes synthesizes its constant result via `--no-guardrails`). Skip `dimension-coverage` when `g17-prepare.json` has empty `candidates` and empty `coveredDims`; write `{"candidates":[]}` to `<ITER_DIR>/dimension-coverage.json` with the Write tool instead. When `lane.agentPath` is null, do not dispatch that lane (see below).
 
@@ -368,6 +382,12 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" --mark critiqueRan 2>/dev/null || tru
 
 ## Step 4 (IMPROVE): Revise Plan and Present for Approval
 
+**Lightweight route without escalation (R74), before the fixes:** copy the plan as one plain Bash call. An escalated run (R73 `tier: "full"`) skips this copy and the cheap second critique below.
+
+```bash
+cp "<PLAN_PATH>" "<critiqueDir>/iter-0/plan-before.md"
+```
+
 Fix all issues from Step 3. Rewrite the plan file with fixes applied (edit the existing file, don't append). If any revision changes the scope or approach from what was originally recorded, update the `## Deviations & assumptions` table accordingly.
 
 If `activeGuardrails` is non-empty, append a `## Guardrail Compliance` section to the plan file listing each guardrail's evaluation result. Error-severity failures must be resolved before presenting to user. When an error-severity failure cannot be resolved by plan revision and blocks the workflow, offer **harden** (run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time — opt-in, no surface is edited without your approval) alongside the user-revision options. When the user selects **harden** (interactive mode only — suppressed when `--auto` is set), dispatch `Skill(harden-sdlc)` with `--failure-text "Plan blocked by error-severity guardrail <id>: <description> — <rationale>"`, `--skill plan-sdlc`, `--step "Step 4 — IMPROVE"`, `--operation "error-severity guardrail block"`. Implements R19. Format:
@@ -393,10 +413,36 @@ When `g17Findings.findings` is empty (or `g17Findings` is the empty-fallback fro
 
 **(c)** When `fromOpenspecDirect` is false AND `openspecInlineGenerate` is false, the skeleton placeholder from Step 0 already reads `Not applicable — no OpenSpec change` — leave it as-is.
 
-Step 4 is autonomous (implements R22 single-touchpoint handoff). After fixes are applied (Guardrail Compliance section written when `activeGuardrails` is non-empty, and Suggested Review Dimensions spliced when `g17Findings.findings` is non-empty per R34), proceed directly to Step 5. The single user touchpoint for the finalized plan is Step 7 (Handoff); the error-severity guardrail-block harden offer above is the one decision gate inside Step 4. <!-- R19 -->
+**Cheap second critique (Lightweight route without escalation, R74):** after the fixes, run as one plain Bash call:
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<critiqueDir>/iter-0/plan-before.md" --after "<PLAN_PATH>" --prev-dir "<critiqueDir>/iter-0"
+```
+
+Read `recheckLanes` from its JSON. A non-zero exit counts as material with `recheckLanes` = every lane (E9 rule). Then, with `<ITER_DIR>` = `<critiqueDir>/iter-1`:
+
+1. Run the Step 3 deterministic block (its `mkdir -p "<ITER_DIR>"` creates `iter-1`; `iter-0` exists from Step 3).
+2. When `recheckLanes` is non-empty, dispatch those lanes in one message (Step 3 dispatch rule, skip rules and run-time table), write their JSON to `<ITER_DIR>/<lane name>.json`, and run, with `--lanes` set to `recheckLanes` minus the lanes the skip rules left out (as in Step 3):
+
+   ```bash
+   node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "<recheckLanes>" --carry "<critiqueDir>/iter-0" --plan "<PLAN_PATH>" [--no-guardrails] [--g17-not-run] > "<ITER_DIR>/merged.json"
+   ```
+
+   Pass `--no-guardrails` exactly when `activeGuardrails` is empty (the Step 3 decision for the whole run), whether or not `guardrail-compliance` is in `recheckLanes`. Pass `--g17-not-run` exactly when g17-prepare exited non-zero in Step 3 or in this iteration's deterministic block (R31), so the carry does not put `dimension-coverage` back.
+
+   When `recheckLanes` is empty, run merge-lanes checks-only:
+
+   ```bash
+   node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --plan "<PLAN_PATH>" > "<ITER_DIR>/merged.json"
+   ```
+
+   A non-zero merge-lanes exit means stop and invoke `error-report-sdlc`, as in Step 3.
+3. Fix the blocking `issues` in `merged.json` once. There is no further critique round, and `guardrailsEvaluated` and `critiqueRan` are not re-written. <!-- R74 -->
+
+Step 4 is autonomous (implements R22 single-touchpoint handoff). After fixes are applied (Guardrail Compliance section written when `activeGuardrails` is non-empty, and Suggested Review Dimensions spliced when `g17Findings.findings` is non-empty per R34), proceed directly to Step 5 on the full pipeline, or to Step 6.5 on the Lightweight route without escalation. The single user touchpoint for the finalized plan is Step 7 (Handoff); the error-severity guardrail-block harden offer above is the one decision gate inside Step 4. <!-- R19 -->
 
 ## Steps 5–6 (CRITIQUE / IMPROVE): Review loop — full pipeline only (R36, R40–R44, R64)
-Full-pipeline plans: Read `./review-loop.md` now and follow it for Steps 5–6. Lightweight plans skip Steps 5–6 and continue at Step 6.5.
+Full-pipeline runs, including a Lightweight run that R73 escalated: Read `./review-loop.md` now and follow it for Steps 5–6. Lightweight runs without escalation skip Steps 5–6 and continue at Step 6.5.
 
 ## Step 6.5 (LINK VERIFICATION): Validate URLs in plan content — HARD GATE <!-- R18 -->
 
@@ -416,20 +462,12 @@ On zero exit, proceed to Step 7. `SDLC_LINKS_OFFLINE=1` skips network reachabili
 
 ## Step 6.6 (FORMAT VALIDATION): Validate plan structure — HARD GATE
 
-After link verification passes, run the deterministic plan format validator. PF9 (Verification Scorecard presence) is applied only when this run executed Step 5 (the multi-lens review). PF10 (template-required sections) is applied only on full-pipeline plans (`--final`, which also passes `--template`), like PF9. PF11 (the `**Commit:**` header line) always runs and is checked only when the line is present: a missing line passes (the omission is explained in a `## Deviations & assumptions` row), a malformed one fails. PF12 (shared Modify paths in dependency order) always runs; PF13 (Modify paths exist) runs because the block passes `--root`, the active worktree.
+After link verification passes, run the deterministic plan format validator. Every route runs the same block (R53): PF9 (Verification Scorecard presence) and PF10 (template-required sections) apply to a Lightweight-route plan too, whose `## Verification Scorecard` heading carries the body `Not applicable — lightweight plan`. PF11 (the `**Commit:**` header line) always runs and is checked only when the line is present: a missing line passes (the omission is explained in a `## Deviations & assumptions` row), a malformed one fails. PF12 (shared Modify paths in dependency order) always runs; PF13 (Modify paths exist) runs because the block passes `--root`, the active worktree.
 
-Run the block for the Step 0 routing branch THIS run took — not chosen from scorecard presence (that would make PF9 circular). Substitute `<PLAN_PATH>` and `<activeTemplatePath>` (Step 0 template resolution) with literal paths.
-
-Full-pipeline plan (Step 5 ran; PF9 and PF10 apply):
+Substitute `<PLAN_PATH>` and `<activeTemplatePath>` (Step 0 template resolution) with literal paths, and run as one plain Bash call:
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --markdown --file "<PLAN_PATH>" --final --template "<activeTemplatePath>" --root "$PWD"
-```
-
-Lightweight plan (Step 5 skipped; PF9 and PF10 do not apply):
-
-```bash
-node "<PLUGIN_ROOT>/scripts/ci/validate-plan-format.js" --markdown --file "<PLAN_PATH>" --root "$PWD"
 ```
 
 Take the command's exit code from the tool result (a tool result without an error is exit code 0). On non-zero exit:
