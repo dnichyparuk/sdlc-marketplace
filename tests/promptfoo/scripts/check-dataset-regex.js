@@ -18,11 +18,12 @@ if (!fs.existsSync(MARKER)) {
 // #9391: every regex/not-regex value in a behavioural or headless dataset must compile with
 // new RegExp(value) (promptfoo adds no flags), or the assertion can never pass.
 // Threat model: a best-effort lint for dataset authors, a text scan, not a YAML parse. Accepted gaps:
-//  - the value must be on the first non-comment line after its type: line (all 320 are);
+//  - the value must be on the first non-comment line after its type: line (every current value is);
 //  - a value with {{...}} is compiled as written, before promptfoo renders it;
 //  - an assertion in a config file (not a dataset) or under defaultTest is not seen;
+//  - a dataset file that a config names but that does not exist is skipped (check-fixture-refs.js reports it);
 //  - a JSON-incompatible YAML escape (\x, \ ) is reported as undecodable (fails safe).
-// --probe-invalid proves that the scan reports an invalid regex and an invalid not-regex.
+// --probe-invalid proves that the scan reports an invalid regex, an invalid not-regex and an empty value.
 const PROMPTFOO_DIR = path.join(REPO_ROOT, 'tests/promptfoo');
 const TYPE_RE = /^\s*-?\s*type:\s*["']?(not-)?regex["']?\s*$/;
 const VALUE_RE = /^\s*value:\s*([^\n]*)$/;
@@ -30,6 +31,7 @@ const VALUE_RE = /^\s*value:\s*([^\n]*)$/;
 // Returns { value } or { error } for a raw value text.
 function decode(raw) {
   const text = raw.trim();
+  if (text === '') return { error: 'empty value' };
   if (/^([|>][-+0-9]*)?$/.test(text)) return { error: 'block scalar not supported' };
   if (text.startsWith('"')) {
     try {
@@ -96,7 +98,7 @@ function probeInvalid() {
       'datasets/a.yaml': ['- assert:', '    - type: regex', "      value: '(?i)bad'",
         '    - type: regex', "      value: 'it''s ok'", ''],
       'datasets/b.yaml': ['- assert:', '    - type: not-regex', '      value: "(?s)x.*y"',
-        '    - type: not-regex', '      value: "x\\\\.y"', ''],
+        '    - type: not-regex', '      value: "x\\\\.y"', '    - type: regex', '      value:', ''],
     };
     for (const [name, lines] of Object.entries(files)) {
       const full = path.join(root, name);

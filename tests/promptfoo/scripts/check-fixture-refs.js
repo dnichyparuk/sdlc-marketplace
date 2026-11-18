@@ -20,7 +20,8 @@ if (!fs.existsSync(MARKER)) {
 //  - a reference built from a template variable ({{...}}) or split over lines is not seen;
 //  - a fixture path without file:// (for example stub_bin in headless-github.yaml) is not checked;
 //  - a .. segment is resolved as written, not confined to tests/promptfoo/;
-//  - a reference inside a block scalar or after a # on the same line is checked (fails safe).
+//  - a reference inside a block scalar or after a # on the same line is checked (fails safe);
+//    a whole-line # comment is skipped in configs and datasets.
 // --probe-missing proves that the scan reports a missing fixture and a missing dataset.
 const PROMPTFOO_DIR = path.join(REPO_ROOT, 'tests/promptfoo');
 const CONFIGS = ['promptfooconfig.yaml', 'promptfooconfig-headless.yaml'];
@@ -34,10 +35,11 @@ function scanRefs(root) {
   for (const config of CONFIGS) {
     const lines = fs.readFileSync(path.join(root, config), 'utf8').split('\n');
     lines.forEach((line, i) => {
+      if (line.trimStart().startsWith('#')) return;
       for (const m of line.matchAll(DATASET_RE)) {
         if (!datasets.includes(m[1])) datasets.push(m[1]);
         if (!fs.existsSync(path.join(root, m[1]))) {
-          missing.push({ dataset: config, line: i + 1, ref: m[1] });
+          missing.push({ config, line: i + 1, ref: m[1] });
         }
       }
     });
@@ -57,14 +59,15 @@ function scanRefs(root) {
   return { ok: missing.length === 0, configs: CONFIGS.length, datasets: datasets.length, refs, missing };
 }
 
-// Negative self-test: build a temp tree with a missing fixture and a missing fixture dir, outside tests/promptfoo,
+// Negative self-test: build a temp tree with a missing dataset, a missing fixture, a missing fixture dir and
+// commented references, outside tests/promptfoo,
 // and scan it with the real scanRefs.
 function probeMissing() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fixture-refs-missing-'));
   try {
     const files = {
-      'promptfooconfig.yaml': ['tests:', '  - file://datasets/a.yaml', ''],
-      'promptfooconfig-headless.yaml': ['tests:', '  - file://datasets/b.yaml', ''],
+      'promptfooconfig.yaml': ['tests:', '  - file://datasets/a.yaml', '#  - file://datasets/commented.yaml', ''],
+      'promptfooconfig-headless.yaml': ['tests:', '  - file://datasets/b.yaml', '  - file://datasets/c.yaml', ''],
       'datasets/a.yaml': ['- vars:', '    project_context: "file://fixtures/present.md"',
         '    other: "file://fixtures/absent.md"', '# project_context: "file://fixtures/commented.md"', ''],
       'datasets/b.yaml': ['- vars:', '    project_root: "file://fixtures-fs/absent-dir"', ''],

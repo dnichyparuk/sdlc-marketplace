@@ -75,5 +75,5 @@ Return the script's stdout verbatim as your final message and nothing else. Do n
 - Call `gh api` to post a comment (the skill's main context owns this)
 - Implement `yes` / `save` / `cancel` branches or no-PR menu options
 - Invoke the `pr-sdlc` skill
-- Delete `manifest.diff_dir` or the manifest file — the skill cleans both up
+- Delete `manifest.diff_dir` or the manifest file — the skill removes `diff_dir`; the manifest file is kept (R8, G3)
 - Dispatch dimension subagents without `model:` or `effort:` — omitting them inherits this orchestrator's settings instead of the dimension's chosen ones. Use `model: dimension.model || manifest.subagent_model` and `effort: dimension.effort || manifest.subagent_effort` (per-dimension value wins; manifest is the fallback)
