@@ -43,7 +43,7 @@ const path = require('node:path');
 
 const { resolveSdlcRoot, readSection } = require(path.join(__dirname, '..', 'lib', 'config'));
 const {
-  extractField, stripFences, extractTasks, extractTasksRaw, taskSection, parseFilesEntries, parseDependsOn, parsePlanCommit,
+  extractField, stripFences, labelBlock, extractTasks, extractTasksRaw, taskSection, parseFilesEntries, parseDependsOn, parsePlanCommit,
 } = require(path.join(__dirname, '..', 'lib', 'plan-parse'));
 
 const USAGE = `Usage:
@@ -411,12 +411,26 @@ function checkPF15(content) {
 }
 
 function checkPF7(tasks) {
-  const offenders = tasks
-    .filter(t => /^[-*]\s+(Create|Modify|Test):/m.test(t.body)
-              && !/^\*\*Contract:\*\*/m.test(t.body))
+  const touching = tasks.filter(t => /^[-*]\s+(Create|Modify|Test):/m.test(t.body));
+  const offenders = touching
+    .filter(t => !/^\*\*Contract:\*\*/m.test(t.body))
     .map(t => `Task ${t.number}`);
-  return offenders.length
-    ? { id: 'PF7', status: 'fail', message: `Missing **Contract:** block: ${offenders.join(', ')}` }
+  // Compact form (one line, no bullets) is allowed only for Trivial tasks, with shape and names.
+  const compact = [];
+  for (const t of touching) {
+    const block = labelBlock(t.body, 'Contract');
+    if (block === null || /^\s*[-*]\s+\S/m.test(block)) continue;
+    if (extractField(t.body, 'Complexity') !== 'Trivial') {
+      compact.push(`Task ${t.number}: compact **Contract:** is allowed only for Trivial tasks`);
+    } else if (!/\bshape\b/.test(block) || !/\bnames:/.test(block)) {
+      compact.push(`Task ${t.number}: compact **Contract:** needs shape and names`);
+    }
+  }
+  const messages = [];
+  if (offenders.length) messages.push(`Missing **Contract:** block: ${offenders.join(', ')}`);
+  messages.push(...compact);
+  return messages.length
+    ? { id: 'PF7', status: 'fail', message: messages.join('; ') }
     : { id: 'PF7', status: 'pass', message: 'All artifact-touching tasks have a Contract block' };
 }
 
@@ -462,7 +476,10 @@ function checkPF10(content, requiredSections) {
   }
 
   if (missing.length > 0) {
-    return { id: 'PF10', status: 'fail', message: `Missing required section(s): ${missing.join(', ')}` };
+    const tasksHint = missing.includes('Tasks')
+      ? '; put "## Tasks" directly above the first "### Task" heading'
+      : '';
+    return { id: 'PF10', status: 'fail', message: `Missing required section(s): ${missing.join(', ')}. Fix: add a "## <name>" heading for each${tasksHint}.` };
   }
   return { id: 'PF10', status: 'pass', message: 'All template-required sections present' };
 }

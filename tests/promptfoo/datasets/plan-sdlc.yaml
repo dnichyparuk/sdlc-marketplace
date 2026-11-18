@@ -54,19 +54,19 @@
         G12 are validator checks (PF4, PF12, PF13) and the lanes plus the validator cover
         G1–G21.
 
-- description: "plan-sdlc: P2-fanout — Step 5 dispatches 2-3 lens reviewers in a single message per iteration for >=5-task plans (Fixes #418)"
+- description: "plan-sdlc: P2-fanout — Step 5 dispatches 2-3 lens reviewers in a single message per iteration for fan-out-route plans (Fixes #418)"
   vars:
     skill_path: "plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md"
     project_context: "file://fixtures/plan-orchestrator-dispatch.md"
     user_request: >
-      Run /plan-sdlc. The plan has 7 tasks (>=5) and is written by sonnet.
+      Run /plan-sdlc. The plan has 7 tasks, one of them Complex, and is written by sonnet; plan.js tier returned review.route "fan-out".
       Step 5 (CRITIQUE / Plan Review Loop) is about to begin.
       The prepare output includes lensReviewers[] with 3 entries (architecture,
       requirements, risk). Describe how Step 5 dispatches reviewers for this plan.
   assert:
     - type: llm-rubric
       value: >
-        The response accurately describes Step 5 for a >=5-task plan as dispatching
+        The response accurately describes Step 5 for a fan-out-route plan as dispatching
         ALL lens reviewers from lensReviewers[] in a SINGLE message per iteration
         (parallel dispatch, not sequential). Key facts:
         (1) all 3 lens reviewers dispatched simultaneously in one message per iteration;
@@ -1377,7 +1377,7 @@
     project_context: "file://fixtures/plan-sdlc-c2-material-change.md"
     user_request: >
       Run /plan-sdlc. Step 5 iteration 1 returned Issues Found. Step 6 IMPROVE just added a new
-      Task 5 to resolve the findings (taskCountBefore=4, taskCountAfter=5 — see context). Evaluate
+      Task 5 to resolve the findings (taskCountBefore=4, taskCountAfter=5 — see context); Task 2 is Complex, so the review route is fan-out. Evaluate
       the Step 6 material change detector, then describe exactly how the NEXT Step 5 iteration
       dispatches its agents.
   assert:
@@ -1406,13 +1406,13 @@
       how the NEXT Step 5 iteration dispatches its agents and how it merges the results.
   assert:
     - type: icontains
-      value: "affectedLanes"
+      value: "dispatch"
     - type: icontains
       value: "--carry"
     - type: llm-rubric
       value: >
         The response sets `materialChangeDetected` to true from the `contracts` trigger and uses
-        `affectedLanes` to choose the agents. In ONE message it dispatches only the content-coverage
+        `dispatch.lanes` and `dispatch.lenses` to choose the agents. In ONE message it dispatches only the content-coverage
         lane and the architecture and risk lens reviewers; it skips guardrail-compliance because no
         guardrails are configured. It does NOT re-dispatch static-structural, dimension-coverage or
         the requirements lens. It runs the Step 3 deterministic checks (validate-plan-format and

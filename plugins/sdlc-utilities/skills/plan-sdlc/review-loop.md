@@ -1,16 +1,24 @@
 # plan-sdlc — review loop (Steps 5–6)
 
-Read by SKILL.md after Step 4 for full-pipeline plans; lightweight plans skip this file. Steps 3, 4, 6.5, 6.6 and 7 stay in SKILL.md, so "the Step 3 dispatch rule" and "the run-time table in Step 3" below refer to SKILL.md.
+Read by SKILL.md after Step 4 for full-pipeline runs, including a Lightweight run that R73 escalated; Lightweight runs without escalation skip this file. Steps 3, 4, 6.5, 6.6 and 7 stay in SKILL.md, so "the Step 3 dispatch rule" and "the run-time table in Step 3" below refer to SKILL.md.
 
 ## Step 5 (CRITIQUE): Plan Review Loop — Multi-Lens Fan-Out <!-- R36 -->
 
-Skip for lightweight plans (2–3 file scope from Step 0 routing).
+Skip on the Lightweight route without escalation (Step 0 routing, R73).
+
+**Review route (first iteration):** run as one plain Bash call
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" tier --plan "<PLAN_PATH>"
+```
+
+and keep its `review` (R36): `review.route` is `fan-out` or `single`, and `review.lenses` names the lenses to dispatch (`all` is `reviewerDispatch`, otherwise the named `lensReviewers[]` entries). A non-zero exit code means stop and invoke `error-report-sdlc`. Later iterations take the lenses from `diff-material`'s `dispatch.lenses` (Step 6).
 
 **Material change detection and merged re-dispatch:** <!-- implements R64 -->
 
 When `materialChangeDetected` is true (set by the Step 6 IMPROVE pass — see below), dispatch Step 3 lanes AND Step 5 lens reviewers in a SINGLE message as parallel Agent tool calls. This merged dispatch counts as **one** iteration of the existing review loop — the iteration counter increments by 1, not 2, and the max-3 cap fires normally. <!-- R8, R-c1 -->
 
-- **Dispatch contents:** run the Step 3 deterministic-check block in this iteration's `<ITER_DIR>` (the PF checks always re-run), then dispatch in one message the lanes and lenses named in `diff-material`'s `affectedLanes` from Step 6 (same skip rules; `lens:<name>` is that `lensReviewers[]` entry, `lens:all` the single reviewer); when `affectedLanes` is `["*"]` (a `taskCount` change), all Step 3 lanes and all `lensReviewers[]` (P17, or the single reviewer for <5-task plans). Each agent uses the dispatch parameters, template variables and model rules of Step 3 (lanes) and Step 5 (lenses).
+- **Dispatch contents:** run the Step 3 deterministic-check block in this iteration's `<ITER_DIR>` (the PF checks always re-run), then dispatch in one message the lanes in `diff-material`'s `dispatch.lanes` and the lenses in its `dispatch.lenses` from Step 6 (same skip rules; `all` is the single reviewer). `dispatch` already resolves `["*"]` (a `taskCount` or `reviewRoute` change) to every lane and the after plan's lens set. Each agent uses the dispatch parameters, template variables and model rules of Step 3 (lanes) and Step 5 (lenses).
 - **Await barrier:** do not consolidate or advance until exactly N = (lanes dispatched + M lenses) results are collected; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns. <!-- R-orchestrator-await, R-c1 -->
 - **Merge:** write each lane's JSON to `<ITER_DIR>/<lane name>.json` and each lens's to `<ITER_DIR>/lens-<lens>.json`, then run `merge-lanes` once on that directory with `--lanes` set to the re-dispatched lanes and `--lenses` to the re-dispatched lenses (either may be `""`), `--no-guardrails` exactly as in Step 3, `--plan "<PLAN_PATH>"` (the copy check, R71(d)), `--carry "<critiqueDir>/iter-<k-1>"` unless `affectedLanes` is `["*"]` (everything is re-dispatched, so nothing is carried) so the results of the lanes and lenses not re-dispatched carry over (R67), plus `--inventory`, `--gate-a` and `--g17-not-run` as in the lens merge below. `issues` in `merged.json` is the unified blocking-issue set (lane, lens and cross-source dedup are done by the script).
 - **G17 on re-dispatch (advisory only):** `g17Findings` from the re-dispatch are not re-spliced into the plan (Step 4 has already run); keep them for scorecard reference only.
@@ -21,7 +29,7 @@ When `materialChangeDetected` is true (set by the Step 6 IMPROVE pass — see be
 When `materialChangeDetected` is false (or unset), dispatch only the Step 5 lens reviewers as below (normal path).
 
 <!-- fan-out-dispatch: await-barrier-required -->
-**For plans with ≥5 tasks — Multi-lens fan-out:** Dispatch ALL lens reviewers from `lensReviewers[]` (P17) in a SINGLE message as parallel Agent tool calls. Do not dispatch them sequentially. <!-- R-orchestrator-await -->
+**When `review.route` is `fan-out` — Multi-lens fan-out:** Dispatch the `lensReviewers[]` entries (P17) named in `review.lenses` (first iteration, from `plan.js tier`) in a SINGLE message as parallel Agent tool calls. Do not dispatch them sequentially. <!-- R-orchestrator-await, R36 -->
 
 **Await barrier:** collect exactly N lens results (N = lenses dispatched) before consolidating or advancing; if a dispatch is backgrounded, keep awaiting across completion notifications. Never consolidate on partial or zero returns. <!-- R-orchestrator-await, R-c1 -->
 
@@ -51,7 +59,7 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lane
 
 Run it as one plain Bash call; a non-zero exit code in the tool result means stop and invoke `error-report-sdlc`. Use `lens` from `merged.json`: `lens.status` is the iteration status (`Approved` iff every lens is Approved), `lens.issues` the issues, `lens.recommendations` the recommendations. Increment the iteration counter by 1 only after the await barrier above is satisfied (exactly N lens results collected); never on partial or zero returns. <!-- R36, R-orchestrator-await, R-c1 -->
 
-For plans with <5 tasks, dispatch one reviewer, `reviewerDispatch` (P25), by the same rule, including the R8 author rule (`description: "plan review"`). Its JSON goes to `<ITER_DIR>/lens-all.json` and merge-lanes runs with `--lenses all`.
+When `review.route` is `single`, dispatch one reviewer, `reviewerDispatch` (P25), by the same rule, including the R8 author rule (`description: "plan review"`). Its JSON goes to `<ITER_DIR>/lens-all.json` and merge-lanes runs with `--lenses all`.
 When `reviewerDispatch.agentPath` is null, do not dispatch it; log it as for a lens and still run merge-lanes with `--lenses all`, which reports the missing result as a blocking lens failure (P25).
 
 **Gate B — Verification Scorecard:** <!-- implements R40, R42, R44 -->
@@ -87,9 +95,9 @@ After the plan file is rewritten with the Step 6 fixes, run:
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/plan-before.md" --after "<PLAN_PATH>" --prev-dir "<ITER_DIR>"
 ```
 
-Set `materialChangeDetected` to its `material` value and keep its `affectedLanes` for the merged re-dispatch; on a non-zero exit set `materialChangeDetected` to `true` and `affectedLanes` to `["*"]` (E9). The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
+Set `materialChangeDetected` to its `material` value and keep its `dispatch` and `affectedLanes` for the merged re-dispatch; on a non-zero exit set `materialChangeDetected` to `true`, `affectedLanes` to `["*"]`, `dispatch.lanes` to every Step 3 lane and `dispatch.lenses` to every `lensReviewers[]` entry (E9). The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
 
-`affectedLanes` already includes the `rerun` entries: each lane or lens whose result in `<ITER_DIR>` held a blocking issue, so a result older than the fix is re-dispatched, not carried (R64, R67).
+`affectedLanes` and `dispatch` already include the `rerun` entries: each lane or lens whose result in `<ITER_DIR>` held a blocking issue, so a result older than the fix is re-dispatched, not carried (R64, R67).
 
 Re-dispatch the reviewer (back to Step 5 loop). When `materialChangeDetected` is true, the Step 5 merged dispatch path activates — see "Material change detection and merged re-dispatch" in Step 5.
 

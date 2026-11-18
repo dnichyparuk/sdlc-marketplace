@@ -40,7 +40,7 @@ export const skillsMeta: SkillMeta[] = [
       { id: 'revise-present', label: 'Revise and present', type: 'user', description: 'Fixes critique issues; shows plan for approval' },
       { id: 'save', label: 'Write plan document', type: 'script', description: 'Writes plan to plansDirectory with date prefix' },
       { id: 'openspec-annotate', label: 'Annotate OpenSpec tasks', type: 'script', description: 'Injects ref comments into tasks.md and annotates plan tasks with openspec-task blocks' },
-      { id: 'plan-review', label: 'Cross-model review', type: 'dispatch', description: 'Dispatches a second model to review the written plan; dispatches run in the foreground (run_in_background: false) behind an explicit await barrier so results are consolidated only after every lane returns (R-c1)' },
+      { id: 'plan-review', label: 'Cross-model review', type: 'dispatch', description: 'Dispatches a second model to review the written plan: one reviewer, or three lenses when the plan has a Complex task, 8+ tasks or OpenSpec work (plan.js tier); dispatches run in the foreground (run_in_background: false) behind an explicit await barrier so results are consolidated only after every lane returns (R-c1)' },
       { id: 'gate-a-intake', label: 'Gate A: Intake Audit', type: 'dispatch', description: 'opsx:verify-style audit of source OpenSpec change before decomposition (CRITICAL blocks; WARNING/SUGGESTION recorded as caveats)' },
       { id: 'gate-b-scorecard', label: 'Gate B: Verification Scorecard', type: 'critique', description: 'Requirement-to-task traceability matrix + per-check severity scorecard + go/no-go verdict (additive layer over existing Step 5 lens results)' },
     ],

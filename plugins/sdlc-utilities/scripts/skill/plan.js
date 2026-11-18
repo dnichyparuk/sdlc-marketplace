@@ -5,7 +5,8 @@
  * Uses lib/openspec.js for detection and lib/config.js for guardrail loading.
  *
  * Usage:
- *   node plan-prepare.js [--from-openspec <change-name>] [--output-file] [--quality speed|balanced|quality]
+ *   node plan-prepare.js [--from-openspec <change-name>] [--output-file] [--quality speed|balanced|quality] [--lightweight]
+ *   node plan.js tier --plan <path>
  *   node plan-prepare.js --mark <name> [--path <abs>]
  *   node plan.js diff-material --before <path> --after <path> [--full] [--prev-dir <iterDir>]
  *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
@@ -42,7 +43,7 @@ const { resolveQuality, QUALITY_EXPECTED } = require(path.join(LIB, 'quality'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { initState, findStateFile, readState, writeState, slugifyBranch, pruneStateFiles } = require(path.join(LIB, 'state'));
 const { exec, parseRemoteOwner } = require(path.join(LIB, 'git'));
-const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes } = require(path.join(LIB, 'plan-critique'));
+const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes, tierCheck } = require(path.join(LIB, 'plan-critique'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
 const { validateCopyRules, requiredCopies } = require(path.join(LIB, 'plan-parse'));
 
@@ -70,6 +71,7 @@ function parseArgs(argv) {
   let markName = null;
   let markPath = null;
   let quality = null;
+  let lightweight = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--from-openspec' && args[i + 1]) {
@@ -79,10 +81,11 @@ function parseArgs(argv) {
     } else if (args[i] === '--path' && args[i + 1]) {
       markPath = args[++i];
     } else if (args[i] === '--quality') { quality = args[i + 1] ?? ''; i++; }
+    else if (args[i] === '--lightweight') lightweight = true;
     // --output-file is handled by writeOutput
   }
 
-  return { fromOpenspec, markName, markPath, quality };
+  return { fromOpenspec, markName, markPath, quality, lightweight };
 }
 
 // ---------------------------------------------------------------------------
@@ -336,13 +339,14 @@ function runExplorePack(fromOpenspec, userPrompt) {
 // Main
 // ---------------------------------------------------------------------------
 
-const SUBCOMMANDS = { 'diff-material': runDiffMaterial, 'g17-prepare': runG17Prepare, 'merge-lanes': runMergeLanes };
+const SUBCOMMANDS = { 'diff-material': runDiffMaterial, 'g17-prepare': runG17Prepare, 'merge-lanes': runMergeLanes, tier: runTier };
 
 // Flags each subcommand accepts (without `--`); any other flag is a usage error (exit 1).
 const SUBCOMMAND_FLAGS = {
   'diff-material': ['before', 'after', 'full', 'prev-dir'],
   'g17-prepare': ['plan', 'dimensions-dir', 'instructions-dir', 'learnings', 'window', 'github-hosting', 'root', 'today'],
   'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory', 'carry', 'g17-not-run', 'plan'],
+  tier: ['plan'],
 };
 
 // Value-less flags (`--<name>` → flags key); every other flag takes one value.
@@ -369,6 +373,10 @@ function runDiffMaterial(flags) {
   const before = readPlanFile(requireFlag(flags, 'before'));
   const after = readPlanFile(requireFlag(flags, 'after'));
   return diffMaterial(before, after, { full: flags.full === true, prevDir: flags['prev-dir'] ?? null });
+}
+
+function runTier(flags) {
+  return tierCheck(readPlanFile(requireFlag(flags, 'plan')));
 }
 
 function runG17Prepare(flags) {
@@ -450,7 +458,7 @@ function runSubcommand(sub, args) {
 function main() {
   const sub = process.argv[2];
   if (Object.prototype.hasOwnProperty.call(SUBCOMMANDS, sub)) { runSubcommand(sub, process.argv.slice(3)); return; }
-  const { fromOpenspec, markName, markPath, quality } = parseArgs(process.argv);
+  const { fromOpenspec, markName, markPath, quality, lightweight } = parseArgs(process.argv);
 
   // Read user prompt from stdin (piped by SKILL.md). May be empty when
   // invoked without stdin — e.g. from --mark mode or unit tests.
@@ -478,13 +486,18 @@ function main() {
 
   // A4/P24 — --quality (default balanced); an invalid value stops before any other work.
   const resolved = quality === null ? { key: 'balanced', warning: null } : resolveQuality(quality);
-  const flags = { quality: resolved.key === null ? quality : resolved.key, sources: { quality: quality === null ? 'default' : 'cli' } };
+  const flags = {
+    quality: resolved.key === null ? quality : resolved.key,
+    lightweight,
+    sources: { quality: quality === null ? 'default' : 'cli', lightweight: lightweight ? 'cli' : 'default' },
+  };
   if (resolved.key === null) {
     errors.push(`Invalid --quality value "${quality}"; expected one of ${QUALITY_EXPECTED}.`);
     writeOutput({ errors, flags }, 'plan-prepare', 1);
     return;
   }
   if (resolved.warning) process.stderr.write(`Warning: ${resolved.warning}\n`);
+  if (lightweight && quality !== null) process.stderr.write(`Warning: --quality ${quality} applies only if the plan escalates to the review loop (--lightweight).\n`);
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
   const skipConfigCheck = resolveSkipConfigCheck(process.argv);

@@ -434,7 +434,7 @@ function requiredCopies(planText, rules, cwd) {
 }
 
 module.exports = {
-  extractField, stripFences, extractTasks, parsePlan,
+  extractField, stripFences, extractTasks, parsePlan, labelBlock,
   extractTasksRaw, taskSection, parseFilesEntries, parseDependsOn, sectionBody, parsePlanCommit,
   normalisePlanPath, planFilesPaths, validateCopyRules, requiredCopies,
 };

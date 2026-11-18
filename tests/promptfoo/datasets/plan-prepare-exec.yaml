@@ -6,7 +6,8 @@
 #   fixtures-fs/plan-merge-lanes     - validator report, static-structural, g17-prepare, dimension-coverage, lens and
 #                                      inventory JSON for the `plan-merge:` cases; `no-g17/` repeats the static and
 #                                      validator files without the G17 files (the content-coverage file is left out on purpose)
-#   fixtures-fs/plan-diff-material   - one before plan and four after plans (wording-only, scope change, reversed decision, whitespace reflow) for the `plan-diff:` cases
+#   fixtures-fs/plan-diff-material   - one before plan and four after plans (wording-only, scope change, reversed decision, whitespace reflow) for the `plan-diff:` cases;
+#                                      `after-route-flip.md` is `after-contract.md` with Task 2 Complex (single reviewer to fan-out)
 #   fixtures-fs/plan-g17-prepare     - a plan, one review dimension, its Copilot instruction file and a learnings log
 #                                      for the `plan-g17:` cases
 #   fixtures-fs/plan-g17-u3          - one dimension and three plans (no rename, directory rename, fenced-files) for the
@@ -392,7 +393,7 @@
     - type: javascript
       value: |
         const data = JSON.parse(output);
-        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'balanced', sources: { quality: 'default' } })) return `flags: ${JSON.stringify(data.flags)}`;
+        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'balanced', lightweight: false, sources: { quality: 'default', lightweight: 'default' } })) return `flags: ${JSON.stringify(data.flags)}`;
         for (const e of [...data.lensReviewers, data.reviewerDispatch]) {
           if (e.dispatchModel !== null || e.dispatchEffort !== null) return `${e.agent}: dispatchModel ${e.dispatchModel}, dispatchEffort ${e.dispatchEffort}`;
         }
@@ -410,7 +411,7 @@
     - type: javascript
       value: |
         const data = JSON.parse(output);
-        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'minimal', sources: { quality: 'cli' } })) return `flags: ${JSON.stringify(data.flags)}`;
+        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'minimal', lightweight: false, sources: { quality: 'cli', lightweight: 'default' } })) return `flags: ${JSON.stringify(data.flags)}`;
         for (const e of [...data.lensReviewers, data.reviewerDispatch]) {
           if (e.dispatchModel !== 'opus' || e.dispatchEffort !== 'high') return `${e.agent}: dispatchModel ${e.dispatchModel}, dispatchEffort ${e.dispatchEffort}`;
         }
@@ -442,7 +443,7 @@
     - type: javascript
       value: |
         const data = JSON.parse(output);
-        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'full', sources: { quality: 'cli' } })) return `flags: ${JSON.stringify(data.flags)}`;
+        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'full', lightweight: false, sources: { quality: 'cli', lightweight: 'default' } })) return `flags: ${JSON.stringify(data.flags)}`;
         for (const e of [...data.lensReviewers, data.reviewerDispatch]) {
           if (e.dispatchModel !== 'sonnet' || e.dispatchEffort !== 'low') return `${e.agent}: dispatchModel ${e.dispatchModel}, dispatchEffort ${e.dispatchEffort}`;
         }
@@ -458,7 +459,7 @@
     - type: javascript
       value: |
         const data = JSON.parse(output);
-        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'minimal', sources: { quality: 'cli' } })) return `flags: ${JSON.stringify(data.flags)}`;
+        if (JSON.stringify(data.flags) !== JSON.stringify({ quality: 'minimal', lightweight: false, sources: { quality: 'cli', lightweight: 'default' } })) return `flags: ${JSON.stringify(data.flags)}`;
         for (const e of [...data.lensReviewers, data.reviewerDispatch]) {
           if (e.dispatchModel !== 'opus' || e.dispatchEffort !== 'high') return `${e.agent}: dispatchModel ${e.dispatchModel}, dispatchEffort ${e.dispatchEffort}`;
         }
@@ -479,6 +480,67 @@
         if (JSON.stringify(m.warnings) !== JSON.stringify(['Warning: --quality minimal is deprecated; use --quality quality (same preset).'])) return `minimal warnings: ${JSON.stringify(m.warnings)}`;
         if (f.flags.quality !== 'full' || m.flags.quality !== 'minimal') return `flags: ${JSON.stringify([f.flags, m.flags])}`;
         return true;
+
+- description: "plan-prepare: (lightweight) flag resolves and warns about --quality"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({exitCode:r.status,warnings:r.stderr.split("\n").filter((l)=>l.indexOf("Warning:")===0),flags:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")).flags})))(cp.spawnSync("node",[js,"--lightweight","--quality","speed"],{encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `exit: ${r.exitCode}`;
+        if (JSON.stringify(r.flags) !== JSON.stringify({ quality: 'full', lightweight: true, sources: { quality: 'cli', lightweight: 'cli' } })) return `flags: ${JSON.stringify(r.flags)}`;
+        if (r.warnings.length !== 1 || !r.warnings[0].startsWith('Warning: --quality speed applies only')) return `warnings: ${JSON.stringify(r.warnings)}`;
+        return true;
+
+# --- plan tier (lightweight tier bounds check) ---
+
+- description: "plan-tier: (a) small plan stays lightweight with one reviewer"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-tier"
+    script_args: "tier --plan {{project_root}}/light.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.tier === 'lightweight' && r.breaches.length === 0 && r.review.route === 'single'"
+
+- description: "plan-tier: (b) a Complex task escalates and fans out"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "tier --plan {{project_root}}/after-route-flip.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.tier === 'full' && r.breaches.some(b => b.bound === 'complex') && r.review.route === 'fan-out'"
+
+- description: "plan-tier: (c) eight tasks fan out"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-tier"
+    script_args: "tier --plan {{project_root}}/eight.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.tier === 'full' && r.counts.complex === 0 && r.breaches.some(b => b.bound === 'tasks') && r.breaches.some(b => b.bound === 'files') && r.review.route === 'fan-out'"
+
+- description: "plan-tier: (d) OpenSpec work fans out"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-tier"
+    script_args: "tier --plan {{project_root}}/openspec.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.tier === 'full' && r.breaches.some(b => b.bound === 'openspec') && r.review.route === 'fan-out'"
+
+- description: "plan-tier: (e) usage errors exit 1"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js)=>console.log(JSON.stringify([["tier"],["tier","--bogus","x"]].map((a)=>cp.spawnSync("node",[js,...a],{encoding:"utf8"}).status))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+  assert:
+    - type: javascript
+      value: "JSON.stringify(JSON.parse(output)) === JSON.stringify([1, 1])"
 
 # --- openspecContext.requirements (R38 — Fixes #445) ---
 
@@ -689,14 +751,14 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0"
 
-- description: "plan-diff: one Contract change affects content-coverage, guardrail-compliance and the architecture and risk lenses"
+- description: "plan-diff: one Contract change on a single-reviewer plan affects content-coverage, guardrail-compliance and lens:all"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
     project_root: "file://fixtures-fs/plan-diff-material"
     script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/after-contract.md"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['contracts']) && JSON.stringify(r.affectedGates) === JSON.stringify(['G14', 'G18', 'G19', 'G20', 'G21']) && JSON.stringify(r.affectedLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance', 'lens:architecture', 'lens:risk']) && !r.affectedLanes.includes('static-structural')"
+      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['contracts']) && JSON.stringify(r.affectedGates) === JSON.stringify(['G14', 'G18', 'G19', 'G20', 'G21']) && JSON.stringify(r.affectedLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance', 'lens:all']) && !r.affectedLanes.includes('static-structural') && JSON.stringify(r.dispatch.lenses) === JSON.stringify(['all']) && JSON.stringify(r.recheckLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance'])"
 
 - description: "plan-diff: --prev-dir adds lanes and lenses with blocking results to affectedLanes"
   vars:
@@ -705,7 +767,25 @@
     script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/after-contract.md --prev-dir {{project_root}}/prev-blocking"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['contracts']) && JSON.stringify(r.rerun) === JSON.stringify(['lens:requirements', 'static-structural']) && JSON.stringify(r.affectedLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance', 'lens:architecture', 'lens:requirements', 'lens:risk', 'static-structural'])"
+      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['contracts']) && JSON.stringify(r.rerun) === JSON.stringify(['lens:all', 'static-structural']) && JSON.stringify(r.affectedLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance', 'lens:all', 'static-structural'])"
+
+- description: "plan-diff: (route) route flip re-dispatches everything"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/after-route-flip.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['contracts', 'reviewRoute']) && JSON.stringify(r.details.reviewRoute) === JSON.stringify({ before: 'single', after: 'fan-out' }) && JSON.stringify(r.affectedLanes) === JSON.stringify(['*']) && r.affectedGates.length === 21 && JSON.stringify(r.dispatch.lanes) === JSON.stringify(['static-structural', 'content-coverage', 'guardrail-compliance', 'dimension-coverage']) && JSON.stringify(r.dispatch.lenses) === JSON.stringify(['architecture', 'requirements', 'risk']) && JSON.stringify(r.recheckLanes) === JSON.stringify(r.dispatch.lanes)"
+
+- description: "plan-diff: (route) fan-out plan keeps per-lens rerun"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/after-route-flip.md --after {{project_root}}/after-route-flip.md --prev-dir {{project_root}}/prev-blocking"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0 && Array.isArray(r.recheckLanes) && r.recheckLanes.length === 0 && JSON.stringify(r.rerun) === JSON.stringify(['lens:requirements', 'static-structural'])"
 
 - description: "plan-diff: without --prev-dir rerun is empty"
   vars:
@@ -991,6 +1071,26 @@
     - type: icontains
       value: "unknown lane nope"
 
+# No script_cwd: the run reads this repository's plan.copyRules, so copyCheck is not null and checks-only mode applies.
+- description: "plan-merge: (checks-only) --plan alone merges validator and copy issues"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --plan {{project_root}}/copy-plan.md"
+  assert:
+    - type: javascript
+      value: |
+        const cp = process.getBuiltinModule('child_process');
+        const path = process.getBuiltinModule('path');
+        const r = JSON.parse(output);
+        const has = (g, t) => r.issues.some(i => i.gateId === g && i.taskRef === t && i.lane === 'validate-plan-format' && i.blocking === true);
+        const planJs = path.join(context.vars.repo_root, 'plugins/sdlc-utilities/scripts/skill/plan.js');
+        const bare = cp.spawnSync(process.execPath, [planJs, 'merge-lanes', '--dir', context.vars.project_root], { encoding: 'utf8' });
+        const ok = has('G3', 'Task 1') && has('G12', 'Task 3') && r.coverage === null && r.lens === null && r.g17Findings === null && r.scorecard === null && r.copyCheck !== null &&
+          bare.status === 1 && bare.stderr.includes('--lanes or --lenses is required');
+        if (ok) return true;
+        return { pass: false, score: 0, reason: JSON.stringify({ coverage: r.coverage, copyCheck: r.copyCheck, bareStatus: bare.status, bareStderr: bare.stderr }) };
+
 # --- merge-lanes --plan copy check (R71(d)); `--lanes` is left out (an empty list) because script_args splits on whitespace ---
 
 - description: "plan-copy: (a) each unlisted required copy is one blocking copy-check issue"
@@ -1097,6 +1197,17 @@
       value: |
         const o = JSON.parse(output);
         if (o.order === 1 && o.perTask === 1 && o.example === 1 && o.skill === 1) return true;
+        return { pass: false, score: 0, reason: output };
+
+- description: "plan-sdlc/lightweight-sentinels: SKILL.md and review-loop.md read the routing fields (A5, R73, R74, R36)"
+  vars:
+    script_path: "-e"
+    script_args: '((r)=>((s,l)=>((c)=>console.log(JSON.stringify({tier:c(s,"plan.js\x22\x20tier\x20--plan"),final:c(s,"--final\x20--template"),noApply:c(s,"PF9\x20and\x20PF10\x20do\x20not\x20apply"),recheck:c(s,"recheckLanes"),lightweight:c(s,"flags.lightweight\x20===\x20true"),ge5:c(l,"≥5\x20tasks"),lt5:c(l,"\x3c5\x20tasks"),lenses:c(l,"dispatch.lenses")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.tier >= 1 && o.final === 1 && o.noApply === 0 && o.recheck >= 1 && o.lightweight >= 1 && o.ge5 === 0 && o.lt5 === 0 && o.lenses >= 1) return true;
         return { pass: false, score: 0, reason: output };
 
 # --- plan-explore.js --check-brief (R72) ---
