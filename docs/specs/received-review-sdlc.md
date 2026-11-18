@@ -15,6 +15,8 @@
 - A4: `--plan <path>` — the plan whose Files bound the fixes (R28) (default: unset)
 - A5: `--min-severity critical|high|medium|low` — the lowest severity that may be fixed (R29) (default: unset)
 - A6: `--check-scope --manifest <path> --fixed <ids>` — the post-Step-11 check mode (R30) (default: off)
+- A7: Arguments — only `--pr <number>`, `--auto`, `--comment-file <path>`, `--plan <path>` and `--min-severity <level>` reach `skill/received-review.js` from the user's arguments. The skill takes them from `$ARGUMENTS` before its first Bash call: a token is a flag only when it is outside quotes and is exactly one of these names, and the value of `--pr`, `--comment-file`, `--plan` and `--min-severity` is the next token, without its enclosing quotes. It passes them as `<FLAGS>`, each value a single-quoted literal. A PR the user names in words becomes `--pr '<N>'` only when `<N>` is all digits: a bare number, or the number after `/pull/` in a pull-request URL. Every other token is the request: it stays with the model and never reaches a command line (C20). An unknown `--` token outside quotes is request text, and the skill says so: `Not a received-review-sdlc flag, read as request text: <token>`.
+  - Acceptance: exec — the SKILL.md has no `$ARGUMENTS` inside a fenced block, the prepare call is `received-review.js --output-file <FLAGS>`, and the allow-list rule text is present.
 
 ### Configuration
 
@@ -201,6 +203,8 @@ Critique 2 (responses):
 - C17: `AskUserQuestion` MUST NOT be called in Step 11.6 when `flags.auto === true`. The R25 matrix governs all Step 11.6 behavior; decision sites MUST cite `flags.auto` and `flags.alwaysHardenFromReview` (resolved fields) — never raw `$ARGUMENTS` or direct config reads.
 - C18: Step 11.6 clusters ONLY findings whose verdict is one of the four R6 outcomes (`agree-will-fix | agree-won't-fix | disagree | needs-discussion`). Threads at pre-Step-4 status (`cannot-verify`, ungraded) MUST NOT enter clusters.
 - C19: Under `--auto` no AskUserQuestion: the unclear-item (Step 2) and cannot-verify (Step 3) cases get the verdict "needs discussion" (ship R85)
+- C20: Must not put `$ARGUMENTS` or request text into a Bash call. Threat model: a best-effort rule in skill prose that keeps request words off the command line. Accepted gaps: no code checks how the model splits `$ARGUMENTS`; a request word outside quotes that is exactly an allowed flag name is read as that flag; `received-review.js` ignores stray tokens.
+  - Acceptance: exec — the static SKILL.md case of A7; `validate-args-rule.js --root .` reports nothing for received-review-sdlc.
 
 ## Integration
 
@@ -213,6 +217,12 @@ Critique 2 (responses):
 - I7: ship-sdlc R82 forwards `--plan` and `--min-severity`
 
 ## Appendix — history
+
+### Decisions
+
+| Date | Source | Decision | Ids |
+|---|---|---|---|
+| 2026-11-18 | architect, owner delegation (#9390) | Only an explicit flag allow list reaches the prepare script; `$ARGUMENTS` never goes into a Bash call. | A7, C20 |
 
 ### Issue trail
 

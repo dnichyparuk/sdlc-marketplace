@@ -33,7 +33,7 @@ The plan must contain at least 2 tasks with clear deliverables (files to create 
 
 | Flag | Description | Default |
 |---|---|---|
-| `--quality <full\|balanced\|minimal>` | Select the quality tier — the worker routing (agent and effort per task, see [Worker Routing](#worker-routing)) — and skip the interactive selection prompt. `full` = Speed, `balanced` = Balanced, `minimal` = Quality (which also forces the per-wave spec review). Under `--auto` an invalid value stops the run with an `invalidQuality` error; in an interactive run it is ignored with a warning and the tier is chosen at the prompt. (Renamed from `--preset` in #190 to disambiguate from ship-sdlc's `--steps` step-selection flag.) When invoked from ship-sdlc, `--quality` is forwarded only when the user explicitly passed `--quality` to ship. | Interactive prompt; `balanced` under `--auto` |
+| `--quality <speed\|balanced\|quality>` | Select the quality tier — the worker routing (agent and effort per task, see [Worker Routing](#worker-routing)) — and skip the interactive selection prompt. `speed` = Speed, `balanced` = Balanced, `quality` = Quality (which also forces the per-wave spec review). `full` and `minimal` are deprecated aliases of `speed` and `quality` (a warning is printed). Under `--auto` an invalid value stops the run with an `invalidQuality` error; in an interactive run it is ignored with a warning and the tier is chosen at the prompt. (Renamed from `--preset` in #190 to disambiguate from ship-sdlc's `--steps` step-selection flag.) When invoked from ship-sdlc, `--quality` is forwarded only when the user explicitly passed `--quality` to ship. | Interactive prompt; `balanced` under `--auto` |
 | `--auto` | Suppress interactive prompts: auto-resume if state exists, auto-approve high-risk gates. The quality tier is `--quality`, else the resumed run's tier, else `balanced` (printed as `Quality tier: balanced (default under --auto)`). A question the skill cannot ask stops the run with a pendingQuestion instead: `--rebase prompt` with `--auto` and the wave split-depth escalation both do this (execute C17). | Off |
 | `--resume` | Resume from the most recent execution state file for the current branch. Completed waves are skipped; in-progress waves are retried. If the plan has changed since execution started, you are prompted to resume or restart. | Off |
 | `--rebase <auto\|skip\|prompt>` | Rebase onto the default branch before execution. `auto` rebases silently (aborts on conflict), `skip` skips, `prompt` asks; with `--auto`, `prompt` stops the run with a pendingQuestion (rebase or skip) (execute C17). | Skip |
@@ -59,7 +59,7 @@ Keys under `execute` in `.sdlc/config.json` (schema: `schemas/sdlc-config.schema
 | `commitWaves` | Commit each completed wave as a `wip(execute)` commit; the `--commit-waves` default. Legacy fallback: `ship.execute.commitWaves` in `.sdlc/local.json`. | false |
 | `rebase` | Rebase onto the default branch before execution: `auto`, `skip` or `prompt`; the `--rebase` default. | skip |
 | `waveRunnerMinPlanTasks` | Plans with at least this many tasks dispatch workers through one wave-runner Agent per wave (runner mode); smaller plans dispatch them from the main context (direct mode). No CLI flag. | 9 |
-| `specReviewer` | Spec compliance review cadence: `once` (one review after the final wave) or `per-wave` (after every wave with a non-trivial task). `--quality minimal` forces `per-wave` and warns when the config set `once`. No CLI flag. | once |
+| `specReviewer` | Spec compliance review cadence: `once` (one review after the final wave) or `per-wave` (after every wave with a non-trivial task). `--quality quality` (deprecated alias `minimal`) forces `per-wave` and warns when the config set `once`. No CLI flag. | once |
 | `dispatchBudget` | Optional per-model input-token budgets (`haiku`, `sonnet`, `opus`) for wave sizing; overrides the built-in defaults in `scripts/lib/dispatch-budget.js`. No CLI flag. | built-in defaults |
 
 `execute.guardrails` holds the execution guardrails; see [Guardrail Enforcement](#guardrail-enforcement).
@@ -159,7 +159,7 @@ The slug is derived from the plan title (lowercase, hyphenated, max 50 character
 
 Each task goes to one of three worker agents at a set effort level. The prepare script applies the routing table for the selected quality tier and emits it per wave; the skill dispatches those entries verbatim. Before executing, the skill presents 3 quality tiers:
 
-| Complexity | Speed (`full`) | Balanced (`balanced`, default) | Quality (`minimal`) |
+| Complexity | Speed (`speed`) | Balanced (`balanced`, default) | Quality (`quality`) |
 |---|---|---|---|
 | Trivial (single, in a wave) | execute-worker / low | execute-worker / low | execute-worker / medium |
 | Trivial (2+ batched) | execute-worker-batch / medium | execute-worker-batch / medium | execute-worker / medium |
@@ -168,7 +168,7 @@ Each task goes to one of three worker agents at a set effort level. The prepare 
 
 The agent file pins the model: `execute-worker` runs sonnet, `execute-worker-batch` runs haiku (the only Haiku worker), and `execute-worker-complex` runs opus. The effort is the Agent-dispatch `effort` parameter. The Quality tier also forces the per-wave spec review. Pre-wave trivial tasks run inline in the main context and are not routed.
 
-Select a tier by name (full/balanced/minimal) or choose `custom` to edit individual task assignments; `custom` routes as the tier it is based on. A failed task retries at most twice, on its dispatch entry's `retries`: the first retry raises the effort on the same agent (an entry already at high effort moves to the next agent tier), and the second moves to the next agent tier (`execute-worker-batch` → `execute-worker` → `execute-worker-complex`). An entry on `execute-worker-complex` at high effort has a single retry. See [Cost Tiers](../cost-tiers.md) §5 for the full ladder.
+Select a tier by name (speed/balanced/quality) or choose `custom` to edit individual task assignments; `custom` routes as the tier it is based on. A failed task retries at most twice, on its dispatch entry's `retries`: the first retry raises the effort on the same agent (an entry already at high effort moves to the next agent tier), and the second moves to the next agent tier (`execute-worker-batch` → `execute-worker` → `execute-worker-complex`). An entry on `execute-worker-complex` at high effort has a single retry. See [Cost Tiers](../cost-tiers.md) §5 for the full ladder.
 
 ---
 
@@ -201,7 +201,7 @@ The dispatching layer — main context in direct mode, the wave-runner in runner
 
 After mechanical verification passes (git diff + canary checks), a spec compliance reviewer (sonnet) checks that each non-trivial task's implementation matches its specification. The reviewer reads actual code — it does not trust agent completion reports.
 
-**Cadence (`execute.specReviewer`):** `once` (default) runs one review after the final wave (Step 8-bis), covering every non-trivial task of every wave; `per-wave` reviews after every wave that has a non-trivial task. `--quality minimal` forces `per-wave` and warns when the config set `once`. The Speed tier (`--quality full`) does not skip the review.
+**Cadence (`execute.specReviewer`):** `once` (default) runs one review after the final wave (Step 8-bis), covering every non-trivial task of every wave; `per-wave` reviews after every wave that has a non-trivial task. `--quality quality` (deprecated alias `minimal`) forces `per-wave` and warns when the config set `once`. The Speed tier (`--quality speed`) does not skip the review.
 
 **Skipped when:** the reviewed tasks are all Trivial.
 
@@ -278,11 +278,11 @@ Wave 3 (1 task — HIGH RISK, will pause):
 Total: 8 tasks across 3 waves + pre-wave; dispatch: direct (from main context)
 
 Quality Tiers (worker routing):
-  full) Speed:         lower effort; Complex on execute-worker     — fast, low cost
+  speed) Speed:        lower effort; Complex on execute-worker     — fast, low cost
   balanced) Balanced:  Complex on execute-worker-complex           — default ✓
-  minimal) Quality:    Standard on execute-worker-complex          — max correctness (spec review per wave)
+  quality) Quality:    Standard on execute-worker-complex          — max correctness (spec review per wave)
 
-Select a quality tier (full/balanced/minimal), "custom" to edit individual tasks, or "cancel":
+Select a quality tier (speed/balanced/quality), "custom" to edit individual tasks, or "cancel":
 ```
 
 ### Execute a plan via `--plan`

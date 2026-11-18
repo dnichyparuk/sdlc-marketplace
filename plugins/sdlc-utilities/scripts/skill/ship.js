@@ -14,7 +14,7 @@
  *   --auto                  Skip interactive approval prompts
  *   --steps <csv>           Comma-separated steps to run (overrides config)
  *   --quick                 Run ship.quick profile from config instead of ship.steps[] (R-quick-2)
- *   --quality full|balanced|minimal  Forwarded to execute-plan-sdlc as --quality (only when explicitly passed)
+ *   --quality speed|balanced|quality  Forwarded to execute-plan-sdlc as --quality (only when explicitly passed)
  *   --bump patch|minor|major  Version bump type
  *   --draft                 Mark PR as draft
  *   --dry-run               Print plan without executing
@@ -61,7 +61,7 @@ const { MODEL_ALIASES, MODEL_ID_RE, VALID_EFFORTS } = require(path.join(LIB, 'di
 const { parsePlanCommit, extractTasks, taskSection, parseFilesEntries } = require(path.join(LIB, 'plan-parse'));
 const { parseReviewComment } = require(path.join(__dirname, 'received-review'));
 
-const VALID_QUALITY = ['full', 'balanced', 'minimal'];
+const { resolveQuality, QUALITY_NAMES, QUALITY_EXPECTED } = require(path.join(LIB, 'quality'));
 
 // Bump value space accepted by --bump and ship config `ship.bump`. Mirrors
 // the JSON Schema pattern in `schemas/sdlc-local.schema.json` (shipSection.bump).
@@ -123,7 +123,7 @@ function parseArgs(argv) {
       // Hard-removed: --preset is no longer accepted (#190). Consume the
       // following value (if any) so it doesn't get parsed as a positional.
       if (args[i + 1] && !args[i + 1].startsWith('--')) i++;
-      errors.push('--preset is no longer accepted by ship-sdlc. Use --steps <csv> to control which steps run, or --quality <full|balanced|minimal> to set the model tier forwarded to execute-plan-sdlc.');
+      errors.push('--preset is no longer accepted by ship-sdlc. Use --steps <csv> to control which steps run, or --quality <speed|balanced|quality> to set the model tier forwarded to execute-plan-sdlc.');
     } else if (a === '--skip') {
       if (args[i + 1] && !args[i + 1].startsWith('--')) i++;
       errors.push('--skip is no longer accepted by ship-sdlc. Use --steps <csv> with the desired steps listed instead.');
@@ -1024,8 +1024,9 @@ function runValidation(flags, flagSources, steps, context, resumeLedger = null) 
   }
 
   // Validate --quality value when forwarded
-  if (flags.quality !== undefined && !VALID_QUALITY.includes(flags.quality)) {
-    errors.push(`Invalid --quality "${flags.quality}". Valid values: ${VALID_QUALITY.join(', ')}`);
+  // (a valid value was already resolved to its public name in main(), before the steps were computed)
+  if (flags.quality !== undefined && !resolveQuality(flags.quality).name) {
+    errors.push(`Invalid --quality "${flags.quality}". Valid values: ${QUALITY_EXPECTED}`);
   }
 
   // At least one non-conditional step must run (conditional steps only
@@ -2322,7 +2323,7 @@ function pickNextStep(after, ctx) {
       case 'execute_tier':
         if (flags.quality) continue;
         data = {};
-        llmDecision = { type: 'choice', prompt: 'Which quality tier should execute-plan-sdlc use? The answer is forwarded as --quality.', options: ['full', 'balanced', 'minimal'] };
+        llmDecision = { type: 'choice', prompt: 'Which quality tier should execute-plan-sdlc use? The answer is forwarded as --quality.', options: [...QUALITY_NAMES] };
         break;
       case 'confirm_received_review': {
         const gate = historyAfter(ledger, 'review_gate', 'dispatch_review');
@@ -2606,8 +2607,9 @@ function runAfter(stepArgs) {
   // Q15: the tier answer is frozen in ledger.flags.quality before the steps are recomputed.
   if (after === 'execute_tier') {
     const tier = typeof output.answer === 'string' ? output.answer : null;
-    if (!VALID_QUALITY.includes(tier)) return fail(`execute_tier: unknown answer "${tier}" (expected full, balanced or minimal).`);
-    flags.quality = tier;
+    const resolved = resolveQuality(tier).name;
+    if (!resolved) return fail(`execute_tier: unknown answer "${tier}" (expected speed, balanced or quality).`);
+    flags.quality = resolved;
   }
 
   // 2. Recompute the step plan from the frozen flags (again after a transition that starts the R95 final check).
@@ -3490,6 +3492,14 @@ function main() {
     tasksDone: openspecMatchedChange ? openspecMatchedChange.tasksDone : null,
     tasksTotal: openspecMatchedChange ? openspecMatchedChange.tasksTotal : null,
   };
+  // A3: a deprecated alias is resolved to its public name before the steps carry it into execute's args.
+  if (flags.quality !== undefined) {
+    const q = resolveQuality(flags.quality);
+    if (q.name) {
+      flags.quality = q.name;
+      if (q.warning) warnings.push(q.warning);
+    }
+  }
   const steps = computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject: planCommit.subject, planFixSubject: planCommit.fixSubject });
 
   // Run validation

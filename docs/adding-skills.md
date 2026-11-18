@@ -193,6 +193,14 @@ argument-hint: "[--draft] [--update] [--base <branch>]"
 
 Show the 2–4 most commonly used flags, not every option. This is display-only — it does not validate arguments.
 
+### Arguments on a command line
+
+A skill may put `$ARGUMENTS` into a Bash call only when its arguments are flags only: every group of its `argument-hint` is a `--flag` with its value, or the one typed positional that the prepare script validates (`execute-plan-sdlc`'s plan path, `version-sdlc`'s bump).
+
+A skill that also takes request text — words such as `show issue 7` — never puts `$ARGUMENTS` or request text into a Bash call. Before its first Bash call it takes an explicit allow list of flags from `$ARGUMENTS` and passes them as `<FLAGS>`, each value a single-quoted literal (github-sdlc A14, jira-sdlc A6, received-review-sdlc A7). These skills are: `error-report-sdlc`, `github-sdlc`, `harden-sdlc`, `jira-sdlc`, `plan-sdlc`, `received-review-sdlc` and `verify-pipeline-sdlc`.
+
+`node plugins/sdlc-utilities/scripts/ci/validate-args-rule.js --root .` checks every fenced block of every skill `.md` file. It is a best-effort check: it does not scan inline code outside a fence, and the request-text list and the typed-positional list are kept by hand in the script.
+
 ### `disable-model-invocation`
 
 When `true`, Claude will never auto-load this skill based on description matching. The skill can only be invoked explicitly by name (`/skill-name`) or by another skill via the Skill tool.

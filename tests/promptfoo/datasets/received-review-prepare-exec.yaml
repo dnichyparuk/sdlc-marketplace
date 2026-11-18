@@ -361,12 +361,23 @@
 - description: "rr-skill-text: comment-file source and the no-PR skip rule"
   vars:
     script_path: "-e"
-    script_args: '((t)=>((c)=>console.log(JSON.stringify({hint:c("argument-hint:\x20\x22[--pr\x20\x3cnumber\x3e]\x20[--auto]\x20[--comment-file\x20\x3cpath\x3e]\x20[--plan\x20\x3cpath\x3e]\x20[--min-severity\x20\x3clevel\x3e]\x22"),src:c("When\x20\x60manifest.source\x60\x20is\x20\x60comment-file\x60"),nopr:c("When\x20\x60manifest.pr\x60\x20is\x20null"),fence:c("node\x20\x22\x3cPLUGIN_ROOT\x3e/scripts/skill/received-review.js\x22\x20--output-file\x20\x24ARGUMENTS\x20--pr\x20\x3cPR_NUMBER\x3e"),post:c("With\x20\x60manifest.pr\x60\x20null\x20(\x60comment-file\x60\x20source,\x20R27),\x20post\x20nothing"),s12:c("show\x20the\x20summary\x20in\x20item\x201;\x20no\x20consent\x20gate,\x20no\x20posting\x20(R27).\x20Then\x20apply\x20the\x20R35\x20open-decisions\x20stop\x20from\x20Step\x2011\x20when\x20it\x20applies.")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_args: '((t)=>((c)=>console.log(JSON.stringify({hint:c("argument-hint:\x20\x22[--pr\x20\x3cnumber\x3e]\x20[--auto]\x20[--comment-file\x20\x3cpath\x3e]\x20[--plan\x20\x3cpath\x3e]\x20[--min-severity\x20\x3clevel\x3e]\x22"),src:c("When\x20\x60manifest.source\x60\x20is\x20\x60comment-file\x60"),nopr:c("When\x20\x60manifest.pr\x60\x20is\x20null"),fence:c("node\x20\x22\x3cPLUGIN_ROOT\x3e/scripts/skill/received-review.js\x22\x20--output-file\x20\x3cFLAGS\x3e"),post:c("With\x20\x60manifest.pr\x60\x20null\x20(\x60comment-file\x60\x20source,\x20R27),\x20post\x20nothing"),s12:c("show\x20the\x20summary\x20in\x20item\x201;\x20no\x20consent\x20gate,\x20no\x20posting\x20(R27).\x20Then\x20apply\x20the\x20R35\x20open-decisions\x20stop\x20from\x20Step\x2011\x20when\x20it\x20applies.")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
   assert:
     - type: javascript
       value: |
         const o = JSON.parse(output);
         return o.hint === 1 && o.src === 1 && o.nopr === 1 && o.fence === 1 && o.post === 1 && o.s12 === 1 ? true : `FAIL: ${output}`;
+
+- description: "received-review-prepare/skill-text A7 C20: no $ARGUMENTS in a fence, <FLAGS> in the prepare call, the allow-list rule present"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>((c,a)=>console.log(JSON.stringify({inFence:a.n,call:c("--output-file\x20<FLAGS>\n"),rule:c("**Flags\x20(A7,\x20C20).**"),notFlag:c("Not\x20a\x20received-review-sdlc\x20flag,\x20read\x20as\x20request\x20text:"),old:c("Replace\x20`--pr\x20<PR_NUMBER>`")})))((s)=>t.split(s).length-1,t.split("\n").reduce((a,l)=>(a.f?(l.startsWith("```")?a.f=0:a.n+=l.split("$ARGUMENTS").length-1):l.startsWith("```")&&(a.f=1),a),{f:0,n:0})))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.inFence === 0 && o.call === 1 && o.rule === 1 && o.notFlag === 1 && o.old === 0) return true;
+        return { pass: false, score: 0, reason: output };
 
 - description: "rr-skill-text: (scope) fix-scope and scope-check blocks appear once"
   vars:

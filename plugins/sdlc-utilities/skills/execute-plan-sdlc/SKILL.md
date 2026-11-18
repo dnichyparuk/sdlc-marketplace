@@ -1,8 +1,8 @@
 ---
 name: execute-plan-sdlc
-description: "Execute an implementation plan: classify tasks, build dependency waves, dispatch workers, verify each wave, recover from failures. Arguments: <plan> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--commit-waves] [--strict-files] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <s>] [--wave-interval <s>]. Triggers on: execute plan, run plan, implement plan, autonomous execution."
+description: "Execute an implementation plan: classify tasks, build dependency waves, dispatch workers, verify each wave, recover from failures. Arguments: <plan> [--quality speed|balanced|quality] [--resume] [--rebase auto|skip|prompt] [--auto] [--commit-waves] [--strict-files] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <s>] [--wave-interval <s>]. Triggers on: execute plan, run plan, implement plan, autonomous execution."
 user-invocable: true
-argument-hint: "<plan-file-path> [--quality full|balanced|minimal] [--resume] [--rebase auto|skip|prompt] [--auto] [--branch <name>] [--commit-waves] [--strict-files] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <seconds>] [--wave-interval <seconds>]"
+argument-hint: "<plan-file-path> [--quality speed|balanced|quality] [--resume] [--rebase auto|skip|prompt] [--auto] [--branch <name>] [--commit-waves] [--strict-files] [--plan <path>] [--tasks <ids>] [--from-wave <n>] [--wave-timeout <seconds>] [--wave-interval <seconds>]"
 model: sonnet
 ---
 
@@ -260,7 +260,7 @@ Fix each issue from the critique. Then present the final wave structure showing 
 
 **Quality auto-selection:** Resolve `QUALITY_TIER` once: `flags.quality`, else (resume confirmed at the interactive prompt, resume detection step 6) the state file's `quality`. If `QUALITY_TIER` is set, apply that quality tier (preset) without presenting the selection prompt. Show the wave structure with the applied tier and proceed directly to Step 5. (When invoked from ship-sdlc, `--quality` is forwarded only when the user explicitly passed `--quality` to ship.)
 
-Valid values: `full` (Speed), `balanced` (Balanced), `minimal` (Quality); legacy `A`/`B`/`C` are normalized by the prepare script. Under `--auto` an invalid value never reaches this step: the prepare call reports `invalidQuality` and stops (A2). In an interactive run an invalid value is a prepare warning and `flags.quality` is `null`. When `QUALITY_TIER` is `null` (interactive, no resumed tier), present the selection prompt below.
+Valid values: `speed` (Speed), `balanced` (Balanced), `quality` (Quality); `full` and `minimal` are deprecated aliases (internally `flags.quality` stays `full|balanced|minimal`, deprecated key names); legacy `A`/`B`/`C` are normalized by the prepare script. Under `--auto` an invalid value never reaches this step: the prepare call reports `invalidQuality` and stops (A2). In an interactive run an invalid value is a prepare warning and `flags.quality` is `null`. When `QUALITY_TIER` is `null` (interactive, no resumed tier), present the selection prompt below.
 
 ```
 Execution Plan
@@ -282,18 +282,18 @@ Wave 3 (N tasks — HIGH RISK, will pause):
 Total: N tasks across N waves + pre-wave; dispatch: direct (from main context) | runner (wave-runner per wave)
 
 Quality Tiers (worker routing):
-  full) Speed:         lower effort; Complex on execute-worker     — fast, low cost
+  speed) Speed:        lower effort; Complex on execute-worker     — fast, low cost
   balanced) Balanced:  Complex on execute-worker-complex           — default ✓
-  minimal) Quality:    Standard on execute-worker-complex          — max correctness (spec review per wave)
+  quality) Quality:    Standard on execute-worker-complex          — max correctness (spec review per wave)
 
 Use AskUserQuestion to select a quality tier:
 > Select execution quality tier
 
-Options: **full** (Speed) | **balanced** (Balanced, default) | **minimal** (Quality) | **custom** | **cancel**
-Tip: Use --quality balanced to skip this prompt next time.
+Options: **speed** (Speed) | **balanced** (Balanced, default) | **quality** (Quality) | **custom** | **cancel**
+Tip: Use --quality balanced to skip this prompt next time. (`full` and `minimal` still work as deprecated aliases.)
 ```
 
-Always present all 3 tiers. Default is Balanced. When the user selects a tier (full/balanced/minimal), run the Step 1 prepare call again with `--quality <tier> --skip-config-check` appended to the original arguments, and replace `EXECUTE_CONTEXT` with its output (same exit-code handling as Step 1). The waves were sized for `balanced` before the prompt; the second call sizes them, and resolves `flags.specReviewer`, for the selected tier (P4). The prepare script knows nothing of the Step 2 raises and Step 3 moves made before the prompt, so re-apply each recorded one (with its reason) to the new output, re-deriving the touched waves as Step 2 says; if the new `waves[].taskIds` layout differs from the one Step 3 critiqued, run Step 3 again on it instead. Only then show the routing for the selected tier and proceed to execution immediately. "custom" opens per-task editing before execution. Its routing is that of the preset it is based on: run the Step 1 prepare call again with `--quality <base preset> --skip-config-check` as above; with no base preset keep the current output, which routes as `balanced`. Each per-task edit is then a recorded Step 2 raise, re-derived as Step 2 says. "cancel" aborts. No additional confirmation needed — tier selection is the approval.
+Always present all 3 tiers. Default is Balanced. When the user selects a tier (speed/balanced/quality), run the Step 1 prepare call again with `--quality <tier> --skip-config-check` (`<tier>` one of `speed|balanced|quality`) appended to the original arguments, and replace `EXECUTE_CONTEXT` with its output (same exit-code handling as Step 1). The waves were sized for `balanced` before the prompt; the second call sizes them, and resolves `flags.specReviewer`, for the selected tier (P4). The prepare script knows nothing of the Step 2 raises and Step 3 moves made before the prompt, so re-apply each recorded one (with its reason) to the new output, re-deriving the touched waves as Step 2 says; if the new `waves[].taskIds` layout differs from the one Step 3 critiqued, run Step 3 again on it instead. Only then show the routing for the selected tier and proceed to execution immediately. "custom" opens per-task editing before execution. Its routing is that of the preset it is based on: run the Step 1 prepare call again with `--quality <base preset> --skip-config-check` as above; with no base preset keep the current output, which routes as `balanced`. Each per-task edit is then a recorded Step 2 raise, re-derived as Step 2 says. "cancel" aborts. No additional confirmation needed — tier selection is the approval.
 
 ## Step 5 (DO): Execute
 
@@ -479,7 +479,7 @@ Do NOT spawn a separate watchdog Agent.
 
 **Never trust agent self-reports alone.** A wave-runner reporting "all tasks complete" means nothing until `git diff --stat` confirms the files changed and a build in the main context confirms it compiles. `WAVE_SUMMARY` is the structured input to verification — it does not replace verification.
 
-**5c-bis. Spec compliance review.** Runs once per run after the final wave (Step 8-bis) when `flags.specReviewer === 'once'` (default); after every non-trivial wave when `'per-wave'` (`--quality minimal` forces `per-wave`). Skip for waves containing only Trivial tasks.
+**5c-bis. Spec compliance review.** Runs once per run after the final wave (Step 8-bis) when `flags.specReviewer === 'once'` (default); after every non-trivial wave when `'per-wave'` (`--quality quality`, or the deprecated `--quality minimal`, forces `per-wave`). Skip for waves containing only Trivial tasks.
 
 When `flags.specReviewer === 'per-wave'`, after mechanical verification passes (Steps 5c.1–4), dispatch a single spec compliance reviewer (sonnet). At dispatch time, Read `./spec-compliance-reviewer.md` and use it as the prompt template. Provide:
 - Each non-trivial task's full specification text
@@ -727,7 +727,7 @@ On failure or interruption (not all tasks completed), preserve the state file. P
 |---|---|
 | Plan validated | No blocking validation issues |
 | Wave structure critiqued | All file conflicts and dependency issues resolved |
-| User approved | Quality tier selected (`--quality full|balanced|minimal`, or the A6 `--auto` default) or custom editing completed in Step 4 |
+| User approved | Quality tier selected (`--quality speed|balanced|quality`; `full|minimal` deprecated, or the A6 `--auto` default) or custom editing completed in Step 4 |
 | All tasks completed | No tasks skipped without user consent |
 | Per-wave verification | Tests/build/lint pass after each wave |
 | Final verification | Full suite green |

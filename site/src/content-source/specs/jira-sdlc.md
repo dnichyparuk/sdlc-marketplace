@@ -8,7 +8,7 @@
 ## Inputs and flags
 
 - A1: `--project <KEY>` — Jira project key (default: auto-detected via 5-step fallback). When `jira.projects` is set, values outside that list are rejected.
-- A2: `--force-refresh` — rebuild cache regardless of current state (default: false)
+- A2: `--force-refresh` — rebuild cache regardless of current state (default: false). `skill/jira.js` parses it into `flags.forceRefresh` (P10); the skill decides on that field, never on the raw arguments.
 - A3: `--init-templates` — copy default description templates to `.sdlc/jira-templates/` (default: false)
 - A4: `--skip-workflow-discovery` — bypass Phase 5 workflow discovery; per non-subtask issue type, cache `workflows: { <type>: { unsampled: true } }`. Transition operations fall back to a live `getTransitionsForJiraIssue` call per issue when workflow data is marked `unsampled`. Use in CI or pre-seeded environments where Phase 5 MCP calls are too expensive.
 - A5: `--site <host>` — disambiguator for `--check`/`--load` when multiple cache files for the same project key exist under different site subdirectories of `~/.sdlc-cache/jira/`. Value is the sanitized site host (lowercased, `.` → `_`, e.g., `acme_atlassian_net`). A dotted host is accepted and normalised to that form; a value holding `/`, `\` or `..`, or one that does not normalise to a host of `[a-z0-9_-]` only (for example one with a port), is rejected (P9).
@@ -131,6 +131,8 @@
 - P7: `jira.js --check-payload [--type <IssueType>] [--input <file>]` reads one MCP tool-input object (from `--input`, else stdin) and returns `{ placeholders: [{ path, marker }], unknownHeadings: [string], templateSource: 'override'|'shipped'|null, warnings, errors? }` (`errors` is present only for unreadable or invalid input), using the C13 detector and the R18 template headings (fallback map applied). An ADF `description` (an object, or a JSON string of an ADF doc) is read through its `heading` nodes with `attrs.level` 2. Read-only. Exit 0 when both lists are empty; 1 when either list has entries, or when the input is unreadable or not valid JSON (`errors[]` set); 2 on a usage error or crash.
 - P8: `mcp-failure.js --analyze --record [--step <label>] [--operation <name>]` appends the R27 telemetry block (echoed to stderr), then prints one JSON line on stdout: the existing `shouldDispatch`, `duplicate`, `proposal`, `action`, followed by `proposalTitle`, `proposalText`, `errorReportArgs`, `labels`, `errorText`. `errorReportArgs` writes `--step` and `--operation` as POSIX single-quoted literals (`'` → `'\''`); a `--class` outside the R26 set is recorded as `unknown`; `labels` is `["tooling-error","jira-sdlc"]`; template values are inserted literally (`$&` is not expanded). Exit 0 success, 2 argument or IO error.
 - P9: `skill/jira.js` validates `--project` and `--site` in argument parsing, before any cache read, write or delete. `--project` (upper-cased) must match `^[A-Z][A-Z0-9_]{1,254}$`. `--site` must be non-empty and hold no `/`, `\` or `..`; a valid value is normalised with the sanitized-host rule of A5, and the result must match `^[a-z0-9_-]+$` (a value with a port or whitespace is rejected). A rejected value gives `errors[]` and exit 1 (E1).
+- P10: `flags.forceRefresh` (boolean) — present in every `--check` output's `flags`; `true` when `--force-refresh` was passed, else `false`.
+  - Acceptance: exec — `jira.js --project <KEY> --check --force-refresh` gives `"forceRefresh": true`; without the flag, `false`.
 - R-templates-root: `skill/jira.js` resolves the shipped templates directory (R18) from its own location: `skills/jira-sdlc/templates` under the plugin root that holds the script. `--templates-dir <path>` overrides it. There is no search of the home dir and no cwd fallback, so a stale cached install is never picked.
   - Acceptance: with `HOME` holding a decoy `.claude/plugins/…/skills/jira-sdlc/templates/` install and no `--templates-dir`, `--templates` lists the shipped template names and none of the decoy's.
 
@@ -186,6 +188,7 @@
 | Date | Source | Decision | Ids |
 |---|---|---|---|
 | 2026-11-14 | architect, owner delegation (#9389, F-95) | Only an explicit flag allow list reaches the prepare script; `$ARGUMENTS` never goes into a Bash call. | A6, C16 |
+| 2026-11-18 | architect, owner delegation (#9390) | `--force-refresh` is parsed by `jira.js` into `flags.forceRefresh`; the skill decides on that field, not on raw arguments. | A2, P10 |
 
 ### Issue trail
 

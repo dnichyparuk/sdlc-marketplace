@@ -205,7 +205,8 @@ function parseArgs(argv) {
   let copyFrom               = null;
   let site                   = null;
   let skipWorkflowDiscovery  = false;
-  let bodyFile               = null;   // for --validate-body
+  let forceRefresh           = false;
+  let bodyFile              = null;   // for --validate-body
   let wantJson               = false;  // for --validate-body output format
   let inputFile              = null;   // for --assemble / --check-payload
   let saveSeen               = false;  // --save is a modifier under --assemble
@@ -223,6 +224,8 @@ function parseArgs(argv) {
       site = args[++i];
     } else if (a === '--skip-workflow-discovery') {
       skipWorkflowDiscovery = true;
+    } else if (a === '--force-refresh') {
+      forceRefresh = true;
     } else if (a === '--check') {
       subcommand = 'check';
     } else if (a === '--load') {
@@ -287,6 +290,7 @@ function parseArgs(argv) {
 
   const flags = {
     skipWorkflowDiscovery,
+    forceRefresh,
     site,
   };
 
@@ -300,6 +304,7 @@ function parseArgs(argv) {
     copyFrom,
     site,
     skipWorkflowDiscovery,
+    forceRefresh,
     bodyFile,
     wantJson,
     inputFile,
@@ -494,7 +499,7 @@ function validateProjectMembership(projectKey, jiraConfig) {
 // Subcommand: --check
 // ---------------------------------------------------------------------------
 
-function checkCache({ projectKey, cacheDir, site, skipWorkflowDiscovery, templatesDir }) {
+function checkCache({ projectKey, cacheDir, site, skipWorkflowDiscovery, forceRefresh, templatesDir }) {
   // R-projectroot: main-worktree-rooted resolution (#360).
   const jiraConfig = loadJiraConfig(resolveSdlcRoot());
   const membershipError = validateProjectMembership(projectKey, jiraConfig);
@@ -508,6 +513,7 @@ function checkCache({ projectKey, cacheDir, site, skipWorkflowDiscovery, templat
 
   const flagsBlock = {
     skipWorkflowDiscovery: !!skipWorkflowDiscovery,
+    forceRefresh:          !!forceRefresh,
     site:                  site || null,
   };
 
@@ -1152,7 +1158,7 @@ async function validateBodySubcommand({ projectKey, cacheDir, site, bodyFile, wa
 
 function main() {
   const parsed = parseArgs(process.argv);
-  const { projectKey, cacheDir, templatesDir: templatesOverride, subcommand, saveFieldName, copyType, copyFrom, site, skipWorkflowDiscovery, bodyFile, wantJson, inputFile, assembleSave, errors } = parsed;
+  const { projectKey, cacheDir, templatesDir: templatesOverride, subcommand, saveFieldName, copyType, copyFrom, site, skipWorkflowDiscovery, forceRefresh, bodyFile, wantJson, inputFile, assembleSave, errors } = parsed;
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
   const projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/
@@ -1170,7 +1176,7 @@ function main() {
   }
 
   const templatesDir = resolveTemplatesDir(templatesOverride);
-  const ctx = { projectKey, cacheDir, site, skipWorkflowDiscovery, templatesDir };
+  const ctx = { projectKey, cacheDir, site, skipWorkflowDiscovery, forceRefresh, templatesDir };
 
   switch (subcommand) {
     case 'check':

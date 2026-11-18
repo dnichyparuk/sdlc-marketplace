@@ -605,6 +605,54 @@
           && o.flags.sources.quality === 'cli'
           && exec.args.includes('--quality balanced')
 
+- description: "ship-prepare: (quality-alias) --quality full resolves to speed with one deprecation warning and forwards --quality speed"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --quality full"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const exec = o.steps.find(s => s.name === 'execute');
+        const dep = o.warnings.filter(w => w === '--quality full is deprecated; use --quality speed (same preset).');
+        return o.flags.quality === 'speed'
+          && dep.length === 1
+          && exec.args.includes('--quality speed')
+          && !exec.args.includes('--quality full')
+
+- description: "ship-prepare: (quality-alias) --quality quality is forwarded with no deprecation warning"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --quality quality"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const exec = o.steps.find(s => s.name === 'execute');
+        return o.flags.quality === 'quality'
+          && exec.args.includes('--quality quality')
+          && !o.warnings.some(w => /--quality .* is deprecated/.test(w))
+
+- description: "ship-prepare: (quality-alias) an invalid --quality value is rejected with the new value list"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "--has-plan --quality bogus"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const want = 'Invalid --quality "bogus". Valid values: speed|balanced|quality (deprecated: full|minimal)';
+        return o.errors.includes(want) ? true : `FAIL: ${JSON.stringify(o.errors)}`;
+
 - description: "ship-prepare: no --quality means no quality forwarded to execute"
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
@@ -3477,7 +3525,7 @@
         const o = JSON.parse(output);
         const [tier, next] = o.calls.map(c => c.envelope);
         if (tier.status !== 'step' || tier.step.id !== 'execute_tier') return `FAIL: first ${tier.status} ${tier.step && tier.step.id}`;
-        if (!tier.llm_decision || JSON.stringify(tier.llm_decision.options) !== JSON.stringify(['full', 'balanced', 'minimal'])) return `FAIL: llm_decision ${JSON.stringify(tier.llm_decision)}`;
+        if (!tier.llm_decision || JSON.stringify(tier.llm_decision.options) !== JSON.stringify(['speed', 'balanced', 'quality'])) return `FAIL: llm_decision ${JSON.stringify(tier.llm_decision)}`;
         if (!next || next.status !== 'step' || next.step.id !== 'dispatch_execute') return `FAIL: next ${next && next.status} ${next && next.step && next.step.id}`;
         if (!/--quality balanced\b/.test(next.step.data.args)) return `FAIL: args ${next.step.data.args}`;
         if (o.ledger.flags.quality !== 'balanced') return `FAIL: ledger.flags.quality ${o.ledger.flags.quality}`;
@@ -5952,7 +6000,7 @@
   vars:
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
-    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --final-summary medium-1.json --review-threshold medium --cli-flags bump=minor,draft=true,rebase=auto,quality=full"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1.json --final-summary medium-1.json --review-threshold medium --cli-flags bump=minor,draft=true,rebase=auto,quality=speed"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-stepper"
   assert:
@@ -5962,7 +6010,7 @@
         const reviews = o.calls.filter(c => c.args[1] === 'dispatch_review');
         const e = reviews.length ? reviews[reviews.length - 1].envelope : null;
         if (!e || !e.ext || e.ext.reason !== 'final-check-open') return `FAIL: ${e && e.status} ${e && e.ext && e.ext.reason}`;
-        const want = '/sdlc:ship-sdlc --resume --auto --bump minor --draft --rebase auto --quality full';
+        const want = '/sdlc:ship-sdlc --resume --auto --bump minor --draft --rebase auto --quality speed';
         return JSON.stringify(e.ext.commands) === JSON.stringify([want]) ? true : `FAIL: commands ${JSON.stringify(e.ext.commands)}`;
 
 # R105: the pending-question stop prints the same line; a flag whose source is not cli (quality here) is not repeated.

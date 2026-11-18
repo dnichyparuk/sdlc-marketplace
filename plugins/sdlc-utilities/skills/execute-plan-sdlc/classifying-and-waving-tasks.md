@@ -37,7 +37,7 @@ When signals are mixed, round up (prefer higher risk level).
 
 ## Worker routing (agent × effort)
 
-| Complexity | Speed (`--quality full`) | Balanced (default) | Quality (`--quality minimal`) |
+| Complexity | Speed (`--quality speed`; `full` deprecated) | Balanced (default) | Quality (`--quality quality`; `minimal` deprecated) |
 |---|---|---|---|
 | Trivial (single, in-wave) | execute-worker / low | execute-worker / low | execute-worker / medium |
 | Trivial (2+ batched) | execute-worker-batch / medium | execute-worker-batch / medium | execute-worker / medium |

@@ -84,9 +84,11 @@ When ship-sdlc dispatches a sub-skill, the sub-skill runs inside its `ship-step-
 
 | Preset | Lanes | Lens / reviewer model | Lens / reviewer effort |
 |---|---|---|---|
-| `full` (Speed) | agent-file defaults | `sonnet` | `low` |
+| `speed` (cheapest; deprecated alias `full`) | agent-file defaults | `sonnet` | `low` |
 | `balanced` (default) | agent-file defaults | opposite of the plan author's model (R8: `opus` when the author ran on sonnet, else the agent file's `sonnet`) | agent-file default |
-| `minimal` (Quality) | agent-file defaults | `opus` | `high` |
+| `quality` (costliest; deprecated alias `minimal`) | agent-file defaults | `opus` | `high` |
+
+The old names `full` and `minimal` still work and print a deprecation line.
 
 ### Ship per-step dispatch
 
@@ -108,7 +110,7 @@ A question a sub-skill still cannot ask comes back as `output.pendingQuestion`. 
 
 `execute-plan-sdlc` routes each task to a worker agent and an Agent-dispatch `effort` by quality tier and complexity. The tier names are contract (`docs/specs/execute-plan-sdlc.md` A2, R2); the agents and efforts are tuning. Defined in `plugins/sdlc-utilities/skills/execute-plan-sdlc/classifying-and-waving-tasks.md` ("Worker routing"), dispatched in `SKILL.md` Step 5b; `scripts/skill/execute.js` holds the same table as `WORKER_ROUTING` and emits it per wave; the classifying table is the copy an exec case checks against the code, and this one is a summary.
 
-| Complexity | Speed (`--quality full`) | Balanced (default) | Quality (`--quality minimal`) |
+| Complexity | Speed (`--quality speed`) | Balanced (default) | Quality (`--quality quality`) |
 |---|---|---|---|
 | Trivial (single, in-wave) | execute-worker / low | execute-worker / low | execute-worker / medium |
 | Trivial (2+ batched) | execute-worker-batch / medium | execute-worker-batch / medium | execute-worker / medium |

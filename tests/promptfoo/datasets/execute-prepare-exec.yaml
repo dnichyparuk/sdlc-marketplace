@@ -447,6 +447,66 @@
     - type: javascript
       value: "const o = JSON.parse(output); o.flags.quality==='minimal' && o.waves.length===2 && o.waves[1].budget.model==='opus'"
 
+- description: "execute-prepare: (quality-alias) --quality speed resolves to full from the cli with no deprecation warning"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality speed --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.quality==='full' && o.flags.sources.quality==='cli' && !o.warnings.some(w=>/deprecated/.test(w))"
+
+- description: "execute-prepare: (quality-alias) --quality quality resolves to minimal and forces specReviewer per-wave"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality quality --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.quality==='minimal' && o.flags.specReviewer==='per-wave' && o.flags.sources.specReviewer==='quality' && !o.warnings.some(w=>/deprecated/.test(w))"
+
+- description: "execute-prepare: (quality-alias) --quality full adds one deprecation warning and still routes as full"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality full --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); const w = o.warnings.filter(x=>/deprecated/.test(x)); o.flags.quality==='full' && w.length===1 && w[0]==='--quality full is deprecated; use --quality speed (same preset).'"
+
+- description: "execute-prepare: (quality-alias) --quality minimal adds one deprecation warning and still forces per-wave"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --quality minimal --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); const w = o.warnings.filter(x=>/deprecated/.test(x)); o.flags.quality==='minimal' && o.flags.specReviewer==='per-wave' && w.length===1 && w[0]==='--quality minimal is deprecated; use --quality quality (same preset).'"
+
+- description: "execute-prepare: (quality-alias) a resumed state holding quality minimal resolves without a deprecation warning"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--resume --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.flags.quality==='minimal' && o.flags.sources.quality==='state' && !o.warnings.some(w=>/deprecated/.test(w))"
+
+- description: "execute-prepare: (quality-alias) an invalid --quality under --auto names the new and deprecated values"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
+    script_args: "--plan plan.md --auto --quality bogus --project-root {{project_root}}"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-execute-prepare"
+  assert:
+    - type: javascript
+      value: "const o = JSON.parse(output); o.errors.some(e=>e.id==='invalidQuality' && e.message.includes('speed|balanced|quality (deprecated: full|minimal)'))"
+
 - description: "execute-prepare: (s1) with no execute config, waveRunnerMinPlanTasks is 9 and specReviewer is once, both from the default"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/execute.js"
