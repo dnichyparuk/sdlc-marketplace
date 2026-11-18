@@ -2,7 +2,7 @@
 
 ## Overview
 
-Writes an implementation plan from requirements, a spec, or a user description. Operates primarily in Plan Mode — the plan file is the single source of truth, built incrementally: a skeleton header is written at the start, then filled with requirements, tasks, and critique fixes as the pipeline progresses. Produces plans in the format consumed by `execute-plan-sdlc` — with per-task complexity, risk, dependency, and `Contract:` (decided-shape) metadata embedded. Follows a PCIDCI pipeline: analyzes requirements and codebase, decomposes into classified tasks, self-critiques, runs a plan review loop (lens reviewers, or one reviewer for plans under 5 tasks), and presents the plan for user approval.
+Writes an implementation plan from requirements, a spec, or a user description. Operates primarily in Plan Mode — the plan file is the single source of truth, built incrementally: a skeleton header is written at the start, then filled with requirements, tasks, and critique fixes as the pipeline progresses. Produces plans in the format consumed by `execute-plan-sdlc` — with per-task complexity, risk, dependency, and `Contract:` (decided-shape) metadata embedded. Follows a PCIDCI pipeline: analyzes requirements and codebase, decomposes into classified tasks, self-critiques, runs a plan review loop (one reviewer, or three lenses when the plan has a Complex task, 8+ tasks or OpenSpec work), and presents the plan for user approval.
 
 ---
 
@@ -30,7 +30,6 @@ When Claude Code's plan mode is active, this skill activates automatically — n
 | `--spec` | Include OpenSpec artifacts (proposal, delta specs, design, tasks) in planning context. Without this flag, OpenSpec presence is detected but artifacts are not read. | Off |
 | `--from-openspec <change-name>` | Direct bridge from OpenSpec to planning. Validates the named change, loads all artifacts, and uses `tasks.md` as the primary decomposition skeleton. Bypasses the gate check entirely. | Off |
 | `--quality speed\|balanced\|quality` | Plan-review preset: the model and effort of the Step 5 lens reviewers and the single reviewer. `speed` = sonnet, low effort (cheapest); `balanced` = the agent files' values, with opus when the plan author ran on sonnet; `quality` = opus, high effort (costliest) (`docs/cost-tiers.md` §5). `speed` and `quality` fix the model whatever the plan author ran on, so only `balanced` keeps the opposite-model rule. `full` and `minimal` still work as deprecated aliases of `speed` and `quality` and print one warning line. Lanes and Gate A always use their agent files. An invalid value stops plan-sdlc at prepare time. | `balanced` |
-
 | `--lightweight` | Force the Lightweight route: no exploration fan-out, no review loop. After decomposition `plan.js tier` checks the bounds (6 tasks, 0 Complex, 8 files, no OpenSpec); a breach runs the review loop. One cheap re-check of the changed lanes follows the Step 4 fixes. `--quality` applies only after a breach. | Off |
 
 Providing an explicit `openspec/changes/<name>/` path as the spec-file-path argument implicitly enables spec context loading — `--spec` is not needed in that case.
