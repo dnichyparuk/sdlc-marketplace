@@ -2,7 +2,7 @@
 
 ## Overview
 
-Writes an implementation plan from requirements, a spec, or a user description. Operates primarily in Plan Mode — the plan file is the single source of truth, built incrementally: a skeleton header is written at the start, then filled with requirements, tasks, and critique fixes as the pipeline progresses. Produces plans in the format consumed by `execute-plan-sdlc` — with per-task complexity, risk, dependency, and `Contract:` (decided-shape) metadata embedded. Follows a PCIDCI pipeline: analyzes requirements and codebase, decomposes into classified tasks, self-critiques, runs a plan review loop (lens reviewers, or one reviewer for plans under 5 tasks), and presents the plan for user approval.
+Writes an implementation plan from requirements, a spec, or a user description. Operates primarily in Plan Mode — the plan file is the single source of truth, built incrementally: a skeleton header is written at the start, then filled with requirements, tasks, and critique fixes as the pipeline progresses. Produces plans in the format consumed by `execute-plan-sdlc` — with per-task complexity, risk, dependency, and `Contract:` (decided-shape) metadata embedded. Follows a PCIDCI pipeline: analyzes requirements and codebase, decomposes into classified tasks, self-critiques, runs a plan review loop (one reviewer, or three lenses when the plan has a Complex task, 8+ tasks or OpenSpec work), and presents the plan for user approval.
 
 ---
 

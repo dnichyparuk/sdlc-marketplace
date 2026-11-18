@@ -658,10 +658,10 @@ function renderScorecard(lensResults, gateAFindings, inventory, g17NotRun = fals
 }
 
 /** Merge lane, validator, lens and G17 results from one critique iteration directory. */
-function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAPath = null, inventoryPath = null, carryDir = null, g17NotRun = false, copyCheck = null }) {
+function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAPath = null, inventoryPath = null, carryDir = null, g17NotRun = false, copyCheck = null, planGiven = false }) {
   const usage = message => Object.assign(new Error(message), { code: 'USAGE' });
   // Checks-only mode: `--plan` alone merges the validator report and the copy check.
-  const checksOnly = !lanes.length && !lenses.length && carryDir === null && copyCheck !== null;
+  const checksOnly = !lanes.length && !lenses.length && carryDir === null && (planGiven || copyCheck !== null);
   if (!lanes.length && !lenses.length && !checksOnly) throw usage('--lanes or --lenses is required');
   for (const name of lanes) {
     if (name !== 'dimension-coverage' && !LANE_DEFS.some(d => d.name === name)) throw usage(`unknown lane ${name}`);

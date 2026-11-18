@@ -425,6 +425,7 @@ function runMergeLanes(flags) {
     carryDir: flags.carry ?? null,
     g17NotRun: flags.g17NotRun === true,
     copyCheck,
+    planGiven: flags.plan !== undefined,
   });
 }
 

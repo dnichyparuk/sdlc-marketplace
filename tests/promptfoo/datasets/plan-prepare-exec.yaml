@@ -1091,6 +1091,18 @@
         if (ok) return true;
         return { pass: false, score: 0, reason: JSON.stringify({ coverage: r.coverage, copyCheck: r.copyCheck, bareStatus: bare.status, bareStderr: bare.stderr }) };
 
+- description: "plan-merge: (checks-only) without plan.copyRules exits 0 with copyCheck null"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge-lanes --dir {{project_root}} --plan {{project_root}}/copy-plan.md"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.copyCheck === null && r.coverage === null && r.lens === null && r.issues.some(i => i.lane === 'validate-plan-format')
+
 # --- merge-lanes --plan copy check (R71(d)); `--lanes` is left out (an empty list) because script_args splits on whitespace ---
 
 - description: "plan-copy: (a) each unlisted required copy is one blocking copy-check issue"

@@ -428,6 +428,8 @@ Read `recheckLanes` from its JSON. A non-zero exit counts as material with `rech
    node "<PLUGIN_ROOT>/scripts/skill/plan.js" merge-lanes --dir "<ITER_DIR>" --lanes "<recheckLanes>" --carry "<critiqueDir>/iter-0" --plan "<PLAN_PATH>" [--no-guardrails] > "<ITER_DIR>/merged.json"
    ```
 
+   Pass `--no-guardrails` exactly when `activeGuardrails` is empty (the Step 3 decision for the whole run), whether or not `guardrail-compliance` is in `recheckLanes`.
+
    When `recheckLanes` is empty, run merge-lanes checks-only:
 
    ```bash
