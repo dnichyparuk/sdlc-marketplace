@@ -31,6 +31,8 @@
 #                                                 -> PF5 pass (the Acceptance block has no length limit)
 #   project-plan-checkbox-outside-ac          -- CORRECT: Acceptance block is prose; the only checkbox sits in the
 #                                                 Contract -> PF5 fail (a checkbox outside the block does not count)
+#   plan-g17-u3 (plans/fenced-files.md)       -- CORRECT: Files lines inside a column-0 and an indented fence
+#                                                 -> PF13 pass and PF15 pass (fenced lines are not Files entries, #9409)
 
 - description: "plan-format: valid plan passes all checks (JSON)"
   vars:
@@ -598,3 +600,12 @@
   assert:
     - type: javascript
       value: '["--file", "--final", "--template", "--markdown", "--root", "--project-root", "--json"].every(s => output.includes(s)) && output.includes("0 = all pass")'
+
+- description: "plan-format-lean: (d) PF13 ignores fenced Files entries (#9409)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/fenced-files.md --json --root {{project_root}}"
+    project_root: "file://fixtures-fs/plan-g17-u3"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "pass") && JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF15" && x.status === "pass")'

@@ -240,13 +240,14 @@ function taskSection(body) {
 /** Files entries of a task body: [{ kind, path }]. */
 function parseFilesEntries(body) {
   const entries = [];
-  const re = /^\s*[-*]\s+(Create|Modify|Test):\s+(.+)$/gm;
-  let m;
-  while ((m = re.exec(body)) !== null) {
+  walkLines(String(body).split(/\r?\n/), (line, _i, inFence) => {
+    if (inFence) return;
+    const m = line.match(/^\s*[-*]\s+(Create|Modify|Test):\s+(.+)$/);
+    if (!m) return;
     const tick = m[2].match(/`([^`]+)`/);
     const raw = tick ? tick[1] : m[2].trim().split(/\s+/)[0];
     entries.push({ kind: m[1], path: raw.replace(/:\d+(-\d+)?$/, '') });
-  }
+  });
   return entries;
 }
 
