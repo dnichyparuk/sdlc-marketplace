@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-11-18
+
+### Added
+- plan-sdlc: a plan critique orchestrator (Sonnet agent) and three script entry points (`critique-prep`, `splice`, `merge-lanes --compact`) run each critique round outside the author's context; the author reads only a rendered blocking list, and the in-skill dispatch remains as the fallback when no agent tool exists (#9421).
+- plan-sdlc: the orchestrator returns `g17Error` and `skipped`, and `critique-prep` reports `g17Error` (#9421).
+
+### Fixed
+- plan-sdlc: `splicePlan` skips non-string section bodies, the guardrail lane skip passes `--no-guardrails`, and the G17-not-run and skipped lines are logged once per run in one rule (#9421).
+
 ## [0.55.0] - 2026-11-18
 
 ### Added
