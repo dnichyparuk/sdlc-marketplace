@@ -1411,7 +1411,7 @@
       how the NEXT Step 5 critique-orchestrator round dispatches its agents and how it merges the results.
   assert:
     - type: icontains
-      value: "dispatch"
+      value: "content-coverage"
     - type: icontains
       value: "--carry"
     - type: llm-rubric

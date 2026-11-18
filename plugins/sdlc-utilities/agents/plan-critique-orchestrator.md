@@ -121,7 +121,7 @@ Return one fenced `json` block and nothing else:
   "verdict": "…Fix before archiving.", "guardrailErrors": 0, "g17NotRun": false, "g17Error": null, "skipped": [] }
 ```
 
-`blockingCount`, `summary`, `lensStatus`, `verdict` and `guardrailErrors` are copied from the `merge-lanes --compact` output; never write the summary yourself. `g17NotRun` and `g17Error` are this round's values from Step 3 (`g17Error` is the g17-prepare failure message, else null); `skipped` lists the lanes and lenses left out for a null `agentPath` (empty when none); the author passes it on as `G17_NOT_RUN` to every later round. On `error`, set the fields the round did not reach to null and put the failing command's stderr in `summary`.
+`blockingCount`, `summary`, `lensStatus`, `verdict` and `guardrailErrors` are copied from the `merge-lanes --compact` output; never write the summary yourself. `g17NotRun` and `g17Error` are this round's values from Step 3 (`g17Error` is the g17-prepare failure message, else null); `skipped` lists the lanes and lenses left out for a null `agentPath` (empty when none); the author passes `g17NotRun` on as `G17_NOT_RUN` to every later round. On `error`, set the fields the round did not reach to null and put the failing command's stderr in `summary`.
 
 `status`, first matching row wins:
 

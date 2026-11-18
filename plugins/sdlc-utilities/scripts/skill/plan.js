@@ -12,7 +12,7 @@
  *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
  *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>] [--carry <prevIterDir>] [--g17-not-run] [--plan <path>] [--compact]
  *   node plan.js splice --plan <path> --merged <merged.json> [--no-guardrails]
- *   node plan.js critique-prep--critique-dir <dir> --iter <k> --plan <path> [--github-hosting true|false] [--root <dir>]
+ *   node plan.js critique-prep --critique-dir <dir> --iter <k> --plan <path> [--github-hosting true|false] [--root <dir>]
  *
  * Options:
  *   --from-openspec <name>  Validate a specific OpenSpec change for direct bridging
@@ -344,7 +344,7 @@ function runExplorePack(fromOpenspec, userPrompt) {
 // Main
 // ---------------------------------------------------------------------------
 
-const SUBCOMMANDS = { 'critique-prep': runCritiquePrep, 'diff-material': runDiffMaterial, 'g17-prepare': runG17Prepare, 'merge-lanes': runMergeLanes, splice: runSplice, tier: runTier };
+const SUBCOMMANDS = { 'critique-prep': critiquePrep, 'diff-material': runDiffMaterial, 'g17-prepare': runG17Prepare, 'merge-lanes': runMergeLanes, splice: runSplice, tier: runTier };
 
 // Flags each subcommand accepts (without `--`); any other flag is a usage error (exit 1).
 const SUBCOMMAND_FLAGS = {
@@ -445,6 +445,7 @@ function runMergeLanes(flags) {
 function critiquePrep(flags) {
   const critiqueDir = requireFlag(flags, 'critique-dir');
   const iter = requireFlag(flags, 'iter');
+  if (!/^\d+$/.test(iter)) throw usageError(`--iter must be a non-negative integer, got ${iter}`);
   const plan = requireFlag(flags, 'plan');
   const root = flags.root ?? resolveActiveWorktreeSafe();
   const iterDir = path.join(critiqueDir, `iter-${iter}`);
@@ -466,7 +467,6 @@ function critiquePrep(flags) {
       dimensionsDir: path.join(root, '.sdlc/review-dimensions'),
       instructionsDir: path.join(root, '.github/instructions'),
       learningsPath: path.join(root, '.sdlc/learnings/log.md'),
-      windowDays: 14,
       githubHosting: flags['github-hosting'] === 'true',
       rootDir: root,
     });
@@ -493,10 +493,6 @@ function runSplice(flags) {
   const { text, written, replaced } = splicePlan(readPlanFile(planPath), merged, { noGuardrails: flags.noGuardrails === true });
   fs.writeFileSync(planPath, text);
   return { written, replaced };
-}
-
-function runCritiquePrep(flags) {
-  return critiquePrep(flags);
 }
 
 /** Parse `--<name> <value>` pairs and the value-less flags, run the handler, map outcomes to exit codes. */

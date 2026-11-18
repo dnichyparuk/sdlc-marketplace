@@ -1408,7 +1408,7 @@
         const ok = o.status === 0 && JSON.stringify(o.files) === '["g17-prepare.json","pf-report.json"]' &&
           r.iterDir.endsWith('/iter-1') && r.pf.exit === 1 && r.pf.failed.includes('PF13') &&
           r.g17NotRun === false && typeof r.g17.candidates === 'number' && typeof r.g17.coveredDims === 'number' &&
-          typeof r.skipDimensionCoverage === 'boolean';
+          r.skipDimensionCoverage === false;
         return ok ? true : `FAIL: ${output}`;
 
 - description: "plan-critique-prep: (b) g17 failure is reported, not fatal"
@@ -1423,6 +1423,29 @@
         const r = JSON.parse(o.out);
         const ok = o.status === 0 && r.g17NotRun === true && JSON.stringify(o.files) === '["pf-report.json"]' &&
           typeof r.g17Error === 'string' && r.g17Error.includes('ENOTDIR') && String(o.err).includes('g17-prepare failed');
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-critique-prep: (c) a non-integer --iter is a usage error"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/project-valid-plan"
+    script_args: "critique-prep --critique-dir {{project_root}}/critique-iter-escape --iter ../x --plan {{project_root}}/plans/test-plan.md --root {{project_root}}"
+  assert:
+    - type: icontains
+      value: "--iter must be a non-negative integer, got ../x"
+
+- description: "plan-critique-prep: (d) no candidates and no covered dimensions sets skipDimensionCoverage"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-critique-prep.js"
+    project_root: "file://fixtures-fs/project-no-dimensions"
+    script_args: "prep {{project_root}} {{repo_root}}/tests/promptfoo/fixtures-fs/project-plan-compact-lightweight/plans/plan.md"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = JSON.parse(o.out);
+        const ok = o.status === 0 && r.g17NotRun === false && r.g17.candidates === 0 &&
+          r.g17.coveredDims === 0 && r.skipDimensionCoverage === true;
         return ok ? true : `FAIL: ${output}`;
 
 - description: "plan-merge: (compact) prints the rendered blocking list"
