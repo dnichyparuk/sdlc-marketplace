@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.1] - 2026-11-18
+
+### Fixed
+- plan-sdlc: `plan.js critique-prep` rejects a non-integer `--iter` before writing any file, the review fan-out threshold is the named constant `REVIEW_FANOUT_TASKS`, and the duplicated G17 window default and the `runCritiquePrep` wrapper are removed (#9430).
+- plan-sdlc: the G17-not-run line is logged when `g17Error` is set, and 4+ file scopes qualify for `--lightweight` (#9430).
+- plan-sdlc: the spec, SKILL.md, critique orchestrator agent and user doc match the shipped `--lightweight` route, the R74 re-check and the critique-dir writers; exec and behavioural tests are tightened (#9430).
+
 ## [0.56.0] - 2026-11-18
 
 ### Added
