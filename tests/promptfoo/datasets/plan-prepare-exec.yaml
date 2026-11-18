@@ -15,6 +15,8 @@
 #   fixtures-fs/plan-copy-rules      - a plan.copyRules config, demo skill copies, an approved lens-all result and three plans
 #                                      (missing copies, all listed, directory entries) for the `plan-copy:` cases;
 #                                      `plan-merge-lanes/copy-plan.md` is the no-config `plan-copy:` plan
+#   fixtures-fs/plan-splice          - a plan (two tasks, a fenced example heading, Deviations, an old scorecard) and a
+#                                      merged.json for the `plan-splice:` cases; each case splices a temp copy
 
 - description: "plan-prepare: openspec present emits authoritative field with path and specsCount"
   vars:
@@ -382,6 +384,26 @@
         if (typeof l.agentPath !== 'string' || !l.agentPath.endsWith('/agents/plan-lane-static.md')) return `lanes[0].agentPath: ${l.agentPath}`;
         if (data.intakeAuditDispatch.model !== 'sonnet') return `intakeAuditDispatch.model: ${data.intakeAuditDispatch.model}`;
         if (data.intakeAuditDispatch.effort !== 'medium') return `intakeAuditDispatch.effort: ${data.intakeAuditDispatch.effort}`;
+        return true;
+
+- description: "plan-prepare: (critique-dispatch) entry in the agent-dispatch shape (P26, R75)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        const c = data.critiqueDispatch;
+        if (!c) return 'critiqueDispatch missing';
+        if (c.agent !== 'sdlc:plan-critique-orchestrator') return `agent: ${c.agent}`;
+        if (typeof c.agentPath !== 'string' || !c.agentPath.endsWith('/agents/plan-critique-orchestrator.md')) return `agentPath: ${c.agentPath}`;
+        if (c.model !== 'sonnet') return `model: ${c.model}`;
+        if (c.effort !== 'medium') return `effort: ${c.effort}`;
+        const want = ['ROUND', 'ITER', 'CRITIQUE_DIR', 'PLAN_FILE_PATH', 'PREPARE_OUTPUT', 'DISPATCH', 'CARRY', 'BEFORE_PLAN', 'G17_NOT_RUN', 'AUTHOR_MODEL', 'REQUIREMENTS_SUMMARY', 'SOURCE_REQUIREMENTS', 'BRIEF_FILE', 'BRIEF_FINDING_IDS', 'PLAN_TEMPLATE_PATH'];
+        if (JSON.stringify(c.inputNames) !== JSON.stringify(want)) return `inputNames: ${JSON.stringify(c.inputNames)}`;
+        if (JSON.stringify(c.presetInputs) !== '{}') return `presetInputs: ${JSON.stringify(c.presetInputs)}`;
         return true;
 
 - description: "plan-prepare: --quality defaults to balanced with null dispatch overrides (P24)"
@@ -1200,6 +1222,17 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true && r.orchestrator === true && r.skill === true"
 
+- description: "plan-sdlc/critique-orchestrator: R75 frontmatter, await barrier, statuses and script sentinels present; no AskUserQuestion and no --mark"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-plan-critique-orchestrator.js"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.ok === true && r.frontmatter === true && r.missing.length === 0 && r.forbidden.length === 0) return true;
+        return { pass: false, score: 0, reason: output };
+
 - description: "plan-sdlc/tasks-heading: plan-format-reference.md and SKILL.md name the literal ## Tasks heading that PF10 checks (R61, #9405)"
   vars:
     script_path: "-e"
@@ -1220,6 +1253,17 @@
       value: |
         const o = JSON.parse(output);
         if (o.tier >= 1 && o.final === 1 && o.noApply === 0 && o.recheck >= 1 && o.lightweight >= 1 && o.ge5 === 0 && o.lt5 === 0 && o.lenses >= 1) return true;
+        return { pass: false, score: 0, reason: output };
+
+- description: "plan-sdlc/critique-rounds: SKILL.md and review-loop.md dispatch critiqueDispatch per round, keep the no-agent-tool fallback and splice with plan.js (R75, R67 (f))"
+  vars:
+    script_path: "-e"
+    script_args: '((r)=>((s,l)=>((c)=>console.log(JSON.stringify({skillDispatch:c(s,"critiqueDispatch"),loopDispatch:c(l,"critiqueDispatch"),skillFallback:c(s,"no-agent-tool"),loopFallback:c(l,"no-agent-tool"),skillSplice:c(s,"plan.js\x22\x20splice"),loopSplice:c(l,"plan.js\x22\x20splice")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.skillDispatch >= 2 && o.loopDispatch >= 1 && o.skillFallback >= 1 && o.loopFallback >= 1 && o.skillSplice >= 1 && o.loopSplice >= 1) return true;
         return { pass: false, score: 0, reason: output };
 
 # --- plan-explore.js --check-brief (R72) ---
@@ -1350,3 +1394,121 @@
         const r = JSON.parse(output);
         if (JSON.stringify(r.planPaths) === '["src/new/b.js"]') return true;
         return { pass: false, score: 0, reason: JSON.stringify(r.planPaths) };
+
+- description: "plan-critique-prep: (a) writes both reports"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-critique-prep.js"
+    project_root: "file://fixtures-fs/project-valid-plan"
+    script_args: "prep {{project_root}} {{project_root}}/plans/test-plan.md"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = JSON.parse(o.out);
+        const ok = o.status === 0 && JSON.stringify(o.files) === '["g17-prepare.json","pf-report.json"]' &&
+          r.iterDir.endsWith('/iter-1') && r.pf.exit === 1 && r.pf.failed.includes('PF13') &&
+          r.g17NotRun === false && typeof r.g17.candidates === 'number' && typeof r.g17.coveredDims === 'number' &&
+          typeof r.skipDimensionCoverage === 'boolean';
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-critique-prep: (b) g17 failure is reported, not fatal"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-critique-prep.js"
+    project_root: "file://fixtures-fs/project-valid-plan"
+    script_args: "prep {{project_root}} {{project_root}}/plans/test-plan.md --g17-fail"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = JSON.parse(o.out);
+        const ok = o.status === 0 && r.g17NotRun === true && JSON.stringify(o.files) === '["pf-report.json"]';
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-merge: (compact) prints the rendered blocking list"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-critique-prep.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge {{project_root}} --dir @COPY@ --lanes static-structural --lenses architecture,requirements,risk"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = JSON.parse(o.out);
+        const keys = Object.keys(r).sort().join();
+        const ok = o.status === 0 && keys === 'blockingCount,guardrailErrors,lensStatus,summary,verdict' &&
+          r.verdict === '…Fix before archiving.' && r.lensStatus === 'Issues Found' &&
+          r.blockingCount === o.merged.blockingCount && r.summary.split('\n').length === r.blockingCount &&
+          r.summary.includes('- [G12] Task 3: Task 3: depends on nonexistent Task 9 (validate-plan-format)') &&
+          Array.isArray(o.merged.issues) && o.merged.scorecard !== null;
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-merge: (compact) lens-only round counts only lens issues"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-critique-prep.js"
+    project_root: "file://fixtures-fs/plan-merge-lanes"
+    script_args: "merge {{project_root}} --dir @COPY@/carry/cur --lenses architecture,risk --carry @COPY@/carry/prev"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const r = JSON.parse(o.out);
+        const lensBlocking = o.merged.lens.issues.filter(i => i.blocking === true).length;
+        const ok = o.status === 0 && lensBlocking > 0 && r.blockingCount === lensBlocking &&
+          r.summary.split('\n').every(l => l.includes('(lens:')) && !r.summary.includes('validate-plan-format');
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-splice: (a) places and replaces sections"
+  vars:
+    script_path: "-e"
+    project_root: "file://fixtures-fs/plan-splice"
+    script_args: '((cp,fs,d,js,t)=>(fs.copyFileSync(d+"/plan.md",t+"/plan.md"),((r)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({status:r.status,err:r.stderr,out:r.stdout?JSON.parse(r.stdout):null,text:fs.readFileSync(t+"/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/plan.md","--merged",d+"/merged.json"],{encoding:"utf8"}))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        // the first '## Verification Scorecard' line is the fenced example in Task 2, not a section
+        const heads = o.text.split('\n').filter(l => l.startsWith('## ') || l.startsWith('### Task'));
+        heads.splice(heads.indexOf('## Verification Scorecard'), 1);
+        const want = ['### Task 1: First change', '### Task 2: Second change', '## Guardrail Compliance', '## Suggested Review Dimensions', '## Verification Scorecard', '## Deviations & assumptions'];
+        const ok = o.status === 0 &&
+          JSON.stringify(o.out.written) === '["Guardrail Compliance","Suggested Review Dimensions","Verification Scorecard"]' &&
+          JSON.stringify(o.out.replaced) === '["Verification Scorecard"]' &&
+          JSON.stringify(heads) === JSON.stringify(want) &&
+          !o.text.includes('OLD SCORECARD BODY') &&
+          o.text.includes('| no-scope-creep | warning | PASS | Tasks stay in scope |') &&
+          o.text.includes('- CREATE `docs`: add a docs dimension') &&
+          o.text.includes('**Verdict:** All checks passed. Ready for archive.') &&
+          o.text.includes('not a real heading, it sits inside a fence');
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-splice: (b) idempotent"
+  vars:
+    script_path: "-e"
+    project_root: "file://fixtures-fs/plan-splice"
+    script_args: '((cp,fs,d,js,t)=>(fs.copyFileSync(d+"/plan.md",t+"/plan.md"),((run)=>((f)=>((s)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify({first:f,second:s}))))(run()))(run()))(()=>((r)=>({status:r.status,out:r.stdout?JSON.parse(r.stdout):null,text:fs.readFileSync(t+"/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/plan.md","--merged",d+"/merged.json"],{encoding:"utf8"})))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const names = '["Guardrail Compliance","Suggested Review Dimensions","Verification Scorecard"]';
+        const ok = o.first.status === 0 && o.second.status === 0 && o.first.text === o.second.text &&
+          JSON.stringify(o.second.out.replaced) === names && JSON.stringify(o.second.out.written) === names;
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-splice: (c) skips absent data"
+  vars:
+    script_path: "-e"
+    project_root: "file://fixtures-fs/plan-splice"
+    script_args: '((cp,fs,d,js,t)=>((b)=>((run)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({noGuardrails:run("a",b,["--no-guardrails"]),noFindings:run("b",{...b,g17Findings:{findings:[],suppressed_count:0,rendering:""}},[]),noScorecard:run("c",{...b,scorecard:null},[])}))((n,m,x)=>(fs.copyFileSync(d+"/plan.md",t+"/"+n+".md"),fs.writeFileSync(t+"/"+n+".json",JSON.stringify(m)),((r)=>({status:r.status,out:r.stdout?JSON.parse(r.stdout):null,text:fs.readFileSync(t+"/"+n+".md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/"+n+".md","--merged",t+"/"+n+".json",...x],{encoding:"utf8"})))))(JSON.parse(fs.readFileSync(d+"/merged.json","utf8"))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const a = o.noGuardrails, b = o.noFindings, c = o.noScorecard;
+        const ok = [a, b, c].every(x => x.status === 0) &&
+          JSON.stringify(a.out.written) === '["Suggested Review Dimensions","Verification Scorecard"]' && !a.text.includes('## Guardrail Compliance') &&
+          JSON.stringify(b.out.written) === '["Guardrail Compliance","Verification Scorecard"]' && !b.text.includes('## Suggested Review Dimensions') &&
+          JSON.stringify(c.out.written) === '["Guardrail Compliance","Suggested Review Dimensions"]' && c.out.replaced.length === 0 &&
+          // an unwritten scorecard leaves the old one where it was
+          c.text.includes('OLD SCORECARD BODY');
+        return ok ? true : `FAIL: ${output}`;

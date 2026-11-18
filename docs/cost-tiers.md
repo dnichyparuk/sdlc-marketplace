@@ -47,6 +47,7 @@ One row per agent in `plugins/sdlc-utilities/agents/`.
 | error-report-orchestrator | haiku | low | Template → JSON |
 | harden-orchestrator | haiku | low | Manifest → JSON |
 | plan-explore-orchestrator | sonnet | medium | Fans out discovery subagents and critiques findings |
+| plan-critique-orchestrator | sonnet | medium | Runs one plan-sdlc critique round: dispatches the lanes and lenses in parallel, merges them and returns the blocking list |
 | plan-lane-static | haiku | low | Step 3 judgment gates G1, G2, G7 |
 | plan-lane-content | sonnet | medium | Step 3 judgment gates (content coverage, G18–G21) |
 | plan-lane-guardrail | sonnet | low | Step 3 judgment gate G14 |

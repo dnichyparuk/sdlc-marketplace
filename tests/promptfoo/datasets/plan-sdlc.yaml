@@ -23,7 +23,7 @@
 #   plan-g19-prose-flood               -- CORRECT: code plan, T1 narrates its HTTP payload surface (#1) entirely in prose while rendering an unrelated config-delta surface (#7) as a table; exercises the NEW per-surface G19 rule — the incidental render must NOT excuse the prose-narrated surface (R46, Fixes #488)
 #   plan-sdlc-c1-inline-openspec       -- CORRECT: gate-check Option 2 inline OpenSpec artifact generation; exercises R63 openspec-target annotations, Gate A/openspec-task suppression (Fixes #523)
 #   plan-sdlc-c2-material-change       -- CORRECT: Step 6 task-count delta sets materialChangeDetected; exercises R64 merged Step 3 lane + Step 5 lens re-dispatch (Fixes #523)
-#   plan-sdlc-c2-contract-change       -- CORRECT: one Contract edit; R64 selective re-dispatch of the affectedLanes, the rest carried with merge-lanes --carry
+#   plan-sdlc-c2-contract-change       -- CORRECT: one Contract edit; the next critique-orchestrator round re-dispatches only diff-material's dispatch set and carries the rest
 #   plan-sdlc-c3-ambiguity             -- CORRECT: conflicting codebase caching patterns with no dominant convention; exercises Step 1 Structured discovery trigger (c), interactive and --auto paths (R65, Fixes #523)
 
 # --- Fan-out parallelization cases (P1/P2/P3 — Fixes #418) ---
@@ -37,22 +37,26 @@
       lanes[] with 4 entries (static-structural, content-coverage, guardrail-compliance,
       dimension-coverage) each with an agent and inputNames, and no guardrails are configured
       (guardrails is empty). Describe exactly how Step 3 dispatches its gate evaluations.
+      The orchestrator agent file exists (critiqueDispatch.agentPath is set).
   assert:
     - type: icontains
-      value: "merge-lanes"
+      value: "critiqueDispatch"
     - type: icontains
       value: "g17-prepare"
     - type: icontains
       value: "validate-plan-format"
     - type: llm-rubric
       value: >
-        The response dispatches static-structural, content-coverage and dimension-coverage
-        in one message, skips guardrail-compliance (no guardrails), after running
-        validate-plan-format.js and g17-prepare; subagent_type = lane.agent and the prompt is one NAME: value line per lane.inputNames entry; no model or effort is passed (the agent file sets them);
-        merge-lanes merges the results; guardrailsEvaluated is written after merge-lanes
-        returns and critiqueRan after every dispatched lane has returned; G3, G4, G10 and
-        G12 are validator checks (PF4, PF12, PF13) and the lanes plus the validator cover
-        G1–G21.
+        The author dispatches `critiqueDispatch` once (one Agent call) with `ROUND: step3`,
+        `ITER: 0`, `CARRY: none` and `BEFORE_PLAN: none`. The orchestrator runs `critique-prep`
+        (validate-plan-format.js and g17-prepare), dispatches static-structural, content-coverage
+        and dimension-coverage in one message, skips guardrail-compliance (no guardrails), with
+        subagent_type = lane.agent, the prompt one NAME: value line per lane.inputNames entry and
+        no model or effort passed (the agent file sets them), and merges with
+        `merge-lanes --compact`. The author writes guardrailsEvaluated and critiqueRan after the
+        round returns, never before. On `no-agent-tool` the author runs the same steps itself
+        (validator, g17-prepare, lane dispatch, merge-lanes). G3, G4, G10 and G12 are validator
+        checks (PF4, PF12, PF13) and the lanes plus the validator cover G1–G21.
 
 - description: "plan-sdlc: P2-fanout — Step 5 dispatches 2-3 lens reviewers in a single message per iteration for fan-out-route plans (Fixes #418)"
   vars:
@@ -1378,8 +1382,8 @@
     user_request: >
       Run /plan-sdlc. Step 5 iteration 1 returned Issues Found. Step 6 IMPROVE just added a new
       Task 5 to resolve the findings (taskCountBefore=4, taskCountAfter=5 — see context); Task 2 is Complex, so the review route is fan-out. Evaluate
-      the Step 6 material change detector, then describe exactly how the NEXT Step 5 iteration
-      dispatches its agents.
+      the Step 6 material change detector, then describe exactly how the NEXT Step 5 critique-orchestrator
+      round (ROUND: step5, BEFORE_PLAN set) dispatches its agents.
   assert:
     - type: icontains
       value: "materialChangeDetected"
@@ -1395,6 +1399,7 @@
         before consolidating. It states this merged dispatch counts as exactly ONE iteration of
         the review loop (the counter increments by 1, not 2), and that `materialChangeDetected`
         is cleared back to false once the merged issue set is assembled.
+        The author dispatches `critiqueDispatch` once; the orchestrator runs `diff-material`, the deterministic checks, the dispatch and `merge-lanes --compact`; the author reads only the returned summary.
 
 - description: "plan-sdlc: contract change re-dispatches only the affected lanes and lenses and carries the rest (R64)"
   vars:
@@ -1403,7 +1408,7 @@
     user_request: >
       Run /plan-sdlc. Step 5 iteration 1 returned Issues Found. Step 6 IMPROVE just changed one
       Contract line in Task 3 (see context, including the diff-material output). Describe exactly
-      how the NEXT Step 5 iteration dispatches its agents and how it merges the results.
+      how the NEXT Step 5 critique-orchestrator round dispatches its agents and how it merges the results.
   assert:
     - type: icontains
       value: "dispatch"
@@ -1420,6 +1425,7 @@
         `--carry` naming the previous iteration directory (iter-1), so the results of the lanes and
         lenses it did not re-dispatch are copied in and gate coverage stays complete. The merged
         dispatch counts as one iteration of the review loop.
+        The author dispatches `critiqueDispatch` once; the orchestrator runs `diff-material`, the deterministic checks, the dispatch and `merge-lanes --compact`; the author reads only the returned summary.
 
 - description: "plan-sdlc: conflicting codebase caching patterns trigger AskUserQuestion at Step 1 structured discovery, trigger c (interactive, C3)"
   vars:

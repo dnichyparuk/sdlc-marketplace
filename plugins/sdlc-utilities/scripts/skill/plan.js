@@ -10,7 +10,9 @@
  *   node plan-prepare.js --mark <name> [--path <abs>]
  *   node plan.js diff-material --before <path> --after <path> [--full] [--prev-dir <iterDir>]
  *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
- *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>] [--carry <prevIterDir>] [--g17-not-run] [--plan <path>]
+ *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>] [--carry <prevIterDir>] [--g17-not-run] [--plan <path>] [--compact]
+ *   node plan.js splice --plan <path> --merged <merged.json> [--no-guardrails]
+ *   node plan.js critique-prep--critique-dir <dir> --iter <k> --plan <path> [--github-hosting true|false] [--root <dir>]
  *
  * Options:
  *   --from-openspec <name>  Validate a specific OpenSpec change for direct bridging
@@ -43,7 +45,7 @@ const { resolveQuality, QUALITY_EXPECTED } = require(path.join(LIB, 'quality'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { initState, findStateFile, readState, writeState, slugifyBranch, pruneStateFiles } = require(path.join(LIB, 'state'));
 const { exec, parseRemoteOwner } = require(path.join(LIB, 'git'));
-const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes, tierCheck } = require(path.join(LIB, 'plan-critique'));
+const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes, renderSummary, splicePlan, tierCheck } = require(path.join(LIB, 'plan-critique'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
 const { validateCopyRules, requiredCopies } = require(path.join(LIB, 'plan-parse'));
 
@@ -161,7 +163,7 @@ function buildGithubHosting(projectRoot) {
   }
 }
 
-// P15–P17, P20, P25 — agent dispatch (R33, R35, R36, R39). Agents ship with the
+// P15–P17, P20, P25, P26 — agent dispatch (R33, R35, R36, R39, R75). Agents ship with the
 // plugin next to scripts/, so no other location is searched (#9196).
 const AGENTS_DIR = path.join(__dirname, '..', '..', 'agents');
 const FORMAT_REFERENCE_PATH = path.join(__dirname, '..', '..', 'skills', 'plan-sdlc', 'plan-format-reference.md');
@@ -183,6 +185,8 @@ const INPUT_NAMES = {
   'plan-lens-risk':         LENS_INPUTS,
   'plan-reviewer':          ['PLAN_FILE_PATH', 'REQUIREMENTS_CHECKLIST', 'SOURCE_REQUIREMENTS', 'BRIEF_FILE', 'OPENSPEC_TASKS', 'REQUIREMENTS_JSON', 'GUARDRAILS'],
   'plan-intake-verify':     ['PROPOSAL', 'DELTA_SPECS', 'TASKS_MD', 'DESIGN', 'REQUIREMENTS_JSON'],
+  // P26 (R75): REQUIREMENTS_SUMMARY is also sent to lenses as REQUIREMENTS_CHECKLIST.
+  'plan-critique-orchestrator': ['ROUND', 'ITER', 'CRITIQUE_DIR', 'PLAN_FILE_PATH', 'PREPARE_OUTPUT', 'DISPATCH', 'CARRY', 'BEFORE_PLAN', 'G17_NOT_RUN', 'AUTHOR_MODEL', 'REQUIREMENTS_SUMMARY', 'SOURCE_REQUIREMENTS', 'BRIEF_FILE', 'BRIEF_FINDING_IDS', 'PLAN_TEMPLATE_PATH'],
 };
 
 const LENS_DEFS = [
@@ -253,7 +257,8 @@ function buildDispatchSet(guardrails, openspecContext, quality) {
   }));
   const reviewerDispatch = { lens: 'all', ...buildDispatch('plan-reviewer', preset), ...q };
   const intakeAuditDispatch = buildDispatch('plan-intake-verify', lanePreset);
-  return { g17Dispatch, lanes, lensReviewers, reviewerDispatch, intakeAuditDispatch };
+  const critiqueDispatch = buildDispatch('plan-critique-orchestrator', {}); // P26: no preset inputs
+  return { g17Dispatch, lanes, lensReviewers, reviewerDispatch, intakeAuditDispatch, critiqueDispatch };
 }
 
 // plan-explore.js invocation — builds explorePack (R24 / P8–P12)
@@ -339,18 +344,20 @@ function runExplorePack(fromOpenspec, userPrompt) {
 // Main
 // ---------------------------------------------------------------------------
 
-const SUBCOMMANDS = { 'diff-material': runDiffMaterial, 'g17-prepare': runG17Prepare, 'merge-lanes': runMergeLanes, tier: runTier };
+const SUBCOMMANDS = { 'critique-prep': runCritiquePrep, 'diff-material': runDiffMaterial, 'g17-prepare': runG17Prepare, 'merge-lanes': runMergeLanes, splice: runSplice, tier: runTier };
 
 // Flags each subcommand accepts (without `--`); any other flag is a usage error (exit 1).
 const SUBCOMMAND_FLAGS = {
   'diff-material': ['before', 'after', 'full', 'prev-dir'],
   'g17-prepare': ['plan', 'dimensions-dir', 'instructions-dir', 'learnings', 'window', 'github-hosting', 'root', 'today'],
-  'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory', 'carry', 'g17-not-run', 'plan'],
+  'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory', 'carry', 'g17-not-run', 'plan', 'compact'],
+  'critique-prep': ['critique-dir', 'iter', 'plan', 'github-hosting', 'root'],
+  splice: ['plan', 'merged', 'no-guardrails'],
   tier: ['plan'],
 };
 
 // Value-less flags (`--<name>` → flags key); every other flag takes one value.
-const BOOLEAN_FLAGS = { '--no-guardrails': 'noGuardrails', '--full': 'full', '--g17-not-run': 'g17NotRun' };
+const BOOLEAN_FLAGS = { '--no-guardrails': 'noGuardrails', '--full': 'full', '--g17-not-run': 'g17NotRun', '--compact': 'compact' };
 
 function usageError(message) {
   return Object.assign(new Error(message), { code: 'USAGE' });
@@ -415,10 +422,12 @@ function runMergeLanes(flags) {
   const dir = requireFlag(flags, 'dir');
   const list = v => (v === undefined ? [] : v.split(',').map(s => s.trim()).filter(Boolean));
   const copyCheck = buildCopyCheck(flags.plan);
-  return mergeLanes({
+  const lanes = list(flags.lanes);
+  const lenses = list(flags.lenses);
+  const merged = mergeLanes({
     dir,
-    lanes: list(flags.lanes),
-    lenses: list(flags.lenses),
+    lanes,
+    lenses,
     noGuardrails: flags.noGuardrails === true,
     gateAPath: flags['gate-a'] ?? null,
     inventoryPath: flags.inventory ?? null,
@@ -427,6 +436,65 @@ function runMergeLanes(flags) {
     copyCheck,
     planGiven: flags.plan !== undefined,
   });
+  if (flags.compact !== true) return merged;
+  fs.writeFileSync(path.join(dir, 'merged.json'), JSON.stringify(merged, null, 2) + '\n');
+  return renderSummary(merged, { lensOnly: !lanes.length && lenses.length > 0 });
+}
+
+/** One call for the per-iteration setup: iter dir, validator report, g17-prepare (R67 (e)). A g17-prepare failure is reported, not fatal. */
+function critiquePrep(flags) {
+  const critiqueDir = requireFlag(flags, 'critique-dir');
+  const iter = requireFlag(flags, 'iter');
+  const plan = requireFlag(flags, 'plan');
+  const root = flags.root ?? resolveActiveWorktreeSafe();
+  const iterDir = path.join(critiqueDir, `iter-${iter}`);
+  fs.mkdirSync(iterDir, { recursive: true });
+  const validator = path.join(__dirname, '..', 'ci', 'validate-plan-format.js');
+  const pf = spawnSync(process.execPath, [validator, '--json', '--file', plan, '--root', root], { encoding: 'utf8' });
+  if (pf.error || pf.status === null || pf.status > 1) {
+    throw new Error(`validate-plan-format exited ${pf.status}${pf.error ? `: ${pf.error.message}` : ''}`);
+  }
+  fs.writeFileSync(path.join(iterDir, 'pf-report.json'), pf.stdout);
+  let failed = [];
+  try {
+    failed = JSON.parse(pf.stdout).checks.filter(c => c.status === 'fail').map(c => c.id);
+  } catch (_) { /* unparsable report: the merge reports it as a lane failure */ }
+  const out = { iterDir, pf: { exit: pf.status, failed }, g17NotRun: false, g17: null, skipDimensionCoverage: false };
+  try {
+    const g = g17Prepare({
+      planPath: plan,
+      dimensionsDir: path.join(root, '.sdlc/review-dimensions'),
+      instructionsDir: path.join(root, '.github/instructions'),
+      learningsPath: path.join(root, '.sdlc/learnings/log.md'),
+      windowDays: 14,
+      githubHosting: flags['github-hosting'] === 'true',
+      rootDir: root,
+    });
+    fs.writeFileSync(path.join(iterDir, 'g17-prepare.json'), JSON.stringify(g, null, 2) + '\n');
+    out.g17 = { candidates: g.candidates.length, coveredDims: g.coveredDims.length };
+    out.skipDimensionCoverage = g.candidates.length === 0 && g.coveredDims.length === 0;
+  } catch (_) {
+    out.g17NotRun = true;
+  }
+  return out;
+}
+
+/** Write the Guardrail Compliance, Suggested Review Dimensions and Verification Scorecard sections of merged.json into the plan (R67 (f)). */
+function runSplice(flags) {
+  const planPath = requireFlag(flags, 'plan');
+  let merged;
+  try {
+    merged = JSON.parse(readPlanFile(requireFlag(flags, 'merged')));
+  } catch (err) {
+    throw err.code === 'USAGE' ? err : usageError(`--merged is not valid JSON: ${err.message}`);
+  }
+  const { text, written, replaced } = splicePlan(readPlanFile(planPath), merged, { noGuardrails: flags.noGuardrails === true });
+  fs.writeFileSync(planPath, text);
+  return { written, replaced };
+}
+
+function runCritiquePrep(flags) {
+  return critiquePrep(flags);
 }
 
 /** Parse `--<name> <value>` pairs and the value-less flags, run the handler, map outcomes to exit codes. */
@@ -661,8 +729,8 @@ function main() {
   // 5. P14/P15 — G17 dispatch signals (R32, R33 — Fixes #417)
   // --mark mode short-circuits before this point, so these only run in --output-file mode.
   const githubHosting = buildGithubHosting(projectRoot);
-  const { g17Dispatch, lanes, lensReviewers, reviewerDispatch, intakeAuditDispatch } = buildDispatchSet(guardrails, openspecContext, flags.quality);
-  for (const e of [...lanes, ...lensReviewers, reviewerDispatch, intakeAuditDispatch]) {
+  const { g17Dispatch, lanes, lensReviewers, reviewerDispatch, intakeAuditDispatch, critiqueDispatch } = buildDispatchSet(guardrails, openspecContext, flags.quality);
+  for (const e of [...lanes, ...lensReviewers, reviewerDispatch, intakeAuditDispatch, critiqueDispatch]) {
     if (e.agentPath === null) process.stderr.write(`[plan-prepare] ${e.agent}: agent file not found — not dispatched\n`);
   }
 
@@ -691,6 +759,7 @@ function main() {
     lanes,
     lensReviewers,
     reviewerDispatch,
+    critiqueDispatch,
     critiqueDir,
     commit,
     flags,

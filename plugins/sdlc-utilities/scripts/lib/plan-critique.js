@@ -812,7 +812,104 @@ function mergeLanes({ dir, lanes = [], lenses = [], noGuardrails = false, gateAP
   };
 }
 
+/**
+ * Compact merge-lanes output: the blocking issues as one line each. A lens-only merge
+ * (no lanes, lenses set) counts only the blocking lens issues, because the carried lane
+ * results are not this iteration's issue list.
+ */
+function renderSummary(result, { lensOnly = false } = {}) {
+  const source = lensOnly ? ((result.lens && result.lens.issues) || []) : result.issues;
+  const blocking = source.filter(i => i.blocking === true);
+  return {
+    blockingCount: blocking.length,
+    lensStatus: result.lens ? result.lens.status : null,
+    verdict: result.scorecard ? result.scorecard.verdict : null,
+    guardrailErrors: blocking.filter(i => i.gateId === 'G14').length,
+    summary: blocking.map(i => `- [${i.gateId || i.lane}] ${i.taskRef || 'plan'}: ${i.message} (${i.lane})`).join('\n'),
+  };
+}
+
+/** `## ` heading lines outside a fence, as { line, index }; also the last `### Task N:` index (-1 when none). */
+function outsideFenceMarks(lines) {
+  const headings = [];
+  let lastTask = -1;
+  let open = 0;
+  lines.forEach((line, index) => {
+    const m = line.match(/^\s*(`{3,})(.*)$/);
+    if (open > 0) {
+      if (m && m[1].length >= open && m[2].trim() === '') open = 0;
+      return;
+    }
+    if (m) { open = m[1].length; return; }
+    if (line.startsWith('## ')) headings.push({ line, index });
+    else if (/^### Task \d+:/.test(line)) lastTask = index;
+  });
+  return { headings, lastTask };
+}
+
+const SPLICE_ORDER = ['Guardrail Compliance', 'Suggested Review Dimensions', 'Verification Scorecard'];
+
+/** Section ranges: [start, end) of `## <name>` (end at the next `## ` heading outside a fence), or null. */
+function findSection(lines, name) {
+  const { headings } = outsideFenceMarks(lines);
+  const at = headings.findIndex(h => h.line.trimEnd() === `## ${name}`);
+  if (at === -1) return null;
+  return { start: headings[at].index, end: at + 1 < headings.length ? headings[at + 1].index : lines.length };
+}
+
+/** Lines with `[start, end)` replaced by `insert`, one blank line each side, no trailing blank run. */
+function joinAround(lines, start, end, insert) {
+  const before = lines.slice(0, start);
+  while (before.length && before[before.length - 1].trim() === '') before.pop();
+  const after = lines.slice(end);
+  while (after.length && after[after.length - 1].trim() === '') after.pop();
+  const out = [...before];
+  if (insert.length) out.push(...(out.length ? [''] : []), ...insert);
+  if (after.length) out.push(...(out.length ? [''] : []), ...after);
+  return out;
+}
+
+/**
+ * Place the Guardrail Compliance, Suggested Review Dimensions and Verification Scorecard sections
+ * of a merged critique result into plan text (KD6, R44). Existing sections are replaced, so a
+ * re-run is idempotent. Returns { text, written, replaced }.
+ */
+function splicePlan(text, merged, { noGuardrails = false } = {}) {
+  let lines = String(text).replace(/\r\n/g, '\n').replace(/\n+$/, '').split('\n');
+  const g17 = merged.g17Findings;
+  const bodies = {
+    'Guardrail Compliance': !noGuardrails && typeof merged.guardrailCompliancePayload === 'string'
+      ? `## Guardrail Compliance\n\n${merged.guardrailCompliancePayload}` : null,
+    'Suggested Review Dimensions': g17 && Array.isArray(g17.findings) && g17.findings.length ? g17.rendering : null,
+    'Verification Scorecard': merged.scorecard && merged.scorecard.markdown ? merged.scorecard.markdown : null,
+  };
+  const written = [];
+  const replaced = [];
+  for (const name of SPLICE_ORDER) {
+    if (bodies[name] === null) continue;
+    const old = findSection(lines, name);
+    if (old) {
+      lines = joinAround(lines, old.start, old.end, []);
+      replaced.push(name);
+    }
+    let anchor = null;
+    for (const prev of SPLICE_ORDER.slice(0, SPLICE_ORDER.indexOf(name)).reverse()) {
+      anchor = findSection(lines, prev);
+      if (anchor) break;
+    }
+    if (!anchor) {
+      const { headings, lastTask } = outsideFenceMarks(lines);
+      const next = headings.find(h => h.index > lastTask);
+      anchor = { end: lastTask === -1 || !next ? lines.length : next.index };
+    }
+    lines = joinAround(lines, anchor.end, anchor.end, bodies[name].replace(/\s+$/, '').split('\n'));
+    written.push(name);
+  }
+  return { text: lines.join('\n') + '\n', written, replaced };
+}
+
 module.exports = {
+  splicePlan,
   LANE_DEFS, TRIGGER_MAP, diffMaterial, planShape, reviewRoute, TIER_BOUNDS, tierCheck, g17Prepare, mirrorPath, rankCandidates, SEVERITY_RANK,
-  EXPECTED_GATES, PF_GATES, mergeLanes, renderG17, renderScorecard,
+  EXPECTED_GATES, PF_GATES, mergeLanes, renderG17, renderScorecard, renderSummary,
 };
