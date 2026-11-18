@@ -124,9 +124,12 @@ function planShape(text) {
   };
 }
 
+/** Task count at which review fans out to the three lenses (R36). */
+const REVIEW_FANOUT_TASKS = 8;
+
 /** Single reviewer or the three-lens fan-out for a plan shape. */
 function reviewRoute(shape) {
-  return shape.complex > 0 || shape.tasks >= 8 || shape.openspec
+  return shape.complex > 0 || shape.tasks >= REVIEW_FANOUT_TASKS || shape.openspec
     ? { route: 'fan-out', lenses: ['architecture', 'requirements', 'risk'] }
     : { route: 'single', lenses: ['all'] };
 }

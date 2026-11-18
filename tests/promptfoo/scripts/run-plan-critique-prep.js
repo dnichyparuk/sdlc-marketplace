@@ -58,6 +58,7 @@ try {
     const copy = path.join(tmp, 'copy');
     fs.cpSync(fixture, copy, { recursive: true });
     const dir = args.map(a => a.split('@COPY@').join(copy));
+    if (dir.indexOf('--dir') === -1) throw new Error('merge needs --dir');
     const r = run(['merge-lanes', ...dir, '--compact']);
     const mergedFile = path.join(dir[dir.indexOf('--dir') + 1], 'merged.json');
     report = { status: r.status, out: r.stdout, err: r.stderr, merged: fs.existsSync(mergedFile) ? JSON.parse(fs.readFileSync(mergedFile, 'utf8')) : null };
