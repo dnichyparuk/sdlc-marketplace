@@ -32,4 +32,8 @@ const r = spawnSync(
   [...(fault ? ['--import', DATA_URL] : []), script, '--check-brief', ...rest],
   { encoding: 'utf8' },
 );
+if (r.error) {
+  process.stderr.write(`Script error: ${r.error.message}\n`);
+  process.exit(2);
+}
 console.log(JSON.stringify({ status: r.status, out: r.stdout, err: r.stderr }));

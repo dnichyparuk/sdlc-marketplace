@@ -225,7 +225,7 @@
     skill_path: "plugins/sdlc-utilities/skills/harden-sdlc/SKILL.md"
     project_context: "file://fixtures/harden-plan-guardrail-failure-context.md"
     user_request: >
-      Suppose the project has no .claude/sdlc.json, no review-dimensions/, and no
+      Suppose the project has no .sdlc/config.json, no review-dimensions/, and no
       .github/instructions/. The user runs /harden-sdlc with --failure-text and
       --skill plan-sdlc. Describe what should happen — does the skill still run?
   assert:
@@ -252,7 +252,7 @@
     - type: llm-rubric
       value: >
         The response states that no surface file is written or edited after cancel: neither
-        .claude/sdlc.json nor the review-dimensions files are changed.
+        .sdlc/config.json nor the review-dimensions files are changed.
 
 - description: "harden-sdlc: user applies one of two proposals → exactly one file written"
   vars:

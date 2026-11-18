@@ -237,7 +237,6 @@
     # Must NOT use the fragile -f body="…" inline form
     - type: not-regex
       value: '-f body="'
-    # Must NOT re-dispatch any agent to post the comment
     # Behavioral: one gh api call, zero agent re-dispatch, cleanup happens after
     - type: llm-rubric
       value: >

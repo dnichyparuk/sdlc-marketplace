@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.15] - 2026-11-18
+
+### Fixed
+- docs and tests: the review-orchestrator agent text states the manifest file is kept; the pr-labels fixture and dataset text use `.sdlc/config.json`; the patch `--dry-run` bypass is recorded as an accepted gap in R90 (#9404).
+- test scripts: `check-fixture-refs.js` skips commented config lines and reports a missing config reference, `check-dataset-regex.js` reports empty values, and `run-plan-explore-check-brief.js` exits 2 with a Script error when node fails to start (#9404).
+
 ## [0.54.14] - 2026-11-18
 
 ### Fixed

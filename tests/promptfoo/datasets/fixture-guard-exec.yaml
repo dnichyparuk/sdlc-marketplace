@@ -40,10 +40,10 @@
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.missing.length === 0 && r.configs === 2 && r.datasets >= 19 && r.refs >= 316"
 
-- description: "fixture-refs: (b) a missing fixture and a missing fixtures-fs reference are reported; a commented reference is skipped"
+- description: "fixture-refs: (b) a missing dataset, a missing fixture and a missing fixtures-fs reference are reported; commented references are skipped"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-fixture-refs.js"
     script_args: "--probe-missing"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.refs === 3 && r.missing.map(m => m.dataset + ':' + m.line + ':' + m.ref).join(',') === 'datasets/a.yaml:3:fixtures/absent.md,datasets/b.yaml:2:fixtures-fs/absent-dir'"
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.datasets === 3 && r.refs === 3 && r.missing.map(m => (m.config || m.dataset) + ':' + m.line + ':' + m.ref).join(',') === 'promptfooconfig-headless.yaml:3:datasets/c.yaml,datasets/a.yaml:3:fixtures/absent.md,datasets/b.yaml:2:fixtures-fs/absent-dir'"

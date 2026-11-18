@@ -293,7 +293,7 @@
     skill_path: "plugins/sdlc-utilities/skills/setup-sdlc/SKILL.md"
     project_context: >
       Project at tests/promptfoo/fixtures-fs/setup-pr-labels-menu-rules/ with an existing
-      .claude/sdlc.json containing
+      .sdlc/config.json containing
       `pr.labels: { mode: "rules", rules: [{ label: "bug", when: { branchPrefix: ["fix/"] } }] }`.
       The user runs `/setup-sdlc` (no flags) and reaches the Step 1 selective-section menu.
       The setup.js prepare output contains this pr-labels row in sections[] (fields omitted):

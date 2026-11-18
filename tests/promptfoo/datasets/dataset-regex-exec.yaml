@@ -7,10 +7,10 @@
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.invalid.length === 0 && r.configs === 2 && r.datasets >= 19 && r.checked >= 300"
 
-- description: "dataset-regex: (b) an inline-flag regex and an inline-flag not-regex are reported; valid values are not"
+- description: "dataset-regex: (b) an inline-flag regex, an inline-flag not-regex and an empty value are reported; valid values are not"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-dataset-regex.js"
     script_args: "--probe-invalid"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.checked === 4 && r.invalid.map(i => i.dataset + ':' + i.line).join(',') === 'datasets/a.yaml:3,datasets/b.yaml:3'"
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.checked === 5 && r.invalid.map(i => i.dataset + ':' + i.line).join(',') === 'datasets/a.yaml:3,datasets/b.yaml:3,datasets/b.yaml:7' && r.invalid[2].error === 'empty value'"
