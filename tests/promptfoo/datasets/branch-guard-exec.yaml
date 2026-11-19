@@ -7,7 +7,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/branch-guard-test.js"
     script_args: "--op exports"
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"hasValidateExpectedBranch": true'
@@ -16,7 +15,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/branch-guard-test.js"
     script_args: "--op validate --current feat/my-feature --expected feat/my-feature"
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": true'
@@ -29,7 +27,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/branch-guard-test.js"
     script_args: "--op validate --current main --expected feat/my-feature"
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": false'
@@ -46,7 +43,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/branch-guard-test.js"
     script_args: "--op validate --current feat/my-feature"
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": true'
@@ -59,7 +55,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/branch-guard-test.js"
     script_args: "--op validate --current feat/my-feature --expected "
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": true'
@@ -70,7 +65,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/branch-guard-test.js"
     script_args: "--op validate --current  --expected feat/my-feature"
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": false'

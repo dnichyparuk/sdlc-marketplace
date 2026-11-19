@@ -5,7 +5,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/setup-migrate-dispatch-test.js"
     script_args: "--op legacy-jira-templates-detected"
-    project_root: "file://fixtures-fs/setup-migrate-dispatch/only-jira-templates"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -16,7 +15,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/setup-migrate-dispatch-test.js"
     script_args: "--op no-legacy-jira-templates"
-    project_root: "file://fixtures-fs/setup-migrate-dispatch/none"
   assert:
     - type: contains
       value: "RESULT: PASS"

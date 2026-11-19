@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-19
+
+### Added
+- tests: a faster exec suite and a fast pre-push tier (`promptfooconfig-exec-fast.yaml`). Memoisable fixtures are built once per run and copied per case, GitHub runner cases answer `gh` in process, per-case HOME copies make `-j N` safe, and pre-push runs the fast config (W-H2).
+- review-sdlc, ship-sdlc: review summaries carry a `findings` array and ship round records keep finding text; cleanup writes `review-rounds-<slug>.json` so below-threshold rounds keep their findings (W-H2).
+
+### Fixed
+- tests: `run-fixture-memo.js` exits 2 on an unexpected error, and fixture cleanup clears the copy and template registries so a later run in the same process rebuilds them (W-H2).
+
 ## [0.56.7] - 2026-11-19
 
 ### Changed

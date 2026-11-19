@@ -36,11 +36,12 @@
       "key": "W-H2",
       "aliases": ["H2"],
       "title": "Suite speed infrastructure, pre-push tier and per-round review findings",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": [],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-H2", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-H2", "role": "brief" },
+        { "path": "docs/plans/2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier.md", "role": "executable" }
       ]
     },
     {

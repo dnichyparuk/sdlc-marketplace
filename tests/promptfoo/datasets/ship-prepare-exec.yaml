@@ -5016,7 +5016,7 @@
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        const rec = (round, final, high, rr, n) => ({ round, final, counts: { critical: 0, high, medium: 0, low: 0 }, threshold: 'high', receivedReview: rr, fixed: n && n[0], declined: n && n[1], deferred: n && n[2] });
+        const rec = (round, final, high, rr, n) => ({ round, final, counts: { critical: 0, high, medium: 0, low: 0 }, threshold: 'high', receivedReview: rr, fixed: n && n[0], declined: n && n[1], deferred: n && n[2], findings: null });
         const want = JSON.stringify([rec(1, false, 1, true, [2, 1, 0]), rec(2, false, 1, true, [2, 1, 0]), rec(3, true, 0, false, [null, null, null])]);
         const cl = o.calls.find(c => c.envelope.step && c.envelope.step.id === 'cleanup');
         if (!cl) return `FAIL: no cleanup emitted ${JSON.stringify(o.calls.map(c => c.envelope.step ? c.envelope.step.id : c.envelope.status))}`;
@@ -5037,7 +5037,7 @@
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        const want = JSON.stringify([{ round: 1, final: false, counts: { critical: 0, high: 1, medium: 0, low: 0 }, threshold: 'high', receivedReview: true, fixed: null, declined: null, deferred: null }]);
+        const want = JSON.stringify([{ round: 1, final: false, counts: { critical: 0, high: 1, medium: 0, low: 0 }, threshold: 'high', receivedReview: true, fixed: null, declined: null, deferred: null, findings: null }]);
         const cl = o.calls.find(c => c.envelope.step && c.envelope.step.id === 'cleanup');
         if (!cl) return `FAIL: no cleanup emitted ${JSON.stringify(o.calls.map(c => c.envelope.step ? c.envelope.step.id : c.envelope.status))}`;
         const a = JSON.stringify(cl.envelope.step.data.summary.reviewRounds);
@@ -5045,6 +5045,43 @@
         const last = o.calls[o.calls.length - 1].envelope;
         const b = JSON.stringify(last.ext && last.ext.summary && last.ext.summary.reviewRounds);
         return b === want ? true : `FAIL: last envelope ${last.status} reviewRounds ${b}`;
+
+- description: "ship-summary-rounds: (c) each round record carries the findings of the summary its gate read"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-stepper.js"
+    script_args: "--project-root {{project_root}} --scenario rounds-final-check --seed frozen --summary high-1-findings.json --rounds 2 --received-result results/received-review-counts.json --walk"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const want = JSON.stringify([{ severity: 'high', dimension: 'code-quality', path: 'src/a.js', line: 12, title: 'Unchecked return value' }]);
+        const cl = o.calls.find(c => c.envelope.step && c.envelope.step.id === 'cleanup');
+        if (!cl) return `FAIL: no cleanup emitted ${JSON.stringify(o.calls.map(c => c.envelope.step ? c.envelope.step.id : c.envelope.status))}`;
+        const r = cl.envelope.step.data.summary.reviewRounds;
+        if (r.length !== 3) return `FAIL: ${r.length} records`;
+        // the final check reads the default final summary (approved-0.json), which has no findings array
+        const got = r.map(x => JSON.stringify(x.findings));
+        return got[0] === want && got[1] === want && got[2] === 'null' ? true : `FAIL: findings ${got.join(' | ')}`;
+
+- description: "ship-summary-rounds: (d) cleanup writes the round findings file with every record"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,path,js,pr)=>((r)=>((o)=>console.log(JSON.stringify({o:o,file:JSON.parse(fs.readFileSync(path.join(pr,".sdlc","execution","review-rounds-feat-ship.json"),"utf8"))})))(JSON.parse(r.stdout)))(cp.spawnSync("node",[js,"--project-root",pr,"--scenario","rounds-final-check","--seed","frozen","--summary","high-1-findings.json","--rounds","2","--received-result","results/received-review-counts.json","--walk"],{cwd:pr,encoding:"utf8",maxBuffer:1<<26})))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/tests/promptfoo/scripts/run-ship-stepper.js","{{project_root}}")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const { o, file } = JSON.parse(output);
+        const cl = o.calls.find(c => c.envelope.step && c.envelope.step.id === 'cleanup');
+        if (!cl) return `FAIL: no cleanup emitted`;
+        const rounds = cl.envelope.step.data.summary.reviewRounds;
+        if (file.schemaVersion !== 1 || file.branch !== 'feat/ship' || typeof file.startedAt !== 'string') return `FAIL: header ${JSON.stringify(file).slice(0, 200)}`;
+        return JSON.stringify(file.rounds) === JSON.stringify(rounds) && rounds.length === 3 ? true : `FAIL: rounds ${JSON.stringify(file.rounds)}`;
 
 - description: "ship-stage-sdlc: tracked .sdlc paths of the plan are staged, ignored and missing ones are not"
   vars:

@@ -19,6 +19,21 @@
       "required": ["critical", "high", "medium", "low", "info"],
       "additionalProperties": false
     },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+          "dimension": { "type": "string" },
+          "path": { "type": "string" },
+          "line": { "type": ["integer", "string"] },
+          "title": { "type": "string" }
+        },
+        "required": ["severity", "dimension", "path", "line", "title"],
+        "additionalProperties": false
+      }
+    },
     "dimensions": {
       "type": "array",
       "items": {

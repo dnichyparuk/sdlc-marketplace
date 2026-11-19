@@ -6,7 +6,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/version-retag-test.js"
     script_args: "--op retag-with-tag"
-    project_root: "file://fixtures-fs/version-retag/tag-exists"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -17,7 +16,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/version-retag-test.js"
     script_args: "--op retag-no-tag"
-    project_root: "file://fixtures-fs/version-retag/no-tag"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -28,7 +26,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/version-retag-test.js"
     script_args: "--op retag-with-patch"
-    project_root: "file://fixtures-fs/version-retag/no-tag"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -39,7 +36,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/version-retag-test.js"
     script_args: "--op retag-with-init"
-    project_root: "file://fixtures-fs/version-retag/no-tag"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -50,7 +46,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/version-retag-test.js"
     script_args: "--op retag-with-changelog"
-    project_root: "file://fixtures-fs/version-retag/no-tag"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -61,7 +56,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/version-retag-test.js"
     script_args: "--op retag-with-hotfix"
-    project_root: "file://fixtures-fs/version-retag/no-tag"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -72,7 +66,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/version-retag-test.js"
     script_args: "--op retag-multi-conflict"
-    project_root: "file://fixtures-fs/version-retag/no-tag"
   assert:
     - type: contains
       value: "RESULT: PASS"

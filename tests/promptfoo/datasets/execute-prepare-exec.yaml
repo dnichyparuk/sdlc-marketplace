@@ -660,7 +660,6 @@
 - description: "execute-prepare: (rt) the routing table in classifying-and-waving-tasks.md equals WORKER_ROUTING, routeWave re-derives every row from it, and the agent models equal the worker frontmatter"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-worker-routing-table.js"
-    project_root: "file://fixtures-fs/project-execute-prepare"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true && r.rows === 4 && r.routeChecks === 12 && r.mismatches.length === 0"

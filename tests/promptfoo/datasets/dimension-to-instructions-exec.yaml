@@ -107,7 +107,6 @@
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/lib/dimension-to-instructions.js"
     script_stdin: "---\nname: stdin-dim\ndescription: \"From stdin\"\ntriggers:\n  - \"lib/**/*.js\"\n---\n\n# Body H1\n\n## Checklist\n\n- [ ] piped check\n"
-    project_root: "file://fixtures-fs/dimension-to-instructions"
   assert:
     - type: contains
       value: "# stdin-dim — Review Instructions"
@@ -122,7 +121,6 @@
     script_path: "repo://plugins/sdlc-utilities/scripts/lib/dimension-to-instructions.js"
     script_stdin: "# Just a heading, no frontmatter\n\nsome text\n"
     script_capture_stderr: true
-    project_root: "file://fixtures-fs/dimension-to-instructions"
   assert:
     - type: contains
       value: "missing YAML frontmatter"

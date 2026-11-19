@@ -10,7 +10,7 @@
  *   script_home            — (optional) HOME override; useful for tests that depend on
  *                            `~/.sdlc-cache/...` layouts. Accepts a relative path (resolved
  *                            against `script_cwd`, or tests/promptfoo when it is unset) or an
- *                            absolute path.
+ *                            absolute path. An in-repo HOME is copied per case.
  *   script_env             — (optional) JSON string or object of extra env vars; may override
  *                            the defaults GIT_SSH_COMMAND=false and GIT_TERMINAL_PROMPT=0
  *   script_stub_bin        — (optional) path to a directory whose binaries should shadow real
@@ -28,6 +28,7 @@ const os = require('os');
 const { spawn } = require('child_process');
 
 const PROMPTFOO_DIR = path.resolve(__dirname, '..');
+const REPO_ROOT = path.resolve(__dirname, '../../..');
 
 // Matches paths created by lib/output.js#createOutputFile via os.tmpdir() on macOS/Linux:
 //   /tmp/...,  /var/folders/.../...  (macOS),  /private/var/...  (macOS canonicalized)
@@ -104,6 +105,7 @@ class ScriptRunnerProvider {
     const tmpCwd = vars.script_cwd ? null : fs.mkdtempSync(path.join(os.tmpdir(), 'promptfoo-cwd-'));
     const cwd = vars.script_cwd || tmpCwd;
     const base = vars.script_cwd || PROMPTFOO_DIR;
+    let tmpHome = null;
     try {
       // Build env: inherit parent env, git safety defaults (script_env may override them),
       // HOME override and arbitrary additions.
@@ -112,7 +114,13 @@ class ScriptRunnerProvider {
         const home = path.isAbsolute(vars.script_home)
           ? vars.script_home
           : path.resolve(base, vars.script_home);
-        env.HOME = home;
+        // in-repo HOME: copy per case so no case writes into the repository (-j N safe)
+        const rel = path.relative(REPO_ROOT, home);
+        if (!rel.startsWith('..') && !path.isAbsolute(rel) && fs.existsSync(home)) {
+          tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'promptfoo-home-'));
+          fs.cpSync(home, tmpHome, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
+          env.HOME = tmpHome;
+        } else env.HOME = home;
       }
       if (vars.script_env) {
         let extra = vars.script_env;
@@ -182,6 +190,7 @@ class ScriptRunnerProvider {
       return { output, metadata: { exitCode } };
     } finally {
       if (tmpCwd) fs.rmSync(tmpCwd, { recursive: true, force: true });
+      if (tmpHome) fs.rmSync(tmpHome, { recursive: true, force: true });
     }
   }
 }

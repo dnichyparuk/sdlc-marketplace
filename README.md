@@ -21,7 +21,7 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) plugin that auto
 
 See [docs/getting-started.md](docs/getting-started.md) for a full first-use walkthrough.
 
-Contributors: run `task hooks:install` (or `lefthook install`) once to enable the pre-push hook that runs the exec test suite; requires `lefthook` and `promptfoo` on PATH.
+Contributors: run `task hooks:install` (or `lefthook install`) once to enable the pre-push hook that runs the fast exec tier (`task test:exec` runs the full exec suites); requires `lefthook` and `promptfoo` on PATH.
 
 ## Updating
 

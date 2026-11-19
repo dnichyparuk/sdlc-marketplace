@@ -13,9 +13,9 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-001](./TK-001-suite-speed-infra/ticket.md) | task | Suite speed infrastructure (#9425) | — | scheduled | W-H2 M1 | — |
-| [TK-002](./TK-002-review-round-findings/ticket.md) | task | Per-round review findings in review-summary (#9462) | — | scheduled | W-H2 M1 | — |
-| [TK-003](./TK-003-prepush-exec-tier/ticket.md) | task | Fast pre-push exec tier (#9427, part) | — | scheduled | W-H2 M1 | — |
+| [TK-001](./TK-001-suite-speed-infra/ticket.md) | task | Suite speed infrastructure (#9425) | — | planned | W-H2 M1 | 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#1, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#2, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#3, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#4, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#5, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#6, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#7, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#8 |
+| [TK-002](./TK-002-review-round-findings/ticket.md) | task | Per-round review findings in review-summary (#9462) | — | planned | W-H2 M1 | 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#9, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#10, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#11, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#12 |
+| [TK-003](./TK-003-prepush-exec-tier/ticket.md) | task | Fast pre-push exec tier (#9427, part) | — | planned | W-H2 M1 | 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#13, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#14 |
 | [TK-004](./TK-004-suite-false-passes/ticket.md) | task | Suite false passes (#9424) | — | scheduled | W-B M1 | — |
 | [TK-005](./TK-005-jira-p10-force-refresh/ticket.md) | task | Jira P10 forceRefresh false without the flag (#9440) | — | scheduled | W-B M1 | — |
 | [TK-006](./TK-006-rr-e10-stop-text/ticket.md) | task | Received-review E10 stop text check (#9441) | — | scheduled | W-B M1 | — |
