@@ -1,0 +1,106 @@
+{
+  "$schema": "../../scripts/plan-register-1.schema.json",
+  "schema": "plan-register/1",
+  "config": {
+    "unitName": "wave",
+    "keyPatterns": {
+      "delivery": "^W-(?:[A-Z][0-9]?)$",
+      "gate": "^W-END$"
+    },
+    "planDirs": [
+      { "path": "docs/plans", "recursive": false },
+      { "path": "docs/archived/plans", "recursive": false }
+    ],
+    "regions": [
+      { "file": "docs/plans/README.md", "marker": "plan-register", "views": ["units", "order", "todos"] }
+    ],
+    "todos": {
+      "dir": "docs/TODO",
+      "archiveDir": "docs/TODO/archive",
+      "unhomed": {}
+    },
+    "decisionLogs": [
+      { "path": "docs/plans/decisions.md", "idPattern": "^PD-\\d+$" }
+    ],
+    "skipReasonMin": 15,
+    "archive": {
+      "dir": "docs/archived/plans",
+      "banner": "ARCHIVED / {outcome} — {closedBy}",
+      "closedBy": "PR #{pr}, {sha}"
+    },
+    "guidelinesFile": "docs/plans/PLAN_GUIDELINES.md"
+  },
+  "phases": [],
+  "units": [
+    {
+      "key": "W-H2",
+      "aliases": ["H2"],
+      "title": "Suite speed infrastructure, pre-push tier and per-round review findings",
+      "status": "Not started",
+      "dependsOn": [],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-H2", "role": "brief" }
+      ]
+    },
+    {
+      "key": "W-B",
+      "aliases": ["B"],
+      "title": "Suite false passes and the guardrail table re-splice",
+      "status": "Not started",
+      "dependsOn": ["W-H2"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-B", "role": "brief" }
+      ]
+    },
+    {
+      "key": "W-D1",
+      "aliases": ["D1"],
+      "title": "Suite reduction",
+      "status": "Not started",
+      "dependsOn": ["W-B"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-D1", "role": "brief" }
+      ]
+    },
+    {
+      "key": "W-D2",
+      "aliases": ["D2"],
+      "title": "Ship, execute and plan follow-ups",
+      "status": "Not started",
+      "dependsOn": ["W-D1"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-D2", "role": "brief" }
+      ]
+    },
+    {
+      "key": "W-F",
+      "aliases": ["F"],
+      "title": "Suite coverage gaps, tiers and structure",
+      "status": "Not started",
+      "dependsOn": ["W-D2"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-F", "role": "brief" }
+      ]
+    },
+    {
+      "key": "W-END",
+      "kind": "gate",
+      "aliases": ["END"],
+      "title": "Programme post-merge audit",
+      "status": "Not started",
+      "owner": "owner",
+      "dependsOn": ["W-F"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-END", "role": "brief" }
+      ],
+      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w36.md"],
+      "decisions": ["PD-1"]
+    }
+  ]
+}

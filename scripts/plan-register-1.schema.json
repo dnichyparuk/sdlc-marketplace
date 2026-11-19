@@ -1,0 +1,386 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/dnichyparuk/lift-planning/main/schema/plan-register-1.schema.json",
+  "title": "plan-register/1",
+  "description": "Delivery-unit register (plan-register/1). This schema is an editor aid only (its $id is an identifier, not a download location; projects use the copy that vendor writes); the plan-register CLI (\"plan-register check\") is the authority and also checks cross-references, files and anchors.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Where an editor finds this JSON Schema, for hints only (ignored by the CLI): normally the path, relative to the register file, of the project copy that vendor writes (scripts/plan-register-1.schema.json).",
+      "type": "string"
+    },
+    "$comment": {
+      "description": "Free-form comment for humans; ignored by the CLI.",
+      "type": "string"
+    },
+    "schema": {
+      "description": "Register format version. Must be \"plan-register/1\".",
+      "const": "plan-register/1"
+    },
+    "config": {
+      "description": "Project settings: unit naming, key patterns, plan directories, generated regions, TODOs, decision logs, archive.",
+      "$ref": "#/$defs/config"
+    },
+    "phases": {
+      "description": "Optional phases that group units.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/phase" }
+    },
+    "units": {
+      "description": "Delivery units and gates, in register order.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/unit" }
+    }
+  },
+  "required": ["schema", "config", "units"],
+  "additionalProperties": false,
+  "$defs": {
+    "config": {
+      "description": "Project settings of the register.",
+      "type": "object",
+      "properties": {
+        "unitName": {
+          "description": "Singular name of a unit in generated text, for example \"wave\" or \"package\".",
+          "type": "string",
+          "minLength": 1
+        },
+        "unitNamePlural": {
+          "description": "Plural name of a unit for table headings, for example \"batches\". Defaults to unitName + \"s\".",
+          "type": "string",
+          "minLength": 1
+        },
+        "keyPatterns": {
+          "description": "Regular expressions that unit keys must match, per kind. \"delivery\" is required; \"gate\" is needed only when gates exist.",
+          "$ref": "#/$defs/keyPatterns"
+        },
+        "planDirs": {
+          "description": "Directories that hold plan documents. Non-scope plans must live in one of them; an active plan whose **Source:** line names a unit key must be registered for it.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/planDir" }
+        },
+        "regions": {
+          "description": "Generated regions in Markdown files, each between <!-- marker --> comments.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/region" }
+        },
+        "todos": {
+          "description": "Where TODO files live and which open TODOs are deliberately left without a home unit.",
+          "$ref": "#/$defs/todos"
+        },
+        "decisionLogs": {
+          "description": "Decision logs that unit \"decisions\" refer to.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/decisionLog" }
+        },
+        "skipReasonMin": {
+          "description": "Minimum length of the reason after a skipped checkbox. Default 15.",
+          "type": "integer",
+          "minimum": 0,
+          "default": 15
+        },
+        "archive": {
+          "description": "Archive directory for closed plans and the banner/closedBy templates.",
+          "$ref": "#/$defs/archive"
+        },
+        "guidelinesFile": {
+          "description": "Project rules file that receives the \"Planning conventions\" section. Default <planDirs[0].path>/PLAN_GUIDELINES.md.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["unitName", "keyPatterns", "planDirs", "regions"],
+      "additionalProperties": false
+    },
+    "keyPatterns": {
+      "description": "Key regular expressions per unit kind.",
+      "type": "object",
+      "properties": {
+        "delivery": {
+          "description": "Regular expression for keys of delivery units, for example \"^ST-(0|[1-9]\\\\d*)$\".",
+          "type": "string",
+          "minLength": 1
+        },
+        "gate": {
+          "description": "Regular expression for keys of gate units.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["delivery"],
+      "additionalProperties": false
+    },
+    "planDir": {
+      "description": "A directory of plan documents.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Repository-relative POSIX path of the directory.",
+          "type": "string",
+          "minLength": 1
+        },
+        "recursive": {
+          "description": "Whether subdirectories are included.",
+          "type": "boolean"
+        }
+      },
+      "required": ["path", "recursive"],
+      "additionalProperties": false
+    },
+    "region": {
+      "description": "A generated region in a Markdown file.",
+      "type": "object",
+      "properties": {
+        "file": {
+          "description": "Repository-relative POSIX path of the Markdown file.",
+          "type": "string",
+          "minLength": 1
+        },
+        "marker": {
+          "description": "Region marker name; lowercase letters, digits and hyphens, starting with a letter.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "views": {
+          "description": "Views rendered into the region, in order.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["phases", "units", "order", "todos"]
+          }
+        }
+      },
+      "required": ["file", "marker", "views"],
+      "additionalProperties": false
+    },
+    "todos": {
+      "description": "TODO file locations. An open TODO is a .md file directly in \"dir\", except names in \"exclude\".",
+      "type": "object",
+      "properties": {
+        "dir": {
+          "description": "Directory of open TODO files.",
+          "type": "string",
+          "minLength": 1
+        },
+        "archiveDir": {
+          "description": "Directory (searched at any depth) of closed TODO files.",
+          "type": "string",
+          "minLength": 1
+        },
+        "exclude": {
+          "description": "File names in \"dir\" that are not TODOs. Default [\"README.md\"].",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["README.md"]
+        },
+        "unhomed": {
+          "description": "Open TODOs deliberately without a home unit: TODO path -> non-empty reason.",
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      },
+      "required": ["dir", "archiveDir"],
+      "additionalProperties": false
+    },
+    "decisionLog": {
+      "description": "A decision log file.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Repository-relative POSIX path of the decision log.",
+          "type": "string",
+          "minLength": 1
+        },
+        "idPattern": {
+          "description": "Regular expression for decision IDs in this log, for example \"^RD-\\\\d+$\".",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["path", "idPattern"],
+      "additionalProperties": false
+    },
+    "archive": {
+      "description": "Archive of closed plans.",
+      "type": "object",
+      "properties": {
+        "dir": {
+          "description": "Archive directory; it must also be covered by config.planDirs so archived plans stay registered.",
+          "type": "string",
+          "minLength": 1
+        },
+        "banner": {
+          "description": "Banner template for archived plans. Placeholders: {outcome}, {closedBy}, {pr}, {sha}. Default \"ARCHIVED / {outcome} — {closedBy}\".",
+          "type": "string",
+          "default": "ARCHIVED / {outcome} — {closedBy}"
+        },
+        "closedBy": {
+          "description": "Template for a unit's closedBy text. Placeholders: {pr}, {sha}. Default \"PR #{pr}, {sha}\".",
+          "type": "string",
+          "default": "PR #{pr}, {sha}"
+        }
+      },
+      "required": ["dir"],
+      "additionalProperties": false
+    },
+    "phase": {
+      "description": "A phase that groups units.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Phase key; lowercase letters, digits and hyphens, starting with a letter, for example \"core\".",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "title": {
+          "description": "Human-readable phase title.",
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "description": "Other names of the phase; they share one namespace with phase keys.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "roadmap": {
+          "description": "Roadmap link as path#anchor; the file and the anchor must exist.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["key", "title"],
+      "additionalProperties": false
+    },
+    "unit": {
+      "description": "A delivery unit or a gate.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Unit key; must match config.keyPatterns for the unit kind.",
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "description": "Unit kind. Default \"delivery\"; a \"gate\" is a step without a PR.",
+          "type": "string",
+          "enum": ["delivery", "gate"],
+          "default": "delivery"
+        },
+        "aliases": {
+          "description": "Other names of the unit; they share one namespace with unit keys.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "phase": {
+          "description": "Key of the phase this unit belongs to.",
+          "type": "string"
+        },
+        "title": {
+          "description": "Human-readable unit title.",
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "description": "Unit status.",
+          "type": "string",
+          "enum": ["Not started", "In progress", "Done", "Superseded"]
+        },
+        "pr": {
+          "description": "Number of the open PR; only while \"In progress\", never on a gate.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "owner": {
+          "description": "Who owns the unit (typically a gate).",
+          "type": "string",
+          "minLength": 1
+        },
+        "dependsOn": {
+          "description": "Keys of units that must be closed before this one is ready.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "after": {
+          "description": "Keys of units that come earlier in the order only; they do not block readiness.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "waitsOn": {
+          "description": "External blockers: a decision, a credential or an external dependency.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/waitsOn" }
+        },
+        "plans": {
+          "description": "Plan documents registered for this unit.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/plan" }
+        },
+        "todos": {
+          "description": "Paths of TODO files homed in this unit.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "decisions": {
+          "description": "Decision IDs from config.decisionLogs that this unit relies on.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "closedBy": {
+          "description": "How the unit was closed, for example \"PR #12, abc1234\"; required for Done, only allowed for Done or Superseded.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["key", "title", "status", "dependsOn", "after", "plans"],
+      "additionalProperties": false
+    },
+    "plan": {
+      "description": "A plan document (or a section of one) registered for a unit.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Repository-relative POSIX path of the .md plan.",
+          "type": "string",
+          "minLength": 1
+        },
+        "section": {
+          "description": "Heading text that identifies this unit's section when one file holds several units.",
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "description": "Role of the plan for the unit.",
+          "type": "string",
+          "enum": ["brief", "executable", "scope"]
+        },
+        "scope": {
+          "description": "Free-form note on which part of the plan applies.",
+          "type": "string"
+        }
+      },
+      "required": ["path", "role"],
+      "additionalProperties": false
+    },
+    "waitsOn": {
+      "description": "An external blocker of a unit.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "Blocker kind.",
+          "type": "string",
+          "enum": ["decision", "credential", "external"]
+        },
+        "ref": {
+          "description": "What the unit waits on: a decision ID, a credential name or an external reference.",
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "description": "Free-form note.",
+          "type": "string"
+        }
+      },
+      "required": ["kind", "ref"],
+      "additionalProperties": false
+    }
+  }
+}

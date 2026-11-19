@@ -1,0 +1,29 @@
+---
+id: TK-001
+type: task
+title: Suite speed infrastructure (#9425)
+created: 2026-11-19
+---
+
+# TK-001: Suite speed infrastructure (#9425)
+
+## Why
+
+#9425 [suite-C] speed infrastructure (audit W4, 6 tasks, 2 Complex): memoised fixture build per run, drop wasted project_root, in-process github gh stub, C16 loop; parallel runs SUPPORTED (safe at -j N: per-case temp cwd, no shared writes, an owner -j 4 trial run) but the DEFAULT stays one thread (-j 1 in config maxConcurrency, docs, Taskfile, pre-push and CI) | src: audit; owner 2026-11-18 "paralel runs should be supported, but by default suite is to be executed in one thread"
+
+## What
+
+Memoised fixture build per run, drop the wasted project_root, an in-process gh stub for the github cases and the C16 loop. Parallel runs are supported; the default stays one thread.
+
+## Acceptance
+
+- A1: each fixture is built once per run and the github cases use an in-process gh stub.
+- A2: an owner trial run at -j 4 passes, while maxConcurrency, the docs, the Taskfile, the pre-push hook and CI keep -j 1 as the default.
+
+## Notes
+
+Moved from .sdlc/orchestration/todos.md (#9425) by wave L (#9461), 2026-11-19. Acceptance drafted by the planner; the owner approves it at the merge of the planning PR.
+
+## Files in this ticket
+
+<one line per attachment; attachment folders: evidence/, spike/, notes/>
