@@ -392,7 +392,7 @@ Post responses to PR threads, then implement accepted code changes. With `manife
 
 For each change: make the edit, verify it compiles/passes tests, then move to the next.
 
-**A refusal is a stop (R36).** When a check or script you run to verify a fix refuses to run and names its guard (for example an owner-only script that exits because `CLAUDECODE` or `CI` is set, or `--owner` is missing), never change the environment or the command to get past it: do not unset, export or override a variable, add a flag such as `--owner`, or run the command through another shell or wrapper. A command that the project notes or its own refusal mark as owner-only is never a verification step of a fix: run another real check, or name the check you did not run. Keep the fix in the working tree, name each check that did not run and its refusal message in the Step 12 summary, and go on with the other items; this holds also under `--auto` and the R18 bypass.
+**A refusal is a stop (R36).** When a check or script you run to verify a fix refuses to run and names its guard (for example an owner-only script that exits because `CLAUDECODE` or `CI` is set, or `--owner` is missing), never change the environment or the command to get past it: do not unset, export or override a variable, add a flag such as `--owner`, or run the command through another shell or wrapper. A command that the project notes or its own refusal mark as owner-only is never a verification step of a fix: run another real check, or name the check you did not run. Keep the fix in the working tree, name each check that did not run and its refusal message in the Step 12 summary (on a path that skips Step 12, in the final report or the failure text), and go on with the other items; this holds also under `--auto` and the R18 bypass.
 
 Do NOT batch changes across items.
 
@@ -609,6 +609,7 @@ Replied to N threads:
 - K resolved (fixed)
 - M replied with pushback (left open for reviewer)
 - J replied with skip reason (left open for reviewer)
+- C checks not run (refused): <command> - <refusal message>   (omit when none; a fix whose check was refused is not counted as verified)
 ```
 
 5. **Open decisions (R35):** apply the R35 open-decisions stop from Step 11 when it applies: return failure with its `pendingQuestion`.
