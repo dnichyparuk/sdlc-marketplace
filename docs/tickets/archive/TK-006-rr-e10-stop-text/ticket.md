@@ -3,6 +3,9 @@ id: TK-006
 type: task
 title: Received-review E10 stop text check (#9441)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-19
+by: [2026-11-19-w-b-suite-false-passes-and-the-guardrail#10]
 ---
 
 # TK-006: Received-review E10 stop text check (#9441)

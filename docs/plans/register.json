@@ -49,13 +49,14 @@
       "key": "W-B",
       "aliases": ["B"],
       "title": "Suite false passes and the guardrail table re-splice",
-      "status": "In progress",
+      "status": "Done",
       "dependsOn": ["W-H2"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-B", "role": "brief" },
-        { "path": "docs/plans/2026-11-19-w-b-suite-false-passes-and-the-guardrail.md", "role": "executable" }
-      ]
+        { "path": "docs/archived/plans/2026-11-19-w-b-suite-false-passes-and-the-guardrail.md", "role": "executable" }
+      ],
+      "closedBy": "PR #119, f782c7e"
     },
     {
       "key": "W-D1",
@@ -102,7 +103,7 @@
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-END", "role": "brief" }
       ],
-      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w36.md", "docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md"],
+      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w36.md", "docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/end-recover-counts-only-lows.md", "docs/TODO/script-runner-eisdir-plan-splice.md", "docs/TODO/review-severity-drift-fix-round.md"],
       "decisions": ["PD-1"]
     }
   ]
