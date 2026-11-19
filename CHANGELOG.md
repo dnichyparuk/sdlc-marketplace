@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.1] - 2026-11-19
+
+### Added
+- plan-sdlc: `plan.js splice --critique-dir` re-splices the Guardrail Compliance table after the R74 re-check and the review loop, so fixed findings no longer leave stale FAIL rows (TK-007).
+- tests: a jira `forceRefresh` false exec case and a check of the received-review E10 stop text (TK-005, TK-006).
+
+### Fixed
+- tests: exec cases that passed while the behaviour they cover was broken are strengthened (TK-004).
+- plan-sdlc: the guardrail re-splice fails on an invalid or unreadable `merged.json` instead of carrying forward an older table, skips an `iter-<k>` entry that is not a directory, and passes `--no-guardrails` only when no guardrails are active.
+- plan-sdlc: E9 failure handling names the splice exit, including the Gate B per-iteration splice, as a critique-script failure.
+
 ## [0.57.0] - 2026-11-19
 
 ### Added
