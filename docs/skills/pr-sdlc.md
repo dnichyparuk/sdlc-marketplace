@@ -296,6 +296,7 @@ PR title validation is configured in `.sdlc/config.json` under the `pr` key. All
 | `allowedTypes` | array of strings | Allowed PR title type prefixes (e.g., `feat`, `fix`, `breaking`). Absence allows any type. Used for title generation hints only; validation uses `titlePattern`. |
 | `allowedScopes` | array of strings | Allowed PR title scopes (the parenthetical in `feat(scope)`). Absence allows any scope. Used for title generation hints only; validation uses `titlePattern`. |
 | `defaultBranch` | string | Target branch PRs are merged into (issue #339). When set, `/pr-sdlc` uses this value without runtime git detection. Override for repos using `develop`, `release/*`, etc. Configured by `/setup-sdlc` pr section (auto-detected default). |
+| `footer` | string | Text appended to every PR body after one blank line (R21), for example a tool attribution line. `pr.js --validate-body` appends it once and never twice. Absent or empty: nothing is appended. |
 | `expectedAccount` | string | Expected GitHub login that should be active when `/pr-sdlc` runs (issue #234). When set, the prepare script halts hard if the active `gh` account differs, preventing wrong-account PRs in multi-account setups. When **unset**, the script probes repo access instead — see Preflight below (fixes #380). |
 
 ### Base Branch Resolution (issue #339)

@@ -252,6 +252,10 @@
         "expectedAccount": {
           "type": "string",
           "description": "Expected gh account login for PR creation. Cascades to git remote origin owner if unset."
+        },
+        "footer": {
+          "type": "string",
+          "description": "Text pr-sdlc appends to every PR body (R21), after one blank line. Empty or absent: nothing is appended."
         }
       },
       "additionalProperties": false

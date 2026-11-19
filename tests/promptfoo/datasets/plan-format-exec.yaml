@@ -643,6 +643,15 @@
     - type: javascript
       value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF7" && x.status === "fail" && x.message.includes("Task 1: compact **Contract:** is allowed only for Trivial tasks"))'
 
+- description: "plan-format-compact: (e) compact Contract without shape and names fails PF7"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
+    script_args: "--project-root {{project_root}} --file {{project_root}}/plans/plan.md --json"
+    project_root: "file://fixtures-fs/project-plan-compact-trivial-noshape"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF7" && x.status === "fail" && x.message.includes("Task 1: compact **Contract:** needs shape and names"))'
+
 - description: "plan-format-compact: (d) PF10 prints the exact fix"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
