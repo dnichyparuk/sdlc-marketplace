@@ -17,7 +17,7 @@ You run one critique round for `plan-sdlc` (R75): the Step 3 critique, the R74 r
 - **CRITIQUE_DIR**: absolute path of the run's critique directory (P22)
 - **PLAN_FILE_PATH**: absolute path to the plan file
 - **PREPARE_OUTPUT**: absolute path to the Step 0 prepare output JSON (`plan.js --output-file`)
-- **DISPATCH**: JSON `{ "lanes": [<lane names>], "lenses": [<lens names, or "all">] }`: what this round dispatches (Step 3: every lane; R74: `recheckLanes`; Step 5: `tier` `review.lenses`, used as is only when no `diff-material` runs, see Step 2)
+- **DISPATCH**: JSON `{ "lanes": [<lane names>], "lenses": [<lens names, or "all">] }`: what this round dispatches (Step 3: every lane; R74: `recheckLanes`; Step 5: `tier` `review.lenses`; at iteration 1 these lenses are dispatched together with the `diff-material` `dispatch.lanes` (R76); from iteration 2 Step 2 decides which lenses run)
 - **CARRY**: absolute path of the previous iteration directory, or `none`
 - **BEFORE_PLAN**: absolute path of the plan copy made before the author's Step 6 fixes, or `none`
 - **G17_NOT_RUN**: `true` when g17-prepare failed in an earlier round of this run, else `false`
