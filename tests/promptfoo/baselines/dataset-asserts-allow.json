@@ -1,0 +1,215 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "rule": "empty-regex",
+      "dataset": "datasets/sdlc-dimensions-exec.yaml",
+      "description": "sdlc-dimensions: _common.md is excluded from validation results"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/commit-prepare-exec.yaml",
+      "description": "commit-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/error-report-prepare-exec.yaml",
+      "description": "error-report-prepare: missing required field exits non-zero with errors[] in payload"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/jira-sdlc-exec.yaml",
+      "description": "jira-prepare: --check surfaces templates.fallbacks for unmapped subtask variants"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/lib-worktree-exec.yaml",
+      "description": "worktree-lib: resolveMainWorktree from linked worktree cwd returns main (not linked) path"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/lib-worktree-exec.yaml",
+      "description": "worktree-lib: resolveMainWorktree from main worktree cwd returns main path"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/lib-worktree-exec.yaml",
+      "description": "worktree-lib: resolveMainWorktree throws on non-git cwd"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/lib-worktree-exec.yaml",
+      "description": "worktree-lib: resolveMainWorktreeSafe returns cwd fallback on non-git dir (silent)"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/pr-prepare-exec.yaml",
+      "description": "pr-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/ship-prepare-exec.yaml",
+      "description": "verify-side-effect: commit with the HEAD sha → landed:true"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/version-prepare-exec.yaml",
+      "description": "version-prepare: --message-file with all trailers (R22, G9)"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/version-prepare-exec.yaml",
+      "description": "version-prepare: --subject with requiredTrailers (R22)"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/version-prepare-exec.yaml",
+      "description": "version-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/version-prepare-exec.yaml",
+      "description": "version-prepare: bumpPromotionDetected field is present in output (R-bump-promote, #358)"
+    },
+    {
+      "rule": "key-only-contains",
+      "dataset": "datasets/version-prepare-exec.yaml",
+      "description": "version-prepare: config.changelog=true with no --changelog flag emits flags.changelog=true (#213)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/cwd-drift-exec.yaml",
+      "description": "cwd-drift: migrate-config.js from subdir writes no .sdlc in subdir — calls ensureSdlcInfrastructure (R-projectroot, #360)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/dimension-to-instructions-exec.yaml",
+      "description": "dimension-to-instructions (#519): without --common-file, no Common Review Instructions section is emitted"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/guardrails-prepare-exec.yaml",
+      "description": "guardrails-prepare #336: non-Prisma project does NOT emit prisma-migration-required"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/guardrails-prepare-exec.yaml",
+      "description": "guardrails-prepare #336: non-Svelte/Astro project does NOT emit island-only-interactivity"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/guardrails-prepare-exec.yaml",
+      "description": "guardrails-prepare planning-discipline: --target execute omits all five IDs"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/plan-format-exec.yaml",
+      "description": "plan-format: PF13 not run without --root"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/pr-prepare-exec.yaml",
+      "description": "pr-prepare: fetchBaseRef non-fatal when origin unreachable (issue #239)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/pr-prepare-exec.yaml",
+      "description": "pr.js: template at .sdlc/pr-template.md is resolved (canonical, no warning)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/pr-prepare-exec.yaml",
+      "description": "pr.js: with both templates present, .sdlc/ wins (no warning)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/script-runner-stub-bin-exec.yaml",
+      "description": "script_stub_bin: omitted var does not silently apply a stub (no marker in output)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/sdlc-script-resolution-exec.yaml",
+      "description": "ask-auto-branch: passes a guarded site and a prohibition line"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/sdlc-script-resolution-exec.yaml",
+      "description": "invocation-verbatim: clean when the dispatch example's section carries either accepted verbatim-guard phrasing (exact or variant)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/sdlc-script-resolution-exec.yaml",
+      "description": "orchestrator-await-barrier: clean when the Agent-dispatching template and the fan-out-marked SKILL both carry the barrier guard"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/sdlc-script-resolution-exec.yaml",
+      "description": "prepare-contract: clean project passes"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/sdlc-script-resolution-exec.yaml",
+      "description": "script-resolution: validator passes 'sort -V | tail -1' (good case)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/session-start-exec.yaml",
+      "description": "session-start: no openspec/config.yaml produces no OpenSpec line"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/session-start-exec.yaml",
+      "description": "session-start: per-branch recovery file matching current branch emits no recovery line"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/session-start-exec.yaml",
+      "description": "session-start: recovery file for OTHER branch is NOT consumed (cross-branch isolation, issue #256)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/session-start-exec.yaml",
+      "description": "session-start: worktree field points at a sibling worktree that exists on disk -> both banners suppressed"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/ship-prepare-exec.yaml",
+      "description": "ship-prepare: VALID_STEPS includes archive-openspec"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/ship-prepare-exec.yaml",
+      "description": "ship-prepare: VALID_STEPS includes verify-openspec"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/ship-prepare-exec.yaml",
+      "description": "ship-prepare: ship.execute.commitWaves=false is not forwarded to the execute step (W5.2)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/ship-prepare-exec.yaml",
+      "description": "ship-prepare: ship.execute.commitWaves=true is not forwarded to the execute step (W5.2)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/state-gc-migrate-exec.yaml",
+      "description": "state/execute.js wave-committed is idempotent on identical sha — re-running is a no-op (#392)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/state-gc-migrate-exec.yaml",
+      "description": "state/execute.js wave-committed sets committedSha on a completed wave (#392)"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/validate-cost-tiers-exec.yaml",
+      "description": "validate-cost-tiers: clean fixture exits 0"
+    },
+    {
+      "rule": "negative-only",
+      "dataset": "datasets/validate-spec-shape-exec.yaml",
+      "description": "validate-spec-shape: contract-shaped fixture passes; legacy spec only warns"
+    }
+  ]
+}

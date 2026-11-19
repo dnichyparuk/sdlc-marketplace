@@ -1,0 +1,16 @@
+# Script execution tests for tests/promptfoo/scripts/check-dataset-asserts.js (assertion lint with allowlist).
+
+- description: "dataset-asserts: (a) no exec assertion outside the allowlist matches empty, is negative-only or is a key-only contains"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-dataset-asserts.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.findings.length === 0 && r.datasets >= 77 && r.cases >= 1817"
+
+- description: "dataset-asserts: (b) each rule reports its case; a positive control and an allowlisted case are not reported; an unused entry is stale"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-dataset-asserts.js"
+    script_args: "--probe"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.findings.map(f => f.rule).sort().join(',') === 'empty-regex,key-only-contains,negative-only' && r.allowed === 1 && r.stale.length === 1"

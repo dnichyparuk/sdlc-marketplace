@@ -75,3 +75,34 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.result.output.includes('hit your') && r.result.error === undefined"
+
+- description: "script-runner exit: (a) metadata.exitCode is set and the output has no exit line by default"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.plain3.metadata.exitCode === 3 && r.plain3.output === 'CHILD-OUT\\nCHILD-ERR'"
+
+- description: "script-runner exit: (b) script_show_exit appends [exit N] as the last line, after stderr"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.show3.output === 'CHILD-OUT\\nCHILD-ERR\\n[exit 3]' && r.show0.output === 'CHILD-OUT\\n[exit 0]' && r.show0.metadata.exitCode === 0"
+
+- description: "script-runner exit: (c) an assertion reads context.metadata.exitCode of a real run"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
+    script_args: "--child 4"
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 4 && output.includes('CHILD-OUT')"
+
+- description: "script-runner exit: (d) script_show_exit prints [exit 0] on a clean run"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
+    script_args: "--child 0"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "output.endsWith('[exit 0]') && context.metadata.exitCode === 0"
