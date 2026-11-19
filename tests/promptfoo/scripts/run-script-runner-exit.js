@@ -2,6 +2,7 @@
 //   --child <code>  child mode: writes CHILD-OUT to stdout, CHILD-ERR to stderr, exits <code>
 //   (default)       runs the provider three times and prints one JSON line:
 //                   {"plain3":{output,metadata},"show3":{...},"show0":{...}}
+'use strict';
 const path = require('path');
 
 const argv = process.argv.slice(2);
@@ -25,4 +26,7 @@ if (childIdx !== -1) {
     show0: await run(0, { script_show_exit: true }),
   };
   process.stdout.write(`${JSON.stringify(result)}\n`);
-})();
+})().catch((err) => {
+  process.stderr.write(`Script error: ${err.message}\n`);
+  process.exit(2);
+});
