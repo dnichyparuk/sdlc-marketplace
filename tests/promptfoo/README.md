@@ -60,13 +60,58 @@ so a run stops spending after the limit. Re-run after the reset time.
 
 ### Script execution tests (`promptfooconfig-exec.yaml`)
 
-Runs the three validator scripts directly against filesystem fixture directories
-(no LLM involved). Tests that the scripts the skills call actually work correctly.
+`promptfooconfig-exec.yaml` and `promptfooconfig-exec-hooks.yaml` run the plugin's scripts and hooks directly through `providers/script-runner.js` (no LLM involved), about 80 datasets in total under `datasets/*-exec*.yaml`. The `lefthook` pre-push hook runs both configs. Script paths use `repo://<path>` (relative to the repository root); fixture directories use `file://fixtures-fs/<name>`, and a fixture with a `setup.sh` is built per case in a fresh temp directory. Helper scripts live in `scripts/`, committed baselines in `baselines/`.
 
-Testable scripts (no git dependency):
-- `validate-discovery.js` — 16 plugin discovery checks
-- `validate-pr-template.js` — 5 PR template validation checks
-- `validate-dimensions.js` — dimension file validation
+#### Run
+
+Run a targeted subset from `tests/promptfoo/`:
+
+```bash
+cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern <pattern>
+```
+
+The hooks variant uses `-c promptfooconfig-exec-hooks.yaml` with the same flags. Use `-j 1` because cases share fixture copies and temp directories. promptfoo is pinned to 0.123.1 because 0.125 and later fail with EISDIR.
+
+#### Case vars
+
+| Var | Meaning |
+|---|---|
+| `script_path` | script to run (`repo://...` or absolute); required |
+| `script_args` | space-separated arguments; may use `{{project_root}}` |
+| `script_cwd` | working directory of the script |
+| `project_root` | fixture directory, usually `file://fixtures-fs/<name>`; used in `script_args` |
+| `script_env` | JSON string or object of extra environment variables |
+| `script_stub_bin` | directory of stub binaries put first on `PATH` |
+| `script_capture_stderr` | when truthy, append stderr to the output even on exit 0 |
+| `script_show_exit` | when truthy, append a last line `[exit N]` to the output |
+
+The exit code is always in `context.metadata.exitCode`, whether or not `script_show_exit` is set.
+
+#### Suite guards
+
+Exec cases that check the suite itself. After a baseline changes, refresh it with `--update` and review the baseline diff in the PR: `--update` can hide a drop.
+
+| Guard | Script | Baseline or allowlist | Fails when |
+|---|---|---|---|
+| Fixture refs | `scripts/check-fixture-refs.js` | none (datasets and `refs` floor in `fixture-guard-exec.yaml`) | a `file://fixtures...` ref or a named dataset does not resolve |
+| Dataset regex | `scripts/check-dataset-regex.js` | none | a `regex` or `not-regex` value does not compile or is empty |
+| Docs copies | `scripts/check-docs-copies.js` | none | a `docs/<dir>/*.md` file differs from its copy in `site/src/content-source/<dir>/` |
+| Spec-id coverage and floors | `scripts/check-spec-id-coverage.js` | `baselines/spec-id-coverage.json` | a dataset, assertion count, cited id or parsed flag drops below the baseline |
+| Dataset asserts | `scripts/check-dataset-asserts.js` | `baselines/dataset-asserts-allow.json` | a case has an empty regex, only negative assertions or a key-only `contains`, and is not allowlisted |
+
+#### Mutation smoke (owner-initiated)
+
+`scripts/mutation-smoke.js` breaks one library line at a time in a throwaway copy of the repository and runs the exec cases that should notice. A surviving mutation marks a case that does not check the mutated path.
+
+**Owner-initiated only. Never run it in CI, from a pre-push hook or from an agent.** `--run` starts promptfoo and refuses to start without `--owner`, when `CI` is set, or when `CLAUDECODE` is set.
+
+```bash
+node tests/promptfoo/scripts/mutation-smoke.js --list
+node tests/promptfoo/scripts/mutation-smoke.js --check
+node tests/promptfoo/scripts/mutation-smoke.js --run --owner [--only <id>]
+```
+
+`--list` prints the mutations. `--check` verifies, read-only, that every mutation still applies and has a case. `--run --owner` runs them.
 
 ## Headless runner (credentialed, owner-initiated)
 

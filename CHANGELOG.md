@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.4] - 2026-11-19
+
+### Added
+- tests: four exec-suite safety-net checkers (docs copy byte compare, spec-id coverage baseline, dataset assertion lint, owner-only mutation smoke) so a coverage drop or a never-failing assertion fails the exec suite (#9448).
+
+### Fixed
+- tests: the checkers exit 2 on usage errors (no mode flag, bare or unknown `--only`), report a missing and an unreadable baseline separately, and bound each mutation run with a timeout (#9448).
+
 ## [0.56.3] - 2026-11-19
 
 ### Fixed

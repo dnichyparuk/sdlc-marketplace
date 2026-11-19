@@ -1,0 +1,16 @@
+# Script execution tests for tests/promptfoo/scripts/check-docs-copies.js.
+
+- description: "docs-copies: (a) every docs/skills and docs/specs file is byte-identical to its site/src/content-source copy"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-docs-copies.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.compared >= 33 && r.drift.length === 0 && r.missing.length === 0 && r.extra.length === 0"
+
+- description: "docs-copies: (b) a drifted copy, a missing copy and an extra copy are reported; a matching copy is not"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-docs-copies.js"
+    script_args: "--probe-drift"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.compared === 2 && r.drift.join(',') === 'skills/b.md' && r.missing.join(',') === 'skills/c.md' && r.extra.join(',') === 'skills/d.md'"

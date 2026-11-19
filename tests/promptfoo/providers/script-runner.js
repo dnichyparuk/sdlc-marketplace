@@ -17,6 +17,7 @@
  *                            is honored as the base. Asymmetry: `hook-runner.js` does not implement
  *                            this — hook tests do not exec external CLIs (YAGNI).
  *   script_capture_stderr  — (optional) when truthy, append stderr to output even on exit 0
+ *   script_show_exit       — (optional) when truthy, append a last line "[exit N]" to the output; the exit code is always in metadata.exitCode
  */
 const path = require('path');
 const fs = require('fs');
@@ -159,14 +160,15 @@ class ScriptRunnerProvider {
 
     // Spawn error (ENOENT, ETIMEDOUT, etc.) — return the error message directly.
     if (result.error) {
-      return { output: result.error.message };
+      return { output: result.error.message, metadata: { exitCode: null } };
     }
 
     // Include stderr when: (a) exit non-zero AND no tmp-file was auto-read (to avoid appending
     // git noise after structured JSON), OR (b) script_capture_stderr is explicitly set.
     const includeStderr = (tmpFileRead ? false : exitCode !== 0) || vars.script_capture_stderr;
-    const output = [stdout.trimEnd(), includeStderr ? stderr : null].filter(Boolean).join('\n');
-    return { output: output };
+    const showExit = vars.script_show_exit ? `[exit ${exitCode}]` : null;
+    const output = [stdout.trimEnd(), includeStderr ? stderr : null, showExit].filter(Boolean).join('\n');
+    return { output, metadata: { exitCode } };
   }
 }
 

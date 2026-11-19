@@ -1,0 +1,70 @@
+# Script execution tests for tests/promptfoo/scripts/mutation-smoke.js (owner-only script).
+# Only --list, --check and the refusals run here; no case mutates code or starts promptfoo.
+
+- description: "mutation-smoke: (a) --check finds every mutation target exactly once and a case for every filter"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_args: "--check"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.mutations >= 10 && r.problems.length === 0"
+
+- description: "mutation-smoke: (b) --list names at least 10 mutations with file, dataset and filter"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_args: "--list"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.mutations.length >= 10 && r.mutations.every(m => m.id && m.file && m.dataset && m.filter)"
+
+- description: "mutation-smoke: (c) --run without --owner is refused with exit 2"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_args: "--run"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.refused === 'missing --owner'"
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
+
+- description: "mutation-smoke: (d) --run --owner is refused when CI is set"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_args: "--run --owner"
+    script_env: '{"CI":"true"}'
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.refused === 'CI is set'"
+
+- description: "mutation-smoke: (e) --run --owner --only with no id exits 2 before any run"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_args: "--run --owner --only"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
+    - type: contains
+      value: "--only needs a mutation id"
+
+- description: "mutation-smoke: (f) no arguments prints Usage on stderr and exits 2"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
+    - type: contains
+      value: "Usage:"
+
+- description: "mutation-smoke: (g) --run --owner --only with an unknown id exits 2 before any run"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_args: "--run --owner --only no-such-id"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
+    - type: contains
+      value: "unknown --only id: no-such-id"

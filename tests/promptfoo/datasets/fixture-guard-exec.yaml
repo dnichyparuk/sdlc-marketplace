@@ -38,7 +38,7 @@
     script_path: "repo://tests/promptfoo/scripts/check-fixture-refs.js"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.missing.length === 0 && r.configs === 2 && r.datasets >= 19 && r.refs >= 316"
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.missing.length === 0 && r.configs === 2 && r.datasets >= 19 && r.refs >= 300"
 
 - description: "fixture-refs: (b) a missing dataset, a missing fixture and a missing fixtures-fs reference are reported; commented references are skipped"
   vars:

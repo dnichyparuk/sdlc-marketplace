@@ -1,0 +1,23 @@
+# Script execution tests for tests/promptfoo/scripts/check-spec-id-coverage.js (baseline coverage gate and exec floors).
+
+- description: "spec-id-coverage: (a) no exec dataset, assertion count, cited id or parsed flag dropped below the baseline"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-spec-id-coverage.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.drops.length === 0"
+
+- description: "spec-id-coverage: (b) exec floors: 2 configs, at least 77 datasets, 1817 cases and 2645 assertions"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-spec-id-coverage.js"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.configs === 2 && r.datasets >= 77 && r.cases >= 1817 && r.asserts >= 2645"
+
+- description: "spec-id-coverage: (c) a dropped dataset, assertion, id and flag are reported; growth is not"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-spec-id-coverage.js"
+    script_args: "--probe-drop"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.drops.map(d => d.kind).join(',') === 'asserts,dataset,flag,id' && !r.drops.some(d => d.dataset === 'datasets/d.yaml')"

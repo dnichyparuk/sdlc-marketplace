@@ -111,7 +111,9 @@ function probeInvalid() {
   }
 }
 
-try {
+module.exports = { decode, scanRegex };
+
+if (require.main === module) try {
   if (process.argv.includes('--probe-invalid')) {
     // Self-test of the reporting path: exits 0 when the scan ran, whatever it reports.
     process.stdout.write(JSON.stringify(probeInvalid()) + '\n');

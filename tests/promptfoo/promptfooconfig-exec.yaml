@@ -92,3 +92,7 @@ tests:
   - file://datasets/session-map-exec.yaml
   - file://datasets/fixture-guard-exec.yaml
   - file://datasets/dataset-regex-exec.yaml
+  - file://datasets/docs-copies-exec.yaml
+  - file://datasets/spec-id-coverage-exec.yaml
+  - file://datasets/dataset-asserts-exec.yaml
+  - file://datasets/mutation-smoke-exec.yaml
