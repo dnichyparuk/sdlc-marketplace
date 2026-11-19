@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.3] - 2026-11-19
+
+### Fixed
+- plan-sdlc: the tier check counts only edited `Files` paths (entries marked "check only", "no change expected" or "byte copy" are not counted), Step 5 re-dispatches lanes that blocked before the last fix, `plan.js --lightweight` skips the explore pack, and the critique DISPATCH lenses at iteration 1 are clarified (#9447).
+- pr-sdlc: `pr.js --validate-body` appends the configured `pr.footer` once, and the `pr-link-github-issue` guardrail no longer treats internal register ids as GitHub issues (#9447).
+- ship-sdlc: `ship.js` forwards the conventional scope of the planned Commit subject to commit-fixes as `--scope` when there is no Fix commit field (#9447).
+
 ## [0.56.2] - 2026-11-19
 
 ### Fixed
