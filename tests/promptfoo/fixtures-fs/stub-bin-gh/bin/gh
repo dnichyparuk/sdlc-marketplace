@@ -4,9 +4,18 @@
 # - ship-prepare-exec.yaml (#9188): answers the calls ship.js prepare makes, so no case
 #   reaches a live gh: `gh auth status` (logged in), `gh auth status --json hosts`,
 #   `gh api user --jq .login` and `gh api repos/<owner>/<repo> -i` (HTTP 200).
+# - pr-prepare-exec.yaml: no pr.js case may reach the real gh (`gh auth switch` changes the
+#   user's global gh state): `gh pr view` (no PR, exit 1), `gh repo view --json` (example
+#   repo), `gh auth switch` (no-op, exit 0) and `gh auth status --active` (as `gh auth status`).
 # - script-runner-stub-bin-exec.yaml: every other call prints "STUB-GH-INVOKED <args>"
 #   and exits 0.
 case "$1 $2" in
+  "pr view")
+    echo "no pull requests found for branch" >&2
+    exit 1;;
+  "auth switch")
+    echo "Switched active account (stub)" >&2
+    exit 0;;
   "auth status")
     if [[ " $* " == *" --json "* ]]; then
       echo '{"hosts":{"github.com":[{"state":"success","active":true,"host":"github.com","login":"stub-user","tokenSource":"keyring","gitProtocol":"https"}]}}'
@@ -19,6 +28,10 @@ case "$1 $2" in
     echo "stub-user"
     exit 0;;
 esac
+if [[ "$1" == "repo" && "$2" == "view" && " $* " == *" --json "* ]]; then
+  echo '{"owner":{"login":"example-org"},"name":"example-repo"}'
+  exit 0
+fi
 if [[ "$1" == "api" && "$2" == repos/* && " $* " == *" -i "* ]]; then
   echo "HTTP/2 200"
   exit 0

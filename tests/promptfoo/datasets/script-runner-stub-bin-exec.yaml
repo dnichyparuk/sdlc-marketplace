@@ -42,6 +42,16 @@
     - type: not-contains
       value: "STUB-GH-INVOKED"
 
+# No script_cwd → the stub path resolves against tests/promptfoo, not the per-case temp cwd.
+- description: "script_stub_bin: a relative path without script_cwd resolves against tests/promptfoo"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(require("child_process").execSync("gh\x20--version").toString())'
+    script_stub_bin: "fixtures-fs/stub-bin-gh/bin"
+  assert:
+    - type: contains
+      value: "STUB-GH-INVOKED --version"
+
 # W8.7 — the provider retries a spawn ENOENT (binary briefly absent during a CLI auto-update).
 - description: "claude-cli-provider: spawn ENOENT is retried until the binary is back"
   vars:
@@ -106,3 +116,27 @@
   assert:
     - type: javascript
       value: "output.endsWith('[exit 0]') && context.metadata.exitCode === 0"
+
+- description: "script-runner: a case without script_cwd runs in its own temp dir that is removed afterwards"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
+    script_args: "--cwd-probe"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.inTmp === true && r.existsAfter === false && r.cwd.split('/').pop().startsWith('promptfoo-cwd-')"
+
+- description: "script-runner: git ssh and prompt are off by default"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
+    script_args: "--cwd-probe"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ssh === 'false' && r.prompt === '0'"
+
+- description: "script-runner: script_env overrides the git defaults"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
+    script_args: "--cwd-probe"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.override === 'ssh -o BatchMode=yes'"

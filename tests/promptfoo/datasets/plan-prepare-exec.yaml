@@ -1134,12 +1134,13 @@
     - type: icontains
       value: "unknown lane nope"
 
-# No script_cwd: the run reads this repository's plan.copyRules, so copyCheck is not null and checks-only mode applies.
+# script_cwd is the plan-copy-rules fixture: its plan.copyRules makes copyCheck non-null and checks-only mode applies.
 - description: "plan-merge: (checks-only) --plan alone merges validator and copy issues"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    project_root: "file://fixtures-fs/plan-merge-lanes"
-    script_args: "merge-lanes --dir {{project_root}} --plan {{project_root}}/copy-plan.md"
+    project_root: "file://fixtures-fs/plan-copy-rules"
+    script_cwd: "{{project_root}}"
+    script_args: "merge-lanes --dir {{repo_root}}/tests/promptfoo/fixtures-fs/plan-merge-lanes --plan {{repo_root}}/tests/promptfoo/fixtures-fs/plan-merge-lanes/copy-plan.md"
   assert:
     - type: javascript
       value: |

@@ -5,14 +5,17 @@
  * Expects vars:
  *   script_path  — absolute path to the node script
  *   script_args  — space-separated args (e.g., "--project-root /tmp/fixture-abc --json")
- *   script_cwd   — (optional) working directory for script execution
+ *   script_cwd   — (optional) working directory for script execution; when unset, the case
+ *                  runs in a fresh `promptfoo-cwd-*` temp dir that is removed afterwards
  *   script_home            — (optional) HOME override; useful for tests that depend on
  *                            `~/.sdlc-cache/...` layouts. Accepts a relative path (resolved
- *                            against `script_cwd`) or an absolute path.
- *   script_env             — (optional) JSON string or object of extra env vars
+ *                            against `script_cwd`, or tests/promptfoo when it is unset) or an
+ *                            absolute path.
+ *   script_env             — (optional) JSON string or object of extra env vars; may override
+ *                            the defaults GIT_SSH_COMMAND=false and GIT_TERMINAL_PROMPT=0
  *   script_stub_bin        — (optional) path to a directory whose binaries should shadow real
  *                            CLIs on PATH (e.g., a stub `gh` for testing). Accepts a relative
- *                            path (resolved against `script_cwd`) or an absolute path. Prepended
+ *                            path (resolved as for `script_home`) or an absolute path. Prepended
  *                            to PATH after `script_env` merge so any user-supplied `script_env.PATH`
  *                            is honored as the base. Asymmetry: `hook-runner.js` does not implement
  *                            this — hook tests do not exec external CLIs (YAGNI).
@@ -21,7 +24,10 @@
  */
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { spawn } = require('child_process');
+
+const PROMPTFOO_DIR = path.resolve(__dirname, '..');
 
 // Matches paths created by lib/output.js#createOutputFile via os.tmpdir() on macOS/Linux:
 //   /tmp/...,  /var/folders/.../...  (macOS),  /private/var/...  (macOS canonicalized)
@@ -89,86 +95,94 @@ class ScriptRunnerProvider {
     const vars = context?.vars ?? {};
     const scriptPath = vars.script_path;
     const scriptArgs = (vars.script_args ?? '').split(/\s+/).filter(Boolean);
-    const cwd = vars.script_cwd || undefined;
 
     if (!scriptPath) {
       return { error: 'script-runner: script_path var is required' };
     }
-
-    // Build env: inherit parent env, allow HOME override and arbitrary additions.
-    const env = Object.assign({}, process.env);
-    if (vars.script_home) {
-      const home = path.isAbsolute(vars.script_home)
-        ? vars.script_home
-        : path.resolve(cwd || process.cwd(), vars.script_home);
-      env.HOME = home;
-    }
-    if (vars.script_env) {
-      let extra = vars.script_env;
-      if (typeof extra === 'string') {
-        try { extra = JSON.parse(extra); } catch (_) { extra = {}; }
+    // Without script_cwd the case runs in its own temp dir (removed in `finally`, after any
+    // stdout temp-file read), and relative paths resolve against tests/promptfoo.
+    const tmpCwd = vars.script_cwd ? null : fs.mkdtempSync(path.join(os.tmpdir(), 'promptfoo-cwd-'));
+    const cwd = vars.script_cwd || tmpCwd;
+    const base = vars.script_cwd || PROMPTFOO_DIR;
+    try {
+      // Build env: inherit parent env, git safety defaults (script_env may override them),
+      // HOME override and arbitrary additions.
+      const env = Object.assign({}, process.env, { GIT_SSH_COMMAND: 'false', GIT_TERMINAL_PROMPT: '0' });
+      if (vars.script_home) {
+        const home = path.isAbsolute(vars.script_home)
+          ? vars.script_home
+          : path.resolve(base, vars.script_home);
+        env.HOME = home;
       }
-      if (extra && typeof extra === 'object') Object.assign(env, extra);
-    }
-    // PATH stub injection: prepend a fixture's bin dir to PATH so spawned children resolve
-    // stub binaries (e.g., a fake `gh`) before real CLIs. Order matters — this is the LAST
-    // PATH mutation so user-supplied `script_env.PATH` (if any) is honored as the base.
-    if (vars.script_stub_bin) {
-      if (typeof vars.script_stub_bin !== 'string') {
-        return { error: `script-runner: script_stub_bin must be a string path, got ${typeof vars.script_stub_bin}` };
+      if (vars.script_env) {
+        let extra = vars.script_env;
+        if (typeof extra === 'string') {
+          try { extra = JSON.parse(extra); } catch (_) { extra = {}; }
+        }
+        if (extra && typeof extra === 'object') Object.assign(env, extra);
       }
-      const stubBin = path.isAbsolute(vars.script_stub_bin)
-        ? vars.script_stub_bin
-        : path.resolve(cwd || process.cwd(), vars.script_stub_bin);
-      let stat;
-      try { stat = fs.statSync(stubBin); } catch (_) { stat = null; }
-      if (!stat || !stat.isDirectory()) {
-        return { error: `script-runner: script_stub_bin path not found or not a directory: ${stubBin}` };
+      // PATH stub injection: prepend a fixture's bin dir to PATH so spawned children resolve
+      // stub binaries (e.g., a fake `gh`) before real CLIs. Order matters — this is the LAST
+      // PATH mutation so user-supplied `script_env.PATH` (if any) is honored as the base.
+      if (vars.script_stub_bin) {
+        if (typeof vars.script_stub_bin !== 'string') {
+          return { error: `script-runner: script_stub_bin must be a string path, got ${typeof vars.script_stub_bin}` };
+        }
+        const stubBin = path.isAbsolute(vars.script_stub_bin)
+          ? vars.script_stub_bin
+          : path.resolve(base, vars.script_stub_bin);
+        let stat;
+        try { stat = fs.statSync(stubBin); } catch (_) { stat = null; }
+        if (!stat || !stat.isDirectory()) {
+          return { error: `script-runner: script_stub_bin path not found or not a directory: ${stubBin}` };
+        }
+        env.PATH = stubBin + path.delimiter + (env.PATH || '');
       }
-      env.PATH = stubBin + path.delimiter + (env.PATH || '');
+
+      // Optional stdin payload (string passed as-is, or object JSON-serialized).
+      // Supports testing hooks that read JSON envelopes on stdin (e.g.,
+      // SessionStart hook's matcher source per Fixes #392).
+      let scriptStdin;
+      if (vars.script_stdin !== undefined && vars.script_stdin !== null) {
+        scriptStdin = (typeof vars.script_stdin === 'string')
+          ? vars.script_stdin
+          : JSON.stringify(vars.script_stdin);
+      }
+
+      const result = await runNode([scriptPath, ...scriptArgs], { cwd, env, input: scriptStdin });
+
+      const rawStdout = result.stdout ?? '';
+      const stderr = (result.stderr ?? '').trim();
+      const exitCode = result.status ?? (result.error ? 1 : 0);
+
+      // Auto-read tmp-path JSON when stdout is solely a temp file path.
+      const stdoutTrimmed = rawStdout.trim();
+      let stdout = rawStdout;
+      let tmpFileRead = false;
+      if (
+        vars.script_passthrough !== true
+        && stdoutTrimmed
+        && !stdoutTrimmed.includes('\n')
+        && TMP_PATH_RE.test(stdoutTrimmed)
+        && fs.existsSync(stdoutTrimmed)
+      ) {
+        try { stdout = fs.readFileSync(stdoutTrimmed, 'utf8'); tmpFileRead = true; } catch (_) { /* fall through */ }
+      }
+
+      // Spawn error (ENOENT, ETIMEDOUT, etc.) — return the error message directly.
+      if (result.error) {
+        return { output: result.error.message, metadata: { exitCode: null } };
+      }
+
+      // Include stderr when: (a) exit non-zero AND no tmp-file was auto-read (to avoid appending
+      // git noise after structured JSON), OR (b) script_capture_stderr is explicitly set.
+      const includeStderr = (tmpFileRead ? false : exitCode !== 0) || vars.script_capture_stderr;
+      const showExit = vars.script_show_exit ? `[exit ${exitCode}]` : null;
+      const output = [stdout.trimEnd(), includeStderr ? stderr : null, showExit].filter(Boolean).join('\n');
+      return { output, metadata: { exitCode } };
+    } finally {
+      if (tmpCwd) fs.rmSync(tmpCwd, { recursive: true, force: true });
     }
-
-    // Optional stdin payload (string passed as-is, or object JSON-serialized).
-    // Supports testing hooks that read JSON envelopes on stdin (e.g.,
-    // SessionStart hook's matcher source per Fixes #392).
-    let scriptStdin;
-    if (vars.script_stdin !== undefined && vars.script_stdin !== null) {
-      scriptStdin = (typeof vars.script_stdin === 'string')
-        ? vars.script_stdin
-        : JSON.stringify(vars.script_stdin);
-    }
-
-    const result = await runNode([scriptPath, ...scriptArgs], { cwd, env, input: scriptStdin });
-
-    const rawStdout = result.stdout ?? '';
-    const stderr = (result.stderr ?? '').trim();
-    const exitCode = result.status ?? (result.error ? 1 : 0);
-
-    // Auto-read tmp-path JSON when stdout is solely a temp file path.
-    const stdoutTrimmed = rawStdout.trim();
-    let stdout = rawStdout;
-    let tmpFileRead = false;
-    if (
-      vars.script_passthrough !== true
-      && stdoutTrimmed
-      && !stdoutTrimmed.includes('\n')
-      && TMP_PATH_RE.test(stdoutTrimmed)
-      && fs.existsSync(stdoutTrimmed)
-    ) {
-      try { stdout = fs.readFileSync(stdoutTrimmed, 'utf8'); tmpFileRead = true; } catch (_) { /* fall through */ }
-    }
-
-    // Spawn error (ENOENT, ETIMEDOUT, etc.) — return the error message directly.
-    if (result.error) {
-      return { output: result.error.message, metadata: { exitCode: null } };
-    }
-
-    // Include stderr when: (a) exit non-zero AND no tmp-file was auto-read (to avoid appending
-    // git noise after structured JSON), OR (b) script_capture_stderr is explicitly set.
-    const includeStderr = (tmpFileRead ? false : exitCode !== 0) || vars.script_capture_stderr;
-    const showExit = vars.script_show_exit ? `[exit ${exitCode}]` : null;
-    const output = [stdout.trimEnd(), includeStderr ? stderr : null, showExit].filter(Boolean).join('\n');
-    return { output, metadata: { exitCode } };
   }
 }
 

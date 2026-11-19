@@ -78,12 +78,15 @@ The hooks variant uses `-c promptfooconfig-exec-hooks.yaml` with the same flags.
 |---|---|
 | `script_path` | script to run (`repo://...` or absolute); required |
 | `script_args` | space-separated arguments; may use `{{project_root}}` |
-| `script_cwd` | working directory of the script |
+| `script_cwd` | working directory of the script; when unset, the provider makes a fresh `promptfoo-cwd-*` temp directory for the case and removes it afterwards |
+| `script_home` | `HOME` for the script; a relative path resolves against `script_cwd`, or against `tests/promptfoo` when `script_cwd` is unset |
 | `project_root` | fixture directory, usually `file://fixtures-fs/<name>`; used in `script_args` |
 | `script_env` | JSON string or object of extra environment variables |
-| `script_stub_bin` | directory of stub binaries put first on `PATH` |
+| `script_stub_bin` | directory of stub binaries put first on `PATH`; relative paths resolve as for `script_home` |
 | `script_capture_stderr` | when truthy, append stderr to the output even on exit 0 |
 | `script_show_exit` | when truthy, append a last line `[exit N]` to the output |
+
+Both providers set `GIT_SSH_COMMAND=false` and `GIT_TERMINAL_PROMPT=0` unless `script_env` sets them, so no case can push over SSH or wait for a git password.
 
 The exit code is always in `context.metadata.exitCode`, whether or not `script_show_exit` is set.
 

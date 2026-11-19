@@ -9,16 +9,25 @@
  *   script_path  — absolute path to the hook script
  *   script_args  — (optional) space-separated args
  *   script_stdin — JSON string piped to the script's stdin
- *   script_cwd   — (optional) working directory for script execution
+ *   script_cwd   — (optional) working directory for script execution; when unset,
+ *                  the case runs in a fresh `promptfoo-cwd-*` temp dir that is
+ *                  removed afterwards
  *   script_home  — (optional) HOME override; accepts relative (resolved against
- *                  script_cwd) or absolute path. Useful for tests depending on
+ *                  script_cwd, or tests/promptfoo when unset) or absolute path. Useful for tests depending on
  *                  ~/.sdlc-cache/... layouts.
  *   script_env   — (optional) JSON string or object of extra env vars. Useful for
  *                  per-test TMPDIR isolation when the hook writes diagnostic files
  *                  to `os.tmpdir()`.
+ *
+ * The child env defaults GIT_SSH_COMMAND=false and GIT_TERMINAL_PROMPT=0 (script_env
+ * may override). There is no script_stub_bin support: hook cases need no stub binaries.
  */
+const os = require('os');
+const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+
+const PROMPTFOO_DIR = path.resolve(__dirname, '..');
 
 // spawnSync's limits, kept so every case sees the same outcome as before.
 const TIMEOUT_MS = 30_000;
@@ -71,36 +80,43 @@ class HookRunnerProvider {
     const scriptPath = vars.script_path;
     const scriptArgs = (vars.script_args ?? '').split(/\s+/).filter(Boolean);
     const stdinData  = vars.script_stdin || '';
-    const cwd        = vars.script_cwd || undefined;
 
     if (!scriptPath) {
       return { error: 'hook-runner: script_path var is required' };
     }
 
-    const env = Object.assign({}, process.env);
-    if (vars.script_home) {
-      const home = path.isAbsolute(vars.script_home)
-        ? vars.script_home
-        : path.resolve(cwd || process.cwd(), vars.script_home);
-      env.HOME = home;
-    }
-    if (vars.script_env) {
-      let extra = vars.script_env;
-      if (typeof extra === 'string') {
-        try { extra = JSON.parse(extra); } catch (_) { extra = {}; }
+    // A case without script_cwd gets its own temp directory, removed afterwards.
+    const tmpCwd = vars.script_cwd ? null : fs.mkdtempSync(path.join(os.tmpdir(), 'promptfoo-cwd-'));
+    const cwd = vars.script_cwd || tmpCwd;
+    const base = vars.script_cwd || PROMPTFOO_DIR;
+    try {
+      const env = Object.assign({}, process.env, { GIT_SSH_COMMAND: 'false', GIT_TERMINAL_PROMPT: '0' });
+      if (vars.script_home) {
+        const home = path.isAbsolute(vars.script_home)
+          ? vars.script_home
+          : path.resolve(base, vars.script_home);
+        env.HOME = home;
       }
-      if (extra && typeof extra === 'object') Object.assign(env, extra);
+      if (vars.script_env) {
+        let extra = vars.script_env;
+        if (typeof extra === 'string') {
+          try { extra = JSON.parse(extra); } catch (_) { extra = {}; }
+        }
+        if (extra && typeof extra === 'object') Object.assign(env, extra);
+      }
+
+      const result = await runNode([scriptPath, ...scriptArgs], { cwd, env, input: stdinData });
+
+      const output = JSON.stringify({
+        stdout: result.stdout || '',
+        stderr: result.stderr || '',
+        exitCode: result.status ?? -1,
+      }, null, 2);
+
+      return { output };
+    } finally {
+      if (tmpCwd) fs.rmSync(tmpCwd, { recursive: true, force: true });
     }
-
-    const result = await runNode([scriptPath, ...scriptArgs], { cwd, env, input: stdinData });
-
-    const output = JSON.stringify({
-      stdout: result.stdout || '',
-      stderr: result.stderr || '',
-      exitCode: result.status ?? -1,
-    }, null, 2);
-
-    return { output };
   }
 }
 
