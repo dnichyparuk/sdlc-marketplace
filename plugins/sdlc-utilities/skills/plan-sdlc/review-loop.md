@@ -12,7 +12,7 @@ Skip on the Lightweight route without escalation (Step 0 routing, R73).
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" tier --plan "<PLAN_PATH>"
 ```
 
-and keep its `review` (R36): `review.route` is `fan-out` or `single`, and `review.lenses` names the lenses to dispatch (`all` is `reviewerDispatch`, otherwise the named `lensReviewers[]` entries). A non-zero exit code means stop and invoke `error-report-sdlc`. Later iterations take the lenses from `diff-material`'s `dispatch.lenses` when the Step 6 fixes were material (the orchestrator runs `diff-material`; on the fallback path you run it in Step 6).
+and keep its `review` (R36): `review.route` is `fan-out` or `single`, and `review.lenses` names the lenses to dispatch (`all` is `reviewerDispatch`, otherwise the named `lensReviewers[]` entries). A non-zero exit code means stop and invoke `error-report-sdlc`. Later iterations take the lenses from `diff-material`'s `dispatch.lenses` when the Step 6 fixes were material, and from its `review.lenses` when they were not, so a review-route flip takes effect in every later round (the orchestrator runs `diff-material`; on the fallback path you run it in Step 6).
 
 **Before the first round:** Write `JSON.stringify(openspecContext.requirements)` once to `<critiqueDir>/inventory.json` when it is non-null, and Gate A's JSON to `<critiqueDir>/gate-a.json` when Gate A ran. The merge passes `--inventory` and `--gate-a` for the files that exist.
 
@@ -127,7 +127,7 @@ The next round passes this file as `BEFORE_PLAN`, and the orchestrator runs `dif
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/plan-before.md" --after "<PLAN_PATH>" --prev-dir "<ITER_DIR>"
 ```
 
-Set `materialChangeDetected` to its `material` value and keep its `dispatch` and `affectedLanes` for the merged re-dispatch; on a non-zero exit set `materialChangeDetected` to `true`, `affectedLanes` to `["*"]`, `dispatch.lanes` to every Step 3 lane and `dispatch.lenses` to every `lensReviewers[]` entry (E9). The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
+Set `materialChangeDetected` to its `material` value and keep its `dispatch`, `affectedLanes` and `review` for the next round (`review.lenses` are the lenses of a non-material round); on a non-zero exit set `materialChangeDetected` to `true`, `affectedLanes` to `["*"]`, `dispatch.lanes` to every Step 3 lane and `dispatch.lenses` to `["all"]` when this iteration dispatched lens `all`, otherwise every `lensReviewers[]` entry (E9). The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
 
 `affectedLanes` and `dispatch` already include the `rerun` entries: each lane or lens whose result in `<ITER_DIR>` held a blocking issue, so a result older than the fix is re-dispatched, not carried (R64, R67).
 

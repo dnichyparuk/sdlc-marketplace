@@ -809,6 +809,15 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0 && Array.isArray(r.recheckLanes) && r.recheckLanes.length === 0 && JSON.stringify(r.rerun) === JSON.stringify(['lens:requirements', 'static-structural'])"
 
+- description: "plan-diff: (route) non-material round returns the after plan's review route (R36, R67 (b), #9436)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/after-route-flip.md --after {{project_root}}/after-route-flip.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === false && r.review.route === 'fan-out' && JSON.stringify(r.review.lenses) === JSON.stringify(['architecture', 'requirements', 'risk'])"
+
 - description: "plan-diff: without --prev-dir rerun is empty"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
@@ -1264,6 +1273,17 @@
       value: |
         const o = JSON.parse(output);
         if (o.skillDispatch >= 2 && o.loopDispatch >= 1 && o.skillFallback >= 1 && o.loopFallback >= 1 && o.skillSplice >= 1 && o.loopSplice >= 1) return true;
+        return { pass: false, score: 0, reason: output };
+
+- description: "plan-sdlc/audit-w33: Step 7 pointer condition, review.lenses and the non-zero-exit lens rule (R41, R36, E9, #9435, #9437)"
+  vars:
+    script_path: "-e"
+    script_args: '((r)=>((s,o,l)=>((c)=>console.log(JSON.stringify({pointer:c(s,"holds\x20one\x20of\x20the\x20three\x20verdict\x20labels\x20below\x20(Gate\x20B\x20ran\x20in\x20Step\x205)"),nonMaterial:c(o,"dispatch\x20the\x20lenses\x20of\x20its\x20\x60review.lenses\x60\x20only"),nonZero:c(o,"plus\x20lens\x20\x60all\x60\x20when\x20\x60DISPATCH\x60\x20names\x20\x60all\x60"),loopReview:c(l,"and\x20from\x20its\x20\x60review.lenses\x60\x20when\x20they\x20were\x20not"),loopAll:c(l,"\x60dispatch.lenses\x60\x20to\x20\x60[\x22all\x22]\x60\x20when\x20this\x20iteration\x20dispatched\x20lens\x20\x60all\x60"),old:c(o,"dispatch\x20the\x20lenses\x20of\x20\x60DISPATCH\x60\x20only")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/agents/plan-critique-orchestrator.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.pointer === 1 && o.nonMaterial === 1 && o.nonZero === 1 && o.loopReview === 1 && o.loopAll === 1 && o.old === 0) return true;
         return { pass: false, score: 0, reason: output };
 
 # --- plan-explore.js --check-brief (R72) ---

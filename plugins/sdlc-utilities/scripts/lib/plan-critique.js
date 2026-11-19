@@ -172,7 +172,7 @@ function affectedSets(triggers, afterRoute, full) {
   };
 }
 
-/** Compare two plan texts: { material, triggers, details, affectedGates, affectedLanes, rerun, dispatch, recheckLanes }. */
+/** Compare two plan texts: { material, triggers, details, affectedGates, affectedLanes, rerun, dispatch, recheckLanes, review }. */
 function diffMaterial(beforeText, afterText, { full = false, prevDir = null } = {}) {
   const before = tasksOf(beforeText);
   const after = tasksOf(afterText);
@@ -216,7 +216,7 @@ function diffMaterial(beforeText, afterText, { full = false, prevDir = null } = 
     lenses: all ? afterRoute.lenses : sets.affectedLanes.filter(l => l.startsWith('lens:')).map(l => l.slice(5)).sort(),
   };
   const material = triggers.length > 0;
-  return { material, triggers, details, ...sets, rerun, dispatch, recheckLanes: material ? dispatch.lanes : [] };
+  return { material, triggers, details, ...sets, rerun, dispatch, recheckLanes: material ? dispatch.lanes : [], review: afterRoute };
 }
 
 /** Lanes and lenses whose previous result in prevDir is blocking or unreadable: they must be re-dispatched (R67). */

@@ -185,7 +185,7 @@ Wait for answers before continuing.
 - Build/lint/test commands (from Makefile, package.json, or similar)
 - Naming conventions and code style
 
-On the inline path (lightweight scope or error fallback), issue Read, Glob and Grep calls that do not depend on each other in one message. <!-- implements R37 -->
+On the inline path (lightweight scope, the `--lightweight` route or error fallback), issue Read, Glob and Grep calls that do not depend on each other in one message. <!-- implements R37 -->
 
 Identify constraints: language, framework, existing conventions, testing approach.
 
@@ -537,11 +537,11 @@ Remove the critique directory (P22) once, before the menu below; the plan file n
 rm -rf "<critiqueDir>"
 ```
 
-**Gate B scorecard pointer:** Before the plan-mode or normal-mode branch below, when a `## Verification Scorecard` section exists in the plan file (i.e., Gate B ran during Step 5), surface a one-line verdict reference above the `ship` / `execute` / `done` menu: <!-- implements R41 -->
+**Gate B scorecard pointer:** Before the plan-mode or normal-mode branch below, when the `## Verification Scorecard` section of the plan file holds one of the three verdict labels below (Gate B ran in Step 5), surface a one-line verdict reference above the `ship` / `execute` / `done` menu; otherwise (no section, or a `Not applicable` body) omit it. <!-- implements R41 -->
 
 > Verification Scorecard: `<verdict line>` — see `## Verification Scorecard` in the plan for details.
 
-Where `<verdict line>` is the verbatim verdict label from the scorecard: *"All checks passed. Ready for archive."*, *"…Ready for archive (with noted improvements)."*, or *"…Fix before archiving."*. When no scorecard is present (non-OpenSpec plan or scorecard was not generated), omit this line entirely.
+Where `<verdict line>` is the verbatim verdict label from the scorecard: *"All checks passed. Ready for archive."*, *"…Ready for archive (with noted improvements)."*, or *"…Fix before archiving."*.
 
 **Plan mode:** Announce the plan path and propose execution:
 

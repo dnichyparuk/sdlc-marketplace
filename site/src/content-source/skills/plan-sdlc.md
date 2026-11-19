@@ -536,7 +536,7 @@ At Step 5 (after the lens merge), `plan.js merge-lanes` builds the **`## Verific
    - Warnings only → *"…Ready for archive (with noted improvements)."*
    - Clean → *"All checks passed. Ready for archive."*
 
-The scorecard is **regenerated** (not appended) on each Step 5 iteration (R44). A CRITICAL verdict injects findings into the existing `Issues Found` loop (bounded by the 3-iteration cap) — no new loop. WARNING-only proceeds; caveats are preserved in the plan. At Step 7 Handoff, the verdict line is surfaced above the `ship` / `execute` / `done` menu.
+The scorecard is **regenerated** (not appended) on each Step 5 iteration (R44). A CRITICAL verdict injects findings into the existing `Issues Found` loop (bounded by the 3-iteration cap) — no new loop. WARNING-only proceeds; caveats are preserved in the plan. At Step 7 Handoff, the verdict line is surfaced above the `ship` / `execute` / `done` menu when the scorecard holds a verdict label; a Lightweight plan's `Not applicable` scorecard shows no pointer.
 
 ### Requirement Inventory (R38 — Fixes #445)
 
