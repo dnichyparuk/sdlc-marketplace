@@ -1002,3 +1002,14 @@
         for (const i of [0, 2, 3]) if (!/in progress/.test(runs[i].stdout)) return `FAIL: run ${i + 1} not nudged: ${runs[i].stdout}`;
         if (runs[1].stdout.trim() !== '') return `FAIL: run 2 expected silent: ${runs[1].stdout}`;
         return true;
+
+# hook-runner provider: per-case temp cwd and git safety defaults.
+- description: "hook-runner: a case without script_cwd runs in a removed temp dir with git defaults"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(JSON.stringify({cwd:process.cwd(),ssh:process.env.GIT_SSH_COMMAND,prompt:process.env.GIT_TERMINAL_PROMPT}))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(JSON.parse(output).stdout);
+        return o.cwd.split('/').pop().startsWith('promptfoo-cwd-') && !process.getBuiltinModule('fs').existsSync(o.cwd) && o.ssh === 'false' && o.prompt === '0';

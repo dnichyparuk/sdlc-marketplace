@@ -4,6 +4,8 @@
 #
 # Note: pr-prepare.js calls gh CLI which fails without a remote.
 # Tests assert on fields populated before remote operations (flags, prConfig).
+# Every case sets script_stub_bin to the stub gh (fixtures-fs/stub-bin-gh), so no case,
+# and no child an -e case spawns, reaches the real gh (`gh auth switch` is global state).
 
 # Issue #406 — cwd-aware git state: pr-prepare must read the linked worktree's
 # current branch (not the main worktree's branch) when invoked from a linked
@@ -11,6 +13,7 @@
 - description: "pr-prepare (#406): linked-worktree — currentBranch reflects linked worktree branch"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}/worktrees/wt1"
     project_root: "file://fixtures-fs/project-linked-worktree-staged"
   assert:
@@ -22,6 +25,7 @@
 - description: "pr-prepare: default flags with no args"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
   assert:
@@ -33,6 +37,7 @@
 - description: "pr-prepare: --draft flag"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--draft"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
@@ -43,6 +48,7 @@
 - description: "pr-prepare: --update flag"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--update"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
@@ -53,6 +59,7 @@
 - description: "pr-prepare: --base main override"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--base main"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
@@ -63,6 +70,7 @@
 - description: "pr-prepare: --auto flag"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--auto"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
@@ -73,6 +81,7 @@
 - description: "pr-prepare: --label bug --label feature adds both labels"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--label bug --label feature"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
@@ -85,6 +94,7 @@
 - description: "pr-prepare: --label bug --label bug deduplicates"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--label bug --label bug"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
@@ -95,6 +105,7 @@
 - description: "pr-prepare: config present includes prConfig"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-config"
   assert:
@@ -106,6 +117,7 @@
 - description: "pr-prepare: no config sets prConfig null"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
   assert:
@@ -119,6 +131,7 @@
 - description: "pr-prepare: fetchBaseRef non-fatal when origin unreachable (issue #239)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/git-lib-unreachable-origin"
   assert:
@@ -137,6 +150,7 @@
 - description: "pr.js --validate-body: clean body with matching repo owner passes"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--validate-body --file {{project_root}}/body-clean.md --json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
@@ -148,6 +162,7 @@
 - description: "pr.js --validate-body: wrong-owner github URL (PR #192 case) aborts with github-context-mismatch"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--validate-body --file {{project_root}}/body-wrong-owner.md --json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
@@ -165,9 +180,11 @@
 - description: "pr.js --validate-body: generic 404 URL aborts with url-not-found"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--validate-body --file {{project_root}}/body-generic-404.md --json"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
+    script_env: '{"NODE_OPTIONS": "--require {{repo_root}}/tests/promptfoo/scripts/stub-fetch-404.js"}'
   assert:
     - type: contains
       value: '"ok":false'
@@ -179,6 +196,7 @@
 - description: "pr.js --validate-body: no --file and an open stdin pipe exits 2 at once without reading stdin (#9205)"
   vars:
     script_path: "-e"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: '((cp,js)=>((c,e)=>(c.stderr.on("data",(d)=>e.push(String(d))),c.on("exit",(code)=>(console.log(JSON.stringify({code:code,stderr:e.join("")})),c.stdin.destroy()))))(cp.spawn("node",[js,"--validate-body","--json"],{cwd:process.cwd(),stdio:["pipe","pipe","pipe"]}),[]))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
@@ -192,6 +210,7 @@
 - description: "pr.js --validate-body: --file - reads the body from stdin (#9205)"
   vars:
     script_path: "-e"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(cp.spawnSync("node",[js,"--validate-body","--file","-","--json"],{cwd:process.cwd(),encoding:"utf8",input:fs.readFileSync("body-clean.md","utf8")})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
@@ -206,6 +225,7 @@
 - description: "pr.js --validate-body: a --file path that cannot be read exits 2 with a message, not a stack trace (#9205)"
   vars:
     script_path: "-e"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr})))(cp.spawnSync("node",[js,"--validate-body","--file","no-such-body.md","--json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
@@ -221,6 +241,7 @@
 - description: "pr.js: --output-file writes a manifest path, not JSON (issue #209 regression test)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--output-file"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
@@ -234,6 +255,7 @@
 - description: "pr.js: without --output-file, output is still a manifest path (stdout-JSON fallback removed)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
     script_passthrough: true
@@ -250,6 +272,7 @@
 - description: "pr.js: template at .sdlc/pr-template.md is resolved (canonical, no warning)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-template-sdlc"
   assert:
@@ -259,6 +282,7 @@
 - description: "pr.js: template at .claude/pr-template.md (legacy only) emits one-time deprecation warning"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-template-claude-legacy"
     script_capture_stderr: true
@@ -271,6 +295,7 @@
 - description: "pr.js: with both templates present, .sdlc/ wins (no warning)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-template-both"
   assert:
@@ -282,6 +307,7 @@
 - description: "pr.js #339: config.pr.defaultBranch set to non-existent branch produces clear error naming config path"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-default-branch"
   assert:
@@ -295,6 +321,7 @@
 - description: "pr.js #339: --base CLI flag takes precedence over config.pr.defaultBranch (error-path reflection — fixture has no remote, so the cascade is observed via baseBranchOverride echoed in the error payload rather than a successful base resolution)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--base main"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-default-branch"
@@ -305,6 +332,7 @@
 - description: "pr.js #339: no config.pr.defaultBranch field falls back to git auto-detection (existing behavior preserved)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
   assert:
@@ -314,6 +342,7 @@
 - description: "pr.js: rejects pr.defaultBranch containing shell metacharacters before any shell interpolation reaches git rev-parse"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-invalid-default-branch"
   assert:
@@ -331,6 +360,7 @@
 - description: "pr-prepare: active-account-access — accessible probe passes (env=accessible)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-origin-stubbed"
     script_env: '{"SDLC_PROBE_REPO_ACCESS":"accessible"}'
@@ -345,6 +375,7 @@
 - description: "pr-prepare: active-account-access — not-found halts (env=not-found)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-origin-stubbed"
     script_env: '{"SDLC_PROBE_REPO_ACCESS":"not-found"}'
@@ -359,6 +390,7 @@
 - description: "pr-prepare: active-account-access — forbidden halts (env=forbidden)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-origin-stubbed"
     script_env: '{"SDLC_PROBE_REPO_ACCESS":"forbidden"}'
@@ -373,6 +405,7 @@
 - description: "pr-prepare: active-account-access — explicit expectedAccount skips probe entirely"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-expected-account-explicit"
   assert:
@@ -382,6 +415,7 @@
 - description: "pr-prepare: active-account-access — no origin remote skips probe (env unset)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
   assert:
@@ -393,6 +427,7 @@
 - description: "pr-prepare: no --expected-branch flag emits branchGuard.active=false (R-expected-branch, #347)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
   assert:
@@ -402,6 +437,7 @@
 - description: "pr-prepare: --expected-branch matching current branch emits branchGuard.ok=true (R-expected-branch, #348)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--expected-branch feat/test"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
@@ -414,6 +450,7 @@
 - description: "pr-prepare: --expected-branch mismatching current branch exits non-zero with stderr (R-expected-branch, #348)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: "--expected-branch feat/nonexistent-branch"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
@@ -427,6 +464,7 @@
 - description: "pr-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
   assert:
@@ -447,6 +485,7 @@
 - description: "pr-prepare (#490): linked-worktree (worktree-linked-ahead) — commits & changedFiles reflect wt1's ahead commit, not main"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}/worktrees/wt1"
     project_root: "file://fixtures-fs/worktree-linked-ahead"
   assert:
@@ -462,6 +501,7 @@
 - description: "pr-prepare: openspec field reports no OpenSpec in a plain project (W4.4)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
   assert:
@@ -476,6 +516,7 @@
 - description: "pr-prepare: openspec field names the branch-matched change and its proposal (W4.4)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-openspec-detect-diff"
   assert:
@@ -588,6 +629,7 @@
 - description: "pr.js --validate-body: footer (a) appends the configured footer once"
   vars:
     script_path: "-e"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: '((cp,fs,os,js)=>((d)=>((run)=>(fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({pr:{footer:"Made\x20with\x20care"}})),fs.writeFileSync(d+"/body.md","Body\x20text\n"),((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({first:run()})))(()=>((r)=>({status:r.status,out:JSON.parse(r.stdout),file:fs.readFileSync(d+"/body.md","utf8")}))(cp.spawnSync("node",[js,"--validate-body","--file",d+"/body.md","--json"],{cwd:d,encoding:"utf8",env:{...process.env,SDLC_LINKS_OFFLINE:"1"}}))))(fs.mkdtempSync(os.tmpdir()+"/pr-footer-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
@@ -602,6 +644,7 @@
 - description: "pr.js --validate-body: footer (b) a second run appends nothing"
   vars:
     script_path: "-e"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: '((cp,fs,os,js)=>((d)=>((run)=>(fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({pr:{footer:"Made\x20with\x20care"}})),fs.writeFileSync(d+"/body.md","Body\x20text\n"),((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({first:run(),second:run()})))(()=>((r)=>({status:r.status,out:JSON.parse(r.stdout),file:fs.readFileSync(d+"/body.md","utf8")}))(cp.spawnSync("node",[js,"--validate-body","--file",d+"/body.md","--json"],{cwd:d,encoding:"utf8",env:{...process.env,SDLC_LINKS_OFFLINE:"1"}}))))(fs.mkdtempSync(os.tmpdir()+"/pr-footer-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
@@ -617,6 +660,7 @@
 - description: "pr.js --validate-body: footer (c) no footer key leaves the body unchanged"
   vars:
     script_path: "-e"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_args: '((cp,fs,os,js)=>((d)=>((run)=>(fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({pr:{}})),fs.writeFileSync(d+"/body.md","Body\x20text\n"),((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({first:run()})))(()=>((r)=>({status:r.status,out:JSON.parse(r.stdout),file:fs.readFileSync(d+"/body.md","utf8")}))(cp.spawnSync("node",[js,"--validate-body","--file",d+"/body.md","--json"],{cwd:d,encoding:"utf8",env:{...process.env,SDLC_LINKS_OFFLINE:"1"}}))))(fs.mkdtempSync(os.tmpdir()+"/pr-footer-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"

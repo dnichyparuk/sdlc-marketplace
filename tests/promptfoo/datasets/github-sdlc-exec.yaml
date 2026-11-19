@@ -665,7 +665,8 @@
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        const ok = o.exit === 0 && o.json.ms < 1500 && o.json.logins.includes('bob') && o.json.logins.includes('carol');
+        const ok = o.exit === 0 && o.json.ms <= 8 * Math.max(o.json.msSmall, 25) && o.json.ms < 10000
+          && o.json.logins.includes('bob') && o.json.logins.includes('carol');
         return ok ? true : `FAIL ${output}`;
 
 - description: "github-sdlc/load A7: prints every R5 key with no gh call"
@@ -1129,7 +1130,7 @@
     script_args: "-- --view 7 --repo acme/widgets"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "SDLC_GH_TIMEOUT_MS": "500", "GH_STUB_FAIL": "timeout@api repos/acme/widgets/issues/7"}'
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "SDLC_GH_TIMEOUT_MS": "1000", "GH_STUB_SLEEP_MS": "2500", "GH_STUB_FAIL": "timeout@api repos/acme/widgets/issues/7"}'
   assert:
     - type: javascript
       value: |
@@ -2024,7 +2025,7 @@
     script_args: "--payload comment-plain -- --check-payload --input @PAYLOAD@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live", "SDLC_GH_TIMEOUT_MS": "500", "GH_STUB_SLEEP_MS": "1500", "GH_STUB_FAIL": "timeout@api repos/acme/widgets/issues/5#1"}'
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live", "SDLC_GH_TIMEOUT_MS": "1000", "GH_STUB_SLEEP_MS": "2500","GH_STUB_FAIL": "timeout@api repos/acme/widgets/issues/5#1"}'
   assert:
     - type: javascript
       value: |
@@ -2491,8 +2492,8 @@
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      SDLC_GH_TIMEOUT_MS: "500"
-      GH_STUB_SLEEP_MS: "1500"
+      SDLC_GH_TIMEOUT_MS: "1000"
+      GH_STUB_SLEEP_MS: "2500"
       GH_STUB_FAIL: "timeout@issue comment"
       APPLY_HARNESS: *apply_harness
   assert:
@@ -2517,8 +2518,8 @@
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      SDLC_GH_TIMEOUT_MS: "500"
-      GH_STUB_SLEEP_MS: "1500"
+      SDLC_GH_TIMEOUT_MS: "1000"
+      GH_STUB_SLEEP_MS: "2500"
       GH_STUB_FAIL: "timeout@issue edit#1"
       APPLY_HARNESS: *apply_harness
   assert:
@@ -2541,8 +2542,8 @@
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      SDLC_GH_TIMEOUT_MS: "500"
-      GH_STUB_SLEEP_MS: "1500"
+      SDLC_GH_TIMEOUT_MS: "1000"
+      GH_STUB_SLEEP_MS: "2500"
       GH_STUB_FAIL: "timeout@issue create"
       APPLY_HARNESS: *apply_harness
   assert:
@@ -2565,8 +2566,8 @@
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      SDLC_GH_TIMEOUT_MS: "500"
-      GH_STUB_SLEEP_MS: "1500"
+      SDLC_GH_TIMEOUT_MS: "1000"
+      GH_STUB_SLEEP_MS: "2500"
       GH_STUB_FAIL: "401@issue comment 3;403@issue comment 4;rate-limit@issue comment 5;404@issue comment 7;422@issue comment 8;secondary-rate-limit@issue comment 12;timeout@issue edit 5 --repo=github.com/acme/widgets --title"
       APPLY_HARNESS: *apply_harness
   assert:

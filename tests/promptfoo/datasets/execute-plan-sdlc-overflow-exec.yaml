@@ -285,7 +285,7 @@
 - description: "execute-plan-sdlc/wave-runner-overflow/wave-split-cmd: wave-split subcommand returns 2+2 halves"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
-    script_args: "wave-split --wave 1 --dispatched [\"T1\",\"T2\",\"T3\",\"T4\"] --missing-ids [\"T3\",\"T4\"] --split-depth 0 --max-split-depth 3"
+    script_args: "wave-split --wave 1 --dispatched [\"T1\",\"T2\",\"T3\",\"T4\"] --missing-ids [\"T3\",\"T4\"] --split-depth 0 --max-split-depth 3 --state-file {{project_root}}/state-missing-t3-t4.json"
     project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
