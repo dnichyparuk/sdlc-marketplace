@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.6] - 2026-11-19
+
+### Changed
+- tests: the promptfoo exec suite is hermetic. Each case without `script_cwd` runs in its own temporary working directory, git network access is disabled by default, the pr-prepare cases use a stub `gh`, the link 404 cases use a fetch preload instead of the live network, and the timing cases use ratio-based or wider thresholds (#9460).
+
 ## [0.56.5] - 2026-11-19
 
 ### Fixed
