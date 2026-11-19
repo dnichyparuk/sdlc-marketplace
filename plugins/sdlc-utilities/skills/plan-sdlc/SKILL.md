@@ -426,7 +426,7 @@ Fix all issues from Step 3 (the lines of the round's `summary`, or the blocking 
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" splice --plan "<PLAN_PATH>" --merged "<iterDir>/merged.json" [--no-guardrails]
 ```
 
-It writes `## Guardrail Compliance` and `## Suggested Review Dimensions` from that file into the plan, replacing an earlier copy, and leaves untouched a section whose data is null there. Do not write these sections by hand. A non-zero exit means stop and invoke `error-report-sdlc`.
+It writes `## Guardrail Compliance` and `## Suggested Review Dimensions` from that file into the plan, replacing an earlier copy, and leaves untouched a section whose data is null there. Do not write these sections by hand. A non-zero exit means stop: remove `<critiqueDir>` (P22) and invoke `error-report-sdlc` (E9).
 
 When `activeGuardrails` is non-empty, the spliced `## Guardrail Compliance` section lists each guardrail's evaluation result. Error-severity failures (a `guardrail-block` status) must be resolved before presenting to user. When an error-severity failure cannot be resolved by plan revision and blocks the workflow, offer **harden** (run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time — opt-in, no surface is edited without your approval) alongside the user-revision options. When the user selects **harden** (interactive mode only — suppressed when `--auto` is set), dispatch `Skill(harden-sdlc)` with `--failure-text "Plan blocked by error-severity guardrail <id>: <description> — <rationale>"`, `--skill plan-sdlc`, `--step "Step 4 — IMPROVE"`, `--operation "error-severity guardrail block"`. Implements R19. The spliced section looks like:
 
@@ -496,7 +496,7 @@ plus the other Step 3 lines (`CRITIQUE_DIR`, `PLAN_FILE_PATH`, `PREPARE_OUTPUT`,
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" splice --plan "<PLAN_PATH>" --critique-dir "<critiqueDir>" [--no-guardrails]
 ```
 
-Pass `--no-guardrails` exactly when `activeGuardrails` is empty (the Step 3 decision for the whole run); otherwise the placeholder payload that merge-lanes writes would add a `## Guardrail Compliance` section. It writes only `## Guardrail Compliance`, from the newest critique result that holds a guardrail lane (R77). A non-zero exit means stop and invoke `error-report-sdlc`. <!-- R77 -->
+Pass `--no-guardrails` exactly when `activeGuardrails` is empty (the Step 3 decision for the whole run); otherwise the placeholder payload that merge-lanes writes would add a `## Guardrail Compliance` section. It writes only `## Guardrail Compliance`, from the newest critique result that holds a guardrail lane (R77). A non-zero exit means stop: remove `<critiqueDir>` (P22) and invoke `error-report-sdlc` (E9). <!-- R77 -->
 
 Step 4 is autonomous (implements R22 single-touchpoint handoff). After fixes are applied (the `plan.js splice` above has written Guardrail Compliance when `activeGuardrails` is non-empty and Suggested Review Dimensions when `g17Findings.findings` is non-empty, per R34, and on the Lightweight route the R77 re-splice has run), proceed directly to Step 5 on the full pipeline, or to Step 6.5 on the Lightweight route without escalation. The single user touchpoint for the finalized plan is Step 7 (Handoff); the error-severity guardrail-block harden offer above is the one decision gate inside Step 4. <!-- R19 -->
 

@@ -929,7 +929,7 @@ function latestGuardrailMerged(critiqueDir) {
     try {
       raw = fs.readFileSync(file, 'utf8');
     } catch (err) {
-      if (err && err.code === 'ENOENT') continue; // no merged.json in this iteration: skip
+      if (err && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) continue; // no merged.json in this iteration (or iter-<k> is not a directory): skip
       // An unreadable merged.json must not fall back to an older table (R77 threat model).
       throw new Error(`${file} cannot be read: ${err.message}`);
     }

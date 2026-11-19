@@ -1622,6 +1622,21 @@
           o.noG.status === 0 && JSON.stringify(o.noG.out.written) === '[]' && o.noG.same;
         return ok ? true : `FAIL: ${output}`;
 
+- description: "plan-splice: (f) --critique-dir fails closed on a bad newest merged.json, skips a non-directory iter entry (R77)"
+  vars:
+    script_path: "-e"
+    project_root: "file://fixtures-fs/plan-splice-latest"
+    script_args: '((cp,fs,d,js,t,P)=>((orig)=>((mk,run)=>((a,b,c)=>(fs.writeFileSync(a+"/iter-2/merged.json","{x"),fs.rmSync(b+"/iter-2/merged.json"),fs.mkdirSync(b+"/iter-2/merged.json"),fs.writeFileSync(c+"/iter-9","x"),((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({invalid:run("a",a),unreadable:run("b",b),notDir:run("c",c)})))(mk("a"),mk("b"),mk("c")))((n)=>(fs.cpSync(d,t+"/"+n,{recursive:true}),t+"/"+n),(n,cd)=>(fs.copyFileSync(P,t+"/"+n+".md"),((r)=>({status:r.status,err:r.stderr,stdout:r.stdout,out:r.stdout?JSON.parse(r.stdout):null,same:fs.readFileSync(t+"/"+n+".md","utf8")===orig}))(cp.spawnSync("node",[js,"splice","--plan",t+"/"+n+".md","--critique-dir",cd],{encoding:"utf8"})))))(fs.readFileSync(P,"utf8")))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"),"{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md")'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const fail = (x) => x.status === 2 && x.stdout === '' && x.err.startsWith('plan.js splice error: ') && x.same;
+        const ok = fail(o.invalid) && o.invalid.err.includes('is not valid JSON') && o.invalid.err.includes('iter-2') &&
+          fail(o.unreadable) && o.unreadable.err.includes('cannot be read') && o.unreadable.err.includes('iter-2') &&
+          o.notDir.status === 0 && o.notDir.out.source.endsWith('iter-1/merged.json');
+        return ok ? true : `FAIL: ${output}`;
+
 - description: "plan-prepare: (lightweight) no explore pack (A5, P8)"
   vars:
     script_path: "-e"
