@@ -56,7 +56,7 @@
       },
       {
         "id": "pr-link-github-issue",
-        "description": "When a change fixes or addresses a GitHub issue, the plan must include linking the issue in the PR (e.g., Fixes #123 or Closes #123). Internal register or tracking ids (for example the #94xx wave ids of this repository) are not GitHub issues: the PR body names them without Fixes or Closes, and this rule does not apply to them.",
+        "description": "When a change fixes or addresses a GitHub issue, the plan must include linking the issue in the PR (e.g., Fixes #123 or Closes #123). Internal register or tracking ids (the #94xx wave ids and the W-<key> register unit ids of this repository) are not GitHub issues: the PR body names them without Fixes or Closes, and this rule does not apply to them.",
         "severity": "error"
       },
       {
@@ -161,8 +161,8 @@
     ]
   },
   "commit": {
-    "subjectPattern": "^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\): .+ - .+$",
-    "subjectPatternError": "Commit subject must follow: type(#issue): scope - description",
+    "subjectPattern": "^(feat|fix|refactor|chore|docs|test|ci)\\((?:#\\d+|W-[A-Z0-9]+)\\): .+ - .+$",
+    "subjectPatternError": "Commit subject must follow: type(#issue or W-key): scope - description",
     "allowedTypes": [
       "feat",
       "fix",
@@ -177,8 +177,8 @@
     ]
   },
   "pr": {
-    "titlePattern": "^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\): .+ - .+$",
-    "titlePatternError": "PR title must follow: type(#issue): scope - description",
+    "titlePattern": "^(feat|fix|refactor|chore|docs|test|ci)\\((?:#\\d+|W-[A-Z0-9]+)\\): .+ - .+$",
+    "titlePatternError": "PR title must follow: type(#issue or W-key): scope - description",
     "labels": {
       "mode": "llm"
     },
