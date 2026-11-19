@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.2] - 2026-11-19
+
+### Fixed
+- plan-sdlc: the `--lightweight` route uses the inline-fallback parallel review dispatch, a non-zero `diff-material` exit dispatches the lens set the review route names, `diff-material` returns the after plan's review route, and the re-check after a non-material fix uses `review.lenses` (#9443).
+- plan-sdlc: Step 7 shows the Verification Scorecard pointer only when the scorecard holds one of the three verdict labels, and the exec test assertion matches that wording (#9443).
+
 ## [0.56.1] - 2026-11-18
 
 ### Fixed
