@@ -1,0 +1,16 @@
+# Script execution test for the vendored lift-planning CLI scripts/plan-register.mjs (#9461).
+# It stands in for the plugin's node:test wrapper: this project allows only promptfoo tests.
+# Fix a failure with: node scripts/plan-register.mjs write   (details: node scripts/plan-register.mjs check)
+
+- description: "plan-register: the register and the tickets are valid and their generated regions are current"
+  vars:
+    script_path: "repo://scripts/plan-register.mjs"
+    script_args: "check --root {{repo_root}}"
+    script_show_exit: true
+  assert:
+    - type: icontains
+      value: "plan-register: register valid"
+    - type: icontains
+      value: "plan-register: tickets valid"
+    - type: icontains
+      value: "[exit 0]"

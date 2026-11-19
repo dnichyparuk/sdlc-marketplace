@@ -96,3 +96,4 @@ tests:
   - file://datasets/spec-id-coverage-exec.yaml
   - file://datasets/dataset-asserts-exec.yaml
   - file://datasets/mutation-smoke-exec.yaml
+  - file://datasets/plan-register-exec.yaml

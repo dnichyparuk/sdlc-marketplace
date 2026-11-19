@@ -1,0 +1,71 @@
+{
+  "schema": "tickets/1",
+  "register": "docs/plans/register.json",
+  "root": "docs/tickets",
+  "archiveDir": "docs/tickets/archive",
+  "scheduleSection": "Milestones",
+  "digits": 3,
+  "types": {
+    "epic": {
+      "prefix": "EP",
+      "parents": [],
+      "topLevel": true,
+      "enabled": true
+    },
+    "story": {
+      "prefix": "ST",
+      "parents": [
+        "epic"
+      ],
+      "topLevel": true,
+      "enabled": true
+    },
+    "task": {
+      "prefix": "TK",
+      "parents": [
+        "story",
+        "epic"
+      ],
+      "topLevel": true,
+      "enabled": true
+    },
+    "defect": {
+      "prefix": "BG",
+      "parents": [
+        "epic",
+        "story",
+        "task"
+      ],
+      "topLevel": true,
+      "enabled": true
+    },
+    "idea": {
+      "prefix": "ID",
+      "parents": [
+        "epic"
+      ],
+      "topLevel": true,
+      "enabled": false
+    }
+  },
+  "implementable": [
+    "task",
+    "defect",
+    "story"
+  ],
+  "homeRequired": [],
+  "limits": {
+    "depth": 3,
+    "ticketLines": 120,
+    "ticketsPerMilestone": 8,
+    "attachmentBytes": 1048576,
+    "pathLength": 180,
+    "slugLength": 24
+  },
+  "regions": [
+    {
+      "file": "docs/tickets/README.md",
+      "marker": "tickets-index"
+    }
+  ]
+}

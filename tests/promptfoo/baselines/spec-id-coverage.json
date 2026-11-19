@@ -424,6 +424,10 @@
         "W8"
       ]
     },
+    "datasets/plan-register-exec.yaml": {
+      "asserts": 3,
+      "ids": []
+    },
     "datasets/plan-state-cleanup-exec.yaml": {
       "asserts": 8,
       "ids": []
