@@ -6,7 +6,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/migrate-jira-templates-test.js"
     script_args: "--op legacy-only"
-    project_root: "file://fixtures-fs/migrate-jira-templates/legacy-only"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -17,7 +16,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/migrate-jira-templates-test.js"
     script_args: "--op target-only"
-    project_root: "file://fixtures-fs/migrate-jira-templates/target-only"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -28,7 +26,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/migrate-jira-templates-test.js"
     script_args: "--op both-present"
-    project_root: "file://fixtures-fs/migrate-jira-templates/both-present"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -39,7 +36,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/migrate-jira-templates-test.js"
     script_args: "--op neither"
-    project_root: "file://fixtures-fs/migrate-jira-templates/neither"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -50,7 +46,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/migrate-jira-templates-test.js"
     script_args: "--op legacy-only-idempotent"
-    project_root: "file://fixtures-fs/migrate-jira-templates/legacy-only"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -61,7 +56,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/migrate-jira-templates-test.js"
     script_args: "--op auto-trigger-guard"
-    project_root: "file://fixtures-fs/migrate-jira-templates/legacy-only"
   assert:
     - type: contains
       value: "RESULT: PASS"

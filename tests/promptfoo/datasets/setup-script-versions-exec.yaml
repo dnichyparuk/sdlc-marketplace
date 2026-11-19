@@ -5,7 +5,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/setup-script-versions-test.js"
     script_args: "--op all-missing"
-    project_root: "file://fixtures-fs/setup-script-versions/missing"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -16,7 +15,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/setup-script-versions-test.js"
     script_args: "--op all-current"
-    project_root: "file://fixtures-fs/setup-script-versions/current"
   assert:
     - type: contains
       value: "RESULT: PASS"
@@ -27,7 +25,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/setup-script-versions-test.js"
     script_args: "--op one-outdated"
-    project_root: "file://fixtures-fs/setup-script-versions/outdated"
   assert:
     - type: contains
       value: "RESULT: PASS"

@@ -15,7 +15,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op factsheet-path"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.same === true && r.containsTaskId === true && r.idNormSame === true"
@@ -24,7 +23,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op render-contract"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.hasContractSection === true && r.contractBeforeAcceptance === true && r.noContractSection === true"
@@ -33,7 +31,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op render-notes"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.hasNotesSection === true && r.noNotesSection === true"
@@ -42,7 +39,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op render-tmpdir"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.hasScratch === true && r.scratchPathShown === true && r.noScratchUnset === true && r.noScratchRelative === true && r.noScratchEmpty === true"
@@ -55,7 +51,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op budget-tight"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.lessThanCap === true && r.maxConcurrentTasks >= 1"
@@ -64,7 +59,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op budget-uncapped"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.maxConcurrentTasks === 3"
@@ -73,7 +67,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op budget-model-limits"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.haiku === 300000 && r.sonnet === 3000000 && r.opus === 3000000"
@@ -82,7 +75,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op budget-config-override"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.without === 3 && r.withOverride === 2 && r.lower === true"
@@ -95,7 +87,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op summarize-files"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.count === 20 && r.last === 'src/file-29.js'"
@@ -104,7 +95,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op summarize-decisions"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.count === 10 && r.last === 'decision-24'"
@@ -117,7 +107,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op parse-complete"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.schemaOk === true && r.missingIds.length === 0 && r.extraIds.length === 0"
@@ -126,7 +115,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op parse-overflow"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.schemaOk === false && r.isOverflow === true && r.missingIds.length === 2"
@@ -135,7 +123,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op parse-free-text-error"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.schemaOk === false && r.hasEnumViolation === true"
@@ -144,7 +131,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op parse-malformed"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.schemaOk === false && r.tokenFound === true"
@@ -153,7 +139,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op parse-extra-ids"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.schemaOk === false && r.extraIds.includes('T_EXTRA')"
@@ -166,7 +151,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op split-4task"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.total === 4 && r.half0 === 2 && r.half1 === 2 && r.depth === 1"
@@ -175,7 +159,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op split-all-missing"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.total === 4 && r.depth === 2"
@@ -184,7 +167,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op split-depth-ceiling"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.threw === true && r.errorName === 'MaxSplitDepthExceededError'"
@@ -193,7 +175,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op split-idempotent"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.same === true"
@@ -295,7 +276,6 @@
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
     script_args: "wave-split --wave 1 --dispatched [\"T1\",\"T2\"] --split-depth 3 --max-split-depth 3"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "output.includes('MaxSplitDepth') || output.includes('max split depth') || output.includes('split depth')"
@@ -308,7 +288,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op parse-idnorm-mixed"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.allAccounted === true && r.missingIds.length === 0 && r.extraIds.length === 0"
@@ -317,7 +296,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op parse-stale-fileschanged"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.schemaOk === false && r.hasDroppedFieldViolation === true"
@@ -326,7 +304,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/wave-overflow-test.js"
     script_args: "--op normalize-task-id"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.t1 === '1' && r.t2 === '2' && r.n3 === '3' && r.tUpper === '10' && r.tLower === '10' && r.noPrefix === 'abc'"

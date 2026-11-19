@@ -970,7 +970,6 @@
 - description: "plan-merge: a flag followed directly by another flag is a usage error"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    project_root: "file://fixtures-fs/plan-merge-lanes"
     script_args: "merge-lanes --dir --lanes static-structural"
   assert:
     - type: icontains
@@ -1251,7 +1250,6 @@
 - description: "plan-sdlc/lens-sentinels: R71 runtime-semantics and user-facing-files sentinels present in the risk lens, the reviewer and SKILL.md"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-plan-lens-sentinels.js"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true"
@@ -1259,7 +1257,6 @@
 - description: "plan-sdlc/explore-sentinels: R72 fan-out, Brief file none, dim result files and dispatch sentinels present in the orchestrator agent and SKILL.md"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-plan-explore-sentinels.js"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true && r.orchestrator === true && r.skill === true"
@@ -1267,7 +1264,6 @@
 - description: "plan-sdlc/critique-orchestrator: R75 frontmatter, await barrier, statuses and script sentinels present; no AskUserQuestion and no --mark"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-plan-critique-orchestrator.js"
-    project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
       value: |
@@ -1392,7 +1388,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-plan-explore-check-brief.js"
     script_args: ""
-    project_root: "file://fixtures-fs/plan-explore-brief-check"
   assert:
     - type: javascript
       value: |

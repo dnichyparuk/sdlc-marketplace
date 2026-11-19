@@ -1,13 +1,11 @@
-# Pre-push hook: runs only the deterministic exec (scripts-only) promptfoo
-# suites — the regression tests for #490/#498. The behavioral/LLM suite
+# Pre-push hook: runs the fast exec tier (promptfooconfig-exec-fast.yaml): the
+# suite guards and repository validators, a subset of promptfooconfig-exec.yaml.
+# The full exec configs run with `task test:exec`. The behavioral/LLM suite
 # (promptfooconfig.yaml) is DELIBERATELY excluded: only scripts part.
 # Install with `task hooks:install` (or `lefthook install`).
 pre-push:
   parallel: false
   commands:
-    exec-scripts:
+    exec-fast:
       root: "tests/promptfoo/"
-      run: npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec.yaml
-    exec-hooks:
-      root: "tests/promptfoo/"
-      run: npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec-hooks.yaml
+      run: npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec-fast.yaml -j 1 --no-cache

@@ -1,12 +1,15 @@
 'use strict';
 // Exec-case runner for the github-sdlc datasets. Prints one JSON line:
 //   { exit, stdout, json, stderr, calls, outputFile: { path, content }, dumps }
-// It copies $HOME (the case's script_home, when inside the repo) to a temp home, builds a
-// temp workspace, points GH_STUB_LOG at a temp file (fixtures-fs/stub-bin-gh-issues/bin/gh
-// logs every call there) and runs the target script, or gh itself with --raw-gh.
+// It copies $HOME (the case's script_home: inside the repo, or the provider's promptfoo-home-*
+// copy of it) to a temp home, builds a temp workspace, points GH_STUB_LOG at a temp file
+// (fixtures-fs/stub-bin-gh-issues/bin/gh logs every call there) and runs the target script with
+// scripts/gh-inprocess.js preloaded (its spawnSync('gh') calls answered in-process by the stub),
+// or gh itself with --raw-gh.
 // Usage: run-github-case.js [options] -- <script args>
 //   --script <repo-relative path>  target script (default plugins/sdlc-utilities/scripts/skill/github.js)
 //   --raw-gh                       run `gh` with the args after `--` (stub self-tests)
+//   --gh-subprocess                run the target script without the preload: every gh call starts the binary
 //   --origin <url> | --no-git      workspace git repo with that origin | no git repo
 //   --config <json>                write .sdlc/config.json with that text
 //   --sub <dir>                    run from that sub-directory of the workspace
@@ -36,6 +39,7 @@ const REPO_ROOT = path.resolve(__dirname, '../../..');
 const FIXTURES = path.join(PROMPTFOO_DIR, 'fixtures-fs');
 const PAYLOADS = path.join(FIXTURES, 'github-sdlc-inputs', 'payloads-core.json');
 const GITHUB_JS = path.join(REPO_ROOT, 'plugins/sdlc-utilities/scripts/skill/github.js');
+const GH_INPROCESS = path.join(__dirname, 'gh-inprocess.js');
 const STUB_BIN_RE = /script_stub_bin:\s*"?fixtures-fs\/stub-bin-gh-issues\/bin"?/;
 const OFFLINE_RE = /SDLC_LINKS_OFFLINE"?\s*:\s*"?1/;
 const TIMEOUT_MS = 25_000;
@@ -44,7 +48,7 @@ function parseArgs(argv) {
   const sep = argv.indexOf('--');
   const own = sep < 0 ? argv : argv.slice(0, sep);
   const opts = {
-    script: 'plugins/sdlc-utilities/scripts/skill/github.js', rawGh: false, origin: null, noGit: false,
+    script: 'plugins/sdlc-utilities/scripts/skill/github.js', rawGh: false, ghSubprocess: false, origin: null, noGit: false,
     config: null, sub: null, breakCache: false, noGhPath: false, dumps: [], dropKeys: [], setKeys: [], payloads: [],
     bulkOverMax: false, checkDataset: null, schemaSync: false, autoArgv: null, rest: sep < 0 ? [] : argv.slice(sep + 1),
   };
@@ -52,6 +56,7 @@ function parseArgs(argv) {
     switch (own[i]) {
       case '--script': opts.script = own[++i]; break;
       case '--raw-gh': opts.rawGh = true; break;
+      case '--gh-subprocess': opts.ghSubprocess = true; break;
       case '--origin': opts.origin = own[++i]; break;
       case '--no-git': opts.noGit = true; break;
       case '--config': opts.config = own[++i]; break;
@@ -159,9 +164,12 @@ function run(opts, tmp) {
   const out = path.join(tmp, 'out', 'output.json');
   const log = path.join(tmp, 'gh-calls.jsonl');
 
-  // Copy only a fixture home: never the real $HOME of a case that forgot script_home.
+  // Copy only a fixture home (in the repo, or the provider's promptfoo-home-* copy of one directly
+  // under the temp dir): never the real $HOME of a case that forgot script_home.
   const srcHome = process.env.HOME ? path.resolve(process.env.HOME) : '';
-  if (srcHome.startsWith(REPO_ROOT + path.sep) && fs.existsSync(srcHome)) {
+  const providerCopy = path.dirname(srcHome) === path.resolve(os.tmpdir())
+    && path.basename(srcHome).startsWith('promptfoo-home-');
+  if ((srcHome.startsWith(REPO_ROOT + path.sep) || providerCopy) && fs.existsSync(srcHome)) {
     fs.cpSync(srcHome, home, { recursive: true });
   } else {
     fs.mkdirSync(home);
@@ -231,7 +239,8 @@ function run(opts, tmp) {
       .replace(/@FIX:([^@]+)@/g, (_, p) => path.join(FIXTURES, p)));
     const r = opts.rawGh
       ? spawnSync('gh', args, { cwd, env, encoding: 'utf8', timeout: TIMEOUT_MS })
-      : spawnSync(process.execPath, [path.resolve(REPO_ROOT, opts.script), ...args],
+      : spawnSync(process.execPath,
+        [...(opts.ghSubprocess ? [] : ['-r', GH_INPROCESS]), path.resolve(REPO_ROOT, opts.script), ...args],
         { cwd, env, encoding: 'utf8', timeout: TIMEOUT_MS });
     let json = null;
     try { json = JSON.parse(r.stdout || ''); } catch (_) { /* not JSON */ }
@@ -258,35 +267,29 @@ function run(opts, tmp) {
   };
 }
 
-function main() {
-  const opts = parseArgs(process.argv.slice(2));
-  if (opts.checkDataset) {
-    process.stdout.write(`${JSON.stringify(checkDataset(opts.checkDataset))}\n`);
-    return;
-  }
-  if (opts.checkTriggers) {
-    process.stdout.write(`${JSON.stringify(checkTriggers())}\n`);
-    return;
-  }
-  if (opts.schemaSync) {
-    process.stdout.write(`${JSON.stringify(schemaSync())}\n`);
-    return;
-  }
-  if (opts.autoArgv) {
-    process.stdout.write(`${JSON.stringify(autoArgv(opts.autoArgv))}\n`);
-    return;
-  }
+// Re-entrant: makes and removes its own temp folder; never exits, chdirs or changes process.env.
+// Returns the object the CLI prints; argument errors throw.
+function runCase(argv) {
+  const opts = parseArgs(argv);
+  if (opts.checkDataset) return checkDataset(opts.checkDataset);
+  if (opts.checkTriggers) return checkTriggers();
+  if (opts.schemaSync) return schemaSync();
+  if (opts.autoArgv) return autoArgv(opts.autoArgv);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'github-case-'));
   try {
-    process.stdout.write(`${JSON.stringify(run(opts, tmp))}\n`);
+    return run(opts, tmp);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
 
-try {
-  main();
-} catch (err) {
-  process.stderr.write(`run-github-case: ${(err && err.stack) || err}\n`);
-  process.exitCode = 2;
+module.exports = { runCase };
+
+if (require.main === module) {
+  try {
+    process.stdout.write(`${JSON.stringify(runCase(process.argv.slice(2)))}\n`);
+  } catch (err) {
+    process.stderr.write(`run-github-case: ${(err && err.stack) || err}\n`);
+    process.exitCode = 2;
+  }
 }

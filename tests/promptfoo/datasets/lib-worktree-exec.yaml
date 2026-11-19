@@ -6,7 +6,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/worktree-lib-test.js"
     script_args: "--op exports"
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"hasResolveMainWorktree": true'

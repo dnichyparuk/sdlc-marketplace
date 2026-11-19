@@ -140,3 +140,31 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.override === 'ssh -o BatchMode=yes'"
+
+# An in-repo script_home is copied per case: HOME is outside the repository, the repo fixture
+# stays untouched and the per-case copy is gone after the case.
+- description: "script-runner: an in-repo script_home is copied per case and the repo fixture stays untouched"
+  vars:
+    script_path: "-e"
+    script_args: 'require("fs").writeFileSync(process.env.HOME+"/probe-home.txt","x");console.log(process.env.HOME)'
+    script_home: "fixtures-fs/github-sdlc-home"
+  assert:
+    - type: javascript
+      value: |
+        const fs = process.getBuiltinModule('fs');
+        const path = process.getBuiltinModule('path');
+        const home = output.trim();
+        const repoRoot = path.resolve(process.cwd(), '../..');
+        return path.relative(repoRoot, home).startsWith('..')
+          && !fs.existsSync(path.join(repoRoot, 'tests/promptfoo/fixtures-fs/github-sdlc-home/probe-home.txt'))
+          && !fs.existsSync(home);
+
+# A script_home outside the repository is used as is (no copy).
+- description: "script-runner: a script_home outside the repo is used as is"
+  vars:
+    script_path: "-e"
+    script_args: 'console.log(process.env.HOME)'
+    script_home: "/nonexistent-home-for-script-runner-test"
+  assert:
+    - type: equals
+      value: "/nonexistent-home-for-script-runner-test"

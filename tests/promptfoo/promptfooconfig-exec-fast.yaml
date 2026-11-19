@@ -1,0 +1,33 @@
+description: "Fast exec tier for the pre-push hook: suite guards and repository validators (a subset of promptfooconfig-exec.yaml)"
+
+evaluateOptions:
+  maxConcurrency: 1
+
+# Subset of promptfooconfig-exec.yaml. The fast-tier case in datasets/fixture-guard-exec.yaml keeps it a subset.
+# The prompt is unused for script tests but required by the promptfoo config schema.
+providers:
+  - id: file://providers/script-runner.js
+
+prompts:
+  - "run"
+
+defaultTest:
+  options:
+    transformVars: "file://scripts/extract-skill-content.js"
+
+extensions:
+  - file://scripts/fixture-copies-cleanup.js:afterAll
+
+tests:
+  - file://datasets/fixture-guard-exec.yaml
+  - file://datasets/dataset-regex-exec.yaml
+  - file://datasets/dataset-asserts-exec.yaml
+  - file://datasets/docs-copies-exec.yaml
+  - file://datasets/spec-id-coverage-exec.yaml
+  - file://datasets/validate-cost-tiers-exec.yaml
+  - file://datasets/validate-spec-shape-exec.yaml
+  - file://datasets/validate-args-rule-exec.yaml
+  - file://datasets/validate-copilot-mirror-exec.yaml
+  - file://datasets/sdlc-plugin-discovery-exec.yaml
+  - file://datasets/sdlc-script-resolution-exec.yaml
+  - file://datasets/plan-format-exec.yaml

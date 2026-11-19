@@ -8,7 +8,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/branch-name-test.js"
     script_args: "--op exports"
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"hasResolveBranchName": true'
@@ -18,7 +17,6 @@
     script_path: "repo://tests/promptfoo/scripts/branch-name-test.js"
     script_args: >-
       --op resolveBranchName --opts-json {"type":"feature","slug":"add-auth"}
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": true'
@@ -30,7 +28,6 @@
     script_path: "repo://tests/promptfoo/scripts/branch-name-test.js"
     script_args: >-
       --op resolveBranchName --opts-json {"type":"feature","slug":"add-auth","issue":"378","config":{"template":"{type}/{issue}-{slug}"}}
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": true'
@@ -42,7 +39,6 @@
     script_path: "repo://tests/promptfoo/scripts/branch-name-test.js"
     script_args: >-
       --op resolveBranchName --opts-json {"type":"feature","slug":"this-is-a-very-long-slug-that-exceeds-fifty-characters-by-far"}
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": true'
@@ -58,7 +54,6 @@
     script_path: "repo://tests/promptfoo/scripts/branch-name-test.js"
     script_args: >-
       --op resolveBranchName --opts-json {"type":"feature","slug":"add-auth","config":{"typeMap":{"feature":"feature"}}}
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": true'
@@ -70,7 +65,6 @@
     script_path: "repo://tests/promptfoo/scripts/branch-name-test.js"
     script_args: >-
       --op resolveBranchName --opts-json {"type":"feature","slug":"add-auth","config":{"template":"{type}/{unknown}"}}
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": false'
@@ -82,7 +76,6 @@
     script_path: "repo://tests/promptfoo/scripts/branch-name-test.js"
     script_args: >-
       --op resolveBranchName --opts-json {"type":"feature","slug":""}
-    project_root: "file://fixtures-fs/worktree-main-cwd"
   assert:
     - type: contains
       value: '"ok": false'

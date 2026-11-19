@@ -1837,7 +1837,7 @@ function reviewSummaryPath(branch) {
  * missing summary).
  */
 function reviewGateFromSummary(summaryPath, threshold, opts = {}) {
-  const missing = { dispatchReceivedReview: true, reason: REVIEW_SUMMARY_MISSING, counts: null, verdict: null, summaryFound: false, commentPath: null, commentCopyPath: null };
+  const missing = { dispatchReceivedReview: true, reason: REVIEW_SUMMARY_MISSING, counts: null, verdict: null, summaryFound: false, commentPath: null, commentCopyPath: null, findings: null };
   let doc;
   try {
     const st = fs.statSync(summaryPath);
@@ -1856,7 +1856,15 @@ function reviewGateFromSummary(summaryPath, threshold, opts = {}) {
     counts, verdict: doc.verdict, summaryFound: true,
     commentPath: typeof doc.commentPath === 'string' ? doc.commentPath : null,
     commentCopyPath: typeof doc.commentCopyPath === 'string' ? doc.commentCopyPath : null,
+    findings: summaryFindings(doc), // R106: null when the summary has no findings array
   };
+}
+
+function summaryFindings(doc) {
+  if (!Array.isArray(doc.findings)) return null;
+  return doc.findings
+    .filter(f => f && [...SEVERITIES, 'info'].includes(f.severity) && typeof f.path === 'string' && typeof f.title === 'string')
+    .map(f => ({ severity: f.severity, dimension: typeof f.dimension === 'string' ? f.dimension : null, path: f.path, line: f.line ?? null, title: f.title }));
 }
 
 /**
@@ -1895,7 +1903,7 @@ function reviewGateDecision(ledger) {
   const notBefore = review && review.startedAt ? Date.parse(review.startedAt) : 0;
   const summaryPath = reviewSummaryPath(ledger.branch);
   const r = reviewGateFromSummary(summaryPath, threshold, { notBefore });
-  return { parseable: r.summaryFound, threshold, verdict: r.verdict, counts: r.counts, met: r.dispatchReceivedReview, summaryFound: r.summaryFound, summaryPath, reason: r.reason, commentPath: r.commentPath, commentCopyPath: r.commentCopyPath };
+  return { parseable: r.summaryFound, threshold, verdict: r.verdict, counts: r.counts, met: r.dispatchReceivedReview, summaryFound: r.summaryFound, summaryPath, reason: r.reason, commentPath: r.commentPath, commentCopyPath: r.commentCopyPath, findings: r.findings };
 }
 
 /** R77: the findings input of dispatch_received_review: '--pr <N>', '--comment-file "<path>"' or ''. Never throws. */
@@ -1936,6 +1944,7 @@ function reviewRoundRecord(ledger, round, final) {
   return {
     round, final: !!final, counts, threshold: d.threshold, receivedReview: ran,
     fixed: ran ? int('fixed') : null, declined: ran ? int('declined') : null, deferred: ran ? int('deferred') : null,
+    findings: d.parseable && Array.isArray(d.findings) ? d.findings : null, // R106
   };
 }
 
@@ -3020,6 +3029,11 @@ function runAfter(stepArgs) {
     try {
       fs.writeFileSync(summarySidecarPath(ledgerPath), JSON.stringify(next.step.data.summary));
     } catch (_) { /* the summary then stays null after cleanup */ }
+    try {
+      const roundsFile = path.join(resolveStateDir(), `review-rounds-${slugifyBranch(ledger.branch || 'nobranch')}.json`);
+      fs.writeFileSync(roundsFile, JSON.stringify({ schemaVersion: 1, branch: ledger.branch, startedAt: ledger.startedAt,
+        rounds: next.step.data.summary.reviewRounds || [] }, null, 2) + '\n');
+    } catch (_) { /* R108: a write error never stops the pipeline */ }
   }
 
   // 7. Persist and emit.

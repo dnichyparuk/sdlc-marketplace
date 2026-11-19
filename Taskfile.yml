@@ -2,7 +2,7 @@ version: "3"
 
 tasks:
   hooks:install:
-    desc: Install the local git pre-push hook (runs exec-only promptfoo suites)
+    desc: Install the local git pre-push hook (runs the fast exec tier, promptfooconfig-exec-fast.yaml)
     silent: true
     cmds:
       - lefthook install
@@ -26,8 +26,15 @@ tasks:
     silent: true
     dir: tests/promptfoo
     cmds:
-      - npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec.yaml --env-file .env
-      - npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec-hooks.yaml --env-file .env
+      - npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec.yaml -j 1 --env-file .env
+      - npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec-hooks.yaml -j 1 --env-file .env
+
+  test:exec:fast:
+    desc: Run the fast exec tier (suite guards and repository validators; the pre-push tier)
+    silent: true
+    dir: tests/promptfoo
+    cmds:
+      - npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec-fast.yaml -j 1 --env-file .env
 
   test:skill:
     desc: "Run tests for specific skills (args: skill name, e.g. task test:skill -- pr-sdlc)"

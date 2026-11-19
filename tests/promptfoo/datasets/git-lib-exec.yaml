@@ -9,7 +9,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op exports"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: '"hasFetchBaseRef": true'
@@ -44,7 +43,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op buildDiffCmd --scope committed --base main"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: 'git diff --name-only main...HEAD'
@@ -53,7 +51,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op buildDiffCmd --scope stat --base main"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: 'git diff --stat main...HEAD'
@@ -62,7 +59,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op buildDiffCmd --scope content --base main"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: 'git diff main...HEAD'
@@ -105,7 +101,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op execMaxBuffer"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: '"ok": true'
@@ -114,7 +109,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op execDefaultMaxBufferApplied"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: '"ok": true'
@@ -123,7 +117,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op execMaxBufferOverflow"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: '"threw": true'
@@ -136,7 +129,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op execNormalFailure"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: '"returnedNull": true'
@@ -145,7 +137,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op execGhTimeoutApplied"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: javascript
       value: |
@@ -160,7 +151,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op probeGhAuthTimeout"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: javascript
       value: |
@@ -175,7 +165,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op execGhArgvTimeout"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: javascript
       value: |
@@ -187,7 +176,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op selectGhAccountForTarget"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: javascript
       value: |
@@ -202,7 +190,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op recoverGhAccountForTarget"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: javascript
       value: |
@@ -219,7 +206,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op probeGhAuthScopes"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: javascript
       value: |
@@ -232,7 +218,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op tagListVariants"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: 'RESULT: PASS'
@@ -241,7 +226,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op fetchBaseRefSha"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: 'RESULT: PASS'
@@ -250,7 +234,6 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/git-lib-test.js"
     script_args: "--op remoteStateTracking"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
   assert:
     - type: contains
       value: 'RESULT: PASS'

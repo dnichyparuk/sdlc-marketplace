@@ -203,7 +203,6 @@
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/lib/markdown-to-adf.js"
     script_args: "--file /tmp/does-not-exist-markdown-to-adf-test.md"
-    project_root: "file://fixtures-fs/markdown-to-adf"
   assert:
     - type: icontains
       value: "markdown-to-adf error"

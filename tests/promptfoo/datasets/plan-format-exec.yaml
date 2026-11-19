@@ -596,7 +596,6 @@
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
     script_args: "--help"
-    project_root: "file://fixtures-fs/project-valid-plan"
   assert:
     - type: javascript
       value: '["--file", "--final", "--template", "--markdown", "--root", "--project-root", "--json"].every(s => output.includes(s)) && output.includes("0 = all pass")'

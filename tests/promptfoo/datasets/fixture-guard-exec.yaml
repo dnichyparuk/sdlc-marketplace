@@ -1,5 +1,6 @@
 # Script execution tests for tests/promptfoo/scripts/check-fixture-guard.js (W8.29)
-# and tests/promptfoo/scripts/check-fixture-refs.js (#9388).
+# and tests/promptfoo/scripts/check-fixture-refs.js (#9388),
+# and the memoised fixture build in scripts/extract-skill-content.js via scripts/run-fixture-memo.js (TK-001).
 
 - description: "fixture-guard: (a) every git-init fixture setup.sh, at any depth, carries the guard before its first git init or git config"
   vars:
@@ -47,3 +48,68 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.datasets === 3 && r.refs === 3 && r.missing.map(m => (m.config || m.dataset) + ':' + m.line + ':' + m.ref).join(',') === 'promptfooconfig-headless.yaml:3:datasets/c.yaml,datasets/a.yaml:3:fixtures/absent.md,datasets/b.yaml:2:fixtures-fs/absent-dir'"
+
+- description: "fixture-memo: (a) four concurrent cases of one fixture share one build and get four copies"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-fixture-memo.js"
+    script_args: "--fixture fixture-memo-probe --cases 4"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.distinctRoots === 4 && r.buildIds.length === 4 && r.buildIds.every(Boolean) && r.distinctBuildIds === 1 && r.templates.length === 1 && typeof r.templates[0] === 'string' && !r.roots.includes(r.templates[0])"
+
+- description: "fixture-memo: (b) a path-dependent fixture is built per case"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-fixture-memo.js"
+    script_args: "--fixture project-ship-resume-flags --cases 3"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.distinctRoots === 3 && r.templates.length === 1 && r.templates[0] === null"
+
+- description: "fixture-memo: (c) a copy keeps file times and relative symlinks"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-fixture-memo.js"
+    script_args: "--fixture fixture-memo-probe --cases 2"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); typeof r.templates[0] === 'string' && r.agedMtimes.length === 2 && r.agedMtimes.every(m => typeof m === 'string' && m.startsWith('2020-01-01')) && r.linkTargets.length === 2 && r.linkTargets.every(t => t === 'aged.txt')"
+
+- description: "fixture-memo: (d) the copies of three memoised fixtures match a fresh build"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-fixture-memo.js"
+    script_args: "--scan --fixtures project-sdlc-gitignore-inner,project-execute-prepare,execute-state-mid-wave"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.scanned === 3 && r.memo === 3 && r.perCase === 0 && r.mismatches.length === 0"
+
+# The -e script reads both configs as text (no YAML parser). argv: -- <repo root>.
+- description: "fast-tier: every fast-tier dataset is in the full exec config and the fast config matches its provider, transform and cleanup"
+  vars:
+    script_path: "-e"
+    script_args: "eval(process.env.FAST_TIER_GUARD) -- {{repo_root}}"
+    script_env:
+      FAST_TIER_GUARD: |
+        const fs = require('fs');
+        const path = require('path');
+        const dir = path.join(process.argv[1], 'tests', 'promptfoo');
+        const read = (f) => fs.readFileSync(path.join(dir, f), 'utf8').split('\n').filter((l) => l.trim() && !/^\s*#/.test(l));
+        const fast = read('promptfooconfig-exec-fast.yaml');
+        const full = read('promptfooconfig-exec.yaml');
+        const datasets = (lines) => lines.map((l) => (l.match(/^\s*-\s*file:\/\/(datasets\/\S+)\s*$/) || [])[1]).filter(Boolean);
+        const block = (lines, key) => {
+          const i = lines.findIndex((l) => l.startsWith(key + ':'));
+          if (i < 0) return null;
+          let j = i + 1;
+          while (j < lines.length && /^\s/.test(lines[j])) j++;
+          return lines.slice(i, j).join('\n');
+        };
+        const fastSets = datasets(fast);
+        const fullSets = new Set(datasets(full));
+        const out = {
+          fastCount: fastSets.length,
+          missing: fastSets.filter((d) => !fullSets.has(d)),
+          mismatched: ['providers', 'defaultTest', 'extensions'].filter((k) => block(fast, k) === null || block(fast, k) !== block(full, k)),
+        };
+        console.log(JSON.stringify(out));
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.fastCount >= 12 && r.missing.length === 0 && r.mismatched.length === 0"

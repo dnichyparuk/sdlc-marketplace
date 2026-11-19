@@ -433,6 +433,8 @@ function buildSummary(manifest, results, counts, verdictText, commentPath, comme
     schemaVersion: 1,
     verdict: verdictText,
     counts: counts.total,
+    findings: results.flatMap(r => r.findings).sort(compareFindings)
+      .map(f => ({ severity: f.severity, dimension: f.dimension, path: f.file, line: f.line, title: f.title })),
     dimensions,
     commentPath,
     commentCopyPath,
