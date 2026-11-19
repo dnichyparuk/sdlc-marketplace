@@ -1,5 +1,7 @@
 # W-H2 Suite Speed Infrastructure, Pre-push Tier and Round Findings Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #117, dc5be01
+
 **Commit:** `feat(W-H2): tests, review - suite speed, pre-push tier, round findings`
 **Goal:**
 - Make the exec test suite faster: build each git fixture once per run, answer the github `gh` calls in the same process, run the C16 apply loop without one process per payload, and drop the fixture copies that no case uses.
@@ -143,12 +145,12 @@ When all tasks are done:
 **Notes:** Path-dependent fixtures cannot be copied, because committed git objects hold the build path in compressed form. promptfoo 0.123.1 runs `transformVars` in one node process, so a Map of promises is enough to share one build between concurrent cases at `-j N`. The template name starts with `promptfoo-fixture-`, so the existing `afterAll` cleanup removes it; the cleanup also clears both registries, so a later run in the same process rebuilds the templates. Threat model of the memo rule (best effort): it guards against a copy that points at the template. Findings: F-exec-suite-fixture-memoisation-and-parallel-safety-1, -7. Accepted gap: a setup that writes its path only into a committed file and then deletes that file from the work tree, without naming `pwd`/`PWD` in `setup.sh`, is not detected.
 
 **Acceptance criteria:**
-- [ ] Four concurrent `transformVars` calls for `fixture-memo-probe` give four different `project_root` folders with one shared build id (one build).
-- [ ] A path-dependent fixture (`project-ship-resume-flags`, its `setup.sh` writes `$PWD`) gives a different build per case.
-- [ ] A copy keeps the aged file's mtime (2020-01-01) and the relative symlink target `aged.txt`.
-- [ ] `node tests/promptfoo/scripts/run-fixture-memo.js --scan` over every fixture with a `setup.sh` exits 0 with `mismatches: []` (run once by the worker; the suite case scans 3 fixtures only).
-- [ ] Targeted runs pass for the datasets of the three most-used memoised fixtures that the scan prints (for example `--filter-pattern "^setup-prepare"`, `"^execute-prepare:"`), and for `"^fixture-memo:"` and `"^fixture-guard:"`.
-- [ ] Count checks: `fixture-guard (a)` still passes (`scanned >= 150`; the probe runs no git); `spec-id-coverage (b)` floors only grow (+4 cases).
+- [x] Four concurrent `transformVars` calls for `fixture-memo-probe` give four different `project_root` folders with one shared build id (one build).
+- [x] A path-dependent fixture (`project-ship-resume-flags`, its `setup.sh` writes `$PWD`) gives a different build per case.
+- [x] A copy keeps the aged file's mtime (2020-01-01) and the relative symlink target `aged.txt`.
+- [x] `node tests/promptfoo/scripts/run-fixture-memo.js --scan` over every fixture with a `setup.sh` exits 0 with `mismatches: []` (run once by the worker; the suite case scans 3 fixtures only).
+- [x] Targeted runs pass for the datasets of the three most-used memoised fixtures that the scan prints (for example `--filter-pattern "^setup-prepare"`, `"^execute-prepare:"`), and for `"^fixture-memo:"` and `"^fixture-guard:"`.
+- [x] Count checks: `fixture-guard (a)` still passes (`scanned >= 150`; the probe runs no git); `spec-id-coverage (b)` floors only grow (+4 cases).
 
 **Contract:**
 - shape (code): the copy-and-setup block of `transformVars`, before → after. The existing block (`extract-skill-content.js`, inside `if (vars.project_root && vars.project_root.startsWith('file://fixtures-fs/')) {`):
@@ -251,10 +253,10 @@ When all tasks are done:
 **Notes:** This closes the only shared-write path at `-j N`. It changes a default that every case with `script_home` inherits, so the affected cases are found by a scan (ledger rule F-160; findings F-exec-suite-fixture-memoisation-and-parallel-safety-4, -5): `git grep -n "script_home:" tests/promptfoo/datasets` gives `github-sdlc-exec`, `jira-sdlc-exec`, `jira-assemble-exec`, `links-lib-exec`, `mcp-failure-github-exec`; each gets a full targeted run. `run-github-case.js` copies an in-repo HOME itself; after this change it gets a HOME outside the repository and uses it as is, which is also per case.
 
 **Acceptance criteria:**
-- [ ] A case with `script_home: "fixtures-fs/github-sdlc-home"` whose script writes `$HOME/probe-home.txt` prints a HOME outside the repository, and `tests/promptfoo/fixtures-fs/github-sdlc-home/probe-home.txt` does not exist afterwards.
-- [ ] A case with `script_home: "{{project_root}}"` keeps that path as HOME (no copy).
-- [ ] The per-case HOME copy is removed after the case.
-- [ ] Targeted runs pass: `"^github-sdlc/"`, `"^mcp-failure"`, `"^jira-prepare:"`, `"^jira.js"`, `"^jira-assemble:"`, `"^links:"`, `"^script-runner"`, `"^script_stub_bin:"`.
+- [x] A case with `script_home: "fixtures-fs/github-sdlc-home"` whose script writes `$HOME/probe-home.txt` prints a HOME outside the repository, and `tests/promptfoo/fixtures-fs/github-sdlc-home/probe-home.txt` does not exist afterwards.
+- [x] A case with `script_home: "{{project_root}}"` keeps that path as HOME (no copy).
+- [x] The per-case HOME copy is removed after the case.
+- [x] Targeted runs pass: `"^github-sdlc/"`, `"^mcp-failure"`, `"^jira-prepare:"`, `"^jira.js"`, `"^jira-assemble:"`, `"^links:"`, `"^script-runner"`, `"^script_stub_bin:"`.
 
 **Contract:**
 - shape (code): before → after in `callApi`:
@@ -301,11 +303,11 @@ When all tasks are done:
 **Notes:** `lib/git.js` takes `spawnSync` from `child_process` when it loads; a `-r` preload runs first, so replacing the property on the module object is seen by it. The stub folder stays on PATH (C17 check, direct cases, `--raw-gh` self-tests), and the preload falls through to the real `spawnSync` when another `gh` comes first on PATH, so the `--no-gh-path` cases keep their result. Findings: F-gh-stub-and-c16-loop-inprocess-1, -2, -3, -7. Threat model: test-only code; accepted gap: shell `execSync('gh …')` calls are not intercepted and use the binary.
 
 **Acceptance criteria:**
-- [ ] For three scenarios (one view, one apply `--dry-run`, one auth-timeout case), the runner output `{exit, json, calls}` with the preload equals the output with `--gh-subprocess`.
-- [ ] An auth-timeout answer whose sleep is at least the call's `timeout` returns at once as a timed-out result (`timedOut: true` in `execGh`), with no real sleep.
-- [ ] A `--no-gh-path` case still reports gh as missing.
-- [ ] `--raw-gh` stub self-tests still run the binary and pass.
-- [ ] Targeted runs pass: `"^github-sdlc/"` and `"^mcp-failure"`.
+- [x] For three scenarios (one view, one apply `--dry-run`, one auth-timeout case), the runner output `{exit, json, calls}` with the preload equals the output with `--gh-subprocess`.
+- [x] An auth-timeout answer whose sleep is at least the call's `timeout` returns at once as a timed-out result (`timedOut: true` in `execGh`), with no real sleep.
+- [x] A `--no-gh-path` case still reports gh as missing.
+- [x] `--raw-gh` stub self-tests still run the binary and pass.
+- [x] Targeted runs pass: `"^github-sdlc/"` and `"^mcp-failure"`.
 
 **Contract:**
 - shape (code):
@@ -353,10 +355,10 @@ When all tasks are done:
 **Notes:** The anchor is shared by every apply case, so one change removes one node process per payload from all of them. `runCase` must be re-entrant: each call makes and removes its own temp folders and never calls `process.exit`, `process.chdir` or changes `process.env`. Findings: F-gh-stub-and-c16-loop-inprocess-4, -5, -6.
 
 **Acceptance criteria:**
-- [ ] `APPLY_HARNESS` holds no `spawnSync(process.execPath` call for the runner.
-- [ ] Running `node run-github-case.js …` from the shell prints the same JSON line as before.
-- [ ] The two C16 cases still assert `runs.length === 8` and `runs.length === 9` and pass.
-- [ ] Targeted run passes: `"^github-sdlc/apply"`, then `"^github-sdlc/"`.
+- [x] `APPLY_HARNESS` holds no `spawnSync(process.execPath` call for the runner.
+- [x] Running `node run-github-case.js …` from the shell prints the same JSON line as before.
+- [x] The two C16 cases still assert `runs.length === 8` and `runs.length === 9` and pass.
+- [x] Targeted run passes: `"^github-sdlc/apply"`, then `"^github-sdlc/"`.
 
 **Contract:**
 - shape (code):
@@ -413,9 +415,9 @@ When all tasks are done:
 - sync: none.
 
 **Acceptance criteria:**
-- [ ] The wasted-project_root scan, run from the repository root, prints no entry for the five files. Scan: `node -e 'const fs=require("fs");const d="tests/promptfoo/datasets/";const o={};for(const f of fs.readdirSync(d).filter(f=>f.endsWith(".yaml")))for(const b of fs.readFileSync(d+f,"utf8").split(/^(?=\s*- description:)/m)){if(!/project_root:\s*"?file:\/\/fixtures-fs/.test(b))continue;const r=b.split("\n").filter(l=>!/^\s*project_root:\s*"?file:/.test(l));const a=r.filter(l=>/^\s*script_args:/.test(l)).join("\n");const x=r.filter(l=>!/^\s*script_args:/.test(l)).join("\n");if(/project_root/.test(a+x)||/repo_root/.test(x))continue;o[f]=(o[f]||0)+1}console.log(JSON.stringify(o))'`
-- [ ] No case is removed (the `- description:` count of each file is unchanged).
-- [ ] Targeted runs pass: `"^execute-plan-sdlc/"`, `"^git-lib:"`, `"^branch-name:"`, `"^version"` (version-retag cases), `"^branch-guard:"`.
+- [x] The wasted-project_root scan, run from the repository root, prints no entry for the five files. Scan: `node -e 'const fs=require("fs");const d="tests/promptfoo/datasets/";const o={};for(const f of fs.readdirSync(d).filter(f=>f.endsWith(".yaml")))for(const b of fs.readFileSync(d+f,"utf8").split(/^(?=\s*- description:)/m)){if(!/project_root:\s*"?file:\/\/fixtures-fs/.test(b))continue;const r=b.split("\n").filter(l=>!/^\s*project_root:\s*"?file:/.test(l));const a=r.filter(l=>/^\s*script_args:/.test(l)).join("\n");const x=r.filter(l=>!/^\s*script_args:/.test(l)).join("\n");if(/project_root/.test(a+x)||/repo_root/.test(x))continue;o[f]=(o[f]||0)+1}console.log(JSON.stringify(o))'`
+- [x] No case is removed (the `- description:` count of each file is unchanged).
+- [x] Targeted runs pass: `"^execute-plan-sdlc/"`, `"^git-lib:"`, `"^branch-name:"`, `"^version"` (version-retag cases), `"^branch-guard:"`.
 
 ### Task 6: Drop the wasted project_root (batch 2)
 **Ticket:** TK-001 @60918ba9
@@ -441,9 +443,9 @@ When all tasks are done:
 - sync: none.
 
 **Acceptance criteria:**
-- [ ] The scan prints no entry for the five files.
-- [ ] No case is removed.
-- [ ] Targeted runs pass: `"^migrate-jira-templates:"`, `"^plan-"` (plan-prepare, plan-merge, plan-diff cases), `"^setup"`, `"^dimension-to-instructions"`.
+- [x] The scan prints no entry for the five files.
+- [x] No case is removed.
+- [x] Targeted runs pass: `"^migrate-jira-templates:"`, `"^plan-"` (plan-prepare, plan-merge, plan-diff cases), `"^setup"`, `"^dimension-to-instructions"`.
 
 ### Task 7: Drop the wasted project_root (batch 3)
 **Ticket:** TK-001 @60918ba9
@@ -470,9 +472,9 @@ When all tasks are done:
 - sync: none.
 
 **Acceptance criteria:**
-- [ ] The scan prints `{}`.
-- [ ] No case is removed.
-- [ ] Targeted runs pass: `"^execute-plan-sdlc/"`, `"^config-sdlc-root:"`, `"^execute-prepare:"`, `"^worktree-lib:"`, `"^markdown-to-adf:"`, `"^plan-format"`.
+- [x] The scan prints `{}`.
+- [x] No case is removed.
+- [x] Targeted runs pass: `"^execute-plan-sdlc/"`, `"^config-sdlc-root:"`, `"^execute-prepare:"`, `"^worktree-lib:"`, `"^markdown-to-adf:"`, `"^plan-format"`.
 
 ### Task 8: One-thread default and suite docs
 **Ticket:** TK-001 @60918ba9
@@ -490,10 +492,10 @@ When all tasks are done:
 **Notes:** The README sentence at `:73` ("Use `-j 1` because cases share fixture copies and temp directories") becomes false after Tasks 1–2, so it is rewritten here. `git grep -F "share fixture copies" tests/promptfoo` and `git grep -F "built per case in a fresh temp directory" tests/promptfoo` find no test file asserting these literals (checked at planning HEAD; the worker re-runs both greps). `.github/workflows/` runs no exec suite, so no CI file changes. Findings: F-exec-suite-fixture-memoisation-and-parallel-safety-3, F-prepush-fast-exec-tier-and-jobs-default-2, -5, -7.
 
 **Acceptance criteria:**
-- [ ] Both full exec configs set `maxConcurrency: 1`.
-- [ ] `task test:exec` runs both configs with `-j 1`.
-- [ ] The README states: fixtures with a `setup.sh` are built once per run unless path-dependent; an in-repo `script_home` is copied per case; github runner cases answer `gh` in process; `-j N` is supported and the default is `-j 1`; the `-j 4` trial is owner-run.
-- [ ] Targeted runs pass: `"^fixture-memo:"` and, with `-c promptfooconfig-exec-hooks.yaml`, `"^worker-write-guard"`.
+- [x] Both full exec configs set `maxConcurrency: 1`.
+- [x] `task test:exec` runs both configs with `-j 1`.
+- [x] The README states: fixtures with a `setup.sh` are built once per run unless path-dependent; an in-repo `script_home` is copied per case; github runner cases answer `gh` in process; `-j N` is supported and the default is `-j 1`; the `-j 4` trial is owner-run.
+- [x] Targeted runs pass: `"^fixture-memo:"` and, with `-c promptfooconfig-exec-hooks.yaml`, `"^worker-write-guard"`.
 
 **Contract:**
 - shape (docs): `tests/promptfoo/README.md`, section `### Script execution tests`; locate each site by its quoted text, not by line number (Task 14 edits the same paragraph later). Before → after:
@@ -563,10 +565,10 @@ When all tasks are done:
 **Notes:** Spec first: Tasks 10–12 implement these ids. R108 is the next free id after R107. The appendix row names W-H2 and TK-002, with no `Fixes`/`Closes` keyword. The two review-sdlc companions are check-only copies for `plan.copyRules` (`git grep -n "review-summary" plugins/sdlc-utilities/skills/review-sdlc` is empty at planning HEAD), so the file list is six but the real edit is four. Findings: F-review-round-findings-persistence-1, -7.
 
 **Acceptance criteria:**
-- [ ] P11's field list reads `{schemaVersion, verdict, counts, findings, dimensions, commentPath, branch}` and defines `findings`.
-- [ ] R106's record reads `{ round, final, counts, threshold, receivedReview, fixed, declined, deferred, findings }` and defines `findings`.
-- [ ] R108 exists with an Acceptance line naming its exec case.
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0; `cmp` of each spec with its site copy exits 0.
+- [x] P11's field list reads `{schemaVersion, verdict, counts, findings, dimensions, commentPath, branch}` and defines `findings`.
+- [x] R106's record reads `{ round, final, counts, threshold, receivedReview, fixed, declined, deferred, findings }` and defines `findings`.
+- [x] R108 exists with an Acceptance line naming its exec case.
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0; `cmp` of each spec with its site copy exits 0.
 
 **Contract:**
 - shape (openspec): requirement ids — MODIFY review-sdlc P11, MODIFY ship-sdlc R106, ADD ship-sdlc R108; no renumbering. Delta text:
@@ -596,10 +598,10 @@ When all tasks are done:
 **Notes:** `findings` is optional in the schema so older summaries still validate; `ship.js` ignores unknown keys (`:1843-1846`). Findings: F-review-round-findings-persistence-1, -8. The byte-identical case stays valid because the sort is the comment's `compareFindings`. The review-sdlc companions `SKILL.md`, `REFERENCE.md` and `EXAMPLES.md` and `site/src/data/skills-meta.ts` do not state the summary fields (`git grep -n "review-summary" plugins/sdlc-utilities/skills/review-sdlc site/src/data/skills-meta.ts` is empty at planning HEAD); Task 9 lists `REFERENCE.md` and `EXAMPLES.md` and Task 12 lists `skills-meta.ts` as check-only copies.
 
 **Acceptance criteria:**
-- [ ] With the existing dedupe input, `summary.json` holds `findings` entries `{ severity, dimension, path, line, title }` in comment order, and `[]` with no findings.
-- [ ] The summary still validates against `schemas/review-summary.schema.json`.
-- [ ] The byte-identical case passes.
-- [ ] Targeted run passes: `"^review-consolidate:"`; then `"^ship-review-gate"` (the gate still reads the file).
+- [x] With the existing dedupe input, `summary.json` holds `findings` entries `{ severity, dimension, path, line, title }` in comment order, and `[]` with no findings.
+- [x] The summary still validates against `schemas/review-summary.schema.json`.
+- [x] The byte-identical case passes.
+- [x] Targeted run passes: `"^review-consolidate:"`; then `"^ship-review-gate"` (the gate still reads the file).
 
 **Contract:**
 - shape (code): before → after in `buildSummary`:
@@ -650,11 +652,11 @@ When all tasks are done:
 **Notes:** The record is built when a round ends, before the next review overwrites the summary, so earlier rounds keep their own findings. The existing fixtures have no `findings` array, so cases (a) and (b) only gain `findings: null` in each expected record. `git grep -n "reviewRounds" tests/promptfoo/datasets` lists only `ship-prepare-exec.yaml` (5023-5047, 5801); line 5801 checks the flag, not records. Findings: F-review-round-findings-persistence-3, -4, -5. Workspace modes: `resolveStateDir()` is the main worktree's state folder in both `branch` and `worktree` mode, as for the R6 summary.
 
 **Acceptance criteria:**
-- [ ] (a) and (b) pass with `findings: null` appended to each expected record.
-- [ ] (c) with `--summary high-1-findings.json`: every round record's `findings` equals the fixture's array.
-- [ ] (d) after the walk reaches cleanup, `<project_root>/.sdlc/execution/review-rounds-feat-ship.json` parses to `{ schemaVersion: 1, branch: "feat/ship", startedAt, rounds }` with `rounds` equal to the cleanup summary's `reviewRounds`.
-- [ ] A write failure of the file (state folder not writable) still emits cleanup.
-- [ ] Targeted runs pass: `"^ship-summary-rounds:"`, `"^ship-summary-commits:"`, `"^ship-review-gate"`, `"^ship-step:"`.
+- [x] (a) and (b) pass with `findings: null` appended to each expected record.
+- [x] (c) with `--summary high-1-findings.json`: every round record's `findings` equals the fixture's array.
+- [x] (d) after the walk reaches cleanup, `<project_root>/.sdlc/execution/review-rounds-feat-ship.json` parses to `{ schemaVersion: 1, branch: "feat/ship", startedAt, rounds }` with `rounds` equal to the cleanup summary's `reviewRounds`.
+- [x] A write failure of the file (state folder not writable) still emits cleanup.
+- [x] Targeted runs pass: `"^ship-summary-rounds:"`, `"^ship-summary-commits:"`, `"^ship-review-gate"`, `"^ship-step:"`.
 
 **Contract:**
 - shape (code): three change sites in `ship.js`, before → after.
@@ -759,9 +761,9 @@ When all tasks are done:
 - sync: `cp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md`.
 
 **Acceptance criteria:**
-- [ ] `docs/skills/ship-sdlc.md` and `state-format.md` name `findings`; the doc names R108 and the file.
-- [ ] `cmp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md` exits 0.
-- [ ] `node .claude/skills/validate-skill-docs/check-docs-consistency.js` and `node .claude/skills/validate-plugin-consistency/check-consistency.js` exit 0.
+- [x] `docs/skills/ship-sdlc.md` and `state-format.md` name `findings`; the doc names R108 and the file.
+- [x] `cmp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md` exits 0.
+- [x] `node .claude/skills/validate-skill-docs/check-docs-consistency.js` and `node .claude/skills/validate-plugin-consistency/check-consistency.js` exit 0.
 
 ### Task 13: Fast pre-push exec tier
 **Ticket:** TK-003 @82ed171e
@@ -778,10 +780,10 @@ When all tasks are done:
 **Notes:** The guard keeps the tier a true subset of the full config, so no case exists only in the pre-push tier and every fast case is also checked by the full-suite guards (`check-dataset-asserts.js`, `check-spec-id-coverage.js`), whose `EXEC_CONFIGS` therefore need no change. No step of this task skips or disables CI. `fixture-guard-exec.yaml` is shared with Task 1, hence the dependency. Findings: F-prepush-fast-exec-tier-and-jobs-default-1, -8, -9, -10.
 
 **Acceptance criteria:**
-- [ ] `lefthook.yml` pre-push has one command that runs `npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec-fast.yaml -j 1 --no-cache` from `tests/promptfoo/`.
-- [ ] The guard case passes: every dataset of the fast config is listed in `promptfooconfig-exec.yaml`, and its `providers`, `defaultTest` and `extensions` equal the full config's.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-fast.yaml -j 1 --no-cache` passes (a run of the tier itself, exec-only).
-- [ ] Count checks: `fixture-refs (a)` keeps `configs === 2`; `spec-id-coverage (b)` floors only grow (+1 case).
+- [x] `lefthook.yml` pre-push has one command that runs `npx --yes promptfoo@0.123.1 eval --config promptfooconfig-exec-fast.yaml -j 1 --no-cache` from `tests/promptfoo/`.
+- [x] The guard case passes: every dataset of the fast config is listed in `promptfooconfig-exec.yaml`, and its `providers`, `defaultTest` and `extensions` equal the full config's.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-fast.yaml -j 1 --no-cache` passes (a run of the tier itself, exec-only).
+- [x] Count checks: `fixture-refs (a)` keeps `configs === 2`; `spec-id-coverage (b)` floors only grow (+1 case).
 
 **Contract:**
 - shape (code): new config:
@@ -889,9 +891,9 @@ When all tasks are done:
 **Notes:** `git grep -F "runs both configs" tests` and `git grep -F "runs the exec test suite" tests` find no asserting test file at planning HEAD; the worker re-runs both greps.
 
 **Acceptance criteria:**
-- [ ] `task --list` shows `test:exec:fast`.
-- [ ] Both READMEs name the fast tier and `task test:exec` for the full suites.
-- [ ] Targeted run passes: `"^fast-tier:"`.
+- [x] `task --list` shows `test:exec:fast`.
+- [x] Both READMEs name the fast tier and `task test:exec` for the full suites.
+- [x] Targeted run passes: `"^fast-tier:"`.
 
 ## Guardrail Compliance
 

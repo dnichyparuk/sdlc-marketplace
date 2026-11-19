@@ -3,6 +3,9 @@ id: TK-001
 type: task
 title: Suite speed infrastructure (#9425)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-19
+by: [2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#1, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#2, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#3, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#4, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#5, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#6, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#7, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#8]
 ---
 
 # TK-001: Suite speed infrastructure (#9425)

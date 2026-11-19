@@ -20,7 +20,7 @@ Scope (wave order, 2026-11-19): "H2: #9425 + pre-push tier + #9462 (per-round re
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | TK-001, TK-002, TK-003 | none | default -j 1; -j 4 trial owner-only |
+| M1 | TK-001, TK-002, TK-003 | `2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier` | default -j 1; -j 4 trial owner-only |
 
 ## W-B: Suite false passes and the guardrail table re-splice
 
