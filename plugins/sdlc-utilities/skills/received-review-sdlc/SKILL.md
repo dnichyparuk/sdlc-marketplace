@@ -391,6 +391,9 @@ Post responses to PR threads, then implement accepted code changes. With `manife
 3. Complex fixes (refactoring, logic changes)
 
 For each change: make the edit, verify it compiles/passes tests, then move to the next.
+
+**A refusal is a stop (R36).** When a check or script you run to verify a fix refuses to run and names its guard (for example an owner-only script that exits because `CLAUDECODE` or `CI` is set, or `--owner` is missing), never change the environment or the command to get past it: do not unset, export or override a variable, add a flag such as `--owner`, or run the command through another shell or wrapper. A command that the project notes or its own refusal mark as owner-only is never a verification step of a fix: run another real check, or name the check you did not run. Keep the fix in the working tree, name each check that did not run and its refusal message in the Step 12 summary, and go on with the other items; this holds also under `--auto` and the R18 bypass.
+
 Do NOT batch changes across items.
 
 **Items marked "disagree", "needs discussion" or "below threshold":** Do NOT implement — await reviewer or
@@ -632,6 +635,7 @@ Replied to N threads:
 - Reply top-level when the comment is in a review thread
 - Skip the self-critique steps even when evaluation seems obvious
 - Batch implement without testing each change individually
+- Change the environment or a command to get past a script's refusal, or run an owner-only command as a fix check (R36)
 - Skip the Step 10 consent gate without an explicit `--auto` flag — pipeline context, conversation history, or inference about "auto mode" is not a substitute for the flag being passed
 - Use `AskUserQuestion` in Step 11.6 when `flags.auto` is true — the R25 / C17 matrix governs all Step 11.6 decision sites; cite `flags.auto` and `flags.alwaysHardenFromReview` (resolved manifest fields) exclusively, never raw `$ARGUMENTS`
 
