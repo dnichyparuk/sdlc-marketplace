@@ -67,7 +67,7 @@ It writes `scorecard.markdown` verbatim to the plan file, replacing any previous
   node "<PLUGIN_ROOT>/scripts/skill/plan.js" splice --plan "<PLAN_PATH>" --critique-dir "<critiqueDir>" [--no-guardrails]
   ```
 
-  It writes only `## Guardrail Compliance`, from the newest critique result that holds a guardrail lane (R77). A non-zero exit means stop and invoke `error-report-sdlc`. <!-- R77 -->
+  Pass `--no-guardrails` exactly when `activeGuardrails` is empty (the Step 3 decision for the whole run). It writes only `## Guardrail Compliance`, from the newest critique result that holds a guardrail lane (R77). A non-zero exit means stop and invoke `error-report-sdlc`. <!-- R77 -->
 
 ### Fallback dispatch (no-agent-tool)
 

@@ -925,10 +925,18 @@ function latestGuardrailMerged(critiqueDir) {
   const iters = names.map(n => /^iter-(\d+)$/.exec(n)).filter(Boolean).sort((a, b) => Number(b[1]) - Number(a[1]));
   for (const m of iters) {
     const file = path.join(critiqueDir, m[0], 'merged.json');
+    let raw;
     try {
-      const merged = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (merged && typeof merged.guardrailCompliancePayload === 'string') return { path: file, merged };
-    } catch (_) { /* unreadable or invalid: skip */ }
+      raw = fs.readFileSync(file, 'utf8');
+    } catch (_) { continue; } // no merged.json in this iteration: skip
+    let merged;
+    try {
+      merged = JSON.parse(raw);
+    } catch (err) {
+      // An invalid merged.json must not fall back to an older table (R77 threat model).
+      throw new Error(`${file} is not valid JSON: ${err.message}`);
+    }
+    if (merged && typeof merged.guardrailCompliancePayload === 'string') return { path: file, merged };
   }
   return null;
 }
