@@ -1,7 +1,7 @@
 {
   "name": "sdlc",
   "description": "Skills and commands for software development lifecycle workflows: pull requests, code reviews, release",
-  "version": "0.56.7",
+  "version": "0.57.0",
   "author": {
     "name": "rnagrodzki"
   }
