@@ -468,7 +468,7 @@ BEFORE_PLAN: none
 G17_NOT_RUN: <true when a round returned g17NotRun: true, else false>
 ```
 
-plus the other Step 3 lines (`CRITIQUE_DIR`, `PLAN_FILE_PATH`, `PREPARE_OUTPUT`, `AUTHOR_MODEL` and the run-time values). Handle `status` as in Step 3, without the markers and with the learnings-log writes of the Step 3 rule (G17 and `skipped` lines): `error` stops (E9); `guardrail-block` shows the harden offer above; `ok`: fix the lines of `summary` once. There is no further critique round, no splice, and `guardrailsEvaluated` and `critiqueRan` are not re-written. On `no-agent-tool`, run the fallback below, with `<ITER_DIR>` = `<critiqueDir>/iter-1`:
+plus the other Step 3 lines (`CRITIQUE_DIR`, `PLAN_FILE_PATH`, `PREPARE_OUTPUT`, `AUTHOR_MODEL` and the run-time values). Handle `status` as in Step 3, without the markers and with the learnings-log writes of the Step 3 rule (G17 and `skipped` lines): `error` stops (E9); `guardrail-block` shows the harden offer above; `ok`: fix the lines of `summary` once. There is no further critique round; after the fixes, re-splice the guardrail table (R77, block below the fallback list), and `guardrailsEvaluated` and `critiqueRan` are not re-written. On `no-agent-tool`, run the fallback below, with `<ITER_DIR>` = `<critiqueDir>/iter-1`:
 
 1. Run the Step 3 deterministic block (its `mkdir -p "<ITER_DIR>"` creates `iter-1`; `iter-0` exists from Step 3).
 2. When `recheckLanes` is non-empty, dispatch those lanes in one message (Step 3 dispatch rule, skip rules and run-time table), write their JSON to `<ITER_DIR>/<lane name>.json`, and run, with `--lanes` set to `recheckLanes` minus the lanes the skip rules left out (as in Step 3):
@@ -490,7 +490,15 @@ plus the other Step 3 lines (`CRITIQUE_DIR`, `PLAN_FILE_PATH`, `PREPARE_OUTPUT`,
    A non-zero merge-lanes exit means stop and invoke `error-report-sdlc`, as in Step 3.
 3. Fix the blocking `issues` in `merged.json` once. There is no further critique round, and `guardrailsEvaluated` and `critiqueRan` are not re-written. <!-- R74 -->
 
-Step 4 is autonomous (implements R22 single-touchpoint handoff). After fixes are applied (the `plan.js splice` above has written Guardrail Compliance when `activeGuardrails` is non-empty and Suggested Review Dimensions when `g17Findings.findings` is non-empty, per R34), proceed directly to Step 5 on the full pipeline, or to Step 6.5 on the Lightweight route without escalation. The single user touchpoint for the finalized plan is Step 7 (Handoff); the error-severity guardrail-block harden offer above is the one decision gate inside Step 4. <!-- R19 -->
+**Guardrail table re-splice (R77):** after the R74 fixes, on the agent path and on the fallback path, run as one plain Bash call:
+
+```bash
+node "<PLUGIN_ROOT>/scripts/skill/plan.js" splice --plan "<PLAN_PATH>" --critique-dir "<critiqueDir>" [--no-guardrails]
+```
+
+It writes only `## Guardrail Compliance`, from the newest critique result that holds a guardrail lane (R77). A non-zero exit means stop and invoke `error-report-sdlc`. <!-- R77 -->
+
+Step 4 is autonomous (implements R22 single-touchpoint handoff). After fixes are applied (the `plan.js splice` above has written Guardrail Compliance when `activeGuardrails` is non-empty and Suggested Review Dimensions when `g17Findings.findings` is non-empty, per R34, and on the Lightweight route the R77 re-splice has run), proceed directly to Step 5 on the full pipeline, or to Step 6.5 on the Lightweight route without escalation. The single user touchpoint for the finalized plan is Step 7 (Handoff); the error-severity guardrail-block harden offer above is the one decision gate inside Step 4. <!-- R19 -->
 
 ## Steps 5–6 (CRITIQUE / IMPROVE): Review loop — full pipeline only (R36, R40–R44, R64)
 Full-pipeline runs, including a Lightweight run that R73 escalated: Read `./review-loop.md` now and follow it for Steps 5–6. Lightweight runs without escalation skip Steps 5–6 and continue at Step 6.5.

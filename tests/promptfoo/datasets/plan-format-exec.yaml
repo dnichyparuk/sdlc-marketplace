@@ -59,6 +59,11 @@
       value: "PASS"
     - type: icontains
       value: "Format floor"
+    # PASS rows print even when another check fails; only the floor line and no FAIL row prove a pass
+    - type: contains
+      value: "**Format floor:** PASS"
+    - type: not-contains
+      value: "| FAIL |"
 
 - description: "plan-format: missing Verification header triggers PF1 fail"
   vars:

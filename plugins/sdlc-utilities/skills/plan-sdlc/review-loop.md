@@ -61,6 +61,13 @@ It writes `scorecard.markdown` verbatim to the plan file, replacing any previous
 - Approved → Step 6 is a no-op, proceed to Step 6.5 (hard gates 6.5 and 6.6 run before Step 7)
 - Issues found → go to Step 6
 - Max 3 iterations (status `max-iterations`, or the 3rd iteration with issues on the fallback path) → use AskUserQuestion to surface unresolved issues to user. Offer **harden** (run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time — opt-in, no surface is edited without your approval) alongside the existing escalation options. When the user selects **harden** (interactive mode only — suppressed when `--auto` is set), dispatch `Skill(harden-sdlc)` with `--failure-text "Plan reviewer loop did not converge after 3 iterations. Outstanding issues: <union-of-blocking-issues-across-all-lenses>"`, `--skill plan-sdlc`, `--step "Step 5 — review loop"`, `--operation "reviewer-loop max iterations"`. Implements R19.
+- When the loop ends (Approved, or the max-iterations path resolved), before Step 6.5, run once:
+
+  ```bash
+  node "<PLUGIN_ROOT>/scripts/skill/plan.js" splice --plan "<PLAN_PATH>" --critique-dir "<critiqueDir>" [--no-guardrails]
+  ```
+
+  It writes only `## Guardrail Compliance`, from the newest critique result that holds a guardrail lane (R77). A non-zero exit means stop and invoke `error-report-sdlc`. <!-- R77 -->
 
 ### Fallback dispatch (no-agent-tool)
 

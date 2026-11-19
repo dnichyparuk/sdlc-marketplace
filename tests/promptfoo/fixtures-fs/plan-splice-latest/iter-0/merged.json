@@ -1,0 +1,3 @@
+{
+  "guardrailCompliancePayload": "| Guardrail | Severity | Status | Rationale |\n|---|---|---|---|\n| no-scope-creep | warning | FAIL | Older iteration, superseded |"
+}

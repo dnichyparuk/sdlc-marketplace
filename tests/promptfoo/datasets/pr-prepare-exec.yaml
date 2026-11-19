@@ -109,10 +109,11 @@
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-config"
   assert:
-    - type: icontains
-      value: '"requiredLabels"'
-    - type: icontains
-      value: '"review"'
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const labels = o.prConfig && o.prConfig.requiredLabels;
+        return JSON.stringify(labels) === JSON.stringify(['review']) ? true : `FAIL: prConfig.requiredLabels ${JSON.stringify(labels)}`;
 
 - description: "pr-prepare: no config sets prConfig null"
   vars:
@@ -121,8 +122,10 @@
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-no-config"
   assert:
-    - type: icontains
-      value: '"prConfig": null'
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.prConfig === null ? true : `FAIL: prConfig ${JSON.stringify(o.prConfig)}`;
 
 # fetchBaseRef non-fatal when origin is unreachable (issue #239).
 # pr.js calls lib/git.js::fetchBaseRef before getDiffStat/getDiffContent. The
@@ -251,6 +254,10 @@
       value: '^(?:/(?:tmp|var|private)/.+/|.+/\.sdlc/execution/out/)pr-context-[A-Za-z0-9-]+-\d{8}T\d{6}Z-[0-9a-f]{4}\.json\s*$'
     - type: not-icontains
       value: '"remoteState":'
+    - type: javascript
+      value: |
+        const m = JSON.parse(process.getBuiltinModule('fs').readFileSync(output.trim(), 'utf8'));
+        return ('prConfig' in m && 'branchGuard' in m) ? true : `FAIL: manifest keys ${Object.keys(m)}`;
 
 - description: "pr.js: without --output-file, output is still a manifest path (stdout-JSON fallback removed)"
   vars:
@@ -264,6 +271,10 @@
       value: '^(?:/(?:tmp|var|private)/.+/|.+/\.sdlc/execution/out/)pr-context-[A-Za-z0-9-]+-\d{8}T\d{6}Z-[0-9a-f]{4}\.json\s*$'
     - type: not-icontains
       value: '"remoteState":'
+    - type: javascript
+      value: |
+        const m = JSON.parse(process.getBuiltinModule('fs').readFileSync(output.trim(), 'utf8'));
+        return ('prConfig' in m && 'branchGuard' in m) ? true : `FAIL: manifest keys ${Object.keys(m)}`;
 
 # ---------------------------------------------------------------------------
 # Issue #260: pr-template path resolution via lib/pr-template.js
@@ -275,9 +286,12 @@
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-template-sdlc"
+    script_capture_stderr: true
   assert:
     - type: not-icontains
       value: 'Deprecation: .claude/pr-template.md'
+    - type: contains
+      value: 'SDLC canonical template marker'
 
 - description: "pr.js: template at .claude/pr-template.md (legacy only) emits one-time deprecation warning"
   vars:
@@ -298,9 +312,14 @@
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-template-both"
+    script_capture_stderr: true
   assert:
     - type: not-icontains
       value: 'Deprecation: .claude/pr-template.md'
+    - type: contains
+      value: 'SDLC wins precedence marker'
+    - type: not-contains
+      value: 'Legacy fallback marker'
 
 # --- config.pr.defaultBranch cascade (#339) ---
 

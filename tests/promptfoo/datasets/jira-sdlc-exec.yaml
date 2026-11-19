@@ -223,15 +223,15 @@
 
 - description: "mcp-failure: record-occurrence returns 1 on first call"
   vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/lib/mcp-failure.js"
-    script_args: "--record-occurrence --class hook-block --key test-key-wave4"
+    script_path: "-e"
+    script_args: '((cp,fs,os,p,id)=>((run)=>((a,b)=>(fs.rmSync(p.join(os.tmpdir(),"sdlc-mcp-session-"+id),{recursive:true,force:true}),console.log(JSON.stringify({first:a,second:b}))))(run(),run()))(()=>cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/lib/mcp-failure.js","--record-occurrence","--class","hook-block","--key","test-key-wave4"],{cwd:process.cwd(),encoding:"utf8",env:{...process.env,SDLC_SESSION_ID:id}}).stdout.trim()))(require("child_process"),require("fs"),require("os"),require("path"),"w-b-"+process.pid+"-"+Date.now())'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
   assert:
     - type: javascript
       value: |
-        const n = parseInt(output.trim(), 10);
-        return n >= 1;
+        const o = JSON.parse(output);
+        return o.first === "1" && o.second === "2" ? true : `FAIL: ${output}`;
 
 - description: "jira-prepare: fresh install — exists=false, flags echoed"
   vars:
@@ -247,8 +247,10 @@
       value: '"skipWorkflowDiscovery": false'
     - type: icontains
       value: '"site": null'
-    - type: not-icontains
-      value: '"errors": ["Project'
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return Array.isArray(o.candidateSites) && o.candidateSites.length === 0 && o.exists === false ? true : `FAIL: ${output}`;
 
 - description: "jira-prepare: legacy .sdlc/jira-cache migration — emits warning, populates home layout"
   vars:
@@ -321,6 +323,19 @@
   assert:
     - type: icontains
       value: '"forceRefresh": true'
+
+- description: "jira-prepare: (P10) without --force-refresh flags.forceRefresh is false"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-multi-project-config"
+    script_args: "--project FOO --check"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.trim());
+        return o.flags.forceRefresh === false;
 
 - description: "jira-prepare: --project rejected when not in jira.projects"
   vars:

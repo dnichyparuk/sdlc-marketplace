@@ -46,29 +46,31 @@
     - type: not-icontains
       value: '"alwaysFixSeverities":["critical"]'
 
-- description: "received-review-prepare (#363): manifest includes plugin_version matching semver or 'unknown'"
+- description: "received-review-prepare (#363): manifest includes plugin_version equal to plugin.json version"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-received-review-manifest-fields.js"
-    script_args: "--field plugin_version"
+    script_args: "--field plugin_version --with-expected"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-config-current-v3"
   assert:
-    # plugin_version must match semver or 'unknown'.
+    # plugin_version must equal the plugin.json version; 'unknown' fails.
     - type: javascript
       value: |
-        /^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?|unknown)$/.test(output.trim())
+        const o = JSON.parse(output);
+        return o.value === o.expected && /^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$/.test(o.expected);
 
 - description: "received-review-prepare (#363): manifest includes reply_footer matching expected format"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-received-review-manifest-fields.js"
-    script_args: "--field reply_footer"
+    script_args: "--field reply_footer --with-expected"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-config-current-v3"
   assert:
-    # reply_footer must match: newline + newline + _via `received-review-sdlc` v<version>_
+    # reply_footer must be: newline + newline + _via `received-review-sdlc` v<plugin.json version>_
     - type: javascript
       value: |
-        /^\n\n_via `received-review-sdlc` v\S+_$/.test(output)
+        const o = JSON.parse(output);
+        return o.value === '\n\n_via `received-review-sdlc` v' + o.expected + '_';
 
 - description: "received-review-prepare (#429): local config alwaysHardenFromReview=true → flags resolves to true"
   vars:
@@ -282,7 +284,7 @@
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        if (o.a.status !== 1 || o.a.stdout !== '' || !o.a.stderr.includes('--min-severity must be one of')) return `FAIL: min-severity ${JSON.stringify(o.a)}`;
+        if (o.a.status !== 1 || o.a.stdout !== '' || !o.a.stderr.includes('Error: --min-severity must be one of critical, high, medium, low (got "severe").')) return `FAIL: min-severity ${JSON.stringify(o.a)}`;
         if (o.b.status !== 1 || o.b.stdout !== '' || !o.b.stderr.includes('is not a readable file.') || !o.b.stderr.includes('--plan')) return `FAIL: plan ${JSON.stringify(o.b)}`;
         return true;
 
@@ -371,12 +373,12 @@
 - description: "received-review-prepare/skill-text A7 C20: no $ARGUMENTS in a fence, <FLAGS> in the prepare call, the allow-list rule present"
   vars:
     script_path: "-e"
-    script_args: '((t)=>((c,a)=>console.log(JSON.stringify({inFence:a.n,call:c("--output-file\x20<FLAGS>\n"),rule:c("**Flags\x20(A7,\x20C20).**"),notFlag:c("Not\x20a\x20received-review-sdlc\x20flag,\x20read\x20as\x20request\x20text:"),old:c("Replace\x20`--pr\x20<PR_NUMBER>`")})))((s)=>t.split(s).length-1,t.split("\n").reduce((a,l)=>(a.f?(l.startsWith("```")?a.f=0:a.n+=l.split("$ARGUMENTS").length-1):l.startsWith("```")&&(a.f=1),a),{f:0,n:0})))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_args: '((t)=>((c,a)=>console.log(JSON.stringify({inFence:a.n,call:c("--output-file\x20<FLAGS>\n"),rule:c("**Flags\x20(A7,\x20C20).**"),notFlag:c("Not\x20a\x20received-review-sdlc\x20flag,\x20read\x20as\x20request\x20text:"),old:c("Replace\x20`--pr\x20<PR_NUMBER>`"),stop:c("stop\x20and\x20report\x20it\x20as\x20an\x20invalid\x20value"),minSev:c("`--min-severity`\x20takes\x20only\x20`critical`,\x20`high`,\x20`medium`\x20or\x20`low`;\x20any\x20other\x20value\x20is\x20reported\x20the\x20same\x20way")})))((s)=>t.split(s).length-1,t.split("\n").reduce((a,l)=>(a.f?(l.startsWith("```")?a.f=0:a.n+=l.split("$ARGUMENTS").length-1):l.startsWith("```")&&(a.f=1),a),{f:0,n:0})))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
   assert:
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        if (o.inFence === 0 && o.call === 1 && o.rule === 1 && o.notFlag === 1 && o.old === 0) return true;
+        if (o.inFence === 0 && o.call === 1 && o.rule === 1 && o.notFlag === 1 && o.old === 0 && o.stop === 1 && o.minSev === 1) return true;
         return { pass: false, score: 0, reason: output };
 
 - description: "rr-skill-text: (scope) fix-scope and scope-check blocks appear once"

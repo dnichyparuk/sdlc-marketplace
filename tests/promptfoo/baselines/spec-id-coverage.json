@@ -46,11 +46,15 @@
       "ids": []
     },
     "datasets/config-resolve-sdlc-root-exec.yaml": {
-      "asserts": 14,
+      "asserts": 17,
       "ids": []
     },
     "datasets/cwd-drift-exec.yaml": {
       "asserts": 6,
+      "ids": []
+    },
+    "datasets/dataset-asserts-exec.yaml": {
+      "asserts": 2,
       "ids": []
     },
     "datasets/dataset-regex-exec.yaml": {
@@ -67,6 +71,10 @@
         "H1",
         "KD3"
       ]
+    },
+    "datasets/docs-copies-exec.yaml": {
+      "asserts": 2,
+      "ids": []
     },
     "datasets/error-report-prepare-exec.yaml": {
       "asserts": 21,
@@ -118,7 +126,7 @@
       ]
     },
     "datasets/fixture-guard-exec.yaml": {
-      "asserts": 6,
+      "asserts": 11,
       "ids": [
         "W8"
       ]
@@ -128,7 +136,7 @@
       "ids": []
     },
     "datasets/github-sdlc-exec.yaml": {
-      "asserts": 147,
+      "asserts": 150,
       "ids": [
         "A1",
         "A10",
@@ -275,7 +283,7 @@
       ]
     },
     "datasets/jira-sdlc-exec.yaml": {
-      "asserts": 80,
+      "asserts": 81,
       "ids": [
         "A6",
         "C16",
@@ -338,6 +346,10 @@
       "asserts": 12,
       "ids": []
     },
+    "datasets/mutation-smoke-exec.yaml": {
+      "asserts": 11,
+      "ids": []
+    },
     "datasets/openspec-enrich-exec.yaml": {
       "asserts": 17,
       "ids": []
@@ -356,7 +368,7 @@
       ]
     },
     "datasets/plan-format-exec.yaml": {
-      "asserts": 107,
+      "asserts": 109,
       "ids": [
         "G12",
         "PF1",
@@ -377,7 +389,7 @@
       ]
     },
     "datasets/plan-prepare-exec.yaml": {
-      "asserts": 179,
+      "asserts": 181,
       "ids": [
         "A5",
         "C4",
@@ -418,6 +430,7 @@
         "R74",
         "R75",
         "R76",
+        "R77",
         "U1",
         "U3",
         "W7",
@@ -441,7 +454,7 @@
       "ids": []
     },
     "datasets/pr-prepare-exec.yaml": {
-      "asserts": 76,
+      "asserts": 80,
       "ids": [
         "R21",
         "W4"
@@ -452,7 +465,7 @@
       "ids": []
     },
     "datasets/received-review-prepare-exec.yaml": {
-      "asserts": 39,
+      "asserts": 40,
       "ids": [
         "A7",
         "C20",
@@ -465,11 +478,12 @@
         "R30",
         "R31",
         "R32",
-        "R34"
+        "R34",
+        "R36"
       ]
     },
     "datasets/review-consolidate-exec.yaml": {
-      "asserts": 23,
+      "asserts": 24,
       "ids": [
         "P11"
       ]
@@ -481,7 +495,7 @@
       ]
     },
     "datasets/script-runner-stub-bin-exec.yaml": {
-      "asserts": 8,
+      "asserts": 18,
       "ids": [
         "AC1",
         "AC2",
@@ -576,7 +590,7 @@
       "ids": []
     },
     "datasets/ship-hooks-exec.yaml": {
-      "asserts": 50,
+      "asserts": 51,
       "ids": [
         "C18",
         "R38",
@@ -676,6 +690,10 @@
       "asserts": 4,
       "ids": []
     },
+    "datasets/spec-id-coverage-exec.yaml": {
+      "asserts": 3,
+      "ids": []
+    },
     "datasets/state-gc-migrate-exec.yaml": {
       "asserts": 43,
       "ids": [
@@ -749,25 +767,31 @@
     }
   },
   "flags": {
-    "-e --apply": 24,
+    "-e --apply": 25,
     "-e --auto": 3,
+    "-e --check": 1,
     "-e --config": 2,
-    "-e --dry-run": 5,
+    "-e --dry-run": 6,
     "-e --dump": 4,
     "-e --expect-hash": 18,
-    "-e --input": 24,
+    "-e --input": 25,
     "-e --output-file": 1,
+    "-e --repo": 2,
+    "-e --view": 1,
     "branch-guard-test.js --current": 5,
     "branch-guard-test.js --expected": 4,
     "branch-guard-test.js --op": 6,
     "branch-name-test.js --op": 1,
     "check-consistency.js --json": 13,
     "check-consistency.js --project-root": 13,
+    "check-dataset-asserts.js --probe": 1,
     "check-dataset-regex.js --probe-invalid": 1,
+    "check-docs-copies.js --probe-drift": 1,
     "check-fixture-guard.js --dir": 1,
     "check-fixture-guard.js --probe": 1,
     "check-fixture-guard.js --probe-unguarded": 1,
     "check-fixture-refs.js --probe-missing": 1,
+    "check-spec-id-coverage.js --probe-drop": 1,
     "commit.js --amend": 1,
     "commit.js --auto": 4,
     "commit.js --expected-branch": 2,
@@ -794,7 +818,7 @@
     "error-report-prepare.js --skill": 7,
     "error-report-prepare.js --step": 6,
     "execute.js --auto": 4,
-    "execute.js --branch": 29,
+    "execute.js --branch": 27,
     "execute.js --data": 4,
     "execute.js --decisions": 1,
     "execute.js --dispatched": 2,
@@ -819,10 +843,10 @@
     "execute.js --rebase": 1,
     "execute.js --resume": 4,
     "execute.js --run-id": 8,
-    "execute.js --sha": 4,
+    "execute.js --sha": 2,
     "execute.js --skip-config-check": 2,
     "execute.js --split-depth": 2,
-    "execute.js --state-file": 3,
+    "execute.js --state-file": 4,
     "execute.js --status": 1,
     "execute.js --strict-files": 1,
     "execute.js --task": 3,
@@ -834,7 +858,7 @@
     "execute.js --usage": 1,
     "execute.js --verify-token": 1,
     "execute.js --wait": 4,
-    "execute.js --wave": 21,
+    "execute.js --wave": 19,
     "execute.js --wave-interval": 1,
     "execute.js --wave-timeout": 2,
     "execute.js context": 4,
@@ -845,7 +869,7 @@
     "execute.js summarize-prior-wave-context": 3,
     "execute.js task-done": 2,
     "execute.js verify-completeness": 4,
-    "execute.js wave-committed": 4,
+    "execute.js wave-committed": 2,
     "execute.js wave-done": 3,
     "execute.js wave-progress": 7,
     "execute.js wave-split": 2,
@@ -868,13 +892,13 @@
     "harvest-learnings.js --since": 1,
     "jira-write-guard-test.js --op": 3,
     "jira.js --assemble": 4,
-    "jira.js --check": 14,
+    "jira.js --check": 15,
     "jira.js --check-payload": 6,
     "jira.js --file": 4,
     "jira.js --force-refresh": 1,
     "jira.js --input": 5,
     "jira.js --json": 4,
-    "jira.js --project": 33,
+    "jira.js --project": 34,
     "jira.js --save": 4,
     "jira.js --site": 5,
     "jira.js --skip-workflow-discovery": 2,
@@ -887,17 +911,15 @@
     "links.js --json": 26,
     "markdown-to-adf.js --file": 15,
     "mcp-failure.js --analyze": 8,
-    "mcp-failure.js --class": 10,
+    "mcp-failure.js --class": 9,
     "mcp-failure.js --classify": 7,
     "mcp-failure.js --error": 9,
     "mcp-failure.js --error-msg": 2,
     "mcp-failure.js --hook-deny": 1,
     "mcp-failure.js --http-status": 4,
-    "mcp-failure.js --key": 1,
     "mcp-failure.js --project": 9,
     "mcp-failure.js --r-path": 9,
     "mcp-failure.js --record": 2,
-    "mcp-failure.js --record-occurrence": 1,
     "mcp-failure.js --recovered": 9,
     "mcp-failure.js --site": 9,
     "mcp-failure.js --step": 3,
@@ -905,6 +927,11 @@
     "mcp-failure.js --tool": 9,
     "migrate-config.js --dry-run": 2,
     "migrate-jira-templates-test.js --op": 6,
+    "mutation-smoke.js --check": 1,
+    "mutation-smoke.js --list": 1,
+    "mutation-smoke.js --only": 2,
+    "mutation-smoke.js --owner": 3,
+    "mutation-smoke.js --run": 4,
     "openspec-enrich.js --project-root": 7,
     "openspec-enrich.js --remove": 1,
     "openspec-lib-test.js --change": 12,
@@ -919,6 +946,8 @@
     "pipeline-advancing-test.js --data": 5,
     "plan-explore.js --check-brief": 6,
     "plan-explore.js --from-openspec": 1,
+    "plan-register.mjs --root": 1,
+    "plan-register.mjs check": 1,
     "plan.js --after": 13,
     "plan.js --before": 14,
     "plan.js --carry": 3,
@@ -965,11 +994,11 @@
     "pr.js --testing-file": 5,
     "pr.js --update": 1,
     "pr.js --validate-body": 3,
-    "review-consolidate.js --findings": 11,
-    "review-consolidate.js --manifest": 12,
-    "review-consolidate.js --output-dir": 11,
+    "review-consolidate.js --findings": 12,
+    "review-consolidate.js --manifest": 13,
+    "review-consolidate.js --output-dir": 12,
     "review-consolidate.js --render-plan": 1,
-    "review-consolidate.js --summary-path": 11,
+    "review-consolidate.js --summary-path": 12,
     "review.js --auto": 2,
     "review.js --base": 10,
     "review.js --committed": 10,
@@ -991,6 +1020,10 @@
     "run-execute-wave-done-usage.js --project-root": 1,
     "run-execute-wave-done-usage.js --usage": 1,
     "run-execute-wave-done-usage.js --wave": 1,
+    "run-fixture-memo.js --cases": 3,
+    "run-fixture-memo.js --fixture": 3,
+    "run-fixture-memo.js --fixtures": 1,
+    "run-fixture-memo.js --scan": 1,
     "run-github-case.js --analyze": 6,
     "run-github-case.js --auto": 5,
     "run-github-case.js --auto-argv": 1,
@@ -1077,12 +1110,15 @@
     "run-plan-state.js --project-root": 2,
     "run-received-review-manifest-fields.js --field": 3,
     "run-received-review-manifest-fields.js --thread-index": 1,
+    "run-received-review-manifest-fields.js --with-expected": 2,
     "run-review-consolidate-twice.js --findings": 1,
     "run-review-consolidate-twice.js --manifest": 1,
     "run-review-manifest-split.js --project-root": 2,
     "run-review-on-demand-dimension.js --project-root": 2,
     "run-review-on-demand-dimension.js --scenario": 2,
     "run-schema-truth.js --surface": 2,
+    "run-script-runner-exit.js --child": 2,
+    "run-script-runner-exit.js --cwd-probe": 3,
     "run-session-start-gc-tempdirs.js --project-root": 2,
     "run-session-start-state.js --project-root": 4,
     "run-ship-begin-complete.js --project-root": 10,
@@ -1129,27 +1165,27 @@
     "run-ship-stepper.js --other-exec": 1,
     "run-ship-stepper.js --plan": 12,
     "run-ship-stepper.js --plan-files": 10,
-    "run-ship-stepper.js --project-root": 182,
+    "run-ship-stepper.js --project-root": 183,
     "run-ship-stepper.js --quality": 22,
-    "run-ship-stepper.js --received-result": 1,
+    "run-ship-stepper.js --received-result": 2,
     "run-ship-stepper.js --result": 82,
     "run-ship-stepper.js --resume-after-fix": 2,
     "run-ship-stepper.js --resume-after-outside": 1,
     "run-ship-stepper.js --review-threshold": 5,
-    "run-ship-stepper.js --rounds": 9,
-    "run-ship-stepper.js --scenario": 182,
+    "run-ship-stepper.js --rounds": 10,
+    "run-ship-stepper.js --scenario": 183,
     "run-ship-stepper.js --scope-asked": 3,
     "run-ship-stepper.js --scope-result": 1,
-    "run-ship-stepper.js --seed": 174,
+    "run-ship-stepper.js --seed": 175,
     "run-ship-stepper.js --self-commit-outside": 2,
     "run-ship-stepper.js --steps": 2,
-    "run-ship-stepper.js --summary": 41,
+    "run-ship-stepper.js --summary": 42,
     "run-ship-stepper.js --summary-comment": 2,
     "run-ship-stepper.js --summary-stale": 1,
     "run-ship-stepper.js --untrack-plan": 1,
     "run-ship-stepper.js --version-failed": 1,
     "run-ship-stepper.js --version-head": 2,
-    "run-ship-stepper.js --walk": 3,
+    "run-ship-stepper.js --walk": 4,
     "run-ship-stepper.js --with-state": 2,
     "run-ship-stepper.js --write": 10,
     "run-ship-stepper.js --write-after": 1,
@@ -1199,7 +1235,7 @@
     "ship.js --from": 3,
     "ship.js --from-wave": 2,
     "ship.js --gc": 3,
-    "ship.js --has-plan": 121,
+    "ship.js --has-plan": 119,
     "ship.js --hook-active-pipeline": 2,
     "ship.js --openspec-change": 6,
     "ship.js --output-file": 2,
@@ -1214,7 +1250,7 @@
     "ship.js --skip": 1,
     "ship.js --skip-config-check": 1,
     "ship.js --step": 7,
-    "ship.js --steps": 21,
+    "ship.js --steps": 19,
     "ship.js --summary": 5,
     "ship.js --tasks": 3,
     "ship.js --threshold": 5,

@@ -289,14 +289,17 @@
 
 - description: "state/execute.js wave-committed sets committedSha on a completed wave (#392)"
   vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
-    script_args: "wave-committed --branch feat/commit-waves-state --wave 1 --sha abc1234567890abc1234567890abc1234567890a"
+    script_path: "-e"
+    script_args: '((cp,js)=>((run)=>((b)=>((r)=>((a)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr,before:b,after:a})))(run(["read","--branch","feat/commit-waves-state"]).stdout))(run(["wave-committed","--branch","feat/commit-waves-state","--wave","1","--sha","abc1234567890abc1234567890abc1234567890a"])))(run(["read","--branch","feat/commit-waves-state"]).stdout))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-execute-commit-waves"
   assert:
-    # Success path emits nothing on stdout/stderr — any "Error:" line means failure.
-    - type: not-icontains
-      value: "Error:"
+    # Success prints nothing: assert on the exit status and the persisted state.
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const w = JSON.parse(o.after).waves.find(x => x.number === 1);
+        return o.status === 0 && w && w.committedSha === 'abc1234567890abc1234567890abc1234567890a' ? true : `FAIL: ${output}`;
 
 - description: "state/execute.js read returns committedSha when persisted in state file (#392)"
   vars:
@@ -310,14 +313,16 @@
 
 - description: "state/execute.js wave-committed is idempotent on identical sha — re-running is a no-op (#392)"
   vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
-    script_args: "wave-committed --branch feat/commit-waves-already --wave 1 --sha abc1234567890abc1234567890abc1234567890a"
+    script_path: "-e"
+    script_args: '((cp,js)=>((run)=>((b)=>((r)=>((a)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr,before:b,after:a})))(run(["read","--branch","feat/commit-waves-already"]).stdout))(run(["wave-committed","--branch","feat/commit-waves-already","--wave","1","--sha","abc1234567890abc1234567890abc1234567890a"])))(run(["read","--branch","feat/commit-waves-already"]).stdout))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js")'
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-execute-commit-waves-already-committed"
   assert:
-    # No-op success — neither "Error:" nor any output
-    - type: not-icontains
-      value: "Error:"
+    # No-op success prints nothing: assert the state read is unchanged by the call.
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.status === 0 && o.before === o.after && JSON.parse(o.after).waves.length > 0 ? true : `FAIL: ${output}`;
 
 - description: "state/execute.js wave-committed errors on conflicting sha (#392)"
   vars:

@@ -12,7 +12,7 @@
  *   node run-review-plugin-version.js
  *
  * Output:
- *   { "plugin_version": "<version or unknown>" }
+ *   { "plugin_version": "<version or unknown>", "expected": "<plugin.json version>" }
  */
 
 'use strict';
@@ -31,5 +31,8 @@ const configVersionPath = path.join(
 
 const { getPluginVersion } = require(configVersionPath);
 
+const pluginJsonPath = path.join(REPO_ROOT, 'plugins', 'sdlc-utilities', '.claude-plugin', 'plugin.json');
+const expected = JSON.parse(require('fs').readFileSync(pluginJsonPath, 'utf8')).version;
+
 const version = getPluginVersion();
-process.stdout.write(JSON.stringify({ plugin_version: version }) + '\n');
+process.stdout.write(JSON.stringify({ plugin_version: version, expected }) + '\n');

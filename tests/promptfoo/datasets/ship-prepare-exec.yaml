@@ -396,17 +396,6 @@
         const step = JSON.parse(output).steps.find(s => s.name === 'archive-openspec');
         return step.status === 'skipped' && step.reason === 'not in steps[]'
 
-- description: "ship-prepare: VALID_STEPS includes archive-openspec"
-  vars:
-    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
-    script_args: "--has-plan --steps execute,archive-openspec"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
-  assert:
-    - type: not-icontains
-      value: "Unrecognized step"
-
 # verify-openspec step tests (issue #441)
 
 - description: "ship-prepare: verify-openspec step appears between version and archive-openspec"
@@ -450,17 +439,6 @@
       value: |
         const step = JSON.parse(output).steps.find(s => s.name === 'verify-openspec');
         return step.status === 'skipped' && step.reason === 'not in steps[]'
-
-- description: "ship-prepare: VALID_STEPS includes verify-openspec"
-  vars:
-    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
-    script_args: "--has-plan --steps execute,verify-openspec"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-sdlc-gitignore-inner"
-  assert:
-    - type: not-icontains
-      value: "Unrecognized step"
 
 - description: "ship-prepare: BUILT_IN_DEFAULTS do not include verify-openspec (opt-in only)"
   vars:
@@ -1640,7 +1618,7 @@
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        return o.action === 'gc' || (o.report && (o.report.ship || o.report.commit));
+        return o.action === 'gc' && typeof o.report === 'object' && o.report !== null && !('planModeBlocked' in o);
     - type: not-icontains
       value: '"planModeBlocked": true'
 

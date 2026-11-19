@@ -1296,12 +1296,12 @@
 - description: "plan-sdlc/critique-rounds: SKILL.md and review-loop.md dispatch critiqueDispatch per round, keep the no-agent-tool fallback and splice with plan.js (R75, R67 (f))"
   vars:
     script_path: "-e"
-    script_args: '((r)=>((s,l)=>((c)=>console.log(JSON.stringify({skillDispatch:c(s,"critiqueDispatch"),loopDispatch:c(l,"critiqueDispatch"),skillFallback:c(s,"no-agent-tool"),loopFallback:c(l,"no-agent-tool"),skillSplice:c(s,"plan.js\x22\x20splice"),loopSplice:c(l,"plan.js\x22\x20splice")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
+    script_args: '((r)=>((s,l)=>((c)=>console.log(JSON.stringify({skillDispatch:c(s,"critiqueDispatch"),loopDispatch:c(l,"critiqueDispatch"),skillFallback:c(s,"no-agent-tool"),loopFallback:c(l,"no-agent-tool"),skillSplice:c(s,"plan.js\x22\x20splice"),loopSplice:c(l,"plan.js\x22\x20splice"),skillLatest:c(s,"splice\x20--plan\x20\x22\x3cPLAN_PATH\x3e\x22\x20--critique-dir"),loopLatest:c(l,"splice\x20--plan\x20\x22\x3cPLAN_PATH\x3e\x22\x20--critique-dir")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
   assert:
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        if (o.skillDispatch >= 2 && o.loopDispatch >= 1 && o.skillFallback >= 1 && o.loopFallback >= 1 && o.skillSplice >= 1 && o.loopSplice >= 1) return true;
+        if (o.skillDispatch >= 2 && o.loopDispatch >= 1 && o.skillFallback >= 1 && o.loopFallback >= 1 && o.skillSplice >= 1 && o.loopSplice >= 1 && o.skillLatest >= 1 && o.loopLatest >= 1) return true;
         return { pass: false, score: 0, reason: output };
 
 - description: "plan-sdlc/audit-w33: Step 7 pointer condition, review.lenses and the non-zero-exit lens rule (R41, R36, E9, #9435, #9437)"
@@ -1583,6 +1583,43 @@
           JSON.stringify(c.out.written) === '["Guardrail Compliance","Suggested Review Dimensions"]' && c.out.replaced.length === 0 &&
           // an unwritten scorecard leaves the old one where it was
           c.text.includes('OLD SCORECARD BODY');
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-splice: (d) --critique-dir writes the newest guardrail table only (R77)"
+  vars:
+    script_path: "-e"
+    project_root: "file://fixtures-fs/plan-splice-latest"
+    script_args: '((cp,fs,d,js,t)=>((G)=>(fs.writeFileSync(t+"/plan.md",fs.readFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md","utf8").replace("##"+String.fromCharCode(32)+"Deviations",G+"\n\n##"+String.fromCharCode(32)+"Deviations")),((r)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({status:r.status,err:r.stderr,out:r.stdout?JSON.parse(r.stdout):null,text:fs.readFileSync(t+"/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/plan.md","--critique-dir",d],{encoding:"utf8"}))))("##"+String.fromCharCode(32)+"Guardrail"+String.fromCharCode(32)+"Compliance\n\n|g|s|st|r|\n|---|---|---|---|\n|x|warning|FAIL|old|"))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const count = (s) => o.text.split('\n').filter(l => l === s).length;
+        const ok = o.status === 0 &&
+          JSON.stringify(o.out.written) === '["Guardrail Compliance"]' &&
+          JSON.stringify(o.out.replaced) === '["Guardrail Compliance"]' &&
+          o.out.source.endsWith('iter-1/merged.json') &&
+          count('## Guardrail Compliance') === 1 &&
+          o.text.includes('| no-scope-creep | warning | PASS | Newest table with a payload |') &&
+          !o.text.includes('FAIL') &&
+          o.text.includes('OLD SCORECARD BODY') && !o.text.includes('NEW SCORECARD BODY');
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-splice: (e) --critique-dir usage and empty cases (R77)"
+  vars:
+    script_path: "-e"
+    project_root: "file://fixtures-fs/plan-splice-latest"
+    script_args: '((cp,fs,d,js,t)=>(fs.mkdirSync(t+"/nulldir/iter-0",{recursive:true}),fs.writeFileSync(t+"/nulldir/iter-0/merged.json","{\"guardrailCompliancePayload\":null}"),((run)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({both:run("a",["--merged","{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/merged.json","--critique-dir",d]),neither:run("b",[]),missing:run("c",["--critique-dir",t+"/nope"]),nullOnly:run("d",["--critique-dir",t+"/nulldir"]),noG:run("e",["--critique-dir",d,"--no-guardrails"])}))((n,x)=>(fs.copyFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md",t+"/"+n+".md"),((r)=>({status:r.status,err:r.stderr,stdout:r.stdout,out:r.stdout?JSON.parse(r.stdout):null,same:fs.readFileSync(t+"/"+n+".md","utf8")===fs.readFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/"+n+".md",...x],{encoding:"utf8"}))))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const usage = (x) => x.status === 1 && x.stdout === '' && x.err.startsWith('plan.js splice error: ') && x.same;
+        const ok = usage(o.both) && o.both.err.includes('exactly one of --merged or --critique-dir') &&
+          usage(o.neither) && o.neither.err.includes('exactly one of --merged or --critique-dir') &&
+          usage(o.missing) && o.missing.err.includes('--critique-dir is not a readable directory') &&
+          o.nullOnly.status === 0 && JSON.stringify(o.nullOnly.out.written) === '[]' && o.nullOnly.out.source === null && o.nullOnly.same &&
+          o.noG.status === 0 && JSON.stringify(o.noG.out.written) === '[]' && o.noG.same;
         return ok ? true : `FAIL: ${output}`;
 
 - description: "plan-prepare: (lightweight) no explore pack (A5, P8)"

@@ -79,18 +79,18 @@
         const r = JSON.parse(output);
         return r.dispatch === true && r.donot === true && r.front === true;
 
-- description: "review-prepare (#363): manifest includes plugin_version matching semver or 'unknown'"
+- description: "review-prepare (#363): manifest includes plugin_version equal to plugin.json version"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-review-plugin-version.js"
     script_args: ""
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-config-current-v3"
   assert:
-    # plugin_version must be present in the emitted manifest fragment.
+    # plugin_version must equal the plugin.json version; 'unknown' fails.
     - type: javascript
       value: |
-        const semverOrUnknown = /^"plugin_version":"([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?|unknown)"$/;
-        return semverOrUnknown.test(output.replace(/\s/g, '').replace(/^\{/, '').replace(/\}$/, ''));
+        const o = JSON.parse(output);
+        return o.plugin_version === o.expected && /^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$/.test(o.expected);
 
 - description: "review-prepare (#490): linked-worktree (worktree-linked-ahead) — changed_files_count & current_branch reflect wt1, not the main worktree"
   vars:

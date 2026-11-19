@@ -11,7 +11,7 @@
  *   node plan.js diff-material --before <path> --after <path> [--full] [--prev-dir <iterDir>]
  *   node plan.js g17-prepare --plan <path> --dimensions-dir <dir> --instructions-dir <dir> --learnings <path> [--window <days>] [--github-hosting true|false] [--root <dir>] [--today YYYY-MM-DD]
  *   node plan.js merge-lanes --dir <iterDir> [--lanes <csv>] [--lenses <csv>] [--no-guardrails] [--gate-a <path>] [--inventory <path>] [--carry <prevIterDir>] [--g17-not-run] [--plan <path>] [--compact]
- *   node plan.js splice --plan <path> --merged <merged.json> [--no-guardrails]
+ *   node plan.js splice --plan <path> (--merged <merged.json> | --critique-dir <dir>) [--no-guardrails]
  *   node plan.js critique-prep --critique-dir <dir> --iter <k> --plan <path> [--github-hosting true|false] [--root <dir>]
  *
  * Options:
@@ -45,7 +45,7 @@ const { resolveQuality, QUALITY_EXPECTED } = require(path.join(LIB, 'quality'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { initState, findStateFile, readState, writeState, slugifyBranch, pruneStateFiles } = require(path.join(LIB, 'state'));
 const { exec, parseRemoteOwner } = require(path.join(LIB, 'git'));
-const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes, renderSummary, splicePlan, tierCheck } = require(path.join(LIB, 'plan-critique'));
+const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes, renderSummary, splicePlan, latestGuardrailMerged, tierCheck } = require(path.join(LIB, 'plan-critique'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
 const { validateCopyRules, requiredCopies } = require(path.join(LIB, 'plan-parse'));
 
@@ -352,7 +352,7 @@ const SUBCOMMAND_FLAGS = {
   'g17-prepare': ['plan', 'dimensions-dir', 'instructions-dir', 'learnings', 'window', 'github-hosting', 'root', 'today'],
   'merge-lanes': ['dir', 'lanes', 'lenses', 'no-guardrails', 'gate-a', 'inventory', 'carry', 'g17-not-run', 'plan', 'compact'],
   'critique-prep': ['critique-dir', 'iter', 'plan', 'github-hosting', 'root'],
-  splice: ['plan', 'merged', 'no-guardrails'],
+  splice: ['plan', 'merged', 'critique-dir', 'no-guardrails'],
   tier: ['plan'],
 };
 
@@ -484,6 +484,15 @@ function critiquePrep(flags) {
 /** Write the Guardrail Compliance, Suggested Review Dimensions and Verification Scorecard sections of merged.json into the plan (R67 (f)). */
 function runSplice(flags) {
   const planPath = requireFlag(flags, 'plan');
+  if ((flags.merged === undefined) === (flags['critique-dir'] === undefined)) throw usageError('give exactly one of --merged or --critique-dir');
+  if (flags['critique-dir'] !== undefined) {
+    const latest = flags.noGuardrails === true ? null : latestGuardrailMerged(flags['critique-dir']);
+    const planText = readPlanFile(planPath);
+    if (!latest) return { written: [], replaced: [], source: null };
+    const { text, written, replaced } = splicePlan(planText, latest.merged, { only: ['Guardrail Compliance'] });
+    fs.writeFileSync(planPath, text);
+    return { written, replaced, source: latest.path };
+  }
   let merged;
   try {
     merged = JSON.parse(readPlanFile(requireFlag(flags, 'merged')));

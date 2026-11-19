@@ -66,7 +66,7 @@
     script_path: "repo://tests/promptfoo/scripts/run-session-start-state.js"
     script_args: "--project-root {{project_root}}"
     script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-config"
+    project_root: "file://fixtures-fs/project-compact-recovery-noop"
   assert:
     - type: javascript
       value: |
@@ -75,7 +75,7 @@
     - type: javascript
       value: |
         const data = JSON.parse(output);
-        return Array.isArray(data.hiddenFiles);
+        return JSON.stringify(data.hiddenFiles) === '[".unrelated-state.json"]';
 
 # ---------------------------------------------------------------------------
 # Case 4: stale pipeline-nudge sidecar (>24h) is swept on session-start
