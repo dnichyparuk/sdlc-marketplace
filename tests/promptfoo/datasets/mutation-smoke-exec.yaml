@@ -57,3 +57,14 @@
       value: "context.metadata.exitCode === 2"
     - type: contains
       value: "Usage:"
+
+- description: "mutation-smoke: (g) --run --owner --only with an unknown id exits 2 before any run"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_args: "--run --owner --only no-such-id"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
+    - type: contains
+      value: "unknown --only id: no-such-id"

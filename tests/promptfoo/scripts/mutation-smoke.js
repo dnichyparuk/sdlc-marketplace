@@ -207,6 +207,9 @@ try {
     if (i >= 0 && (argv[i + 1] === undefined || argv[i + 1].startsWith('--'))) {
       throw new Error('--only needs a mutation id');
     }
+    if (i >= 0 && !MUTATIONS.some(m => m.id === argv[i + 1])) {
+      throw new Error(`unknown --only id: ${argv[i + 1]}`);
+    }
     const reason = refusal();
     if (reason) {
       result = { ok: false, refused: reason };
