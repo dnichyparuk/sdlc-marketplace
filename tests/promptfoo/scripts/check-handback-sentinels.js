@@ -15,7 +15,7 @@ if (!fs.existsSync(MARKER)) {
 
 const PLUGIN = 'plugins/sdlc-utilities';
 const HANDBACK = 'No hand-back mid-wave (R86)';
-const WORKER_SENTINELS = ['`cat >>`', '- Do not run `git worktree add`', 'has a `## Verification` section, run its commands exactly as written'];
+const WORKER_SENTINELS = ['`cat >>`', '- Do not run `git worktree add`', 'has a `## Verification` section, run its commands exactly as written', 'A refusal is a stop (execute-plan-sdlc R93).', 'never change the environment or the command to get past it'];
 
 function has(rel, sentinels) {
   let content;

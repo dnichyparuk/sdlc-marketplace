@@ -408,3 +408,15 @@
       value: |
         const o = JSON.parse(output);
         return o.auto === 2 && o.verdict === 2 ? true : `FAIL: ${output}`;
+
+- description: "rr-refusal: (a) R36 refusal rule in SKILL.md Step 11, the DO NOT list and ship-step-received-review"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,r)=>((s,a)=>((c)=>console.log(JSON.stringify({step:c(s,"**A\x20refusal\x20is\x20a\x20stop\x20(R36).**"),dont:c(s,"or\x20run\x20an\x20owner-only\x20command\x20as\x20a\x20fix\x20check\x20(R36)"),agent:c(a,"(received-review-sdlc\x20R36)")})))((t,x)=>t.split(x).length-1))(fs.readFileSync(r+"/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"),fs.readFileSync(r+"/plugins/sdlc-utilities/agents/ship-step-received-review.md","utf8")))(require("fs"),"{{repo_root}}")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.step === 1 && o.dont === 1 && o.agent === 1 ? true : `FAIL: ${output}`;

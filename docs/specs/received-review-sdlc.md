@@ -101,6 +101,8 @@
   - Acceptance: exec case `rr-verify: (a)` (SKILL.md Step 3 carries the R34 rule).
 - R35: Open decisions stop an unattended run. Under `--auto` with `flags.minSeverity` set, when one or more items whose severity ranks at or above `minSeverity` end with the verdict "needs discussion" (for any reason, for example R28 scope or C19), the skill still implements its "will fix" items, runs the R30 scope check and Steps 11.6 to 12, and then stops with a failure and a `pendingQuestion`: prompt `Open decisions: <id> (<one-line point>); … Fix them, or defer them to a follow-up?`, options `["fix", "defer"]`. A scope-check stop (R30) comes first. Without `--auto`, or without `minSeverity`, nothing changes.
   - Acceptance: behavioural; verified by review: an `--auto --min-severity high` run with one high "needs discussion" item returns failure with options fix and defer.
+- R36: A refusal is a stop. When a check or script that Step 11 runs to verify a fix refuses to run and names its guard (for example an owner-only script that exits because `CLAUDECODE` or `CI` is set, or `--owner` is missing), the skill never changes the environment or the command to get past it: no unset, export or override of a variable, no added flag such as `--owner`, no other shell or wrapper. A command that the project notes or its own refusal mark as owner-only is never a verification step of a fix: the skill runs another real check, or names the check it did not run. The fix stays in the working tree; the Step 12 summary (and, in a ship run, the step result) names each check that did not run and its refusal message. The run goes on with the other items; this holds also under `--auto` and the R18 bypass.
+  - Acceptance: exec case `rr-refusal: (a)` (SKILL.md Step 11, the DO NOT list and `agents/ship-step-received-review.md` carry the R36 rule).
 
 ### Step-emitter contract
 
@@ -240,6 +242,7 @@ Critique 2 (responses):
 | R32 | (issue #9302) |
 | R34 | doc-versus-spec findings checked against the code (ledger F-58), #9365 |
 | R35 | open decisions stop an unattended run (ledger F-53), #9372 |
+| R36 | a script refusal is a stop; owner-only commands are never a fix check (ledger F-152), #9459 (#9457) |
 | R28 | run-time scope widening for copies (ledger F-62(b)) rejected in favour of the plan-time copy check (plan-sdlc R71(d)), #9368 |
 | R22 | per issue #429 table |
 | P8 | (issue #233) |

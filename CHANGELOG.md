@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.5] - 2026-11-19
+
+### Fixed
+- execute-plan-sdlc, received-review-sdlc: a script refusal is a stop. The execute worker agents, the received-review skill and its ship step agent no longer work around a refused owner-only command, and a check that refuses is named in the report while the run goes on (#9459).
+
 ## [0.56.4] - 2026-11-19
 
 ### Added
