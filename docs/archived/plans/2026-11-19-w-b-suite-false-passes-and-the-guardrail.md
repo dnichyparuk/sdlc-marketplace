@@ -1,5 +1,7 @@
 # W-B Suite False Passes and Guardrail Table Re-splice Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #119, f782c7e
+
 **Commit:** `test(W-B): tests, plan-sdlc - exec false passes, guardrail re-splice`
 **Goal:**
 - Make each exec case named in TK-004 fail when the behaviour it covers is broken.
@@ -191,10 +193,11 @@ Spec (Task 11):
 **Notes:** The markdown report prints PASS rows even when another check fails, so only the summary line and the absence of a FAIL row prove a pass (F-exec-case-false-pass-assertions-1, -5).
 
 **Acceptance criteria:**
-- [ ] The plan-format case adds `contains` `**Format floor:** PASS` (case-sensitive; the report prints `**Format floor:** PASS | 11/11 …`) and `not-contains` `| FAIL |`, keeping its existing assertions (TK-004/A1).
-- [ ] The dimensions case replaces the regex `(?!_common\.md)` with `not-icontains` `_common`; the existing total-3 assertion stays (TK-004/A1).
-- [ ] Each case fails when broken on purpose (the plan-format case pointed at a fixture plan with one failing check; the dimensions case expecting `_common`), run once each, then reverted (TK-004/A1).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "plan-format: valid plan passes all checks|_common.md is excluded"` passes (TK-004/A2).
+- [x] The plan-format case adds `contains` `**Format floor:** PASS` (case-sensitive; the report prints `**Format floor:** PASS | 11/11 …`) and `not-contains` `| FAIL |`, keeping its existing assertions (TK-004/A1).
+- [x] The dimensions case replaces the regex `(?!_common\.md)` with `not-icontains` `_common`; the existing total-3 assertion stays (TK-004/A1).
+- [~] Each case fails when broken on purpose (the plan-format case pointed at a fixture plan with one failing check; the dimensions case expecting `_common`), run once each, then reverted (TK-004/A1).
+  *Skipped on 2026-11-19: the Task 1 worker skipped the break-on-purpose check (DONE_WITH_CONCERNS)*
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "plan-format: valid plan passes all checks|_common.md is excluded"` passes (TK-004/A2).
 
 **Contract:** shape (code): YAML assertion edits only, assertion count per dataset kept or grown; names: `**Format floor:** PASS`, `| FAIL |`, `_common`; sync: Task 14 removes the `empty-regex` allowlist entry for the dimensions case
 
@@ -211,12 +214,12 @@ Spec (Task 11):
 **Notes:** The two manifest-path cases run with `script_passthrough: true`, so their output is the path; a `javascript` assertion can read that file with `require('fs')`, as `fixture-guard-exec.yaml:91` does. Keep each description (mutation-smoke pattern `pr\.js: template at`). Findings: F-exec-case-false-pass-assertions-2, -3, -4.
 
 **Acceptance criteria:**
-- [ ] "config present includes prConfig": a `javascript` assertion parses the output and checks that `prConfig.requiredLabels` deep-equals the list in the `project-pr-config` fixture config (TK-004/A1).
-- [ ] "no config sets prConfig null": a `javascript` assertion checks `JSON.parse(output).prConfig === null` (TK-004/A1).
-- [ ] Both manifest-path cases read the manifest file at the printed path, parse it, and check that it holds the top-level keys `prConfig` and `branchGuard`; the path regex stays (TK-004/A1).
-- [ ] The two template cases set `script_capture_stderr: true` (so the negative deprecation check sees stderr), keep that check, and add `contains` checks on the `customTemplate` text: ".sdlc/pr-template.md is resolved" contains `SDLC canonical template marker`; "both templates present" contains `SDLC wins precedence marker` and `not-contains` `Legacy fallback marker` (TK-004/A1).
-- [ ] Each strengthened case fails once when broken on purpose (for example, the expected label list changed or the fixture swapped), then the change is reverted (TK-004/A1).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^pr-prepare:|^pr.js:"` passes (TK-004/A2).
+- [x] "config present includes prConfig": a `javascript` assertion parses the output and checks that `prConfig.requiredLabels` deep-equals the list in the `project-pr-config` fixture config (TK-004/A1).
+- [x] "no config sets prConfig null": a `javascript` assertion checks `JSON.parse(output).prConfig === null` (TK-004/A1).
+- [x] Both manifest-path cases read the manifest file at the printed path, parse it, and check that it holds the top-level keys `prConfig` and `branchGuard`; the path regex stays (TK-004/A1).
+- [x] The two template cases set `script_capture_stderr: true` (so the negative deprecation check sees stderr), keep that check, and add `contains` checks on the `customTemplate` text: ".sdlc/pr-template.md is resolved" contains `SDLC canonical template marker`; "both templates present" contains `SDLC wins precedence marker` and `not-contains` `Legacy fallback marker` (TK-004/A1).
+- [x] Each strengthened case fails once when broken on purpose (for example, the expected label list changed or the fixture swapped), then the change is reverted (TK-004/A1).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^pr-prepare:|^pr.js:"` passes (TK-004/A2).
 
 **Contract:**
 - shape (code): YAML assertion edits in six cases; the output and manifest shapes they read:
@@ -250,10 +253,10 @@ Spec (Task 11):
 **Notes:** At HEAD the workspace case prints `"value": null` and still passes. The dedup case runs without `SDLC_CONFIG_QUIET=""`, so it may trace nothing at all; at HEAD with the env set the trace line is `[sdlc:config] read-miss <path>`, printed once. Findings: F-exec-case-false-pass-assertions-6, -7.
 
 **Acceptance criteria:**
-- [ ] The workspace case points at `file://fixtures-fs/config-sdlc-root-workspace` and asserts `"value": {` and `"mode": "branch"` besides `"ok": true` (TK-004/A1).
-- [ ] The dedup case sets `script_env: '{"SDLC_CONFIG_QUIET": ""}'` and adds a `javascript` assertion `(output.match(/\[sdlc:config\] read/g) || []).length === 1`; `traceDedup:done` stays (TK-004/A1).
-- [ ] Broken on purpose, each fails once (the workspace case against `setup-fully-configured`, the dedup case expecting 2), then reverted (TK-004/A1).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^config-sdlc-root:"` passes (TK-004/A2).
+- [x] The workspace case points at `file://fixtures-fs/config-sdlc-root-workspace` and asserts `"value": {` and `"mode": "branch"` besides `"ok": true` (TK-004/A1).
+- [x] The dedup case sets `script_env: '{"SDLC_CONFIG_QUIET": ""}'` and adds a `javascript` assertion `(output.match(/\[sdlc:config\] read/g) || []).length === 1`; `traceDedup:done` stays (TK-004/A1).
+- [x] Broken on purpose, each fails once (the workspace case against `setup-fully-configured`, the dedup case expecting 2), then reverted (TK-004/A1).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^config-sdlc-root:"` passes (TK-004/A2).
 
 **Contract:**
 - shape (code): the new fixture file:
@@ -282,11 +285,12 @@ Spec (Task 11):
 **Notes:** `wave-committed` prints nothing on success, so a negative check on `Error:` passes on any silent failure. The two state cases run the command and then read the state through `state/execute.js read` in one `-e` script, the way the received-review cases chain two `spawnSync` calls. Keep the descriptions (mutation-smoke pattern `wave-committed`). Findings: F-exec-case-false-pass-assertions-8, -11.
 
 **Acceptance criteria:**
-- [ ] The harvest case asserts that the output names `.sdlc/learnings/log.md` and not `.claude/learnings/log.md`, keeping the no-`DEPRECATED` check (TK-004/A1).
-- [ ] "wave-committed sets committedSha": exit 0, and the state read after the call has `committedSha` `abc1234567890abc1234567890abc1234567890a` on wave 1 (TK-004/A1).
-- [ ] "wave-committed is idempotent": exit 0, and the state read is the same before and after the call (TK-004/A1).
-- [ ] Broken on purpose (another sha expected; the harvest fixture swapped to `project-learnings-legacy-only`), each fails once, then reverted (TK-004/A1).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "resolveLogPath|wave-committed"` passes (TK-004/A2).
+- [x] The harvest case asserts that the output names `.sdlc/learnings/log.md` and not `.claude/learnings/log.md`, keeping the no-`DEPRECATED` check (TK-004/A1).
+- [x] "wave-committed sets committedSha": exit 0, and the state read after the call has `committedSha` `abc1234567890abc1234567890abc1234567890a` on wave 1 (TK-004/A1).
+- [x] "wave-committed is idempotent": exit 0, and the state read is the same before and after the call (TK-004/A1).
+- [~] Broken on purpose (another sha expected; the harvest fixture swapped to `project-learnings-legacy-only`), each fails once, then reverted (TK-004/A1).
+  *Skipped on 2026-11-19: the Task 4 worker skipped the break-on-purpose check (DONE_WITH_CONCERNS)*
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "resolveLogPath|wave-committed"` passes (TK-004/A2).
 
 **Contract:**
 - shape (code): the `-e` script output of each state case:
@@ -314,9 +318,9 @@ Spec (Task 11):
 **Notes:** The old fixture `project-commit-config` has no `.sdlc/execution`, so the list is always empty and the case cannot fail. With one unrelated hidden file present, a sweep that deletes too much makes the list differ. Finding: F-exec-case-false-pass-assertions-14.
 
 **Acceptance criteria:**
-- [ ] Case 3 points at `file://fixtures-fs/project-compact-recovery-noop` and asserts `exitCode === 0` and `JSON.stringify(data.hiddenFiles) === '[".unrelated-state.json"]'` (TK-004/A1).
-- [ ] With the expected list changed to `[]` on purpose, the case fails once, then the change is reverted (TK-004/A1).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^session-start: stale sweep is a no-op"` passes, and so do the fixture-guard cases (`--filter-pattern "^fixture-guard:"`) (TK-004/A2).
+- [x] Case 3 points at `file://fixtures-fs/project-compact-recovery-noop` and asserts `exitCode === 0` and `JSON.stringify(data.hiddenFiles) === '[".unrelated-state.json"]'` (TK-004/A1).
+- [x] With the expected list changed to `[]` on purpose, the case fails once, then the change is reverted (TK-004/A1).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^session-start: stale sweep is a no-op"` passes, and so do the fixture-guard cases (`--filter-pattern "^fixture-guard:"`) (TK-004/A2).
 
 **Contract:**
 - shape (code): fixture layout and the harness output the case reads (`run-session-start-state.js`):
@@ -348,12 +352,12 @@ Spec (Task 11):
 **Notes:** `getPluginVersion()` returns `unknown` when it fails, and the old regex accepts `unknown`, so the broken path passes. Each harness reads `plugin.json` on its own path (`REPO_ROOT/plugins/sdlc-utilities/.claude-plugin/plugin.json`), so a wrong lookup in `config-version.js` gives a mismatch. Findings: F-exec-case-false-pass-assertions-9, -10.
 
 **Acceptance criteria:**
-- [ ] The review case asserts `o.plugin_version === o.expected` and that `o.expected` matches `^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$`; `unknown` is no longer accepted (TK-004/A1).
-- [ ] The received-review plugin_version case runs `--field plugin_version --with-expected` and asserts `o.value === o.expected` with the same semver check (TK-004/A1).
-- [ ] The reply_footer case runs `--field reply_footer --with-expected` and asserts that `o.value` equals two newlines, then `_via`, the backticked `received-review-sdlc`, ` v`, `o.expected` and `_` (TK-004/A1).
-- [ ] Without `--with-expected` the received-review harness prints what it prints today (the `hardenSurfaceHint` case at `received-review-prepare-exec.yaml:100-110` still passes).
-- [ ] With `getPluginVersion` forced to `unknown` in a scratch edit of `config-version.js`, the three cases fail once, then the edit is reverted (TK-004/A1).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "#363"` passes (TK-004/A2).
+- [x] The review case asserts `o.plugin_version === o.expected` and that `o.expected` matches `^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$`; `unknown` is no longer accepted (TK-004/A1).
+- [x] The received-review plugin_version case runs `--field plugin_version --with-expected` and asserts `o.value === o.expected` with the same semver check (TK-004/A1).
+- [x] The reply_footer case runs `--field reply_footer --with-expected` and asserts that `o.value` equals two newlines, then `_via`, the backticked `received-review-sdlc`, ` v`, `o.expected` and `_` (TK-004/A1).
+- [x] Without `--with-expected` the received-review harness prints what it prints today (the `hardenSurfaceHint` case at `received-review-prepare-exec.yaml:100-110` still passes).
+- [x] With `getPluginVersion` forced to `unknown` in a scratch edit of `config-version.js`, the three cases fail once, then the edit is reverted (TK-004/A1).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "#363"` passes (TK-004/A2).
 
 **Contract:**
 - shape (code): harness outputs, before → after:
@@ -386,10 +390,10 @@ Spec (Task 11):
 **Notes:** The counter lives in `os.tmpdir()/sdlc-mcp-session-<id>/`, keyed by `SDLC_SESSION_ID` when set (`mcp-failure.js:247`, `:279`), so a stale directory from an earlier run can make the first call return 2. At HEAD the fresh-install manifest holds `"candidateSites": []` and `"exists": false` (checked on a scratch copy of the fixture). Findings: F-exec-case-false-pass-assertions-12, -13.
 
 **Acceptance criteria:**
-- [ ] The record-occurrence case is an `-e` script that sets `SDLC_SESSION_ID` to `w-b-<pid>-<Date.now()>`, runs the command twice with that env, removes `os.tmpdir()/sdlc-mcp-session-<id>` afterwards, and asserts the outputs `1` then `2` (TK-004/A1).
-- [ ] The fresh-install case replaces the never-matching negative with a `javascript` assertion: `const o = JSON.parse(output); Array.isArray(o.candidateSites) && o.candidateSites.length === 0 && o.exists === false`; the other assertions stay (TK-004/A1).
-- [ ] Broken on purpose (`2` expected first; a non-empty `candidateSites` expected), each fails once, then reverted (TK-004/A1).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "record-occurrence|fresh install"` passes (TK-004/A2).
+- [x] The record-occurrence case is an `-e` script that sets `SDLC_SESSION_ID` to `w-b-<pid>-<Date.now()>`, runs the command twice with that env, removes `os.tmpdir()/sdlc-mcp-session-<id>` afterwards, and asserts the outputs `1` then `2` (TK-004/A1).
+- [x] The fresh-install case replaces the never-matching negative with a `javascript` assertion: `const o = JSON.parse(output); Array.isArray(o.candidateSites) && o.candidateSites.length === 0 && o.exists === false`; the other assertions stay (TK-004/A1).
+- [x] Broken on purpose (`2` expected first; a non-empty `candidateSites` expected), each fails once, then reverted (TK-004/A1).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "record-occurrence|fresh install"` passes (TK-004/A2).
 
 **Contract:**
 - shape (code): the record-occurrence `-e` output:
@@ -415,10 +419,10 @@ Spec (Task 11):
 **Notes:** The cases next to the deleted ones (`archive-openspec skipped when absent`, `verify-openspec will_run`, `verify-openspec skipped when absent`) already fail when a step is not recognised (F-exec-case-false-pass-assertions-15, -16).
 
 **Acceptance criteria:**
-- [ ] "ship-prepare: VALID_STEPS includes archive-openspec" and "ship-prepare: VALID_STEPS includes verify-openspec" are gone (−2 cases, −2 assertions in this dataset) (TK-004/A1).
-- [ ] The `--gc` case asserts `o.action === 'gc' && typeof o.report === 'object' && o.report !== null && !('planModeBlocked' in o)`; the `not-icontains` stays (TK-004/A1).
-- [ ] The `--gc` case fails once when the expected action is changed on purpose, then reverted (TK-004/A1).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^ship-prepare: (verify-openspec|archive-openspec|--gc wins)"` passes (TK-004/A2).
+- [x] "ship-prepare: VALID_STEPS includes archive-openspec" and "ship-prepare: VALID_STEPS includes verify-openspec" are gone (−2 cases, −2 assertions in this dataset) (TK-004/A1).
+- [x] The `--gc` case asserts `o.action === 'gc' && typeof o.report === 'object' && o.report !== null && !('planModeBlocked' in o)`; the `not-icontains` stays (TK-004/A1).
+- [x] The `--gc` case fails once when the expected action is changed on purpose, then reverted (TK-004/A1).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^ship-prepare: (verify-openspec|archive-openspec|--gc wins)"` passes (TK-004/A2).
 
 **Contract:** shape (code): one case tightened, two deleted; names: the three descriptions above; sync: Task 14 records −2 in the spec-id baseline and removes the two `negative-only` allowlist entries
 
@@ -435,9 +439,9 @@ Spec (Task 11):
 **Notes:** P10 (`docs/specs/jira-sdlc.md:134`) has two sides and only `true` is covered; `jira.js:208` sets the default `false` (F-jira-forcerefresh-and-review-e10-stop-text-1, -2).
 
 **Acceptance criteria:**
-- [ ] A case `jira-prepare: (P10) without --force-refresh flags.forceRefresh is false` runs `--project FOO --check` on `jira-multi-project-config` and asserts `JSON.parse(output).flags.forceRefresh === false` (TK-005/A1).
-- [ ] With the default in `jira.js:208` set to `true` in a scratch edit, the case fails once, then the edit is reverted (TK-005/A2).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "\(P10\)"` passes both P10 cases.
+- [x] A case `jira-prepare: (P10) without --force-refresh flags.forceRefresh is false` runs `--project FOO --check` on `jira-multi-project-config` and asserts `JSON.parse(output).flags.forceRefresh === false` (TK-005/A1).
+- [x] With the default in `jira.js:208` set to `true` in a scratch edit, the case fails once, then the edit is reverted (TK-005/A2).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "\(P10\)"` passes both P10 cases.
 
 **Contract:** shape (code): one new case, vars as in the P10 true case at `jira-sdlc-exec.yaml:314-323` minus `--force-refresh`, one `javascript` assertion; names: `jira-prepare: (P10) without --force-refresh flags.forceRefresh is false`; sync: none
 
@@ -454,10 +458,10 @@ Spec (Task 11):
 **Notes:** E10 lives in the script message (`received-review.js:434-437`) and in the SKILL.md Flags rule (`SKILL.md:128`); both are checked, because the skill stops before any Bash call for a metacharacter value (F-jira-forcerefresh-and-review-e10-stop-text-3, -4, -5).
 
 **Acceptance criteria:**
-- [ ] `rr-scope: (c)` asserts `o.a.stderr.includes('Error: --min-severity must be one of critical, high, medium, low (got "severe").')` in place of the prefix check (TK-006/A1).
-- [ ] The A7 C20 case adds two counts over SKILL.md, each `=== 1`: the phrase `stop and report it as an invalid value`, and the sentence that starts `` `--min-severity` takes only `` and ends `any other value is reported the same way` (TK-006/A1).
-- [ ] With one word of the script message or of either SKILL.md sentence changed in a scratch edit, the matching case fails once, then the edit is reverted (TK-006/A2).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "rr-scope: \(c\)|skill-text A7 C20"` passes.
+- [x] `rr-scope: (c)` asserts `o.a.stderr.includes('Error: --min-severity must be one of critical, high, medium, low (got "severe").')` in place of the prefix check (TK-006/A1).
+- [x] The A7 C20 case adds two counts over SKILL.md, each `=== 1`: the phrase `stop and report it as an invalid value`, and the sentence that starts `` `--min-severity` takes only `` and ends `any other value is reported the same way` (TK-006/A1).
+- [x] With one word of the script message or of either SKILL.md sentence changed in a scratch edit, the matching case fails once, then the edit is reverted (TK-006/A2).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "rr-scope: \(c\)|skill-text A7 C20"` passes.
 
 **Contract:** shape (code): assertion edits in two cases (the `-e` script of A7 C20 gains two `c(...)` counts, with `\x20`-escaped spaces as the case already uses); names: `rr-scope: (c) invalid --min-severity is an error (and an unreadable --plan)`, `received-review-prepare/skill-text A7 C20: …`; sync: none
 
@@ -479,11 +483,11 @@ Spec (Task 11):
 **Notes:** Spec first (`spec-first` guardrail): Tasks 12 and 13 implement what this task pins. R77 states its threat model and its accepted gap in the spec, so reviewers report only gaps outside it. Findings: F-plan-guardrail-table-resplice-3, -7; F-plan-sdlc-spec-and-test-surface-6, -7.
 
 **Acceptance criteria:**
-- [ ] R77 is placed right after R76 under `## Dispatch and routing`, with the text below and its Acceptance line (TK-007/A1, A2).
-- [ ] R67 (f) reads `splice --plan <p> (--merged <path> | --critique-dir <dir>) [--no-guardrails]` and names the `source` field.
-- [ ] R74 no longer ends at "no further critique round"; it points to R77.
-- [ ] The appendix history table gains `| R67, R74, R77 | guardrail table re-splice, W-B (#9453) |`.
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0, and `cmp docs/specs/plan-sdlc.md site/src/content-source/specs/plan-sdlc.md` is silent.
+- [x] R77 is placed right after R76 under `## Dispatch and routing`, with the text below and its Acceptance line (TK-007/A1, A2).
+- [x] R67 (f) reads `splice --plan <p> (--merged <path> | --critique-dir <dir>) [--no-guardrails]` and names the `source` field.
+- [x] R74 no longer ends at "no further critique round"; it points to R77.
+- [x] The appendix history table gains `| R67, R74, R77 | guardrail table re-splice, W-B (#9453) |`.
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0, and `cmp docs/specs/plan-sdlc.md site/src/content-source/specs/plan-sdlc.md` is silent.
 
 **Contract:**
 - shape (openspec): ADD R77; MODIFY R67 (f) and R74. R77 text:
@@ -529,10 +533,10 @@ Spec (Task 11):
 **Notes:** The fixture plan is the existing `fixtures-fs/plan-splice/plan.md`, copied to a temp dir as cases (a) to (c) do. k is compared as a number, so `iter-10` comes after `iter-2`. Risk is Medium because `splice` runs on every plan-sdlc run; the `--merged` path must not change, and cases (a) to (c) guard it. Findings: F-plan-guardrail-table-resplice-1, -2, -8; F-plan-sdlc-spec-and-test-surface-12.
 
 **Acceptance criteria:**
-- [ ] `plan-splice: (d) --critique-dir writes the newest guardrail table only (R77)`: on a plan copy with an old `## Guardrail Compliance` (FAIL row) and an old Scorecard, the call exits 0 and prints `written: ["Guardrail Compliance"]`, `replaced: ["Guardrail Compliance"]` and a `source` ending in `iter-1/merged.json`; the plan holds the PASS row, no FAIL row, and the old Scorecard body unchanged (TK-007/A1).
-- [ ] `plan-splice: (e) --critique-dir usage and empty cases (R77)`: both flags → exit 1, stderr `plan.js splice error: …`, empty stdout; neither flag → exit 1; an unreadable dir → exit 1; a dir whose only result has a null payload → exit 0, `written: []`, `source: null`, plan unchanged; `--no-guardrails` → exit 0, `written: []`.
-- [ ] Cases (a) to (c) still pass unchanged.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-splice:"` passes.
+- [x] `plan-splice: (d) --critique-dir writes the newest guardrail table only (R77)`: on a plan copy with an old `## Guardrail Compliance` (FAIL row) and an old Scorecard, the call exits 0 and prints `written: ["Guardrail Compliance"]`, `replaced: ["Guardrail Compliance"]` and a `source` ending in `iter-1/merged.json`; the plan holds the PASS row, no FAIL row, and the old Scorecard body unchanged (TK-007/A1).
+- [x] `plan-splice: (e) --critique-dir usage and empty cases (R77)`: both flags → exit 1, stderr `plan.js splice error: …`, empty stdout; neither flag → exit 1; an unreadable dir → exit 1; a dir whose only result has a null payload → exit 0, `written: []`, `source: null`, plan unchanged; `--no-guardrails` → exit 0, `written: []`.
+- [x] Cases (a) to (c) still pass unchanged.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-splice:"` passes.
 
 **Contract:**
 - shape (code):
@@ -592,12 +596,12 @@ Spec (Task 11):
 **Notes:** The call is a plain Bash block by the skill's tool contract: one call, nothing appended, `<PLUGIN_ROOT>` and `<critiqueDir>` substituted as literals (no shell variable crosses calls). `git grep -F` over `tests/` finds no assertion on the changed sentences ("no further critique round", "the `plan.js splice` above has written"), so no other test file changes (F-55). Findings: F-plan-guardrail-table-resplice-5, -6; F-plan-sdlc-spec-and-test-surface-1, -2, -8.
 
 **Acceptance criteria:**
-- [ ] SKILL.md gets the three edits rendered in the Contract (R74 agent path, fallback item 3, the Step 4 closing paragraph) (TK-007/A2).
-- [ ] review-loop.md runs the same block once when the review loop ends (Approved, or the max-iterations path resolved), before Step 6.5 (TK-007/A1).
-- [ ] The sentinel adds `skillLatest` and `loopLatest`, counts of `splice --plan "<PLAN_PATH>" --critique-dir`, each `>= 1`; the existing counts keep their floors.
-- [ ] `docs/skills/plan-sdlc.md` step 4 adds one sentence: the table is written again from the newest critique result after the re-check and after the review loop, so a fixed finding does not stay as FAIL; the site copy is byte-equal (`cmp` silent).
-- [ ] `node .claude/skills/validate-plugin-consistency/check-consistency.js` and `node .claude/skills/validate-skill-docs/check-docs-consistency.js` exit 0.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "plan-sdlc/critique-rounds|plan-sdlc/lightweight-sentinels"` passes.
+- [x] SKILL.md gets the three edits rendered in the Contract (R74 agent path, fallback item 3, the Step 4 closing paragraph) (TK-007/A2).
+- [x] review-loop.md runs the same block once when the review loop ends (Approved, or the max-iterations path resolved), before Step 6.5 (TK-007/A1).
+- [x] The sentinel adds `skillLatest` and `loopLatest`, counts of `splice --plan "<PLAN_PATH>" --critique-dir`, each `>= 1`; the existing counts keep their floors.
+- [x] `docs/skills/plan-sdlc.md` step 4 adds one sentence: the table is written again from the newest critique result after the re-check and after the review loop, so a fixed finding does not stay as FAIL; the site copy is byte-equal (`cmp` silent).
+- [x] `node .claude/skills/validate-plugin-consistency/check-consistency.js` and `node .claude/skills/validate-skill-docs/check-docs-consistency.js` exit 0.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "plan-sdlc/critique-rounds|plan-sdlc/lightweight-sentinels"` passes.
 
 **Contract:**
 - shape (code): the block added in both files (`[--no-guardrails]` when `activeGuardrails` is empty, as in Step 4):
@@ -651,10 +655,10 @@ Spec (Task 11):
 **Notes:** Each test task keeps or grows its assertion count except Task 8 (−2 in `ship-prepare-exec.yaml`), so `spec-id-coverage: (a)` fails between Task 8 and this refresh. The floors of `spec-id-coverage: (b)` (`cases >= 1817`, `asserts >= 2645`) and `dataset-asserts: (a)` (`cases >= 1817`) keep their values: the suite has 1868 cases at HEAD and grows by 1 net (+2 plan-splice, +1 jira, −2 ship-prepare).
 
 **Acceptance criteria:**
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js --update` is run once; in the baseline diff the only drop is the asserts of `datasets/ship-prepare-exec.yaml` (−2), and `R77` appears among the ids of `datasets/plan-prepare-exec.yaml`.
-- [ ] The allowlist loses the entries that `node tests/promptfoo/scripts/check-dataset-asserts.js` reports as stale, expected seven: `empty-regex` sdlc-dimensions `_common.md`; `negative-only` pr-prepare `.sdlc/pr-template.md` and `both templates`; `negative-only` ship-prepare `VALID_STEPS includes archive-openspec` and `… verify-openspec`; `negative-only` state-gc `wave-committed` (two). No entry is added.
-- [ ] `node tests/promptfoo/scripts/check-dataset-asserts.js` prints `ok: true`, no findings and an empty `stale` list.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^spec-id-coverage:|^dataset-asserts:"` passes (TK-004/A2).
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js --update` is run once; in the baseline diff the only drop is the asserts of `datasets/ship-prepare-exec.yaml` (−2), and `R77` appears among the ids of `datasets/plan-prepare-exec.yaml`.
+- [x] The allowlist loses the entries that `node tests/promptfoo/scripts/check-dataset-asserts.js` reports as stale, expected seven: `empty-regex` sdlc-dimensions `_common.md`; `negative-only` pr-prepare `.sdlc/pr-template.md` and `both templates`; `negative-only` ship-prepare `VALID_STEPS includes archive-openspec` and `… verify-openspec`; `negative-only` state-gc `wave-committed` (two). No entry is added.
+- [x] `node tests/promptfoo/scripts/check-dataset-asserts.js` prints `ok: true`, no findings and an empty `stale` list.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^spec-id-coverage:|^dataset-asserts:"` passes (TK-004/A2).
 
 **Contract:** shape (code): baseline JSON refresh by script plus entry removal by hand; names: the seven allowlist entries above; sync: none
 

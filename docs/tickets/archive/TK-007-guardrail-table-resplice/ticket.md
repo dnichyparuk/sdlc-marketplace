@@ -3,6 +3,9 @@ id: TK-007
 type: task
 title: Re-splice Guardrail Compliance after fixes (#9453)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-19
+by: [2026-11-19-w-b-suite-false-passes-and-the-guardrail#11, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#12, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#13]
 ---
 
 # TK-007: Re-splice Guardrail Compliance after fixes (#9453)

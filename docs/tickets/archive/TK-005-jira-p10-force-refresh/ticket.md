@@ -3,6 +3,9 @@ id: TK-005
 type: task
 title: Jira P10 forceRefresh false without the flag (#9440)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-19
+by: [2026-11-19-w-b-suite-false-passes-and-the-guardrail#9]
 ---
 
 # TK-005: Jira P10 forceRefresh false without the flag (#9440)

@@ -3,6 +3,9 @@ id: TK-004
 type: task
 title: Suite false passes (#9424)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-19
+by: [2026-11-19-w-b-suite-false-passes-and-the-guardrail#1, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#2, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#3, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#4, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#5, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#6, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#7, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#8, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#14]
 ---
 
 # TK-004: Suite false passes (#9424)
