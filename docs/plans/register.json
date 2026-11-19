@@ -100,7 +100,7 @@
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-END", "role": "brief" }
       ],
-      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w36.md"],
+      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w36.md", "docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md"],
       "decisions": ["PD-1"]
     }
   ]

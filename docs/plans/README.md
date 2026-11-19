@@ -10,7 +10,7 @@ Executable plans of this repository and the generated programme status. The regi
 
 | Key | Phase | Title | Plans | Status | Progress | Depends on | Closed by |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `W-H2` (H2) | - | Suite speed infrastructure, pre-push tier and per-round review findings | [programme](./programme.md) (brief; §W-H2)<br>[2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier](./2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier.md) (executable) | In progress | 0/55 | none | - |
+| `W-H2` (H2) | - | Suite speed infrastructure, pre-push tier and per-round review findings | [programme](./programme.md) (brief; §W-H2)<br>[2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier](./2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier.md) (executable) | In progress | 55/55 | none | - |
 | `W-B` (B) | - | Suite false passes and the guardrail table re-splice | [programme](./programme.md) (brief; §W-B) | Not started | 0/0 | W-H2 | - |
 | `W-D1` (D1) | - | Suite reduction | [programme](./programme.md) (brief; §W-D1) | Not started | 0/0 | W-B | - |
 | `W-D2` (D2) | - | Ship, execute and plan follow-ups | [programme](./programme.md) (brief; §W-D2) | Not started | 0/0 | W-D1 | - |
@@ -34,7 +34,9 @@ Longest dependency chain among open waves (dependsOn only; no effort estimates):
 
 | TODO | Wave | Wave status |
 | --- | --- | --- |
+| [lean-skill-pr-b-9464](../TODO/lean-skill-pr-b-9464.md) | `W-END` | Not started |
 | [lows-lean-w34](../TODO/lows-lean-w34.md) | `W-END` | Not started |
 | [lows-lean-w35](../TODO/lows-lean-w35.md) | `W-END` | Not started |
 | [lows-lean-w36](../TODO/lows-lean-w36.md) | `W-END` | Not started |
+| [lows-lean-w39](../TODO/lows-lean-w39.md) | `W-END` | Not started |
 <!-- plan-register:end -->
