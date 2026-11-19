@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.7] - 2026-11-19
+
+### Changed
+- planning: the repository is connected to the lift-planning delivery-unit register (plan register script and schema, pilot plan, programme and decision docs, ticket set TK-001 to TK-021), with an exec test dataset for the register (#9461).
+
 ## [0.56.6] - 2026-11-19
 
 ### Changed
