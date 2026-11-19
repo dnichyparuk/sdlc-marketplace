@@ -177,8 +177,12 @@ function run(only) {
       try {
         const r = spawnSync('npx', ['--yes', PROMPTFOO, 'eval', '-c', 'promptfooconfig-exec.yaml',
           '-j', '1', '--no-cache', '--filter-pattern', m.filter],
-        { cwd: path.join(copy, 'tests', 'promptfoo'), encoding: 'utf8' });
-        results.push({ id: m.id, killed: r.status !== 0, exitCode: r.status });
+        { cwd: path.join(copy, 'tests', 'promptfoo'), encoding: 'utf8', timeout: 600000 });
+        if (r.error || r.signal) {
+          results.push({ id: m.id, killed: false, exitCode: r.status, error: r.error ? r.error.message : `signal ${r.signal}` });
+        } else {
+          results.push({ id: m.id, killed: r.status !== 0, exitCode: r.status });
+        }
       } finally {
         fs.writeFileSync(target, original);
       }

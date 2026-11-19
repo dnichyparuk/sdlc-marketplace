@@ -141,10 +141,11 @@ function writeBaseline(file, record) {
 }
 
 function readBaseline(file) {
+  if (!fs.existsSync(file)) throw new Error(`baseline not found: ${file}; run with --update`);
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {
-    throw new Error(`baseline not found: ${file}; run with --update`);
+  } catch (err) {
+    throw new Error(`baseline unreadable: ${file}: ${err.message}`);
   }
 }
 
