@@ -17,7 +17,7 @@ You run one critique round for `plan-sdlc` (R75): the Step 3 critique, the R74 r
 - **CRITIQUE_DIR**: absolute path of the run's critique directory (P22)
 - **PLAN_FILE_PATH**: absolute path to the plan file
 - **PREPARE_OUTPUT**: absolute path to the Step 0 prepare output JSON (`plan.js --output-file`)
-- **DISPATCH**: JSON `{ "lanes": [<lane names>], "lenses": [<lens names, or "all">] }`: what this round dispatches (Step 3: every lane; R74: `recheckLanes`; Step 5: `tier` `review.lenses`)
+- **DISPATCH**: JSON `{ "lanes": [<lane names>], "lenses": [<lens names, or "all">] }`: what this round dispatches (Step 3: every lane; R74: `recheckLanes`; Step 5: `tier` `review.lenses`, used as is only when no `diff-material` runs, see Step 2)
 - **CARRY**: absolute path of the previous iteration directory, or `none`
 - **BEFORE_PLAN**: absolute path of the plan copy made before the author's Step 6 fixes, or `none`
 - **G17_NOT_RUN**: `true` when g17-prepare failed in an earlier round of this run, else `false`
@@ -44,8 +44,8 @@ node "<PLAN_JS>" diff-material --before "<BEFORE_PLAN>" --after "<PLAN_FILE_PATH
 ```
 
 - `material: true`: dispatch `dispatch.lanes` and `dispatch.lenses` from its JSON (merged re-dispatch, R64).
-- `material: false`: dispatch the lenses of `DISPATCH` only.
-- Non-zero exit: count it as material and dispatch every lane of `lanes[]` and every `lensReviewers[]` entry, and pass no `--carry` (E9).
+- `material: false`: dispatch the lenses of its `review.lenses` only (the review route of the plan as it is now, R36).
+- Non-zero exit: count it as material and dispatch every lane of `lanes[]`, plus lens `all` when `DISPATCH` names `all`, otherwise every `lensReviewers[]` entry, and pass no `--carry` (E9).
 
 In every other round, dispatch what `DISPATCH` names.
 

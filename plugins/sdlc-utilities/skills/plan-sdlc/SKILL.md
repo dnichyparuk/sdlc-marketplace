@@ -185,7 +185,7 @@ Wait for answers before continuing.
 - Build/lint/test commands (from Makefile, package.json, or similar)
 - Naming conventions and code style
 
-On the inline path (lightweight scope or error fallback), issue Read, Glob and Grep calls that do not depend on each other in one message. <!-- implements R37 -->
+On the inline path (lightweight scope, the `--lightweight` route or error fallback), issue Read, Glob and Grep calls that do not depend on each other in one message. <!-- implements R37 -->
 
 Identify constraints: language, framework, existing conventions, testing approach.
 
@@ -537,7 +537,7 @@ Remove the critique directory (P22) once, before the menu below; the plan file n
 rm -rf "<critiqueDir>"
 ```
 
-**Gate B scorecard pointer:** Before the plan-mode or normal-mode branch below, when a `## Verification Scorecard` section exists in the plan file (i.e., Gate B ran during Step 5), surface a one-line verdict reference above the `ship` / `execute` / `done` menu: <!-- implements R41 -->
+**Gate B scorecard pointer:** Before the plan-mode or normal-mode branch below, when a `## Verification Scorecard` section exists in the plan file (i.e., Gate B ran during Step 5), surface a one-line verdict reference above the `ship` / `execute` / `done` menu. Show this line only when the section holds one of the three verdict labels below; on a `Not applicable` body (a Lightweight plan) omit it. <!-- implements R41 -->
 
 > Verification Scorecard: `<verdict line>` — see `## Verification Scorecard` in the plan for details.
 
