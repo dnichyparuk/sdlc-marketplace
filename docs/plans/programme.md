@@ -30,7 +30,7 @@ Scope (wave order, 2026-11-19): "B: #9424+#9440+#9441 + #9453 (~11 tasks / 0 Com
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | TK-004, TK-005, TK-006, TK-007 | none | ~11 tasks, 0 Complex |
+| M1 | TK-004, TK-005, TK-006, TK-007 | `2026-11-19-w-b-suite-false-passes-and-the-guardrail` | ~11 tasks, 0 Complex |
 
 ## W-D1: Suite reduction
 
