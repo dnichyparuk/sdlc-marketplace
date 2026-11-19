@@ -110,14 +110,17 @@ function contractOf(sec) {
 // One shape rule (R36, R74): tier bounds, review route and re-dispatch set
 // ---------------------------------------------------------------------------
 
-/** { tasks, complex, files, openspec } of a plan text. */
+/** Files-entry notes that mark a path as not edited; such entries are left out of the file count (plan-sdlc R73). */
+const NOT_EDITED_RE = /\b(check only|no change expected|byte copy)\b/i;
+
+/** { tasks, complex, files, openspec } of a plan text; files counts edited paths only. */
 function planShape(text) {
   const sections = extractTasksRaw(text).map(t => taskSection(t.body));
   const appendix = (sectionBody(text, /^## OpenSpec Appendix\s*$/) || '').trim();
   return {
     tasks: sections.length,
     complex: sections.filter(sec => extractField(sec, 'Complexity') === 'Complex').length,
-    files: new Set(sections.flatMap(sec => parseFilesEntries(sec).map(e => e.path))).size,
+    files: new Set(sections.flatMap(sec => parseFilesEntries(sec).filter(e => !NOT_EDITED_RE.test(e.note)).map(e => e.path))).size,
     openspec: /openspec\/changes\//.test(extractField(text, 'Source') || '')
       || (appendix !== '' && !appendix.startsWith('Not applicable'))
       || sections.some(sec => labelLines(sec, 'openspec-task') !== null),

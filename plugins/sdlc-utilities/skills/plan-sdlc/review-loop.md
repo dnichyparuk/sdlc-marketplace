@@ -66,6 +66,8 @@ It writes `scorecard.markdown` verbatim to the plan file, replacing any previous
 
 Used only when a round returned `status: "no-agent-tool"`: you run the iteration yourself in `<ITER_DIR>` = `<critiqueDir>/iter-<k>`, then continue at Gate B above.
 
+**Rerun lanes (R76):** at iteration 1, before the dispatch, run `node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<PLAN_PATH>" --after "<PLAN_PATH>" --prev-dir "<critiqueDir>/iter-0"` as one plain Bash call and dispatch the lanes of its `dispatch.lanes` together with the lenses, by the Step 3 dispatch rule; on a non-zero exit dispatch every Step 3 lane and merge without `--carry` (E9). In a later non-material round, dispatch the lanes of the kept `dispatch.lanes` together with the `review.lenses`. Pass the dispatched lanes as `--lanes` to the merge. <!-- R76 -->
+
 **Material change detection and merged re-dispatch:** <!-- implements R64 -->
 
 When `materialChangeDetected` is true (set by the Step 6 IMPROVE pass — see below), dispatch Step 3 lanes AND Step 5 lens reviewers in a SINGLE message as parallel Agent tool calls. This merged dispatch counts as **one** iteration of the existing review loop — the iteration counter increments by 1, not 2, and the max-3 cap fires normally. <!-- R8, R-c1 -->
@@ -127,7 +129,7 @@ The next round passes this file as `BEFORE_PLAN`, and the orchestrator runs `dif
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/plan-before.md" --after "<PLAN_PATH>" --prev-dir "<ITER_DIR>"
 ```
 
-Set `materialChangeDetected` to its `material` value and keep its `dispatch`, `affectedLanes` and `review` for the next round (`review.lenses` are the lenses of a non-material round); on a non-zero exit set `materialChangeDetected` to `true`, `affectedLanes` to `["*"]`, `dispatch.lanes` to every Step 3 lane and `dispatch.lenses` to `["all"]` when this iteration dispatched lens `all`, otherwise every `lensReviewers[]` entry (E9). The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
+Set `materialChangeDetected` to its `material` value and keep its `dispatch`, `affectedLanes` and `review` for the next round (`review.lenses` are the lenses of a non-material round, and its `dispatch.lanes` are the lanes that round re-dispatches, R76); on a non-zero exit set `materialChangeDetected` to `true`, `affectedLanes` to `["*"]`, `dispatch.lanes` to every Step 3 lane and `dispatch.lenses` to `["all"]` when this iteration dispatched lens `all`, otherwise every `lensReviewers[]` entry (E9). The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
 
 `affectedLanes` and `dispatch` already include the `rerun` entries: each lane or lens whose result in `<ITER_DIR>` held a blocking issue, so a result older than the fix is re-dispatched, not carried (R64, R67).
 

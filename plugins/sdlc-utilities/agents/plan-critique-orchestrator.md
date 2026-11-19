@@ -17,7 +17,7 @@ You run one critique round for `plan-sdlc` (R75): the Step 3 critique, the R74 r
 - **CRITIQUE_DIR**: absolute path of the run's critique directory (P22)
 - **PLAN_FILE_PATH**: absolute path to the plan file
 - **PREPARE_OUTPUT**: absolute path to the Step 0 prepare output JSON (`plan.js --output-file`)
-- **DISPATCH**: JSON `{ "lanes": [<lane names>], "lenses": [<lens names, or "all">] }`: what this round dispatches (Step 3: every lane; R74: `recheckLanes`; Step 5: `tier` `review.lenses`, used as is only when no `diff-material` runs, see Step 2)
+- **DISPATCH**: JSON `{ "lanes": [<lane names>], "lenses": [<lens names, or "all">] }`: what this round dispatches (Step 3: every lane; R74: `recheckLanes`; Step 5: `tier` `review.lenses`; at iteration 1 these lenses are dispatched together with the `diff-material` `dispatch.lanes` (R76); from iteration 2 Step 2 decides which lenses run)
 - **CARRY**: absolute path of the previous iteration directory, or `none`
 - **BEFORE_PLAN**: absolute path of the plan copy made before the author's Step 6 fixes, or `none`
 - **G17_NOT_RUN**: `true` when g17-prepare failed in an earlier round of this run, else `false`
@@ -37,14 +37,18 @@ If no Agent tool is available to you, return `{"status":"no-agent-tool"}` in a f
 
 ## Step 2 — Step 5 re-dispatch decision
 
-Only when `ROUND` is `step5` and `BEFORE_PLAN` is not `none`, run:
+When `ROUND` is `step5`, `BEFORE_PLAN` is `none` and `CARRY` is not `none` (iteration 1), run
+`node "<PLAN_JS>" diff-material --before "<PLAN_FILE_PATH>" --after "<PLAN_FILE_PATH>" --prev-dir "<CARRY>"`
+and dispatch the lenses `DISPATCH` names plus the lanes of its `dispatch.lanes` (the Step 3 lanes whose result blocked; nothing is material). A non-zero exit: dispatch `DISPATCH` plus every lane of `lanes[]`, and pass no `--carry` (E9). <!-- R76 -->
+
+When `ROUND` is `step5` and `BEFORE_PLAN` is not `none`, run:
 
 ```bash
 node "<PLAN_JS>" diff-material --before "<BEFORE_PLAN>" --after "<PLAN_FILE_PATH>" --prev-dir "<CARRY>"
 ```
 
 - `material: true`: dispatch `dispatch.lanes` and `dispatch.lenses` from its JSON (merged re-dispatch, R64).
-- `material: false`: dispatch the lenses of its `review.lenses` only (the review route of the plan as it is now, R36).
+- `material: false`: dispatch the lenses of its `review.lenses` (the review route of the plan as it is now, R36) plus the lanes of its `dispatch.lanes` (the lanes whose result blocked, R76). <!-- R76 -->
 - Non-zero exit: count it as material and dispatch every lane of `lanes[]`, plus lens `all` when `DISPATCH` names `all`, otherwise every `lensReviewers[]` entry, and pass no `--carry` (E9).
 
 In every other round, dispatch what `DISPATCH` names.
@@ -97,7 +101,7 @@ node "<PLAN_JS>" merge-lanes --dir "<iterDir>" <flags> --compact
 
 | Flag | When |
 |---|---|
-| `--lanes <csv>` | the lanes dispatched or written by hand (dimension-coverage `{"candidates":[]}` when skipped for no candidates); `""` for a lens-only Step 5 round |
+| `--lanes <csv>` | the lanes dispatched or written by hand (dimension-coverage `{"candidates":[]}` when skipped for no candidates); the lanes dispatched in this round (the `DISPATCH` lanes, the `dispatch.lanes` of `diff-material`, or every lane on the E9 path) |
 | `--lenses <csv>` | Step 5: the lenses dispatched (`all` for the single reviewer) |
 | `--no-guardrails` | `ACTIVE_GUARDRAILS` is `[]` in the lane entry (one decision for the whole run, whether or not `guardrail-compliance` is in this round's set) |
 | `--g17-not-run` | `ROUND` is `r74` or `step5` and this round's `g17NotRun` (Step 3) is true; this includes the R74 checks-only merge (R31) |

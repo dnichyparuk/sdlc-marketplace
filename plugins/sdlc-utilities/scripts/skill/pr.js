@@ -626,6 +626,15 @@ function main() {
 // --validate-body mode: link verification (issue #198, R15)
 // ---------------------------------------------------------------------------
 
+/** R21: body plus the configured footer; unchanged when footer is empty or the trimmed body already ends with it. */
+function appendFooter(body, footer) {
+  const text = typeof footer === 'string' ? footer.trim() : '';
+  if (!text) return { body, appended: false };
+  const trimmed = body.replace(/\s+$/, '');
+  if (trimmed.endsWith(text)) return { body, appended: false };
+  return { body: trimmed + '\n\n' + text + '\n', appended: true };
+}
+
 /**
  * Read the proposed PR body from --file <path> (or stdin with --file -) and validate every embedded URL via
  * `lib/links.js`. The expected GitHub repo identity is derived deterministically
@@ -661,11 +670,23 @@ async function validateBodyMode(argv) {
     }
   }
 
+  const footer = (readSection(projectRoot, 'pr') || {}).footer;
+  const footed = appendFooter(body, footer);
+  body = footed.body;
+  if (footed.appended && fileArg !== '-') {
+    try {
+      fs.writeFileSync(fileArg, body);
+    } catch (e) {
+      process.stderr.write('pr.js --validate-body: the body file cannot be written: ' + e.message + '\n');
+      process.exit(2);
+    }
+  }
+
   const expectedRepo = parseRemoteOwner(projectRoot);
   const result = await validateLinks(body, { projectRoot, expectedRepo });
 
   if (wantJson) {
-    process.stdout.write(JSON.stringify(result) + '\n');
+    process.stdout.write(JSON.stringify({ ...result, footerAppended: footed.appended }) + '\n');
   } else if (result.ok) {
     const skipNote = result.skipped.length ? ` (${result.skipped.length} skipped)` : '';
     process.stdout.write('OK: PR body link verification passed' + skipNote + '\n');

@@ -719,7 +719,10 @@ function main() {
 
   // 4. plan-explore invocation — gather dynamic-dimension materials (R24 / P8–P12)
   // Errors absorbed into explorePack.error; never propagated to plan.js errors[] (R28).
-  const explorePack = runExplorePack(fromOpenspec, userPrompt);
+  // A5/P8: the forced Lightweight route uses inline exploration only, so no explore tempdir is made.
+  const explorePack = lightweight
+    ? { manifestPath: null, outDir: null, scopeHintCount: 0, webResearchSignal: false, error: null }
+    : runExplorePack(fromOpenspec, userPrompt);
   if (explorePack.error) {
     process.stderr.write(`[plan-prepare] plan-explore warning: ${explorePack.error}\n`);
   }

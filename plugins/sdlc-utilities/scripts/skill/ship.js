@@ -518,7 +518,12 @@ function applyStepModel(base, stepName, overrides = {}) {
   };
 }
 
-function computeSteps(flags, flagSources, { openspecContext, expectedBranch, planFile, planSubject = null, planFixSubject = null, finalCheckBase = null } = {}) {
+/** R107: the conventional scope of a planned subject, `type(scope): …` or `type(scope)!: …`; null when there is none. */
+function planScope(subject) {
+  return /^[a-z]+\(([^()\s]+)\)!?:/.exec(subject || '')?.[1] ?? null;
+}
+
+function computeSteps(flags,flagSources, { openspecContext, expectedBranch, planFile, planSubject = null, planFixSubject = null, finalCheckBase = null } = {}) {
   // Steps[] is the canonical source of truth for which top-level steps run.
   // A step IS skipped when it is NOT in flags.steps. The provenance for an
   // exclusion is whatever determined the resolved steps[] (cli --steps /
@@ -635,6 +640,7 @@ function computeSteps(flags, flagSources, { openspecContext, expectedBranch, pla
         '--auto',
         '--no-stash',
         planFixSubject ? `--subject "${planFixSubject}"` : '',
+        !planFixSubject && planScope(planSubject) ? `--scope "${planScope(planSubject)}"` : '',
         expectedBranch ? `--expected-branch ${expectedBranch}` : '',
       ].filter(Boolean).join(' '),
       reason: 'triggered if review fixes applied',

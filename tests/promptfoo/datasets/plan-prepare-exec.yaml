@@ -556,6 +556,38 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.tier === 'full' && r.breaches.some(b => b.bound === 'openspec') && r.review.route === 'fan-out'"
 
+- description: "plan-tier: (f) files-only breach"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>console.log(JSON.stringify(t)))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-critique.js").tierCheck(Array.from({length:2},(_,i)=>"###\x20Task\x20"+(i+1)+":\x20T\n\n**Complexity:**\x20Standard\n\n**Files:**\n"+Array.from({length:i?4:5},(_,j)=>"-\x20Modify:\x20`p"+i+"_"+j+".js`").join("\n")+"\n").join("\n")))'
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.tier === 'full' && JSON.stringify(r.breaches) === JSON.stringify([{ bound: 'files', value: 9, max: 8 }]) && r.review.route === 'single'"
+
+- description: "plan-tier: (g) six tasks stay lightweight"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>console.log(JSON.stringify(t)))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-critique.js").tierCheck(Array.from({length:6},(_,i)=>"###\x20Task\x20"+(i+1)+":\x20T\n\n**Complexity:**\x20Standard\n\n**Files:**\n-\x20Modify:\x20`p"+i+".js`\n").join("\n")))'
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.tier === 'lightweight' && r.breaches.length === 0 && r.review.route === 'single'"
+
+- description: "plan-tier: (h) seven tasks breach only the tasks bound"
+  vars:
+    script_path: "-e"
+    script_args: '((t)=>console.log(JSON.stringify(t)))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-critique.js").tierCheck(Array.from({length:7},(_,i)=>"###\x20Task\x20"+(i+1)+":\x20T\n\n**Complexity:**\x20Standard\n\n**Files:**\n-\x20Modify:\x20`p"+i+".js`\n").join("\n")))'
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.tier === 'full' && JSON.stringify(r.breaches) === JSON.stringify([{ bound: 'tasks', value: 7, max: 6 }]) && r.review.route === 'single'"
+
+- description: "plan-tier: (i) marked entries are not counted"
+  vars:
+    script_path: "-e"
+    script_args: '((m,n)=>((t)=>console.log(JSON.stringify(t)))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-critique.js").tierCheck(Array.from({length:2},(_,i)=>"###\x20Task\x20"+(i+1)+":\x20T\n\n**Complexity:**\x20Standard\n\n**Files:**\n"+Array.from({length:3},(_,j)=>"-\x20Modify:\x20`e"+i+"_"+j+".js`").concat(Array.from({length:i?2:3},(_,j)=>"-\x20Modify:\x20`m"+i+"_"+j+".js`"+(j%2?n:m))).join("\n")+"\n").join("\n"))))("\x20—\x20check\x20only,\x20no\x20change\x20expected\x20(copy\x20rule)","\x20—\x20byte\x20copy")'
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.counts.files === 6 && r.tier === 'lightweight'"
+
 - description: "plan-tier: (e) usage errors exit 1"
   vars:
     script_path: "-e"
@@ -1278,7 +1310,7 @@
 - description: "plan-sdlc/audit-w33: Step 7 pointer condition, review.lenses and the non-zero-exit lens rule (R41, R36, E9, #9435, #9437)"
   vars:
     script_path: "-e"
-    script_args: '((r)=>((s,o,l)=>((c)=>console.log(JSON.stringify({pointer:c(s,"holds\x20one\x20of\x20the\x20three\x20verdict\x20labels\x20below\x20(Gate\x20B\x20ran\x20in\x20Step\x205)"),nonMaterial:c(o,"dispatch\x20the\x20lenses\x20of\x20its\x20\x60review.lenses\x60\x20only"),nonZero:c(o,"plus\x20lens\x20\x60all\x60\x20when\x20\x60DISPATCH\x60\x20names\x20\x60all\x60"),loopReview:c(l,"and\x20from\x20its\x20\x60review.lenses\x60\x20when\x20they\x20were\x20not"),loopAll:c(l,"\x60dispatch.lenses\x60\x20to\x20\x60[\x22all\x22]\x60\x20when\x20this\x20iteration\x20dispatched\x20lens\x20\x60all\x60"),old:c(o,"dispatch\x20the\x20lenses\x20of\x20\x60DISPATCH\x60\x20only")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/agents/plan-critique-orchestrator.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
+    script_args: '((r)=>((s,o,l)=>((c)=>console.log(JSON.stringify({pointer:c(s,"holds\x20one\x20of\x20the\x20three\x20verdict\x20labels\x20below\x20(Gate\x20B\x20ran\x20in\x20Step\x205)"),nonMaterial:c(o,"\x60review.lenses\x60\x20(the\x20review\x20route\x20of\x20the\x20plan\x20as\x20it\x20is\x20now,\x20R36)\x20plus\x20the\x20lanes"),nonZero:c(o,"plus\x20lens\x20\x60all\x60\x20when\x20\x60DISPATCH\x60\x20names\x20\x60all\x60"),loopReview:c(l,"and\x20from\x20its\x20\x60review.lenses\x60\x20when\x20they\x20were\x20not"),loopAll:c(l,"\x60dispatch.lenses\x60\x20to\x20\x60[\x22all\x22]\x60\x20when\x20this\x20iteration\x20dispatched\x20lens\x20\x60all\x60"),old:c(o,"dispatch\x20the\x20lenses\x20of\x20\x60DISPATCH\x60\x20only")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/agents/plan-critique-orchestrator.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
   assert:
     - type: javascript
       value: |
@@ -1556,3 +1588,38 @@
           // an unwritten scorecard leaves the old one where it was
           c.text.includes('OLD SCORECARD BODY');
         return ok ? true : `FAIL: ${output}`;
+
+- description: "plan-prepare: (lightweight) no explore pack (A5, P8)"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({exitCode:r.status,explorePack:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")).explorePack})))(cp.spawnSync("node",[js,"--output-file","--lightweight"],{encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `exit: ${r.exitCode}`;
+        const want = { manifestPath: null, outDir: null, scopeHintCount: 0, webResearchSignal: false, error: null };
+        return JSON.stringify(r.explorePack) === JSON.stringify(want) ? true : `explorePack: ${JSON.stringify(r.explorePack)}`;
+
+- description: "plan-diff: (rerun) iteration 1 dispatches the blocking lanes (R76)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/before-5.md --prev-dir {{project_root}}/prev-blocking"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === false && JSON.stringify(r.rerun) === JSON.stringify(['lens:all', 'static-structural']) && JSON.stringify(r.dispatch.lanes) === JSON.stringify(['static-structural']) && r.review.route === 'single'"
+
+- description: "plan-sdlc/rerun-sentinels: orchestrator and review-loop name R76"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,root)=>console.log(JSON.stringify({o:fs.readFileSync(root+"/agents/plan-critique-orchestrator.md","utf8"),l:fs.readFileSync(root+"/skills/plan-sdlc/review-loop.md","utf8")})))(require("fs"),"{{repo_root}}/plugins/sdlc-utilities")'
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const ok = r.o.includes('<!-- R76 -->') && r.o.includes('--before "<PLAN_FILE_PATH>" --after "<PLAN_FILE_PATH>"') &&
+          r.l.includes('<!-- R76 -->') && r.l.includes('dispatch.lanes');
+        return ok ? true : 'FAIL: R76 sentinels missing';

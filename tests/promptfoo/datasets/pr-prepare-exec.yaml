@@ -583,3 +583,47 @@
         ].join('\n');
         if (/is outside the worktree/.test(output)) return 'FAIL: outside-worktree warning';
         return got === want ? true : 'FAIL: ' + got.slice(0, 60);
+
+# R21: pr.footer appended by --validate-body (#9429). Temp dir with .sdlc/config.json; runs twice, reports both.
+- description: "pr.js --validate-body: footer (a) appends the configured footer once"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((run)=>(fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({pr:{footer:"Made\x20with\x20care"}})),fs.writeFileSync(d+"/body.md","Body\x20text\n"),((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({first:run()})))(()=>((r)=>({status:r.status,out:JSON.parse(r.stdout),file:fs.readFileSync(d+"/body.md","utf8")}))(cp.spawnSync("node",[js,"--validate-body","--file",d+"/body.md","--json"],{cwd:d,encoding:"utf8",env:{...process.env,SDLC_LINKS_OFFLINE:"1"}}))))(fs.mkdtempSync(os.tmpdir()+"/pr-footer-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pr-link-validate"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output).first;
+        if (o.status !== 0) return `FAIL: exit ${o.status}`;
+        if (o.out.footerAppended !== true) return `FAIL: footerAppended ${o.out.footerAppended}`;
+        return o.file === 'Body text\n\nMade with care\n' ? true : `FAIL: file ${JSON.stringify(o.file)}`;
+
+- description: "pr.js --validate-body: footer (b) a second run appends nothing"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((run)=>(fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({pr:{footer:"Made\x20with\x20care"}})),fs.writeFileSync(d+"/body.md","Body\x20text\n"),((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({first:run(),second:run()})))(()=>((r)=>({status:r.status,out:JSON.parse(r.stdout),file:fs.readFileSync(d+"/body.md","utf8")}))(cp.spawnSync("node",[js,"--validate-body","--file",d+"/body.md","--json"],{cwd:d,encoding:"utf8",env:{...process.env,SDLC_LINKS_OFFLINE:"1"}}))))(fs.mkdtempSync(os.tmpdir()+"/pr-footer-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pr-link-validate"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.second.status !== 0) return `FAIL: exit ${o.second.status}`;
+        if (o.first.out.footerAppended !== true) return 'FAIL: first run did not append';
+        if (o.second.out.footerAppended !== false) return `FAIL: second footerAppended ${o.second.out.footerAppended}`;
+        return o.second.file === o.first.file ? true : `FAIL: file changed ${JSON.stringify(o.second.file)}`;
+
+- description: "pr.js --validate-body: footer (c) no footer key leaves the body unchanged"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,js)=>((d)=>((run)=>(fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({pr:{}})),fs.writeFileSync(d+"/body.md","Body\x20text\n"),((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({first:run()})))(()=>((r)=>({status:r.status,out:JSON.parse(r.stdout),file:fs.readFileSync(d+"/body.md","utf8")}))(cp.spawnSync("node",[js,"--validate-body","--file",d+"/body.md","--json"],{cwd:d,encoding:"utf8",env:{...process.env,SDLC_LINKS_OFFLINE:"1"}}))))(fs.mkdtempSync(os.tmpdir()+"/pr-footer-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-pr-link-validate"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output).first;
+        if (o.status !== 0) return `FAIL: exit ${o.status}`;
+        if (o.out.footerAppended !== false) return `FAIL: footerAppended ${o.out.footerAppended}`;
+        return o.file === 'Body text\n' ? true : `FAIL: file ${JSON.stringify(o.file)}`;

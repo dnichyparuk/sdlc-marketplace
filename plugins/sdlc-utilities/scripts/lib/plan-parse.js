@@ -237,7 +237,7 @@ function taskSection(body) {
   return cut === -1 ? body : lines.slice(0, cut).join('\n');
 }
 
-/** Files entries of a task body: [{ kind, path }]. */
+/** Files entries of a task body: [{ kind, path, note }]. note: trimmed text after the path ('' when none). */
 function parseFilesEntries(body) {
   const entries = [];
   walkLines(String(body).split(/\r?\n/), (line, _i, inFence) => {
@@ -246,7 +246,8 @@ function parseFilesEntries(body) {
     if (!m) return;
     const tick = m[2].match(/`([^`]+)`/);
     const raw = tick ? tick[1] : m[2].trim().split(/\s+/)[0];
-    entries.push({ kind: m[1], path: raw.replace(/:\d+(-\d+)?$/, '') });
+    const rest = tick ? m[2].slice(tick.index + tick[0].length) : m[2].trim().slice(raw.length);
+    entries.push({ kind: m[1], path: raw.replace(/:\d+(-\d+)?$/, ''), note: rest.replace(/^[\s—-]+/, '').trim() });
   });
   return entries;
 }

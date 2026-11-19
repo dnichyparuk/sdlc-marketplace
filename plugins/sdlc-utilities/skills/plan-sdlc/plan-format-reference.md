@@ -198,6 +198,8 @@ concrete artifacts are rendered per `## Concrete Artifacts (render don't narrate
 
 List every file the task creates under **Files:**, fixtures and test data included (plan-sdlc R70): execute's `--strict-files` check fails a wave that writes an unlisted path.
 
+A listed path that the task only reads or byte-copies is marked in its note with one of the phrases `check only`, `no change expected` or `byte copy` (for example ``- Modify: `x` — check only, no change expected``). The tier check (plan-sdlc R73) counts only unmarked paths toward the file bound.
+
 ---
 
 ## The `Contract:` block
