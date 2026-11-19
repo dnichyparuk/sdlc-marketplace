@@ -55,12 +55,19 @@ After each round, with `iterDir` from the round's return (`<ITER_DIR>` on the fa
 node "<PLUGIN_ROOT>/scripts/skill/plan.js" splice --plan "<PLAN_PATH>" --merged "<iterDir>/merged.json"
 ```
 
-It writes `scorecard.markdown` verbatim to the plan file, replacing any previous `## Verification Scorecard` section (regenerated each iteration, R44), and re-writes Guardrail Compliance and Suggested Review Dimensions from that file's lane results; a section whose data is null in that file is left untouched. Placement: immediately after the last Task block, or after `## Suggested Review Dimensions` when that section exists, or after `## Guardrail Compliance` if no Suggested Review Dimensions. A non-zero exit means stop and invoke `error-report-sdlc`. The script builds the dimension table from the lens issues' `severity` and `dimension`, the traceability matrix (inventory rows with `--inventory`; otherwise the lens rows under the note *(Matrix built from requirements checklist — requirement inventory unavailable)*), and the verdict from lens and Gate A severities with the verbatim labels: any CRITICAL → *"…Fix before archiving."*; no CRITICAL, any WARNING → *"…Ready for archive (with noted improvements)."*; otherwise *"All checks passed. Ready for archive."* <!-- R40, R48, R51 -->
+It writes `scorecard.markdown` verbatim to the plan file, replacing any previous `## Verification Scorecard` section (regenerated each iteration, R44), and re-writes Guardrail Compliance and Suggested Review Dimensions from that file's lane results; a section whose data is null in that file is left untouched. Placement: immediately after the last Task block, or after `## Suggested Review Dimensions` when that section exists, or after `## Guardrail Compliance` if no Suggested Review Dimensions. A non-zero exit means stop: remove `<critiqueDir>` (P22) and invoke `error-report-sdlc` (E9). The script builds the dimension table from the lens issues' `severity` and `dimension`, the traceability matrix (inventory rows with `--inventory`; otherwise the lens rows under the note *(Matrix built from requirements checklist — requirement inventory unavailable)*), and the verdict from lens and Gate A severities with the verbatim labels: any CRITICAL → *"…Fix before archiving."*; no CRITICAL, any WARNING → *"…Ready for archive (with noted improvements)."*; otherwise *"All checks passed. Ready for archive."* <!-- R40, R48, R51 -->
 
 **Review loop:**
 - Approved → Step 6 is a no-op, proceed to Step 6.5 (hard gates 6.5 and 6.6 run before Step 7)
 - Issues found → go to Step 6
 - Max 3 iterations (status `max-iterations`, or the 3rd iteration with issues on the fallback path) → use AskUserQuestion to surface unresolved issues to user. Offer **harden** (run `/harden-sdlc` to analyze why this failed and propose stronger guardrails / dimensions / instructions that would catch it earlier next time — opt-in, no surface is edited without your approval) alongside the existing escalation options. When the user selects **harden** (interactive mode only — suppressed when `--auto` is set), dispatch `Skill(harden-sdlc)` with `--failure-text "Plan reviewer loop did not converge after 3 iterations. Outstanding issues: <union-of-blocking-issues-across-all-lenses>"`, `--skill plan-sdlc`, `--step "Step 5 — review loop"`, `--operation "reviewer-loop max iterations"`. Implements R19.
+- When the loop ends (Approved, or the max-iterations path resolved), before Step 6.5, run once:
+
+  ```bash
+  node "<PLUGIN_ROOT>/scripts/skill/plan.js" splice --plan "<PLAN_PATH>" --critique-dir "<critiqueDir>" [--no-guardrails]
+  ```
+
+  Pass `--no-guardrails` exactly when `activeGuardrails` is empty (the Step 3 decision for the whole run). It writes only `## Guardrail Compliance`, from the newest critique result that holds a guardrail lane (R77). A non-zero exit means stop: remove `<critiqueDir>` (P22) and invoke `error-report-sdlc` (E9). <!-- R77 -->
 
 ### Fallback dispatch (no-agent-tool)
 

@@ -39,10 +39,14 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/config-sdlc-root-test.js"
     script_args: "--op readSection --project-root {{project_root}} --section workspace"
-    project_root: "file://fixtures-fs/setup-fully-configured"
+    project_root: "file://fixtures-fs/config-sdlc-root-workspace"
   assert:
     - type: contains
       value: '"ok": true'
+    - type: contains
+      value: '"value": {'
+    - type: contains
+      value: '"mode": "branch"'
 
 - description: "config-sdlc-root: readSection state returns null when not configured"
   vars:
@@ -74,7 +78,10 @@
     script_args: "--op traceDedup --project-root {{project_root}}"
     project_root: "file://fixtures-fs/worktree-main-cwd"
     script_capture_stderr: "true"
+    script_env: '{"SDLC_CONFIG_QUIET": ""}'
   assert:
+    - type: javascript
+      value: "(output.match(/\\[sdlc:config\\] read/g) || []).length === 1"
     - type: contains
       value: 'traceDedup:done'
 

@@ -41,23 +41,36 @@ const VALID_HARDEN_SURFACE_HINTS = new Set(['review-dimensions', 'plan-guardrail
 const argv = process.argv.slice(2);
 let field = null;
 let threadIndex = 0;
+let withExpected = false;
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--field' && argv[i + 1]) field = argv[++i];
   else if (argv[i] === '--thread-index' && argv[i + 1]) threadIndex = parseInt(argv[++i], 10);
+  else if (argv[i] === '--with-expected') withExpected = true;
 }
 
 if (!field) {
-  process.stderr.write('Usage: run-received-review-manifest-fields.js --field <plugin_version|reply_footer|hardenSurfaceHint> [--thread-index <n>]\n');
+  process.stderr.write('Usage: run-received-review-manifest-fields.js --field <plugin_version|reply_footer|hardenSurfaceHint> [--thread-index <n>] [--with-expected]\n');
   process.exit(1);
 }
 
+// Emit the raw field text, or {value, expected} when --with-expected is set,
+// where expected is the version read straight from plugin.json.
+function emitField(value) {
+  if (!withExpected) {
+    process.stdout.write(value);
+    return;
+  }
+  const pluginJsonPath = path.join(REPO_ROOT, 'plugins', 'sdlc-utilities', '.claude-plugin', 'plugin.json');
+  const expected = JSON.parse(require('fs').readFileSync(pluginJsonPath, 'utf8')).version;
+  process.stdout.write(JSON.stringify({ value, expected }));
+}
+
 if (field === 'plugin_version') {
-  const pluginVersion = getPluginVersion();
-  process.stdout.write(pluginVersion);
+  emitField(getPluginVersion());
 } else if (field === 'reply_footer') {
   const pluginVersion = getPluginVersion();
   // Format mirrors the production source: plugins/sdlc-utilities/scripts/skill/received-review.js
-  process.stdout.write('\n\n_via `received-review-sdlc` v' + pluginVersion + '_');
+  emitField('\n\n_via `received-review-sdlc` v' + pluginVersion + '_');
 } else if (field === 'hardenSurfaceHint') {
   const body = TEST_COMMENT_BODIES[threadIndex] || TEST_COMMENT_BODIES[0];
   // Empty knownData — inference relies on text matching only (KD6 priority 1/2/3/4).

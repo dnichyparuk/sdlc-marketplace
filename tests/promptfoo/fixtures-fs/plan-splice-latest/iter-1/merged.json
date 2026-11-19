@@ -1,0 +1,6 @@
+{
+  "guardrailCompliancePayload": "| Guardrail | Severity | Status | Rationale |\n|---|---|---|---|\n| no-scope-creep | warning | PASS | Newest table with a payload |",
+  "scorecard": {
+    "markdown": "## Verification Scorecard\n\nNEW SCORECARD BODY"
+  }
+}

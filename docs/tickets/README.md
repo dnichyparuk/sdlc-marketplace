@@ -13,10 +13,10 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-004](./TK-004-suite-false-passes/ticket.md) | task | Suite false passes (#9424) | — | scheduled | W-B M1 | — |
-| [TK-005](./TK-005-jira-p10-force-refresh/ticket.md) | task | Jira P10 forceRefresh false without the flag (#9440) | — | scheduled | W-B M1 | — |
-| [TK-006](./TK-006-rr-e10-stop-text/ticket.md) | task | Received-review E10 stop text check (#9441) | — | scheduled | W-B M1 | — |
-| [TK-007](./TK-007-guardrail-table-resplice/ticket.md) | task | Re-splice Guardrail Compliance after fixes (#9453) | — | scheduled | W-B M1 | — |
+| [TK-004](./TK-004-suite-false-passes/ticket.md) | task | Suite false passes (#9424) | — | planned | W-B M1 | 2026-11-19-w-b-suite-false-passes-and-the-guardrail#1, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#2, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#3, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#4, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#5, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#6, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#7, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#8, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#14 |
+| [TK-005](./TK-005-jira-p10-force-refresh/ticket.md) | task | Jira P10 forceRefresh false without the flag (#9440) | — | planned | W-B M1 | 2026-11-19-w-b-suite-false-passes-and-the-guardrail#9 |
+| [TK-006](./TK-006-rr-e10-stop-text/ticket.md) | task | Received-review E10 stop text check (#9441) | — | planned | W-B M1 | 2026-11-19-w-b-suite-false-passes-and-the-guardrail#10 |
+| [TK-007](./TK-007-guardrail-table-resplice/ticket.md) | task | Re-splice Guardrail Compliance after fixes (#9453) | — | planned | W-B M1 | 2026-11-19-w-b-suite-false-passes-and-the-guardrail#11, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#12, 2026-11-19-w-b-suite-false-passes-and-the-guardrail#13 |
 | [TK-008](./TK-008-suite-reduction/ticket.md) | task | Suite reduction (#9426) | — | scheduled | W-D1 M1 | — |
 | [TK-009](./TK-009-removed-phrase-cases/ticket.md) | task | Update exec cases of removed phrases (#9445) | — | scheduled | W-D2 M1 | — |
 | [TK-010](./TK-010-commit-waits-drafter/ticket.md) | task | Commit step waits for its message drafter (#9446) | — | scheduled | W-D2 M1 | — |

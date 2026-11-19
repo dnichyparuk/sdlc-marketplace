@@ -880,7 +880,7 @@ function joinAround(lines, start, end, insert) {
  * of a merged critique result into plan text (KD6, R44). Existing sections are replaced, so a
  * re-run is idempotent. Returns { text, written, replaced }.
  */
-function splicePlan(text, merged, { noGuardrails = false } = {}) {
+function splicePlan(text, merged, { noGuardrails = false, only = null } = {}) {
   let lines = String(text).replace(/\r\n/g, '\n').replace(/\n+$/, '').split('\n');
   const g17 = merged.g17Findings;
   const bodies = {
@@ -892,7 +892,7 @@ function splicePlan(text, merged, { noGuardrails = false } = {}) {
   const written = [];
   const replaced = [];
   for (const name of SPLICE_ORDER) {
-    if (typeof bodies[name] !== 'string') continue;
+    if (typeof bodies[name] !== 'string' || (only && !only.includes(name))) continue;
     const old = findSection(lines, name);
     if (old) {
       lines = joinAround(lines, old.start, old.end, []);
@@ -914,8 +914,39 @@ function splicePlan(text, merged, { noGuardrails = false } = {}) {
   return { text: lines.join('\n') + '\n', written, replaced };
 }
 
+/** Newest iter-<k>/merged.json (numeric k) whose guardrailCompliancePayload is a string: { path, merged } or null. */
+function latestGuardrailMerged(critiqueDir) {
+  let names;
+  try {
+    names = fs.readdirSync(critiqueDir);
+  } catch (_) {
+    throw Object.assign(new Error(`--critique-dir is not a readable directory: ${critiqueDir}`), { code: 'USAGE' });
+  }
+  const iters = names.map(n => /^iter-(\d+)$/.exec(n)).filter(Boolean).sort((a, b) => Number(b[1]) - Number(a[1]));
+  for (const m of iters) {
+    const file = path.join(critiqueDir, m[0], 'merged.json');
+    let raw;
+    try {
+      raw = fs.readFileSync(file, 'utf8');
+    } catch (err) {
+      if (err && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) continue; // no merged.json in this iteration (or iter-<k> is not a directory): skip
+      // An unreadable merged.json must not fall back to an older table (R77 threat model).
+      throw new Error(`${file} cannot be read: ${err.message}`);
+    }
+    let merged;
+    try {
+      merged = JSON.parse(raw);
+    } catch (err) {
+      // An invalid merged.json must not fall back to an older table (R77 threat model).
+      throw new Error(`${file} is not valid JSON: ${err.message}`);
+    }
+    if (merged && typeof merged.guardrailCompliancePayload === 'string') return { path: file, merged };
+  }
+  return null;
+}
+
 module.exports = {
-  splicePlan,
+  splicePlan, latestGuardrailMerged,
   LANE_DEFS, TRIGGER_MAP, diffMaterial, planShape, reviewRoute, TIER_BOUNDS, tierCheck, g17Prepare, mirrorPath, rankCandidates, SEVERITY_RANK,
   EXPECTED_GATES, PF_GATES, mergeLanes, renderG17, renderScorecard, renderSummary,
 };

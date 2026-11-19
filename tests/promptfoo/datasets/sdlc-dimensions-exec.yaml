@@ -216,8 +216,8 @@
     - type: regex
       value: '"total":\s*3'
     # _common.md file must NOT appear in results
-    - type: regex
-      value: '(?!_common\.md)'
+    - type: not-icontains
+      value: "_common"
     # Three dimensions should be present
     - type: icontains
       value: "security-review"

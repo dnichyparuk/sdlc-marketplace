@@ -409,7 +409,8 @@
           const jsonLine = lines.find(l => l.trim().startsWith('{'));
           if (jsonLine) try { parsed = JSON.parse(jsonLine); } catch (_) {}
         }
-        return !hasDeprecation && parsed !== null && typeof parsed.totalEntries === 'number';
+        const namesNew = output.includes('.sdlc/learnings/log.md') && !output.includes('.claude/learnings/log.md');
+        return !hasDeprecation && namesNew && parsed !== null && typeof parsed.totalEntries === 'number';
 
 # AC-RP2 — legacy only: resolveLogPath falls back to .claude/learnings/log.md with stderr deprecation.
 - description: "harvest-learnings: resolveLogPath falls back to .claude/learnings/log.md with DEPRECATED warning"
