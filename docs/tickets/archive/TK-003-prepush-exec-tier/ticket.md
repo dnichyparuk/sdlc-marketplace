@@ -3,6 +3,9 @@ id: TK-003
 type: task
 title: Fast pre-push exec tier (#9427, part)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-19
+by: [2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#13, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#14]
 ---
 
 # TK-003: Fast pre-push exec tier (#9427, part)

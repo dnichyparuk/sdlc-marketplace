@@ -10,7 +10,7 @@ Executable plans of this repository and the generated programme status. The regi
 
 | Key | Phase | Title | Plans | Status | Progress | Depends on | Closed by |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `W-H2` (H2) | - | Suite speed infrastructure, pre-push tier and per-round review findings | [programme](./programme.md) (brief; §W-H2)<br>[2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier](./2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier.md) (executable) | In progress | 55/55 | none | - |
+| `W-H2` (H2) | - | Suite speed infrastructure, pre-push tier and per-round review findings | [programme](./programme.md) (brief; §W-H2)<br>[2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier](../archived/plans/2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier.md) (executable) | Done | 55/55 | none | PR #117, dc5be01 |
 | `W-B` (B) | - | Suite false passes and the guardrail table re-splice | [programme](./programme.md) (brief; §W-B) | Not started | 0/0 | W-H2 | - |
 | `W-D1` (D1) | - | Suite reduction | [programme](./programme.md) (brief; §W-D1) | Not started | 0/0 | W-B | - |
 | `W-D2` (D2) | - | Ship, execute and plan follow-ups | [programme](./programme.md) (brief; §W-D2) | Not started | 0/0 | W-D1 | - |
@@ -21,14 +21,14 @@ Executable plans of this repository and the generated programme status. The regi
 
 | # | Key | Status | Depends on | Ready |
 | --- | --- | --- | --- | --- |
-| 1 | `W-H2` | In progress | none | in progress |
-| 2 | `W-B` | Not started | W-H2 | waiting: W-H2 (In progress) |
+| 1 | `W-H2` | Done | none | done |
+| 2 | `W-B` | Not started | W-H2 | ready |
 | 3 | `W-D1` | Not started | W-B | waiting: W-B (Not started) |
 | 4 | `W-D2` | Not started | W-D1 | waiting: W-D1 (Not started) |
 | 5 | `W-F` | Not started | W-D2 | waiting: W-D2 (Not started) |
 | 6 | `W-END` | Not started | W-F | waiting: W-F (Not started) |
 
-Longest dependency chain among open waves (dependsOn only; no effort estimates): W-H2 → W-B → W-D1 → W-D2 → W-F → W-END (6 waves).
+Longest dependency chain among open waves (dependsOn only; no effort estimates): W-B → W-D1 → W-D2 → W-F → W-END (5 waves).
 
 **Open TODO notes** (home of each note):
 

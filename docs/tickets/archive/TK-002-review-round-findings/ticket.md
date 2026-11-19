@@ -3,6 +3,9 @@ id: TK-002
 type: task
 title: Per-round review findings in review-summary (#9462)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-19
+by: [2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#9, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#10, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#11, 2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier#12]
 ---
 
 # TK-002: Per-round review findings in review-summary (#9462)

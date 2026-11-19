@@ -1,5 +1,7 @@
 # W-H2 Suite Speed Infrastructure, Pre-push Tier and Round Findings Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #117, dc5be01
+
 **Commit:** `feat(W-H2): tests, review - suite speed, pre-push tier, round findings`
 **Goal:**
 - Make the exec test suite faster: build each git fixture once per run, answer the github `gh` calls in the same process, run the C16 apply loop without one process per payload, and drop the fixture copies that no case uses.
