@@ -21,9 +21,12 @@
   vars:
     script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
     script_args: "--run"
+    script_show_exit: true
   assert:
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.refused === 'missing --owner'"
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
 
 - description: "mutation-smoke: (d) --run --owner is refused when CI is set"
   vars:
@@ -33,3 +36,24 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.refused === 'CI is set'"
+
+- description: "mutation-smoke: (e) --run --owner --only with no id exits 2 before any run"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_args: "--run --owner --only"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
+    - type: contains
+      value: "--only needs a mutation id"
+
+- description: "mutation-smoke: (f) no arguments prints Usage on stderr and exits 2"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
+    - type: contains
+      value: "Usage:"

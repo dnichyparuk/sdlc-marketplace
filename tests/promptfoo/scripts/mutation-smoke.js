@@ -203,21 +203,21 @@ try {
     result = check();
     if (!result.ok) code = 1;
   } else if (argv.includes('--run')) {
+    const i = argv.indexOf('--only');
+    if (i >= 0 && (argv[i + 1] === undefined || argv[i + 1].startsWith('--'))) {
+      throw new Error('--only needs a mutation id');
+    }
     const reason = refusal();
     if (reason) {
       result = { ok: false, refused: reason };
       code = 2;
     } else {
-      const i = argv.indexOf('--only');
-      if (i >= 0 && (argv[i + 1] === undefined || argv[i + 1].startsWith('--'))) {
-        throw new Error('--only needs a mutation id');
-      }
       result = run(i >= 0 ? argv[i + 1] : null);
       if (!result.ok) code = 1;
     }
   } else {
     process.stderr.write('Usage: mutation-smoke.js (--list | --check | --run --owner [--only <id>])\n');
-    process.exit(1);
+    process.exit(2);
   }
   process.stdout.write(JSON.stringify(result) + '\n');
   process.exit(code);
