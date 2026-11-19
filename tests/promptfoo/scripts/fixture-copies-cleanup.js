@@ -17,6 +17,9 @@ async function afterAll() {
       console.error(`fixture-copies-cleanup: failed to remove ${p}: ${err.message}`);
     }
   }
+  // Match the memo lifecycle to the deletion: a later run in this process must rebuild templates.
+  globalThis.__sdlcFixtureCopies?.clear();
+  globalThis.__sdlcFixtureTemplates?.clear();
   console.error(`fixture-copies-cleanup: removed ${removed}`);
 }
 

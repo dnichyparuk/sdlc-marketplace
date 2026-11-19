@@ -183,5 +183,5 @@ async function main() {
 
 main().catch((err) => {
   process.stderr.write(`run-fixture-memo: ${err.stack || err.message}\n`);
-  process.exit(1);
+  process.exit(2);
 });
