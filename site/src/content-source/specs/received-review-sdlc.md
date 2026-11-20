@@ -105,7 +105,7 @@
   - Acceptance: exec case `rr-refusal: (a)` (SKILL.md Step 11, the DO NOT list and `agents/ship-step-received-review.md` carry the R36 rule).
 - R37: Config root. `skill/received-review.js` reads `.sdlc/config.json`, review dimensions, guardrails and git state from the active worktree toplevel; the `receivedReview` settings in `.sdlc/local.json` stay in the main checkout. `--project-root` sets both.
   - Acceptance: exec case `received-review-prepare (R37):`.
-- R38 (Removed phrases): Step 11 greps `tests/promptfoo/datasets` for each phrase a fix removes or rewords and updates the cases that count or assert it in the same change set. Acceptance: exec case `rr-skill-text: (R38)`.
+- R38 (Removed phrases): when the project has `tests/promptfoo/datasets`, Step 11 greps `tests/promptfoo/datasets` for each phrase a fix removes or rewords and updates the cases that count or assert it in the same change set. Acceptance: exec case `rr-skill-text: (R38)`.
 
 ### Step-emitter contract
 
