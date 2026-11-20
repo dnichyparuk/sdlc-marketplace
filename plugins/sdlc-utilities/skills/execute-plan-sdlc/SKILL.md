@@ -570,7 +570,7 @@ The verb rejects unknown keys, non-objects, and empty objects with exit 2 — it
 
 The `state/execute.js` verb surface is unchanged — only the SKILL.md call-site shape shifts (writes happen after wave-runner returns, driven by `WAVE_SUMMARY` data), plus the optional `--files-added` / `--verify-token` / `--decisions` flags documented in the table above.
 
-On successful completion: `node "<PLUGIN_ROOT>/scripts/state/execute.js" cleanup` (verifying cleanup, R14: see **State file cleanup** in Step 9 for its exit handling)
+The verifying cleanup (R14) runs once, in Step 9, after Step 8-bis has recorded its R94 outcome; see **State file cleanup** in Step 9 for its exit handling. Do not run it here.
 
 **5d-bis — OpenSpec task flip (R37, R39).** When `openspec.taskMap` in the prepare output is non-empty → Read `./openspec-tasks.md` and follow its 5d-bis section after the wave's `task-done` writes. Do not read preemptively.
 
@@ -660,7 +660,7 @@ Record the skip:
 node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "per-wave reviews passed, 3 or fewer waves"
 ```
 
-When the reviewed tasks are all Trivial, skip the reviewer dispatch and record it:
+When `flags.specReviewer === 'once'`, the reviewed tasks are all Trivial and `openspecSpecs` is empty, skip the reviewer dispatch and record it. With `openspecSpecs` non-empty, dispatch the reviewer with only the OpenSpec section and record `ran`:
 ```bash
 node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "all reviewed tasks Trivial"
 ```

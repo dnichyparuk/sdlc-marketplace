@@ -263,6 +263,8 @@ Selecting "yes" posts in-thread replies and resolves addressed threads automatic
 - **`gh` CLI** — recommended for fetching review comments and posting in-thread replies. Falls back to manual copy-paste if unavailable.
 - **Active PR with review feedback** — or review findings already in the conversation context from `/review-sdlc`.
 
+In a linked worktree the skill reads `.sdlc/config.json`, review dimensions, guardrails and git state from that worktree (R37); the `receivedReview` settings in `.sdlc/local.json` and the execution files stay in the main checkout.
+
 ### Harness Configuration
 
 | Field | Value |

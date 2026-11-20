@@ -38,8 +38,10 @@
     script_passthrough: true
     project_root: "file://fixtures-fs/project-linked-worktree-config"
   assert:
-    - type: icontains
-      value: ".sdlc/execution/commit-"
+    - type: javascript
+      value: |
+        const want = context.vars.project_root + '/.sdlc/execution/commit-';
+        return output.trim().startsWith(want) ? true : `FAIL: manifest path ${output.trim()} does not start with ${want}`;
     - type: not-icontains
       value: "worktrees/wt1/.sdlc"
 

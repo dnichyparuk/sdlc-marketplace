@@ -547,10 +547,15 @@ function gcStateFiles({ prefix = null, ttlDays = 7, knownBranches = [], now } = 
   for (const name of entries) {
     if (!name.endsWith('.json')) continue;
 
-    const parsed = parseStateFilename(name);
+    let parsed = parseStateFilename(name);
     if (!parsed) {
-      result.kept.push({ file: name, prefix: null, branch: null, reason: 'unparseable-name' });
-      continue;
+      // R109/R108: `ship-summary-<slug>.json` and `review-rounds-<slug>.json` carry no timestamp.
+      const side = name.match(/^(ship-summary|review-rounds)-(.+)\.json$/);
+      if (!side) {
+        result.kept.push({ file: name, prefix: null, branch: null, reason: 'unparseable-name' });
+        continue;
+      }
+      parsed = { prefix: side[1] === 'ship-summary' ? 'ship' : 'review', slug: side[2], timestamp: null };
     }
 
     if (prefix && parsed.prefix !== prefix) continue;
