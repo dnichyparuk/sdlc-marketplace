@@ -655,6 +655,8 @@ node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --rea
 
 When `flags.specReviewer === 'per-wave'`, also skip if ALL per-wave spec compliance reviews (Step 5c-bis) passed without issues AND the plan has 3 or fewer waves AND `openspecSpecs` is empty — the per-wave reviews already provided sufficient coverage in that case.
 
+A per-wave run with empty `openspecSpecs` matches both skip rules above. The first rule takes precedence: record only its reason (`per-wave cadence, no OpenSpec specs`) and make no second `spec-review` call. The reason below applies only when this rule is reached without the first one matching.
+
 Record the skip:
 ```bash
 node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "per-wave reviews passed, 3 or fewer waves"
