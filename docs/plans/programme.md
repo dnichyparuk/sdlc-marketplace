@@ -50,8 +50,8 @@ Scope (wave order, 2026-11-19): "D2: #9445, #9446, #9449, #9451, #9452 (+#9456 d
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | TK-009, TK-010, TK-011, TK-012, TK-013, TK-014 | none | ~10 tasks, at most 2 Complex (M1 and M2 together) |
-| M2 | TK-015, TK-016, TK-017, TK-018 | none | same wave as M1 |
+| M1 | TK-009, TK-010, TK-011, TK-012, TK-013, TK-014 | `2026-11-20-w-d2-ship-execute-and-plan-follow-ups` | ~10 tasks, at most 2 Complex (M1 and M2 together) |
+| M2 | TK-015, TK-016, TK-017, TK-018 | `2026-11-20-w-d2-ship-execute-and-plan-follow-ups` | same wave as M1 |
 
 ## W-F: Suite coverage gaps, tiers and structure
 

@@ -75,11 +75,12 @@
       "key": "W-D2",
       "aliases": ["D2"],
       "title": "Ship, execute and plan follow-ups",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": ["W-D1"],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-D2", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-D2", "role": "brief" },
+        { "path": "docs/plans/2026-11-20-w-d2-ship-execute-and-plan-follow-ups.md", "role": "executable" }
       ],
       "todos": ["docs/TODO/plan-format-pf13-deleted-paths.md"]
     },
