@@ -782,7 +782,16 @@
     script_args: "diff-material --before {{project_root}}/after-route-flip.md --after {{project_root}}/after-route-flip.md --prev-dir {{project_root}}/prev-blocking"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0 && Array.isArray(r.recheckLanes) && r.recheckLanes.length === 0 && JSON.stringify(r.rerun) === JSON.stringify(['lens:requirements', 'static-structural'])"
+      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0 && JSON.stringify(r.recheckLanes) === JSON.stringify(['static-structural']) && JSON.stringify(r.rerun) === JSON.stringify(['lens:requirements', 'static-structural'])"
+
+- description: "plan-diff: (rerun) non-material fix without --prev-dir keeps recheckLanes empty"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/after-route-flip.md --after {{project_root}}/after-route-flip.md"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === false && r.recheckLanes.length === 0"
 
 - description: "plan-diff: (route) non-material round returns the after plan's review route (R36, R67 (b), #9436)"
   vars:

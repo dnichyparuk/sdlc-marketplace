@@ -505,6 +505,36 @@
     - type: javascript
       value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "fail" && x.details.some(d => d.message.includes("README.md")) && !x.details.some(d => d.message.includes("src/utils/helper.js")))'
 
+- description: "plan-format: PF13 delete entry of a missing file passes"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,path,os,n)=>((d,t)=>(fs.writeFileSync(path.join(t,"c.md"),fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").replace("mention\x20the\x20helper",n)),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(t,"c.md"),"--json","--root",d],{encoding:"utf8"}).stdout),fs.rmSync(t,{recursive:true})))(process.cwd(),fs.mkdtempSync(path.join(os.tmpdir(),"pf13-"))))(require("child_process"),require("fs"),require("path"),require("os"),"delete")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "fail" && !x.details.some(d => d.taskRef === "Task 1"))'
+
+- description: "plan-format: PF13 deleted entry of a missing file passes with --final"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,path,os,n)=>((d,t)=>(fs.writeFileSync(path.join(t,"c.md"),fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").replace("mention\x20the\x20helper",n)),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(t,"c.md"),"--json","--root",d,"--final"],{encoding:"utf8"}).stdout),fs.rmSync(t,{recursive:true})))(process.cwd(),fs.mkdtempSync(path.join(os.tmpdir(),"pf13-"))))(require("child_process"),require("fs"),require("path"),require("os"),"deleted")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "fail" && !x.details.some(d => d.taskRef === "Task 1"))'
+
+- description: "plan-format: PF13 non-delete note of a missing file fails"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,path,os,n)=>((d,t)=>(fs.writeFileSync(path.join(t,"c.md"),fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").replace("mention\x20the\x20helper",n)),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(t,"c.md"),"--json","--root",d],{encoding:"utf8"}).stdout),fs.rmSync(t,{recursive:true})))(process.cwd(),fs.mkdtempSync(path.join(os.tmpdir(),"pf13-"))))(require("child_process"),require("fs"),require("path"),require("os"),"update\x20the\x20delete\x20helper")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "fail" && x.details.some(d => d.taskRef === "Task 1" && d.message.includes("README.md")))'
+
 - description: "plan-format-lean: (a) PF15 fails a plan whose fence hides a task"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"

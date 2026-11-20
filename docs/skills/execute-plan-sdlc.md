@@ -205,6 +205,8 @@ After mechanical verification passes (git diff + canary checks), a spec complian
 
 **Skipped when:** the reviewed tasks are all Trivial.
 
+Step 8-bis always records whether the final review ran or which rule skipped it; the state cleanup fails a run with no record.
+
 If the reviewer finds issues:
 - 1–2 minor issues → fixed inline in the main context
 - Major spec gaps → original agent re-dispatched with specific fix instructions (counts toward retry budget)

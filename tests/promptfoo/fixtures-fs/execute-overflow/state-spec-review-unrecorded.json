@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "skill": "execute-plan-sdlc",
+  "startedAt": "2026-05-25T10:00:00.000Z",
+  "branch": "fix/test-branch",
+  "quality": "balanced",
+  "totalTasks": 4,
+  "plannedTaskIds": ["T1", "T2", "T3", "T4"],
+  "specReviewRequired": true,
+  "waves": [
+    {
+      "number": 1,
+      "status": "completed",
+      "startedAt": "2026-05-25T10:00:01.000Z",
+      "completedAt": "2026-05-25T10:05:00.000Z",
+      "tasks": [
+        { "id": "T1", "name": "Task 1", "complexity": "Standard", "risk": "Low", "status": "completed", "filesChanged": ["src/a.js"] },
+        { "id": "T2", "name": "Task 2", "complexity": "Standard", "risk": "Low", "status": "completed", "filesChanged": ["src/b.js"] }
+      ]
+    },
+    {
+      "number": 2,
+      "status": "completed",
+      "startedAt": "2026-05-25T10:06:00.000Z",
+      "completedAt": "2026-05-25T10:10:00.000Z",
+      "tasks": [
+        { "id": "T3", "name": "Task 3", "complexity": "Standard", "risk": "Low", "status": "completed", "filesChanged": ["src/c.js"] },
+        { "id": "T4", "name": "Task 4", "complexity": "Standard", "risk": "Low", "status": "failed", "filesChanged": [] }
+      ]
+    }
+  ],
+  "context": {
+    "planSummary": "Test plan with 4 tasks",
+    "completedTaskIds": ["T1", "T2", "T3", "T4"]
+  }
+}

@@ -648,7 +648,22 @@ Fix inline if possible; report to user otherwise.
 
 Runs when `flags.specReviewer === 'once'` (the once-per-run review of Step 5c-bis; like every 5c-bis review it skips when the reviewed tasks are all Trivial, but the OpenSpec check below still runs) or when `openspecSpecs` is non-empty. Skip this sub-step when `flags.specReviewer === 'per-wave'` and `openspecSpecs` is empty — the per-wave reviews already ran.
 
+Record the skip:
+```bash
+node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "per-wave cadence, no OpenSpec specs"
+```
+
 When `flags.specReviewer === 'per-wave'`, also skip if ALL per-wave spec compliance reviews (Step 5c-bis) passed without issues AND the plan has 3 or fewer waves — the per-wave reviews already provided sufficient coverage in that case.
+
+Record the skip:
+```bash
+node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "per-wave reviews passed, 3 or fewer waves"
+```
+
+When the reviewed tasks are all Trivial, skip the reviewer dispatch and record it:
+```bash
+node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "all reviewed tasks Trivial"
+```
 
 Otherwise, dispatch a single spec compliance reviewer (sonnet). Read `./spec-compliance-reviewer.md` for the prompt template. Unlike the per-wave review in Step 5c-bis which provides only that wave's tasks, provide:
 
@@ -662,6 +677,13 @@ The reviewer's focus in this final check is **cross-wave coverage**:
 - Requirements where the sum of per-wave implementations still has gaps
 
 **Verdict handling:** Same as Step 5c-bis — fix inline for 1–2 minor issues, re-dispatch the original task's agent with specific fix instructions for major spec gaps (counts toward the 2-retry budget).
+
+After the reviewer returns, record the outcome:
+```bash
+node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status ran --reason "<verdict>"
+```
+
+Run each of these calls as one plain Bash call; a non-zero exit is reported and the run stops as in Step 5f. Every branch of this step records its outcome (R94); the verifying cleanup fails a run that recorded none.
 
 **8-ter. Learning Capture (runs before Step 9 returns control):**
 
@@ -733,7 +755,7 @@ On failure or interruption (not all tasks completed), preserve the state file. P
 | Final verification | Full suite green |
 | No drift | Tasks match their specifications |
 | No orphans | All created files are referenced/used |
-| Spec compliance reviewed | Non-trivial tasks pass spec review at the `flags.specReviewer` cadence (Step 5c-bis, Step 8-bis) |
+| Spec compliance reviewed | Non-trivial tasks pass spec review at the `flags.specReviewer` cadence (Step 5c-bis, Step 8-bis); Step 8-bis records its outcome (R94) |
 | Final spec completeness | All delta spec requirements covered across all waves (when openspecSpecs available) |
 | Post-wave guardrail check | Error-severity guardrails pass, fixed, or user overrides; warnings reported (Step 5c-ter) |
 | Completion checklists valid | Each agent's COMPLETE/VERIFY/STATUS block is present and cross-checked |

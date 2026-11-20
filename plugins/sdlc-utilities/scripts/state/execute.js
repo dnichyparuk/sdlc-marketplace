@@ -10,6 +10,7 @@
  *   node execute-state.js wave-done   --wave <n> [--decisions <json>] [--status <completed|partial>] [--timed-out] [--usage <json>]
  *   node execute-state.js wave-fail   --wave <n>
  *   node execute-state.js wave-committed --branch <b> --wave <n> --sha <sha>
+ *   node execute-state.js spec-review --status <ran|skipped> --reason <text> [--branch <b>]
  *   node execute-state.js task-done   --wave <n> --task <id> --name <name> --complexity <c> --risk <r> --files-changed <json> [--files-added <json>] [--verify-token <json>]
  *   node execute-state.js task-fail   --wave <n> --task <id> --name <name> --complexity <c> --risk <r> --error <text> [--skipped-dependency]
  *   node execute-state.js context     --data <json>
@@ -18,7 +19,7 @@
  *   node execute-state.js gc          [--ttl-days <N>] [--dry-run]
  *   node execute-state.js summarize-prior-wave-context [--run-id <id>] [--max-files <n>] [--max-decisions <n>] [--max-interfaces <n>] [--max-task-ids <n>]
  *   node execute-state.js wave-split --wave <n> --dispatched <json-id-array> [--missing-ids <json-id-array>] [--split-depth <n>] [--max-split-depth <n>]
- *   node execute-state.js verify-completeness --run-id <id>
+ *   node execute-state.js verify-completeness --run-id <id> [--final]
  *   node execute-state.js wave-progress --wave <n> --run-id <id> --task <id> --phase <started|reading|editing|verifying|reporting>  (write)
  *   node execute-state.js wave-progress --wave <n> --run-id <id> --read                                                             (read; prints JSON)
  *   node execute-state.js wave-progress --wave <n> --run-id <id> --wait --tasks <id,id> [--grace <s>] [--interval <s>] [--timeout <s>]   (blocking; prints JSON)
@@ -105,6 +106,10 @@ function parseArgs(argv) {
       result.decisions = args[++i];
     } else if (a === '--status' && args[i + 1]) {
       result.status = args[++i];
+    } else if (a === '--reason' && args[i + 1]) {
+      result.reason = args[++i];
+    } else if (a === '--final') {
+      result.final = true;
     } else if (a === '--timed-out') {
       result.timedOut = true;
     } else if (a === '--usage' && args[i + 1]) {
@@ -299,6 +304,7 @@ function cmdInit(opts) {
     totalTasks: opts.totalTasks,
     plannedTaskIds: plannedTaskIds,
     selection: selection,
+    specReviewRequired: true,
     waves: [],
     context: {},
   };
@@ -613,6 +619,35 @@ function cmdWaveCommitted(opts) {
   process.exit(0);
 }
 
+/**
+ * `spec-review` — record the Step 8-bis final spec review outcome (R94).
+ * Overwrites any earlier record, so re-running is idempotent.
+ */
+function cmdSpecReview(opts) {
+  if (opts.status !== 'ran' && opts.status !== 'skipped') {
+    process.stderr.write('Error: --status must be "ran" or "skipped"\n');
+    process.exit(2);
+  }
+  if (!opts.reason) {
+    process.stderr.write('Error: --reason is required\n');
+    process.exit(2);
+  }
+
+  const branch = resolveBranchOrExit(opts.branch);
+  const slug = slugifyBranch(branch);
+  const found = readState('execute', slug);
+  if (!found) {
+    process.stderr.write(`Error: no state file found for branch "${branch}"\n`);
+    process.exit(1);
+  }
+
+  const { data, filePath } = found;
+  data.specReview = { status: opts.status, reason: opts.reason, at: new Date().toISOString() };
+  writeState(filePath, data);
+  process.stdout.write(JSON.stringify({ ok: true, specReview: data.specReview }) + '\n');
+  process.exit(0);
+}
+
 function cmdTaskDone(opts) {
   if (opts.wave == null || isNaN(opts.wave)) {
     process.stderr.write('Error: --wave is required\n');
@@ -864,7 +899,7 @@ function cmdCleanup(opts) {
   }
 
   // R14: verifying cleanup; a state whose completeness check fails is kept for --resume.
-  const v = completenessOf(found.data);
+  const v = completenessOf(found.data, { requireSpecReview: true });
   if (v.code !== 0) {
     writeCompleteness(v);
     process.stderr.write(`Error: state file kept (completeness check failed): ${found.filePath}\n`);
@@ -1180,7 +1215,7 @@ function cmdVerifyCompleteness(opts) {
     }
   }
 
-  const v = completenessOf(found.data);
+  const v = completenessOf(found.data, { requireSpecReview: opts.final === true });
   writeCompleteness(v);
   process.exit(v.code);
 }
@@ -1190,7 +1225,7 @@ function cmdVerifyCompleteness(opts) {
  * verify-completeness and the verifying cleanup (R14). Prints nothing, never exits.
  * @returns {{code: 0, out: object} | {code: 65, err: object} | {code: 2, err: string}}
  */
-function completenessOf(data) {
+function completenessOf(data, { requireSpecReview = false } = {}) {
   const ACCOUNTED_STATUSES = new Set(['completed', 'failed', 'skipped-dependency']);
 
   // Collect all task entries across waves
@@ -1246,10 +1281,18 @@ function completenessOf(data) {
   const totalPlanned  = plannedIds.length;
   const totalAccounted = accountedIds.length;
 
-  if (missingIds.length === 0) return { code: 0, out: { ok: true, totalPlanned, totalAccounted } };
+  // R94: with requireSpecReview, a state stamped specReviewRequired needs a valid record
+  // (status "ran", or "skipped" with a non-empty reason).
+  const sr = data.specReview;
+  const specReviewUnrecorded = requireSpecReview && data.specReviewRequired === true
+    && !(sr && (sr.status === 'ran' || (sr.status === 'skipped' && typeof sr.reason === 'string' && sr.reason.length > 0)));
+
+  if (missingIds.length === 0 && !specReviewUnrecorded) return { code: 0, out: { ok: true, totalPlanned, totalAccounted } };
 
   // Incomplete — exit 65 (BSD EX_DATAERR) with structured stderr JSON
-  return { code: 65, err: { missingIds, totalPlanned, totalAccounted } };
+  const err = { missingIds, totalPlanned, totalAccounted };
+  if (specReviewUnrecorded) err.specReview = 'unrecorded';
+  return { code: 65, err };
 }
 
 /** Write a completenessOf verdict exactly as verify-completeness always has. */
@@ -1505,6 +1548,7 @@ try {
     case 'wave-done':   cmdWaveDone(opts);   break;
     case 'wave-fail':   cmdWaveFail(opts);   break;
     case 'wave-committed': cmdWaveCommitted(opts); break;
+    case 'spec-review': cmdSpecReview(opts); break;
     case 'task-done':   cmdTaskDone(opts);   break;
     case 'task-fail':   cmdTaskFail(opts);   break;
     case 'context':     cmdContext(opts);    break;
@@ -1519,7 +1563,7 @@ try {
     case 'wave-watch': cmdWaveWatch(opts); break;
     default:
       process.stderr.write(`Error: unknown subcommand "${opts.subcommand}"\n`);
-      process.stderr.write('Usage: node execute-state.js <init|wave-start|wave-done|wave-fail|wave-committed|task-done|task-fail|context|read|cleanup|gc|summarize-prior-wave-context|wave-split|verify-completeness|wave-progress|resume-reset|wave-watch> [options]\n');
+      process.stderr.write('Usage: node execute-state.js <init|wave-start|wave-done|wave-fail|wave-committed|spec-review|task-done|task-fail|context|read|cleanup|gc|summarize-prior-wave-context|wave-split|verify-completeness|wave-progress|resume-reset|wave-watch> [options]\n');
       process.exit(2);
   }
 } catch (e) {

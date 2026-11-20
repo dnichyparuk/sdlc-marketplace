@@ -24,8 +24,9 @@
  *       `stop_hook_active` early-exit are preserved unchanged.
  *
  * In every other condition (no state file, advancing false, between-steps pending
- * with non-auto, stop_hook_active === true, foreign session) the hook exits 0
- * silently with no stdout.
+ * with non-auto, stop_hook_active === true, foreign session, or — R110 — an
+ * `in_progress` step while `.step-agent-live-<branchSlug>.json` lists a fresh
+ * ship step agent) the hook exits 0 silently with no stdout.
  *
  * The asymmetry mirrors hooks/pipeline-continue.js (in_progress mode-independent;
  * pending auto-gated — no-opposite-logical-vectors). The `stop_hook_active === true`
@@ -60,6 +61,29 @@ const path = require('node:path');
 // on one unchanged step is well past normal (a healthy step advances on the
 // first) while still tolerating a transient stall.
 const STOP_BLOCK_CAP = 3;
+
+// R110: a live-agent marker entry older than this is stale (an agent that died
+// without SubagentStop keeps the hook quiet for at most this long).
+const STEP_AGENT_LIVE_TTL_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * True when `<stateDir>/.step-agent-live-<branchSlug>.json` parses and lists one
+ * agent whose `startedAt` is within STEP_AGENT_LIVE_TTL_MS of `now`. A missing,
+ * corrupt or stale marker (or an unknown stateDir) gives false.
+ */
+function liveStepAgent(stateDir, branchSlug, now) {
+  if (!stateDir) return false;
+  try {
+    const marker = JSON.parse(fs.readFileSync(path.join(stateDir, `.step-agent-live-${branchSlug}.json`), 'utf8'));
+    if (!marker || !marker.agents || typeof marker.agents !== 'object') return false;
+    return Object.values(marker.agents).some((a) => {
+      const started = Date.parse(a && a.startedAt);
+      return Number.isFinite(started) && now - started < STEP_AGENT_LIVE_TTL_MS;
+    });
+  } catch {
+    return false;
+  }
+}
 
 function main() {
   // Read stdin JSON. If parse fails, exit 0 silently.
@@ -137,6 +161,10 @@ function main() {
     process.stderr.write(`stop-pipeline-continue: not enforcing — ${gate.reason}\n`);
     process.exit(0);
   }
+
+  // R110: a ship step agent is running (marker kept by hooks/subagent-track.js)
+  // → stay quiet while the step is in_progress; the cap counter is untouched.
+  if (step.status === 'in_progress' && liveStepAgent(ctx.stateDir, branchSlug, Date.now())) process.exit(0);
 
   // Conditions hold → block, subject to the consecutive-block cap below.
   const stepIndex = index + 1;

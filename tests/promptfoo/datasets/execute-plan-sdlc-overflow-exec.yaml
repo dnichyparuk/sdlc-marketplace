@@ -210,6 +210,81 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.ok === true && r.totalPlanned === 4 && r.totalAccounted === 4"
 
+- description: "execute-plan-sdlc/wave-runner-overflow/verify-completeness: (R94) --final on an unrecorded spec review exits 65 with specReview unrecorded"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "verify-completeness --final --state-file {{project_root}}/state-spec-review-unrecorded.json"
+    script_show_exit: true
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "output.includes('{\"missingIds\":[],\"totalPlanned\":4,\"totalAccounted\":4,\"specReview\":\"unrecorded\"}') && output.includes('[exit 65]')"
+
+- description: "execute-plan-sdlc/wave-runner-overflow/verify-completeness: (R94) --final passes a skipped record with a reason and a state without specReviewRequired"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,js,d)=>console.log(JSON.stringify(["state-spec-review-skipped.json","state-all-done.json"].map(f=>cp.spawnSync("node",[js,"verify-completeness","--final","--state-file",d+"/"+f],{encoding:"utf8"})).map(r=>r.status))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js","{{project_root}}")'
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "output === '[0,0]'"
+
+- description: "execute-plan-sdlc/wave-runner-overflow/verify-completeness: (R94) without --final an unrecorded spec review still exits 0"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "verify-completeness --state-file {{project_root}}/state-spec-review-unrecorded.json"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.ok === true && r.totalPlanned === 4 && r.totalAccounted === 4"
+
+- description: "execute-plan-sdlc/wave-runner-overflow/spec-review: (R94) no --status exits 2 with the message on stderr"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "spec-review --reason x"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "output === 'Error: --status must be \"ran\" or \"skipped\"\\n[exit 2]'"
+
+- description: "execute-plan-sdlc/wave-runner-overflow/spec-review: (R94) an unknown --status exits 2 with the message on stderr"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "spec-review --status bogus --reason x"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "output === 'Error: --status must be \"ran\" or \"skipped\"\\n[exit 2]'"
+
+- description: "execute-plan-sdlc/wave-runner-overflow/spec-review: (R94) --status skipped without --reason exits 2 with the message on stderr"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "spec-review --status skipped"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "output === 'Error: --reason is required\\n[exit 2]'"
+
+- description: "execute-plan-sdlc/wave-runner-overflow/spec-review: (R94) run twice keeps the second record, other fields unchanged, and --final gives the same verdict twice"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,t=fs.mkdtempSync(os.tmpdir()+"/spec-review-"),f=t+"/execute-fix-cleanup-20261020T120000Z.json",js="{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js",env=Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:t}),run=(a)=>cp.spawnSync("node",[js].concat(a),{env:env,encoding:"utf8"}),o=(fs.copyFileSync(process.cwd()+"/state-spec-review-unrecorded.json",f),JSON.parse(fs.readFileSync(f,"utf8"))),a=run(["spec-review","--branch","fix/cleanup","--status","ran","--reason","a"]),b=run(["spec-review","--branch","fix/cleanup","--status","skipped","--reason","b"]),d=JSON.parse(fs.readFileSync(f,"utf8")),v1=run(["verify-completeness","--final","--state-file",f]),v2=run(["verify-completeness","--final","--state-file",f]))=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify({a:a.status,b:b.status,second:d.specReview.status==="skipped"&&d.specReview.reason==="b",rest:JSON.stringify(Object.assign({},d,{specReview:undefined}))===JSON.stringify(o),v:[v1.status,v2.status],same:v1.stdout===v2.stdout&&v1.stderr===v2.stderr}))))(require("child_process"),require("fs"),require("os"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.a === 0 && r.b === 0 && r.second === true && r.rest === true && r.v[0] === 0 && r.v[1] === 0 && r.same === true"
+
+- description: "execute-plan-sdlc/cleanup-verify: (R94) a state with specReviewRequired and no record is kept and cleanup exits 65"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,t=fs.mkdtempSync(os.tmpdir()+"/spec-cleanup-"),f=t+"/execute-fix-cleanup-20261020T120000Z.json",c=fs.copyFileSync(process.cwd()+"/state-spec-review-unrecorded.json",f),r=cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js","cleanup","--branch","fix/cleanup"],{env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:t}),encoding:"utf8"}),k=fs.existsSync(f))=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify({status:r.status,kept:k,stderr:r.stderr}))))(require("child_process"),require("fs"),require("os"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/execute-overflow"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.status === 65 && r.kept === true && r.stderr.includes('unrecorded')"
+
 # ---------------------------------------------------------------------------
 # state/execute.js cleanup — verifying cleanup (R14)
 # ---------------------------------------------------------------------------
@@ -339,3 +414,13 @@
       value: |
         const r = JSON.parse(output);
         return r.planHash === "44f59227a5f7d3ceabd397790669e2382494c19e623d409d40619dfa680ba12e" && r.planHash !== null;
+
+- description: "execute-plan-sdlc/wave-runner-overflow/skill-text: (R94) Step 8-bis has three skipped calls and one ran call"
+  vars:
+    script_path: "-e"
+    script_args: '((s)=>((c)=>console.log(JSON.stringify({all:c("state/execute.js\x22\x20spec-review\x20--status"),skipped:c("state/execute.js\x22\x20spec-review\x20--status\x20skipped"),ran:c("state/execute.js\x22\x20spec-review\x20--status\x20ran")})))((t)=>s.split(t).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md","utf8"))'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.all === 4 && o.skipped === 3 && o.ran === 1 ? true : `FAIL: ${output}`;

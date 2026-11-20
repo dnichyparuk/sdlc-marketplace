@@ -354,6 +354,89 @@
         if (!/commit/.test(inner.reason || '')) return `FAIL: reason missing step name: ${inner.reason}`;
         return true;
 
+# R110: live step agent marker (hooks/subagent-track.js on SubagentStart /
+# SubagentStop). Each driver copies the fixture's in_progress ship state file
+# into an fs.mkdtempSync dir, points both scripts at it with
+# SDLC_STATE_DIR_OVERRIDE / SDLC_BRANCH_OVERRIDE (never writing inside the
+# fixture tree), runs the given sequence, reports {runs, marker, counter}
+# (marker/counter = the sidecar files exist afterwards) and removes the dir.
+# The stale case writes the marker itself with a startedAt 3 hours old.
+- description: "stop-pipeline-continue (R110): live ship step agent silences the in_progress block, cap counter untouched"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,track,stop,src)=>((d)=>((run)=>(fs.copyFileSync(src,d+"/ship-feat-ship-20260608T120000Z.json"),((rs)=>((r)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(r))))({runs:rs.map(x=>({status:x.status,stdout:x.stdout,stderr:x.stderr})),marker:fs.existsSync(d+"/.step-agent-live-feat-ship.json"),counter:fs.existsSync(d+"/.stop-block-count-feat-ship.json")}))([run(track,"start",{agent_id:"a1",agent_type:"sdlc:ship-step-review",session_id:"sess-fixture"}),run(stop,"",{stop_hook_active:false,session_id:"sess-fixture"})])))((f,a,i)=>cp.spawnSync("node",[f,a].filter(Boolean),{input:JSON.stringify(i),cwd:process.cwd(),env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:"feat/ship"}),encoding:"utf8"})))(fs.mkdtempSync(os.tmpdir()+"/step-live-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/hooks/subagent-track.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-inprogress"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const res = JSON.parse(r.stdout);
+        const [track, hook] = res.runs;
+        if (track.status !== 0 || track.stdout !== '' || track.stderr !== '') return `FAIL: tracker run ${JSON.stringify(track)}`;
+        if (res.marker !== true) return 'FAIL: tracker wrote no marker';
+        if (hook.status !== 0) return `FAIL: hook exit ${hook.status}`;
+        if (hook.stdout.trim() !== '') return `FAIL: expected silent hook, got: ${hook.stdout}`;
+        if (res.counter !== false) return 'FAIL: stop-block counter file written';
+        return true;
+
+- description: "stop-pipeline-continue (R110): start then stop for the same agent id blocks again"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,track,stop,src)=>((d)=>((run)=>(fs.copyFileSync(src,d+"/ship-feat-ship-20260608T120000Z.json"),((rs)=>((r)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(r))))({runs:rs.map(x=>({status:x.status,stdout:x.stdout,stderr:x.stderr})),marker:fs.existsSync(d+"/.step-agent-live-feat-ship.json"),counter:fs.existsSync(d+"/.stop-block-count-feat-ship.json")}))([run(track,"start",{agent_id:"a1",agent_type:"sdlc:ship-step-review",session_id:"sess-fixture"}),run(track,"stop",{agent_id:"a1",agent_type:"sdlc:ship-step-review",session_id:"sess-fixture"}),run(stop,"",{stop_hook_active:false,session_id:"sess-fixture"})])))((f,a,i)=>cp.spawnSync("node",[f,a].filter(Boolean),{input:JSON.stringify(i),cwd:process.cwd(),env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:"feat/ship"}),encoding:"utf8"})))(fs.mkdtempSync(os.tmpdir()+"/step-live-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/hooks/subagent-track.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-inprogress"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const res = JSON.parse(r.stdout);
+        const [start, stopRun, hook] = res.runs;
+        if (start.status !== 0 || stopRun.status !== 0) return `FAIL: tracker exits ${start.status}/${stopRun.status}`;
+        if (res.marker !== false) return 'FAIL: marker not deleted after the last agent stopped';
+        const inner = JSON.parse(hook.stdout);
+        if (inner.decision !== 'block') return `FAIL: decision ${inner.decision}`;
+        return true;
+
+- description: "stop-pipeline-continue (R110): a marker whose only agent started 3 hours ago does not silence the block"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,track,stop,src)=>((d)=>((run)=>(fs.copyFileSync(src,d+"/ship-feat-ship-20260608T120000Z.json"),fs.writeFileSync(d+"/.step-agent-live-feat-ship.json",JSON.stringify({schemaVersion:1,branch:"feat/ship",agents:{a1:{agentType:"sdlc:ship-step-review",startedAt:new(Date)(Date.now()-108e5).toISOString()}}})),((rs)=>((r)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(r))))({runs:rs.map(x=>({status:x.status,stdout:x.stdout,stderr:x.stderr})),marker:fs.existsSync(d+"/.step-agent-live-feat-ship.json"),counter:fs.existsSync(d+"/.stop-block-count-feat-ship.json")}))([run(stop,"",{stop_hook_active:false,session_id:"sess-fixture"})])))((f,a,i)=>cp.spawnSync("node",[f,a].filter(Boolean),{input:JSON.stringify(i),cwd:process.cwd(),env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:"feat/ship"}),encoding:"utf8"})))(fs.mkdtempSync(os.tmpdir()+"/step-live-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/hooks/subagent-track.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-inprogress"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const res = JSON.parse(r.stdout);
+        const [hook] = res.runs;
+        if (hook.status !== 0) return `FAIL: hook exit ${hook.status}`;
+        const inner = JSON.parse(hook.stdout);
+        if (inner.decision !== 'block') return `FAIL: decision ${inner.decision}`;
+        return true;
+
+- description: "stop-pipeline-continue (R110): a general-purpose agent writes no marker and the hook blocks"
+  vars:
+    script_path: "-e"
+    script_args: '((cp,fs,os,track,stop,src)=>((d)=>((run)=>(fs.copyFileSync(src,d+"/ship-feat-ship-20260608T120000Z.json"),((rs)=>((r)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(r))))({runs:rs.map(x=>({status:x.status,stdout:x.stdout,stderr:x.stderr})),marker:fs.existsSync(d+"/.step-agent-live-feat-ship.json"),counter:fs.existsSync(d+"/.stop-block-count-feat-ship.json")}))([run(track,"start",{agent_id:"a1",agent_type:"general-purpose",session_id:"sess-fixture"}),run(stop,"",{stop_hook_active:false,session_id:"sess-fixture"})])))((f,a,i)=>cp.spawnSync("node",[f,a].filter(Boolean),{input:JSON.stringify(i),cwd:process.cwd(),env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:"feat/ship"}),encoding:"utf8"})))(fs.mkdtempSync(os.tmpdir()+"/step-live-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/hooks/subagent-track.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-pipeline-inprogress"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.exitCode !== 0) return `FAIL: exit ${r.exitCode} stderr=${r.stderr}`;
+        const res = JSON.parse(r.stdout);
+        const [track, hook] = res.runs;
+        if (track.status !== 0 || track.stdout !== '') return `FAIL: tracker run ${JSON.stringify(track)}`;
+        if (res.marker !== false) return 'FAIL: marker written for a general-purpose agent';
+        const inner = JSON.parse(hook.stdout);
+        if (inner.decision !== 'block') return `FAIL: decision ${inner.decision}`;
+        return true;
+
 # ---------------------------------------------------------------------------
 # block-askuserquestion-auto (R71 / C18, #477) — PreToolUse deny in --auto.
 # ---------------------------------------------------------------------------

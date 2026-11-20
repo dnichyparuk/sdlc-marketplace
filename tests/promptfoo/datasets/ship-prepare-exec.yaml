@@ -4713,6 +4713,42 @@
         if (file.schemaVersion !== 1 || file.branch !== 'feat/ship' || typeof file.startedAt !== 'string') return `FAIL: header ${JSON.stringify(file).slice(0, 200)}`;
         return JSON.stringify(file.rounds) === JSON.stringify(rounds) && rounds.length === 3 ? true : `FAIL: rounds ${JSON.stringify(file.rounds)}`;
 
+- description: "ship-summary-file: (a) cleanup writes ship-summary-<slug>.json equal to the cleanup summary"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,path,js,pr)=>((r)=>((o)=>console.log(JSON.stringify({o:o,file:JSON.parse(fs.readFileSync(path.join(pr,".sdlc","execution","ship-summary-feat-ship.json"),"utf8"))})))(JSON.parse(r.stdout)))(cp.spawnSync("node",[js,"--project-root",pr,"--scenario","rounds-final-check","--seed","frozen","--summary","high-1-findings.json","--rounds","2","--received-result","results/received-review-counts.json","--walk"],{cwd:pr,encoding:"utf8",maxBuffer:1<<26})))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/tests/promptfoo/scripts/run-ship-stepper.js","{{project_root}}")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const { o, file } = JSON.parse(output);
+        const cl = o.calls.find(c => c.envelope.step && c.envelope.step.id === 'cleanup');
+        if (!cl) return `FAIL: no cleanup emitted`;
+        const s = cl.envelope.step.data.summary;
+        if (file.schemaVersion !== 1 || file.branch !== 'feat/ship') return `FAIL: header ${JSON.stringify(file).slice(0, 200)}`;
+        if (!(file.head === null || /^[0-9a-f]{40}$/.test(file.head))) return `FAIL: head ${file.head}`;
+        if (JSON.stringify(file.steps) !== JSON.stringify(s.steps)) return `FAIL: steps`;
+        if (JSON.stringify(file.finalCheck) !== JSON.stringify(s.finalCheck)) return `FAIL: finalCheck`;
+        return file.finalCheck && file.finalCheck.commit === s.finalCheck.commit ? true : `FAIL: finalCheck.commit ${JSON.stringify(file.finalCheck)}`;
+
+- description: "ship-summary-unwritable: (b) a directory at the summary path leaves the cleanup envelope unchanged"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "-e"
+    script_args: '((cp,fs,path,js,pr)=>((d)=>(fs.mkdirSync(d,{recursive:true}),(r)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify({o:o}))))(JSON.parse(r.stdout)))(cp.spawnSync("node",[js,"--project-root",pr,"--scenario","rounds-final-check","--seed","frozen","--summary","high-1-findings.json","--rounds","2","--received-result","results/received-review-counts.json","--walk"],{cwd:pr,encoding:"utf8",maxBuffer:1<<26})))(path.join(pr,".sdlc","execution","ship-summary-feat-ship.json")))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/tests/promptfoo/scripts/run-ship-stepper.js","{{project_root}}")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-ship-stepper"
+  assert:
+    - type: javascript
+      value: |
+        const { o } = JSON.parse(output);
+        const cl = o.calls.find(c => c.envelope.step && c.envelope.step.id === 'cleanup');
+        if (!cl) return `FAIL: no cleanup emitted ${JSON.stringify(o.calls.map(c => c.envelope.step ? c.envelope.step.id : c.envelope.status))}`;
+        const s = cl.envelope.step.data.summary;
+        return s && s.reviewRounds && s.reviewRounds.length === 3 ? true : `FAIL: summary ${JSON.stringify(s).slice(0, 200)}`;
+
 - description: "ship-stage-sdlc: tracked .sdlc paths of the plan are staged, ignored and missing ones are not"
   vars:
     script_path: "-e"
@@ -5863,6 +5899,16 @@
       value: |
         const o = JSON.parse(output);
         return o.commit === 1 && o.version === 1 ? true : `FAIL: ${output}`;
+
+- description: "ship-step-text: (R97) commit agent waits for its drafter"
+  vars:
+    script_path: "-e"
+    script_args: '((t,c)=>console.log(JSON.stringify({wait:c(t,"never\x20end\x20your\x20turn\x20while\x20the\x20commit-orchestrator"),commit:c(t,"Run\x20`git\x20commit`\x20with\x20the\x20drafted\x20message")})))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/agents/ship-step-commit.md","utf8"),(t,s)=>t.split(s).length-1)'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.wait === 1 && o.commit === 1 ? true : `FAIL: ${output}`;
 
 # R88: the plan's recorded decisions are review intent, so ship forwards --plan to review.
 - description: "ship-lean: (review args) b --auto precedes --plan"

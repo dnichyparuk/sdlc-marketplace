@@ -55,6 +55,7 @@ const { writeOutput, writeJsonLine } = require(path.join(LIB, 'output'));
 const { planFilesPaths } = require(path.join(LIB, 'plan-parse'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { readSection, readProjectConfig, resolveSdlcRoot } = require(path.join(LIB, 'config'));
+const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { getPluginVersion } = require(path.join(LIB, 'config-version'));
 const { loadGuardrails } = require(path.join(LIB, 'harden-surfaces'));
 const { resolveDimensionsDir } = require(path.join(LIB, 'dimensions'));
@@ -92,10 +93,11 @@ function parseSeverity(body) {
  * Resolve `alwaysFixSeverities` from `.sdlc/local.json` only (R19, C15).
  * If the field appears in `.sdlc/config.json`, emit one stderr warning and ignore it.
  *
- * @param {string} projectRoot
+ * @param {string} projectRoot  worktree toplevel (misplacement check reads its config.json)
+ * @param {string} localRoot    checkout holding .sdlc/local.json
  * @returns {string[]} severity list (empty array when unset)
  */
-function resolveAlwaysFixSeverities(projectRoot) {
+function resolveAlwaysFixSeverities(projectRoot, localRoot) {
   // Misplacement check: warn if found in project config.
   try {
     const { config: projectConfig } = readProjectConfig(projectRoot);
@@ -108,7 +110,7 @@ function resolveAlwaysFixSeverities(projectRoot) {
     }
   } catch (_) { /* missing or unreadable project config — silent */ }
 
-  const local = readSection(projectRoot, 'receivedReview');
+  const local = readSection(localRoot, 'receivedReview');
   const list = local?.alwaysFixSeverities;
   if (!Array.isArray(list)) return [];
   const valid = list.filter(s => typeof s === 'string' && VALID_SEVERITIES.has(s));
@@ -130,7 +132,7 @@ function resolveAlwaysFixSeverities(projectRoot) {
  * Resolve `alwaysHardenFromReview` from `.sdlc/local.json` only (R24, C17).
  * Warns and ignores if found in `.sdlc/config.json`.
  */
-function resolveAlwaysHardenFromReview(projectRoot) {
+function resolveAlwaysHardenFromReview(projectRoot, localRoot) {
   try {
     const { config: projectConfig } = readProjectConfig(projectRoot);
     if (projectConfig?.receivedReview?.alwaysHardenFromReview !== undefined) {
@@ -141,15 +143,15 @@ function resolveAlwaysHardenFromReview(projectRoot) {
     }
   } catch (_) { /* missing or unreadable project config — silent */ }
 
-  const local = readSection(projectRoot, 'receivedReview');
+  const local = readSection(localRoot, 'receivedReview');
   return Boolean(local?.alwaysHardenFromReview);
 }
 
 /**
  * Resolve `hardenClusterCap` from `.sdlc/local.json`. Default 5, clamped to [1, 50].
  */
-function resolveHardenClusterCap(projectRoot) {
-  const local = readSection(projectRoot, 'receivedReview');
+function resolveHardenClusterCap(localRoot) {
+  const local = readSection(localRoot, 'receivedReview');
   const raw = local?.hardenClusterCap;
   if (raw === undefined || raw === null) return 5;
   const n = parseInt(raw, 10);
@@ -252,7 +254,8 @@ function parseArgs(argv) {
   let prNumber = null;
   let owner = null;
   let repo = null;
-  let projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/ (overridable via --project-root)
+  let projectRoot = resolveActiveWorktreeSafe(); // R37: config, dimensions, guardrails, git from the worktree toplevel
+  let localRoot = resolveSdlcRoot();             // R37: .sdlc/local.json stays in the main checkout (issue #351)
   let auto = false;
   let commentFile = null;
   let planFile = null;
@@ -266,7 +269,7 @@ function parseArgs(argv) {
     if (a === '--pr' && args[i + 1])           prNumber = parseInt(args[++i], 10);
     else if (a === '--owner' && args[i + 1])    owner = args[++i];
     else if (a === '--repo' && args[i + 1])     repo = args[++i];
-    else if (a === '--project-root' && args[i + 1]) projectRoot = path.resolve(args[++i]);
+    else if (a === '--project-root' && args[i + 1]) { projectRoot = path.resolve(args[++i]); localRoot = projectRoot; }
     else if (a === '--auto')                    auto = true;
     else if (a === '--comment-file' && args[i + 1]) commentFile = path.resolve(args[++i]);
     else if (a === '--plan' && args[i + 1])     planFile = path.resolve(args[++i]);
@@ -277,7 +280,7 @@ function parseArgs(argv) {
     else if (a === '--output-file')          { /* accepted for convention; writeOutput always writes the manifest file and prints its path */ }
   }
 
-  return { prNumber, owner, repo, projectRoot, auto, commentFile,
+  return { prNumber, owner, repo, projectRoot, localRoot, auto, commentFile,
            planFile, minSeverity, checkScope, manifestPath, fixedIds };
 }
 
@@ -413,7 +416,7 @@ function classifyThread(thread, currentUser, changedFileSet) {
 
 function main() {
   const {
-    prNumber, owner: cliOwner, repo: cliRepo, projectRoot, auto, commentFile,
+    prNumber, owner: cliOwner, repo: cliRepo, projectRoot, localRoot, auto, commentFile,
     planFile, minSeverity, checkScope: checkScopeMode, manifestPath, fixedIds,
   } = parseArgs(process.argv);
 
@@ -467,9 +470,9 @@ function main() {
     const version = getPluginVersion();
     const flags = {
       auto,
-      alwaysFixSeverities: resolveAlwaysFixSeverities(projectRoot),
-      alwaysHardenFromReview: resolveAlwaysHardenFromReview(projectRoot),
-      hardenClusterCap: resolveHardenClusterCap(projectRoot),
+      alwaysFixSeverities: resolveAlwaysFixSeverities(projectRoot, localRoot),
+      alwaysHardenFromReview: resolveAlwaysHardenFromReview(projectRoot, localRoot),
+      hardenClusterCap: resolveHardenClusterCap(localRoot),
       minSeverity,
     };
     let text;
@@ -545,11 +548,11 @@ function main() {
   const changedFileSet = new Set(changedFiles);
 
   // Resolve alwaysFixSeverities (issue #233, R18/R19) — single source: .sdlc/local.json
-  const alwaysFixSeverities = resolveAlwaysFixSeverities(projectRoot);
+  const alwaysFixSeverities = resolveAlwaysFixSeverities(projectRoot, localRoot);
 
   // Resolve harden-from-review flags (issue #429, R24) — single source: .sdlc/local.json
-  const alwaysHardenFromReview = resolveAlwaysHardenFromReview(projectRoot);
-  const hardenClusterCap = resolveHardenClusterCap(projectRoot);
+  const alwaysHardenFromReview = resolveAlwaysHardenFromReview(projectRoot, localRoot);
+  const hardenClusterCap = resolveHardenClusterCap(localRoot);
   const knownHardenData = loadKnownHardenData(projectRoot);
 
   // Classify threads and build output
