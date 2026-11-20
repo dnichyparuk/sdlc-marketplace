@@ -653,7 +653,7 @@ Record the skip:
 node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "per-wave cadence, no OpenSpec specs"
 ```
 
-When `flags.specReviewer === 'per-wave'`, also skip if ALL per-wave spec compliance reviews (Step 5c-bis) passed without issues AND the plan has 3 or fewer waves — the per-wave reviews already provided sufficient coverage in that case.
+When `flags.specReviewer === 'per-wave'`, also skip if ALL per-wave spec compliance reviews (Step 5c-bis) passed without issues AND the plan has 3 or fewer waves AND `openspecSpecs` is empty — the per-wave reviews already provided sufficient coverage in that case.
 
 Record the skip:
 ```bash
@@ -665,7 +665,7 @@ When `flags.specReviewer === 'once'`, the reviewed tasks are all Trivial and `op
 node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "all reviewed tasks Trivial"
 ```
 
-When the reviewed tasks are all Trivial but `openspecSpecs` is non-empty, dispatch the reviewer with only the OpenSpec section; do not record a skip, record `ran` after the reviewer returns (below).
+When `flags.specReviewer === 'once'`, the reviewed tasks are all Trivial but `openspecSpecs` is non-empty, dispatch the reviewer with only the OpenSpec section; do not record a skip, record `ran` after the reviewer returns (below).
 
 Otherwise, dispatch a single spec compliance reviewer (sonnet). Read `./spec-compliance-reviewer.md` for the prompt template. Unlike the per-wave review in Step 5c-bis which provides only that wave's tasks, provide:
 
