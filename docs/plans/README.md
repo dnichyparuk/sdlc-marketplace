@@ -12,7 +12,7 @@ Executable plans of this repository and the generated programme status. The regi
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `W-H2` (H2) | - | Suite speed infrastructure, pre-push tier and per-round review findings | [programme](./programme.md) (brief; §W-H2)<br>[2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier](../archived/plans/2026-11-19-w-h2-suite-speed-infrastructure-pre-push-tier.md) (executable) | Done | 55/55 | none | PR #117, dc5be01 |
 | `W-B` (B) | - | Suite false passes and the guardrail table re-splice | [programme](./programme.md) (brief; §W-B)<br>[2026-11-19-w-b-suite-false-passes-and-the-guardrail](../archived/plans/2026-11-19-w-b-suite-false-passes-and-the-guardrail.md) (executable) | Done | 62/62 (2 skipped) | W-H2 | PR #119, f782c7e |
-| `W-D1` (D1) | - | Suite reduction | [programme](./programme.md) (brief; §W-D1)<br>[2026-11-19-w-d1-suite-reduction](./2026-11-19-w-d1-suite-reduction.md) (executable) | In progress | 0/78 | W-B | - |
+| `W-D1` (D1) | - | Suite reduction | [programme](./programme.md) (brief; §W-D1)<br>[2026-11-19-w-d1-suite-reduction](../archived/plans/2026-11-19-w-d1-suite-reduction.md) (executable) | Done | 78/78 | W-B | PR #121, 2018b10 |
 | `W-D2` (D2) | - | Ship, execute and plan follow-ups | [programme](./programme.md) (brief; §W-D2) | Not started | 0/0 | W-D1 | - |
 | `W-F` (F) | - | Suite coverage gaps, tiers and structure | [programme](./programme.md) (brief; §W-F) | Not started | 0/0 | W-D2 | - |
 | `W-END` (END; gate, owner: owner) | - | Programme post-merge audit | [programme](./programme.md) (brief; §W-END) | Not started | 0/0 | W-F | - |
@@ -23,12 +23,12 @@ Executable plans of this repository and the generated programme status. The regi
 | --- | --- | --- | --- | --- |
 | 1 | `W-H2` | Done | none | done |
 | 2 | `W-B` | Done | W-H2 | done |
-| 3 | `W-D1` | In progress | W-B | in progress |
-| 4 | `W-D2` | Not started | W-D1 | waiting: W-D1 (In progress) |
+| 3 | `W-D1` | Done | W-B | done |
+| 4 | `W-D2` | Not started | W-D1 | ready |
 | 5 | `W-F` | Not started | W-D2 | waiting: W-D2 (Not started) |
 | 6 | `W-END` | Not started | W-F | waiting: W-F (Not started) |
 
-Longest dependency chain among open waves (dependsOn only; no effort estimates): W-D1 → W-D2 → W-F → W-END (4 waves).
+Longest dependency chain among open waves (dependsOn only; no effort estimates): W-D2 → W-F → W-END (3 waves).
 
 **Open TODO notes** (home of each note):
 
@@ -41,6 +41,7 @@ Longest dependency chain among open waves (dependsOn only; no effort estimates):
 | [lows-lean-w36](../TODO/lows-lean-w36.md) | `W-END` | Not started |
 | [lows-lean-w39](../TODO/lows-lean-w39.md) | `W-END` | Not started |
 | [lows-lean-w40](../TODO/lows-lean-w40.md) | `W-END` | Not started |
+| [plan-format-pf13-deleted-paths](../TODO/plan-format-pf13-deleted-paths.md) | `W-D2` | Not started |
 | [review-severity-drift-fix-round](../TODO/review-severity-drift-fix-round.md) | `W-END` | Not started |
 | [script-runner-eisdir-plan-splice](../TODO/script-runner-eisdir-plan-splice.md) | `W-END` | Not started |
 <!-- plan-register:end -->

@@ -1,5 +1,7 @@
 # W-D1 Suite Reduction Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #121, 2018b10
+
 **Commit:** `test(W-D1): tests - merge duplicate exec cases, drop orphan fixtures`
 **Goal:**
 - Merge the 229 exec cases that repeat another case's exact inputs into that case, so every assertion still runs once per input.
@@ -137,11 +139,11 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 - `ship-prepare-exec.yaml`: `6 <- 151, 188, 327, 342, 443, 634, 667, 779, 861, 886, 1011, 1026, 1111, 1125, 1142, 1159, 1200, 1213, 1308, 1921`; `280 <- 1888, 1904, 4675, 4693, 6318`; `401 <- 417`; `518 <- 550`; `652 <- 1173, 1187, 1389, 5627`; `722 <- 744`; `1430 <- 1444, 1458, 1472, 1493`; `2371 <- 2395`; `2465 <- 2482, 3281`; `2553 <- 3302`; `2607 <- 2641`; `2727 <- 2748`; `2975 <- 3438`; `3044 <- 5610`; `3080 <- 3456`; `3474 <- 4938`; `4585 <- 4641`; `4825 <- 4891`; `4858 <- 4907`; `5158 <- 5188`; `5205 <- 5262`; `5246 <- 5281`; `5394 <- 5413`; `5433 <- 5555`; `5832 <- 5854, 5905, 5922`; `5873 <- 5982`; `6379 <- 6393, 6407`; `6435 <- 6449, 6463`
 
 **Acceptance criteria:**
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/ship-prepare-exec.yaml` prints 317 (base 379, minus 62)
-- [ ] The number of `- type:` lines across this task's files falls by exactly 0 (the dropped duplicates); every other assertion item appears in a survivor
-- [ ] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(ship|verify-side-effect|pipelineAdvancing)'` passes with 0 failures
+- [x] `grep -c '^- ' tests/promptfoo/datasets/ship-prepare-exec.yaml` prints 317 (base 379, minus 62)
+- [x] The number of `- type:` lines across this task's files falls by exactly 0 (the dropped duplicates); every other assertion item appears in a survivor
+- [x] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(ship|verify-side-effect|pipelineAdvancing)'` passes with 0 failures
 
 **Contract:**
 - shape (code): merge rule M. For each group, working from the last group in a file to the first: (1) run `git show a489572:tests/promptfoo/datasets/<file>` and confirm that each member's `vars:` block has the same keys and the same values as the survivor's (key order and quote style may differ: pr-prepare 535/574, version-prepare 5/214 and 5/256); leave a member that differs, or one that defines a YAML anchor (`&name`), unmerged and name it in the task report; (2) append to the end of the survivor's `assert:` list, per member in group order, one line `    # from: <member description, verbatim, without the quotes>` at the indent of the assert items (never inside a `value: |` block scalar), then the member's comment lines from inside its block and its assertion items unchanged (keys such as an assert-level `description:` stay), skipping an item whose full text equals an item already in the survivor; (3) delete the member's block: from its `- description:` line up to the line before the next line that starts with `- ` (or before the `#` comment lines directly above that case, or the end of the file), and one blank separator line. Comment lines directly above a member stay in place: they hold ids such as ship-prepare A8, G9, R83 and setup-prepare P7. The survivor's description and vars never change. A dataset header comment is changed only where the merge makes a sentence false.
@@ -198,13 +200,13 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 - `plan-state-cleanup-exec.yaml`: `15 <- 42`
 
 **Acceptance criteria:**
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/plan-prepare-exec.yaml` prints 109 (base 124, minus 15)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/plan-format-exec.yaml` prints 42 (base 56, minus 14)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/plan-state-cleanup-exec.yaml` prints 2 (base 3, minus 1)
-- [ ] The number of `- type:` lines across this task's files falls by exactly 6 (the dropped duplicates); every other assertion item appears in a survivor
-- [ ] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(plan-|execute-guardrails|stop-plan-integrity)'` passes with 0 failures
+- [x] `grep -c '^- ' tests/promptfoo/datasets/plan-prepare-exec.yaml` prints 109 (base 124, minus 15)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/plan-format-exec.yaml` prints 42 (base 56, minus 14)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/plan-state-cleanup-exec.yaml` prints 2 (base 3, minus 1)
+- [x] The number of `- type:` lines across this task's files falls by exactly 6 (the dropped duplicates); every other assertion item appears in a survivor
+- [x] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(plan-|execute-guardrails|stop-plan-integrity)'` passes with 0 failures
 
 **Contract:**
 - shape (code): merge rule M. For each group, working from the last group in a file to the first: (1) run `git show a489572:tests/promptfoo/datasets/<file>` and confirm that each member's `vars:` block has the same keys and the same values as the survivor's (key order and quote style may differ: pr-prepare 535/574, version-prepare 5/214 and 5/256); leave a member that differs, or one that defines a YAML anchor (`&name`), unmerged and name it in the task report; (2) append to the end of the survivor's `assert:` list, per member in group order, one line `    # from: <member description, verbatim, without the quotes>` at the indent of the assert items (never inside a `value: |` block scalar), then the member's comment lines from inside its block and its assertion items unchanged (keys such as an assert-level `description:` stay), skipping an item whose full text equals an item already in the survivor; (3) delete the member's block: from its `- description:` line up to the line before the next line that starts with `- ` (or before the `#` comment lines directly above that case, or the end of the file), and one blank separator line. Comment lines directly above a member stay in place: they hold ids such as ship-prepare A8, G9, R83 and setup-prepare P7. The survivor's description and vars never change. A dataset header comment is changed only where the merge makes a sentence false.
@@ -263,14 +265,14 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 - `state-gc-migrate-exec.yaml`: `248 <- 258`
 
 **Acceptance criteria:**
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/execute-prepare-exec.yaml` prints 59 (base 77, minus 18)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/execute-plan-sdlc-context-producer-exec.yaml` prints 12 (base 13, minus 1)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/execute-plan-sdlc-liveness-exec.yaml` prints 20 (base 21, minus 1)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/state-gc-migrate-exec.yaml` prints 20 (base 21, minus 1)
-- [ ] The number of `- type:` lines across this task's files falls by exactly 0 (the dropped duplicates); every other assertion item appears in a survivor
-- [ ] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(execute-|schema-truth|state/|skill/ship)'` passes with 0 failures
+- [x] `grep -c '^- ' tests/promptfoo/datasets/execute-prepare-exec.yaml` prints 59 (base 77, minus 18)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/execute-plan-sdlc-context-producer-exec.yaml` prints 12 (base 13, minus 1)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/execute-plan-sdlc-liveness-exec.yaml` prints 20 (base 21, minus 1)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/state-gc-migrate-exec.yaml` prints 20 (base 21, minus 1)
+- [x] The number of `- type:` lines across this task's files falls by exactly 0 (the dropped duplicates); every other assertion item appears in a survivor
+- [x] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(execute-|schema-truth|state/|skill/ship)'` passes with 0 failures
 
 **Contract:**
 - shape (code): merge rule M. For each group, working from the last group in a file to the first: (1) run `git show a489572:tests/promptfoo/datasets/<file>` and confirm that each member's `vars:` block has the same keys and the same values as the survivor's (key order and quote style may differ: pr-prepare 535/574, version-prepare 5/214 and 5/256); leave a member that differs, or one that defines a YAML anchor (`&name`), unmerged and name it in the task report; (2) append to the end of the survivor's `assert:` list, per member in group order, one line `    # from: <member description, verbatim, without the quotes>` at the indent of the assert items (never inside a `value: |` block scalar), then the member's comment lines from inside its block and its assertion items unchanged (keys such as an assert-level `description:` stay), skipping an item whose full text equals an item already in the survivor; (3) delete the member's block: from its `- description:` line up to the line before the next line that starts with `- ` (or before the `#` comment lines directly above that case, or the end of the file), and one blank separator line. Comment lines directly above a member stay in place: they hold ids such as ship-prepare A8, G9, R83 and setup-prepare P7. The survivor's description and vars never change. A dataset header comment is changed only where the merge makes a sentence false.
@@ -327,13 +329,13 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 - `guardrails-prepare-exec.yaml`: `15 <- 46, 95`; `26 <- 60, 130`; `71 <- 141, 276, 285, 303`; `82 <- 121`; `180 <- 214, 223, 232`; `243 <- 294`
 
 **Acceptance criteria:**
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/setup-prepare-exec.yaml` prints 18 (base 35, minus 17)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/migrate-config-exec.yaml` prints 13 (base 14, minus 1)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/guardrails-prepare-exec.yaml` prints 13 (base 26, minus 13)
-- [ ] The number of `- type:` lines across this task's files falls by exactly 3 (the dropped duplicates); every other assertion item appears in a survivor
-- [ ] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(setup-|migrate-config|ensureSdlcGitignore|guardrails-prepare)'` passes with 0 failures
+- [x] `grep -c '^- ' tests/promptfoo/datasets/setup-prepare-exec.yaml` prints 18 (base 35, minus 17)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/migrate-config-exec.yaml` prints 13 (base 14, minus 1)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/guardrails-prepare-exec.yaml` prints 13 (base 26, minus 13)
+- [x] The number of `- type:` lines across this task's files falls by exactly 3 (the dropped duplicates); every other assertion item appears in a survivor
+- [x] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(setup-|migrate-config|ensureSdlcGitignore|guardrails-prepare)'` passes with 0 failures
 
 **Contract:**
 - shape (code): merge rule M. For each group, working from the last group in a file to the first: (1) run `git show a489572:tests/promptfoo/datasets/<file>` and confirm that each member's `vars:` block has the same keys and the same values as the survivor's (key order and quote style may differ: pr-prepare 535/574, version-prepare 5/214 and 5/256); leave a member that differs, or one that defines a YAML anchor (`&name`), unmerged and name it in the task report; (2) append to the end of the survivor's `assert:` list, per member in group order, one line `    # from: <member description, verbatim, without the quotes>` at the indent of the assert items (never inside a `value: |` block scalar), then the member's comment lines from inside its block and its assertion items unchanged (keys such as an assert-level `description:` stay), skipping an item whose full text equals an item already in the survivor; (3) delete the member's block: from its `- description:` line up to the line before the next line that starts with `- ` (or before the `#` comment lines directly above that case, or the end of the file), and one blank separator line. Comment lines directly above a member stay in place: they hold ids such as ship-prepare A8, G9, R83 and setup-prepare P7. The survivor's description and vars never change. A dataset header comment is changed only where the merge makes a sentence false.
@@ -390,13 +392,13 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 - `version-prepare-exec.yaml`: `5 <- 19, 135, 172, 214, 256`
 
 **Acceptance criteria:**
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/commit-prepare-exec.yaml` prints 52 (base 61, minus 9)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/pr-prepare-exec.yaml` prints 40 (base 47, minus 7)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/version-prepare-exec.yaml` prints 21 (base 26, minus 5)
-- [ ] The number of `- type:` lines across this task's files falls by exactly 4 (the dropped duplicates); every other assertion item appears in a survivor
-- [ ] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(commit-|pr-prepare|pr\.js|version)'` passes with 0 failures
+- [x] `grep -c '^- ' tests/promptfoo/datasets/commit-prepare-exec.yaml` prints 52 (base 61, minus 9)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/pr-prepare-exec.yaml` prints 40 (base 47, minus 7)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/version-prepare-exec.yaml` prints 21 (base 26, minus 5)
+- [x] The number of `- type:` lines across this task's files falls by exactly 4 (the dropped duplicates); every other assertion item appears in a survivor
+- [x] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(commit-|pr-prepare|pr\.js|version)'` passes with 0 failures
 
 **Contract:**
 - shape (code): merge rule M. For each group, working from the last group in a file to the first: (1) run `git show a489572:tests/promptfoo/datasets/<file>` and confirm that each member's `vars:` block has the same keys and the same values as the survivor's (key order and quote style may differ: pr-prepare 535/574, version-prepare 5/214 and 5/256); leave a member that differs, or one that defines a YAML anchor (`&name`), unmerged and name it in the task report; (2) append to the end of the survivor's `assert:` list, per member in group order, one line `    # from: <member description, verbatim, without the quotes>` at the indent of the assert items (never inside a `value: |` block scalar), then the member's comment lines from inside its block and its assertion items unchanged (keys such as an assert-level `description:` stay), skipping an item whose full text equals an item already in the survivor; (3) delete the member's block: from its `- description:` line up to the line before the next line that starts with `- ` (or before the `#` comment lines directly above that case, or the end of the file), and one blank separator line. Comment lines directly above a member stay in place: they hold ids such as ship-prepare A8, G9, R83 and setup-prepare P7. The survivor's description and vars never change. A dataset header comment is changed only where the merge makes a sentence false.
@@ -457,15 +459,15 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 - `script-runner-stub-bin-exec.yaml`: `89 <- 96`; `120 <- 128, 136`
 
 **Acceptance criteria:**
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/review-prepare-exec.yaml` prints 28 (base 32, minus 4)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/review-consolidate-exec.yaml` prints 12 (base 15, minus 3)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/received-review-prepare-exec.yaml` prints 30 (base 32, minus 2)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/harden-prepare-exec.yaml` prints 8 (base 10, minus 2)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/script-runner-stub-bin-exec.yaml` prints 14 (base 17, minus 3)
-- [ ] The number of `- type:` lines across this task's files falls by exactly 0 (the dropped duplicates); every other assertion item appears in a survivor
-- [ ] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(review-|dimension-effort|rr-|received-review|harden-prepare|corrupt-existing|script-runner|script_stub_bin|claude-cli-provider)'` passes with 0 failures
+- [x] `grep -c '^- ' tests/promptfoo/datasets/review-prepare-exec.yaml` prints 28 (base 32, minus 4)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/review-consolidate-exec.yaml` prints 12 (base 15, minus 3)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/received-review-prepare-exec.yaml` prints 30 (base 32, minus 2)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/harden-prepare-exec.yaml` prints 8 (base 10, minus 2)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/script-runner-stub-bin-exec.yaml` prints 14 (base 17, minus 3)
+- [x] The number of `- type:` lines across this task's files falls by exactly 0 (the dropped duplicates); every other assertion item appears in a survivor
+- [x] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(review-|dimension-effort|rr-|received-review|harden-prepare|corrupt-existing|script-runner|script_stub_bin|claude-cli-provider)'` passes with 0 failures
 
 **Contract:**
 - shape (code): merge rule M. For each group, working from the last group in a file to the first: (1) run `git show a489572:tests/promptfoo/datasets/<file>` and confirm that each member's `vars:` block has the same keys and the same values as the survivor's (key order and quote style may differ: pr-prepare 535/574, version-prepare 5/214 and 5/256); leave a member that differs, or one that defines a YAML anchor (`&name`), unmerged and name it in the task report; (2) append to the end of the survivor's `assert:` list, per member in group order, one line `    # from: <member description, verbatim, without the quotes>` at the indent of the assert items (never inside a `value: |` block scalar), then the member's comment lines from inside its block and its assertion items unchanged (keys such as an assert-level `description:` stay), skipping an item whose full text equals an item already in the survivor; (3) delete the member's block: from its `- description:` line up to the line before the next line that starts with `- ` (or before the `#` comment lines directly above that case, or the end of the file), and one blank separator line. Comment lines directly above a member stay in place: they hold ids such as ship-prepare A8, G9, R83 and setup-prepare P7. The survivor's description and vars never change. A dataset header comment is changed only where the merge makes a sentence false.
@@ -522,13 +524,13 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 - `harvest-learnings-exec.yaml`: `22 <- 92`; `106 <- 131, 156, 180, 200`; `246 <- 268, 288, 308, 329`
 
 **Acceptance criteria:**
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/github-sdlc-exec.yaml` prints 142 (base 150, minus 8)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/jira-sdlc-exec.yaml` prints 40 (base 42, minus 2)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/harvest-learnings-exec.yaml` prints 17 (base 26, minus 9)
-- [ ] The number of `- type:` lines across this task's files falls by exactly 0 (the dropped duplicates); every other assertion item appears in a survivor
-- [ ] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(github-sdlc|jira|mcp-failure|stdin-fd0|harvest-learnings|migrate-learnings-log)'` passes with 0 failures
+- [x] `grep -c '^- ' tests/promptfoo/datasets/github-sdlc-exec.yaml` prints 142 (base 150, minus 8)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/jira-sdlc-exec.yaml` prints 40 (base 42, minus 2)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/harvest-learnings-exec.yaml` prints 17 (base 26, minus 9)
+- [x] The number of `- type:` lines across this task's files falls by exactly 0 (the dropped duplicates); every other assertion item appears in a survivor
+- [x] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(github-sdlc|jira|mcp-failure|stdin-fd0|harvest-learnings|migrate-learnings-log)'` passes with 0 failures
 
 **Contract:**
 - shape (code): merge rule M. For each group, working from the last group in a file to the first: (1) run `git show a489572:tests/promptfoo/datasets/<file>` and confirm that each member's `vars:` block has the same keys and the same values as the survivor's (key order and quote style may differ: pr-prepare 535/574, version-prepare 5/214 and 5/256); leave a member that differs, or one that defines a YAML anchor (`&name`), unmerged and name it in the task report; (2) append to the end of the survivor's `assert:` list, per member in group order, one line `    # from: <member description, verbatim, without the quotes>` at the indent of the assert items (never inside a `value: |` block scalar), then the member's comment lines from inside its block and its assertion items unchanged (keys such as an assert-level `description:` stay), skipping an item whose full text equals an item already in the survivor; (3) delete the member's block: from its `- description:` line up to the line before the next line that starts with `- ` (or before the `#` comment lines directly above that case, or the end of the file), and one blank separator line. Comment lines directly above a member stay in place: they hold ids such as ship-prepare A8, G9, R83 and setup-prepare P7. The survivor's description and vars never change. A dataset header comment is changed only where the merge makes a sentence false.
@@ -589,15 +591,15 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 - `session-map-exec.yaml`: `5 <- 62`
 
 **Acceptance criteria:**
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/links-lib-exec.yaml` prints 22 (base 27, minus 5)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/openspec-lib-exec.yaml` prints 14 (base 17, minus 3)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/openspec-step-exec.yaml` prints 23 (base 24, minus 1)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/session-start-exec.yaml` prints 17 (base 21, minus 4)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/session-map-exec.yaml` prints 5 (base 6, minus 1)
-- [ ] The number of `- type:` lines across this task's files falls by exactly 4 (the dropped duplicates); every other assertion item appears in a survivor
-- [ ] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(links|openspec-|session-start|session-map)'` passes with 0 failures
+- [x] `grep -c '^- ' tests/promptfoo/datasets/links-lib-exec.yaml` prints 22 (base 27, minus 5)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/openspec-lib-exec.yaml` prints 14 (base 17, minus 3)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/openspec-step-exec.yaml` prints 23 (base 24, minus 1)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/session-start-exec.yaml` prints 17 (base 21, minus 4)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/session-map-exec.yaml` prints 5 (base 6, minus 1)
+- [x] The number of `- type:` lines across this task's files falls by exactly 4 (the dropped duplicates); every other assertion item appears in a survivor
+- [x] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(links|openspec-|session-start|session-map)'` passes with 0 failures
 
 **Contract:**
 - shape (code): merge rule M. For each group, working from the last group in a file to the first: (1) run `git show a489572:tests/promptfoo/datasets/<file>` and confirm that each member's `vars:` block has the same keys and the same values as the survivor's (key order and quote style may differ: pr-prepare 535/574, version-prepare 5/214 and 5/256); leave a member that differs, or one that defines a YAML anchor (`&name`), unmerged and name it in the task report; (2) append to the end of the survivor's `assert:` list, per member in group order, one line `    # from: <member description, verbatim, without the quotes>` at the indent of the assert items (never inside a `value: |` block scalar), then the member's comment lines from inside its block and its assertion items unchanged (keys such as an assert-level `description:` stay), skipping an item whose full text equals an item already in the survivor; (3) delete the member's block: from its `- description:` line up to the line before the next line that starts with `- ` (or before the `#` comment lines directly above that case, or the end of the file), and one blank separator line. Comment lines directly above a member stay in place: they hold ids such as ship-prepare A8, G9, R83 and setup-prepare P7. The survivor's description and vars never change. A dataset header comment is changed only where the merge makes a sentence false.
@@ -658,16 +660,16 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 - `worker-write-guard-exec.yaml`: `239 <- 531`; `367 <- 515`
 
 **Acceptance criteria:**
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/session-cost-exec.yaml` prints 12 (base 20, minus 8)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/sdlc-dimensions-exec.yaml` prints 17 (base 20, minus 3)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/dimension-to-instructions-exec.yaml` prints 7 (base 10, minus 3)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/sdlc-plugin-discovery-exec.yaml` prints 3 (base 4, minus 1)
-- [ ] `grep -c '^- ' tests/promptfoo/datasets/worker-write-guard-exec.yaml` prints 107 (base 109, minus 2)
-- [ ] The number of `- type:` lines across this task's files falls by exactly 8 (the dropped duplicates); every other assertion item appears in a survivor
-- [ ] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(session-cost|wave-metrics|sdlc-dimensions|dimension-|schema-truth|sdlc-plugin-discovery)'` passes with 0 failures
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern '^worker-write-guard'` passes with 0 failures
+- [x] `grep -c '^- ' tests/promptfoo/datasets/session-cost-exec.yaml` prints 12 (base 20, minus 8)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/sdlc-dimensions-exec.yaml` prints 17 (base 20, minus 3)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/dimension-to-instructions-exec.yaml` prints 7 (base 10, minus 3)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/sdlc-plugin-discovery-exec.yaml` prints 3 (base 4, minus 1)
+- [x] `grep -c '^- ' tests/promptfoo/datasets/worker-write-guard-exec.yaml` prints 107 (base 109, minus 2)
+- [x] The number of `- type:` lines across this task's files falls by exactly 8 (the dropped duplicates); every other assertion item appears in a survivor
+- [x] Every removed member's description appears verbatim in a `# from:` comment line of its survivor, and every comment line of the base file is still in the file (per file, the comment-line count equals the base count plus the added `# from:` lines)
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` lists no `id`, `flag` or `dataset` drop for this task's datasets; its `asserts` drops for them equal the duplicate counts in **Files:** (drops of other tasks' datasets may show while tasks run in parallel; ignore those)
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(session-cost|wave-metrics|sdlc-dimensions|dimension-|schema-truth|sdlc-plugin-discovery)'` passes with 0 failures
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern '^worker-write-guard'` passes with 0 failures
 
 **Contract:**
 - shape (code): merge rule M. For each group, working from the last group in a file to the first: (1) run `git show a489572:tests/promptfoo/datasets/<file>` and confirm that each member's `vars:` block has the same keys and the same values as the survivor's (key order and quote style may differ: pr-prepare 535/574, version-prepare 5/214 and 5/256); leave a member that differs, or one that defines a YAML anchor (`&name`), unmerged and name it in the task report; (2) append to the end of the survivor's `assert:` list, per member in group order, one line `    # from: <member description, verbatim, without the quotes>` at the indent of the assert items (never inside a `value: |` block scalar), then the member's comment lines from inside its block and its assertion items unchanged (keys such as an assert-level `description:` stay), skipping an item whose full text equals an item already in the survivor; (3) delete the member's block: from its `- description:` line up to the line before the next line that starts with `- ` (or before the `#` comment lines directly above that case, or the end of the file), and one blank separator line. Comment lines directly above a member stay in place: they hold ids such as ship-prepare A8, G9, R83 and setup-prepare P7. The survivor's description and vars never change. A dataset header comment is changed only where the merge makes a sentence false.
@@ -745,10 +747,10 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 **Notes:** Each orphan directory holds only `setup.sh`, so deleting that file removes the directory, and `fixtures/review-sdlc/` is left empty and is removed too (F-orphan-fixture-deletion-safety-1, -2, -4); the 15 git-using `setup.sh` files leave the fixture guard at 152, above its floor of 150.
 
 **Acceptance criteria:**
-- [ ] None of the 17 listed paths exists; `git status --short` shows exactly 17 deleted files for this task
-- [ ] Before deleting, `git grep -F <name>` for each of the 17 names finds no file outside the fixture itself, `docs/plans`, `docs/archived` and `.sdlc`; a name that has a reference is kept and named in the task report
-- [ ] `node tests/promptfoo/scripts/check-fixture-guard.js` prints `"ok":true` with `"scanned":152`
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^fixture-guard'` passes with 0 failures
+- [x] None of the 17 listed paths exists; `git status --short` shows exactly 17 deleted files for this task
+- [x] Before deleting, `git grep -F <name>` for each of the 17 names finds no file outside the fixture itself, `docs/plans`, `docs/archived` and `.sdlc`; a name that has a reference is kept and named in the task report
+- [x] `node tests/promptfoo/scripts/check-fixture-guard.js` prints `"ok":true` with `"scanned":152`
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^fixture-guard'` passes with 0 failures
 
 **Contract:** shape (code): `git rm` of the 17 listed paths, no other edit; names: the 15 directory names and 2 file names in **Files:**; sync: `check-fixture-refs.js` scans no exec dataset (F-suite-guard-merge-impact-10), so the grep is the safety net; floor `r.scanned >= 150` in `tests/promptfoo/datasets/fixture-guard-exec.yaml:10` stays (152 after)
 
@@ -770,11 +772,11 @@ Dropped item: one of the 102 groups (the two `spec-id-coverage` guard cases (a) 
 **Notes:** The case floor equals the case count after the change, as lean-w35 set it; the assertion count (2688) stays above its floor 2645, so that floor is left alone (F-suite-guard-merge-impact-7); `--update` can hide a drop, so the diff is checked line by line before the update is kept. If the printed case count differs from 1641 (a member was left unmerged in Tasks 1 to 9), use the printed values and say why in the task report.
 
 **Acceptance criteria:**
-- [ ] Before the update, `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports `"cases":1641` and only drops of kind `asserts`, summing to 25: sdlc-dimensions 6, plan-format 4, links-lib 4, version-prepare 3, plan-state-cleanup 2, guardrails-prepare 2, worker-write-guard 2, commit-prepare 1, migrate-config 1
-- [ ] After `node tests/promptfoo/scripts/check-spec-id-coverage.js --update`, `git diff -U0 tests/promptfoo/baselines/spec-id-coverage.json` changes only numbers on `"asserts":` lines and on flag-count lines; no key, id or dataset line is added or removed
-- [ ] `node tests/promptfoo/scripts/check-dataset-asserts.js` prints `"ok":true`, `"findings":[]`, `"stale":[]` and `"allowed":30`
-- [ ] `node tests/promptfoo/scripts/mutation-smoke.js --check` prints `"ok":true` with `"problems":[]`
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(spec-id-coverage|dataset-asserts|fixture-guard|mutation-smoke|dataset-regex|docs-copies)'` passes with 0 failures
+- [x] Before the update, `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports `"cases":1641` and only drops of kind `asserts`, summing to 25: sdlc-dimensions 6, plan-format 4, links-lib 4, version-prepare 3, plan-state-cleanup 2, guardrails-prepare 2, worker-write-guard 2, commit-prepare 1, migrate-config 1
+- [x] After `node tests/promptfoo/scripts/check-spec-id-coverage.js --update`, `git diff -U0 tests/promptfoo/baselines/spec-id-coverage.json` changes only numbers on `"asserts":` lines and on flag-count lines; no key, id or dataset line is added or removed
+- [x] `node tests/promptfoo/scripts/check-dataset-asserts.js` prints `"ok":true`, `"findings":[]`, `"stale":[]` and `"allowed":30`
+- [x] `node tests/promptfoo/scripts/mutation-smoke.js --check` prints `"ok":true` with `"problems":[]`
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern '^(spec-id-coverage|dataset-asserts|fixture-guard|mutation-smoke|dataset-regex|docs-copies)'` passes with 0 failures
 
 **Contract:**
 - shape (code): edit the floors as rendered below; then run `node tests/promptfoo/scripts/check-dataset-asserts.js` and fix the allowlist from its output: delete each `stale` entry, and for each finding add one entry with its rule, dataset and the survivor description; then run the coverage check, compare with the expected drops, run `--update`, and review the diff.
