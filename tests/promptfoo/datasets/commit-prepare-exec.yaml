@@ -31,6 +31,19 @@
       value: '"amend": false'
     - type: icontains
       value: '"auto": false'
+    # from: commit-prepare: no config sets commitConfig null
+    - type: icontains
+      value: '"commitConfig": null'
+    # from: commit-prepare: small diff is not truncated
+    - type: icontains
+      value: '"diffTruncated": false'
+    - type: icontains
+      value: '"truncatedFiles": []'
+    # from: commit-subject: (d) no --subject gives flags.subject null
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.flags.subject === null && o.flags.messageFile === null && o.flags.expectedSubject === null;
 
 - description: "commit-prepare: --type feat parses correctly"
   vars:
@@ -92,15 +105,12 @@
       value: '"allowedTypes"'
     - type: icontains
       value: '"feat"'
-
-- description: "commit-prepare: no config sets commitConfig null"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-no-config"
-  assert:
+    # from: commit-prepare: no --expected-branch flag emits branchGuard.active=false (R-expected-branch, #347)
     - type: icontains
-      value: '"commitConfig": null'
+      value: '"active": false'
+    # from: commit-prepare: branchGuard field present in successful output (R-expected-branch, #349)
+    - type: icontains
+      value: '"branchGuard":'
 
 - description: "commit-prepare: --type chore violates allowedTypes"
   vars:
@@ -158,28 +168,11 @@
       value: '"truncatedFiles"'
     - type: icontains
       value: '# --- Truncated ---'
-
-- description: "commit-prepare: truncated diff preserves complete file list and diffstat"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-large-diff"
-  assert:
+    # from: commit-prepare: truncated diff preserves complete file list and diffstat
     - type: icontains
       value: '"fileCount": 25'
     - type: icontains
       value: '"diffStat"'
-
-- description: "commit-prepare: small diff is not truncated"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-no-config"
-  assert:
-    - type: icontains
-      value: '"diffTruncated": false'
-    - type: icontains
-      value: '"truncatedFiles": []'
 
 - description: "commit-prepare: script prints path to persistent state-file under .sdlc/execution/ (R15/#399)"
   vars:
@@ -193,6 +186,11 @@
       value: '^.+\.sdlc/execution/commit-[a-z0-9\-]+-\d{8}T\d{6}Z\.json\s*$'
     - type: not-icontains
       value: '"flags":'
+    # from: commit-prepare: manifest path is under .sdlc/execution/ not tmpdir root (R15/#399 regression — issue #209 anti-pattern)
+    - type: regex
+      value: '\.sdlc/execution/commit-[a-z0-9\-]+-\d{8}T\d{6}Z\.json\s*$'
+    - type: not-regex
+      value: '^/(tmp|var|private)/[^/]+\.json'
 
 - description: "commit-prepare: without explicit args, output is path to .sdlc/execution/ state-file (R15/#399, replaces issue #209 tmpdir assertion)"
   vars:
@@ -207,21 +205,6 @@
       value: '"flags":'
     - type: not-icontains
       value: 'cwd-leak'
-
-- description: "commit-prepare: manifest path is under .sdlc/execution/ not tmpdir root (R15/#399 regression — issue #209 anti-pattern)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
-    script_args: "--output-file"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-no-config"
-    script_passthrough: true
-  assert:
-    - type: regex
-      value: '\.sdlc/execution/commit-[a-z0-9\-]+-\d{8}T\d{6}Z\.json\s*$'
-    - type: not-regex
-      value: '^/(tmp|var|private)/[^/]+\.json'
-    - type: not-icontains
-      value: '"flags":'
 
 # ---------------------------------------------------------------------------
 # Fixes #392 / R35 — wip(execute): squash detection
@@ -294,15 +277,6 @@
 
 # R-expected-branch (issues #347, #348, #349): --expected-branch flag is parsed and validated.
 
-- description: "commit-prepare: no --expected-branch flag emits branchGuard.active=false (R-expected-branch, #347)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-config"
-  assert:
-    - type: icontains
-      value: '"active": false'
-
 - description: "commit-prepare: --expected-branch matching current branch emits branchGuard.ok=true (R-expected-branch, #348)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
@@ -327,15 +301,6 @@
       value: '"ok": false'
     - type: icontains
       value: "feat/nonexistent-branch"
-
-- description: "commit-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-config"
-  assert:
-    - type: icontains
-      value: '"branchGuard":'
 
 # ---------------------------------------------------------------------------
 # Fixes #398/#399 — default-branch guard + persistent manifest exec tests
@@ -414,6 +379,9 @@
       value: 'commit-context-'
     - type: not-icontains
       value: '"flags":'
+    # from: commit-prepare: manifest survives after script exits (cross-shell survival, R15/#399)
+    - type: javascript
+      value: "file://assertions/commit-cross-shell-survival.js"
 
 - description: "commit-prepare: prune-on-write removes prior same-branch manifests, preserves other-branch (R15/#399)"
   vars:
@@ -425,16 +393,6 @@
   assert:
     - type: javascript
       value: "file://assertions/commit-prune-on-write.js"
-
-- description: "commit-prepare: manifest survives after script exits (cross-shell survival, R15/#399)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-on-default-branch"
-    script_passthrough: true
-  assert:
-    - type: javascript
-      value: "file://assertions/commit-cross-shell-survival.js"
 
 - description: "commit-prepare: --force-default-branch on feature branch is no-op, no default-branch signals (R14/#398)"
   vars:
@@ -504,17 +462,6 @@
         const o = JSON.parse(output);
         if (o.status !== 1) return `FAIL: exit ${o.status}`;
         return o.out.errors.some(e => e.startsWith('--subject is 73 characters')) ? true : `FAIL: errors ${JSON.stringify(o.out.errors)}`;
-
-- description: "commit-subject: (d) no --subject gives flags.subject null"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-no-config"
-  assert:
-    - type: javascript
-      value: |
-        const o = JSON.parse(output);
-        return o.flags.subject === null && o.flags.messageFile === null && o.flags.expectedSubject === null;
 
 - description: "commit-subject: message-file — the file path is absolute in flags; a different --subject or a path with $ is rejected before drafting"
   vars:
@@ -617,14 +564,7 @@
         if (JSON.stringify(c.requiredTrailers) !== JSON.stringify(['Co-Authored-By: Claude <noreply@anthropic.com>', 'Reviewed-by'])) return `FAIL: requiredTrailers ${JSON.stringify(c.requiredTrailers)}`;
         const t = c.trailers[0];
         return t.key === 'Co-Authored-By' && t.value === 'Claude <noreply@anthropic.com>' ? true : `FAIL: trailers[0] ${JSON.stringify(t)}`;
-
-- description: "commit-trailers: (b) a key-only entry stays key-only"
-  vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-commit-trailers"
-  assert:
+    # from: commit-trailers: (b) a key-only entry stays key-only
     - type: javascript
       value: |
         const o = JSON.parse(output);

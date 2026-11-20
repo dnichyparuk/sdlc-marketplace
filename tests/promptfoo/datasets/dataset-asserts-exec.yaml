@@ -5,7 +5,7 @@
     script_path: "repo://tests/promptfoo/scripts/check-dataset-asserts.js"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.findings.length === 0 && r.datasets >= 77 && r.cases >= 1817"
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.findings.length === 0 && r.datasets >= 77 && r.cases >= 1641"
 
 - description: "dataset-asserts: (b) each rule reports its case; a positive control and an allowlisted case are not reported; an unused entry is stale"
   vars:

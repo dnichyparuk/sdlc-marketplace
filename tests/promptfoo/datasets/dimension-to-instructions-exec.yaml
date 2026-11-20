@@ -23,29 +23,13 @@
   assert:
     - type: contains
       value: 'applyTo: "**/commands/*.md,**/skills/**/SKILL.md"'
-
-# 2. Full dimension → H1 uses the frontmatter `name` (not the body H1) with the
-#    "— Review Instructions" suffix.
-- description: "dimension-to-instructions (#456): H1 derives from frontmatter name"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/lib/dimension-to-instructions.js"
-    script_args: "--file {{project_root}}/full-dimension.md"
-    project_root: "file://fixtures-fs/dimension-to-instructions"
-  assert:
+    # from: dimension-to-instructions (#456): H1 derives from frontmatter name
     - type: contains
       value: "# example-dimension — Review Instructions"
     # The dimension body's own H1 ("# Example Review") must NOT carry through.
     - type: not-contains
       value: "# Example Review"
-
-# 3. Full dimension → description used as opening paragraph; severity emitted;
-#    checklist checkboxes stripped to plain list items.
-- description: "dimension-to-instructions (#456): description + severity + checkbox stripping"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/lib/dimension-to-instructions.js"
-    script_args: "--file {{project_root}}/full-dimension.md"
-    project_root: "file://fixtures-fs/dimension-to-instructions"
-  assert:
+    # from: dimension-to-instructions (#456): description + severity + checkbox stripping
     - type: contains
       value: "Reviews example patterns for correctness across contexts"
     - type: contains
@@ -66,7 +50,14 @@
     # omitted frontmatter fields do not leak into the mirror.
     - type: not-contains
       value: "model: sonnet"
+    # from: dimension-to-instructions (#519): without --common-file, no Common Review Instructions section is emitted
+    - type: not-contains
+      value: "## Common Review Instructions"
 
+# 2. Full dimension → H1 uses the frontmatter `name` (not the body H1) with the
+#    "— Review Instructions" suffix.
+# 3. Full dimension → description used as opening paragraph; severity emitted;
+#    checklist checkboxes stripped to plain list items.
 # 4. Missing severity defaults to "medium"; no skip-when → no Note section;
 #    no Severity Guide in body → no Severity Guide section emitted.
 - description: "dimension-to-instructions (#456): missing severity defaults to medium; no skip-when omits Note"
@@ -147,15 +138,6 @@
 
 # 9. No --common-file flag → no Common Review Instructions section (default,
 #    backward-compatible behavior unchanged).
-- description: "dimension-to-instructions (#519): without --common-file, no Common Review Instructions section is emitted"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/lib/dimension-to-instructions.js"
-    script_args: "--file {{project_root}}/full-dimension.md"
-    project_root: "file://fixtures-fs/dimension-to-instructions"
-  assert:
-    - type: not-contains
-      value: "## Common Review Instructions"
-
 # 10. --common-file combined with a dimension that already exceeds the 4000-char
 #     Copilot limit → overflow warning still fires (exit 0, not condensed), and the
 #     Common Review Instructions section is still injected into the oversized mirror.

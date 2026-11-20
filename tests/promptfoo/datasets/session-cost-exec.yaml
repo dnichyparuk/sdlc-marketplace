@@ -1,8 +1,9 @@
 # Script execution tests for plugins/sdlc-utilities/scripts/ci/session-cost.js and
 # plugins/sdlc-utilities/scripts/ci/wave-metrics.js (W1.13).
-# Every session-cost case runs the same command against the synthetic fixture in
-# fixtures-fs/session-cost and asserts on its own tag. The wave-metrics cases run
-# against fixtures-fs/wave-metrics. No real transcripts are read.
+# One session-cost case runs the command against the synthetic fixture in
+# fixtures-fs/session-cost and asserts on every tag; a `# from:` comment names each
+# block. The wave-metrics cases run against fixtures-fs/wave-metrics. No real
+# transcripts are read.
 
 - description: "session-cost: duplicate message ids count once with the largest usage, and synthetic messages are dropped"
   vars:
@@ -15,37 +16,19 @@
         const d = JSON.parse(output);
         const t = d.tags.dedupe;
         return t.messages === 1 && t.tokens.input === 1000 && t.tokens.output === 500 && t.usd === '0.006000000000';
-
-- description: "session-cost: 5m and 1h cache writes are priced in separate columns"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
-    project_root: "file://fixtures-fs/session-cost"
-    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
-  assert:
+    # from: session-cost: 5m and 1h cache writes are priced in separate columns
     - type: javascript
       value: |
         const d = JSON.parse(output);
         const t = d.tags.cache;
         return t.tokens.cacheWrite5m === 1001000 && t.tokens.cacheWrite1h === 1000000 && t.unsplitCacheWriteLines === 1 && t.usd === '3.251250000000';
-
-- description: "session-cost: subagent transcripts are booked under their parent tag"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
-    project_root: "file://fixtures-fs/session-cost"
-    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
-  assert:
+    # from: session-cost: subagent transcripts are booked under their parent tag
     - type: javascript
       value: |
         const d = JSON.parse(output);
         const t = d.tags.subagent;
         return t.sessions === 1 && t.messages === 2 && t.usd === '2.000000000000';
-
-- description: "session-cost: aux- tags are excluded from total"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
-    project_root: "file://fixtures-fs/session-cost"
-    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
-  assert:
+    # from: session-cost: aux- tags are excluded from total
     - type: javascript
       value: |
         const d = JSON.parse(output);
@@ -57,57 +40,27 @@
           && d.total.usd === '13.953253750000'
           && toPico(d.total.usd) === sum
           && !!miss && miss.messages === 1 && miss.tokens.input === 500;
-
-- description: "session-cost: a tiered model at 100000 prompt tokens uses the first tier"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
-    project_root: "file://fixtures-fs/session-cost"
-    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
-  assert:
+    # from: session-cost: a tiered model at 100000 prompt tokens uses the first tier
     - type: javascript
       value: |
         const d = JSON.parse(output);
         return d.tags['tier-le'].usd === '0.074000000000';
-
-- description: "session-cost: a tiered model above 100000 prompt tokens uses the second tier"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
-    project_root: "file://fixtures-fs/session-cost"
-    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
-  assert:
+    # from: session-cost: a tiered model above 100000 prompt tokens uses the second tier
     - type: javascript
       value: |
         const d = JSON.parse(output);
         return d.tags['tier-gt'].usd === '0.222003750000';
-
-- description: "session-cost: fast-mode messages use the fast price block"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
-    project_root: "file://fixtures-fs/session-cost"
-    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
-  assert:
+    # from: session-cost: fast-mode messages use the fast price block
     - type: javascript
       value: |
         const d = JSON.parse(output);
         return d.tags.fast.usd === '4.200000000000' && d.tags.fast.unpricedMessages === 0;
-
-- description: "session-cost: US-only inference applies the geo multiplier"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
-    project_root: "file://fixtures-fs/session-cost"
-    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
-  assert:
+    # from: session-cost: US-only inference applies the geo multiplier
     - type: javascript
       value: |
         const d = JSON.parse(output);
         return d.tags.geo.usd === '3.200000000000';
-
-- description: "session-cost: unknown speed, geo, service tier and fast without a fast block go to unpriced"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-cost.js"
-    project_root: "file://fixtures-fs/session-cost"
-    script_args: "--sessions {{project_root}}/sessions.json --projects-dir {{project_root}}/projects --prices {{project_root}}/prices.json --json"
-  assert:
+    # from: session-cost: unknown speed, geo, service tier and fast without a fast block go to unpriced
     - type: javascript
       value: |
         const d = JSON.parse(output);

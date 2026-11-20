@@ -255,39 +255,7 @@
       value: '"detected": true'
     - type: icontains
       value: '"host": "github.com"'
-
-- description: "plan-prepare T3b: GitLab origin → githubHosting.detected false, host gitlab.com (R32, Fixes #417)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-gitlab-remote"
-  assert:
-    - type: icontains
-      value: '"githubHosting"'
-    - type: icontains
-      value: '"detected": false'
-    - type: icontains
-      value: '"host": "gitlab.com"'
-
-- description: "plan-prepare T3c: no origin → githubHosting.detected false, host null (R32, Fixes #417)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-no-remote"
-  assert:
-    - type: icontains
-      value: '"githubHosting"'
-    - type: icontains
-      value: '"detected": false'
-    - type: icontains
-      value: '"host": null'
-
-- description: "plan-prepare T3d: g17Dispatch shape present with required keys (R33, Fixes #417)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
+    # from: plan-prepare T3d: g17Dispatch shape present with required keys (R33, Fixes #417)
     - type: icontains
       value: '"g17Dispatch"'
     - type: icontains
@@ -300,15 +268,7 @@
       value: 'agents/plan-lane-g17.md'
     - type: not-icontains
       value: '"promptTemplatePath"'
-
-# --- P16/P17 signals: lanes[] and lensReviewers[] (R35, R36 — Fixes #418) ---
-
-- description: "plan-prepare T4a: lanes[] has exactly 4 entries with disjoint gateIds covering G1-G21 minus the validator gates (R35)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
+    # from: plan-prepare T4a: lanes[] has exactly 4 entries with disjoint gateIds covering G1-G21 minus the validator gates (R35)
     - type: icontains
       value: '"lanes"'
     - type: javascript
@@ -341,13 +301,7 @@
         }
         if (uniqueGateIds.size !== expectedGates.size) return `unexpected extra gates: ${[...uniqueGateIds].filter(g => !expectedGates.has(g))}`;
         return true;
-
-- description: "plan-prepare T4b: lensReviewers[] has exactly 3 entries with non-empty focusCategories (R36, Fixes #418)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
+    # from: plan-prepare T4b: lensReviewers[] has exactly 3 entries with non-empty focusCategories (R36, Fixes #418)
     - type: icontains
       value: '"lensReviewers"'
     - type: javascript
@@ -367,13 +321,7 @@
           if (!lr.focusCategories || !Array.isArray(lr.focusCategories) || lr.focusCategories.length === 0) return `lensReviewer[${i}] missing or empty focusCategories`;
         }
         return true;
-
-- description: "plan-prepare: lane model is read from agent frontmatter"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
+    # from: plan-prepare: lane model is read from agent frontmatter
     - type: javascript
       value: |
         const data = JSON.parse(output);
@@ -385,13 +333,7 @@
         if (data.intakeAuditDispatch.model !== 'sonnet') return `intakeAuditDispatch.model: ${data.intakeAuditDispatch.model}`;
         if (data.intakeAuditDispatch.effort !== 'medium') return `intakeAuditDispatch.effort: ${data.intakeAuditDispatch.effort}`;
         return true;
-
-- description: "plan-prepare: (critique-dispatch) entry in the agent-dispatch shape (P26, R75)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
+    # from: plan-prepare: (critique-dispatch) entry in the agent-dispatch shape (P26, R75)
     - type: javascript
       value: |
         const data = JSON.parse(output);
@@ -405,13 +347,7 @@
         if (JSON.stringify(c.inputNames) !== JSON.stringify(want)) return `inputNames: ${JSON.stringify(c.inputNames)}`;
         if (JSON.stringify(c.presetInputs) !== '{}') return `presetInputs: ${JSON.stringify(c.presetInputs)}`;
         return true;
-
-- description: "plan-prepare: --quality defaults to balanced with null dispatch overrides (P24)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
+    # from: plan-prepare: --quality defaults to balanced with null dispatch overrides (P24)
     - type: javascript
       value: |
         const data = JSON.parse(output);
@@ -422,6 +358,70 @@
         if (data.reviewerDispatch.agent !== 'sdlc:plan-reviewer') return `reviewerDispatch.agent: ${data.reviewerDispatch.agent}`;
         if (data.reviewerDispatch.lens !== 'all') return `reviewerDispatch.lens: ${data.reviewerDispatch.lens}`;
         return true;
+    # from: plan-prepare T4c: content-coverage lane gateIds includes G20 and G21; no other lane claims them
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        if (!data.lanes || !Array.isArray(data.lanes)) return 'lanes field missing or not array';
+        const contentLane = data.lanes.find(l => l.name === 'content-coverage');
+        if (!contentLane) return 'content-coverage lane not found';
+        if (!contentLane.gateIds.includes('G20')) return 'G20 missing from content-coverage gateIds';
+        if (!contentLane.gateIds.includes('G21')) return 'G21 missing from content-coverage gateIds';
+        // Assert no other lane claims G20 or G21
+        for (const lane of data.lanes) {
+          if (lane.name === 'content-coverage') continue;
+          if (lane.gateIds.includes('G20')) return `G20 also claimed by lane: ${lane.name}`;
+          if (lane.gateIds.includes('G21')) return `G21 also claimed by lane: ${lane.name}`;
+        }
+        return true;
+    # from: plan-prepare T4d: critiqueDir is an absolute sdlc-plan-critique- temp directory (P22)
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        if (typeof data.critiqueDir !== 'string') return 'critiqueDir missing or not a string';
+        if (!data.critiqueDir.startsWith('/')) return `critiqueDir not absolute: ${data.critiqueDir}`;
+        if (!data.critiqueDir.split('/').pop().startsWith('sdlc-plan-critique-')) return `unexpected critiqueDir basename: ${data.critiqueDir}`;
+        return true;
+    # from: plan-prepare T4e: commit fields are null without a commit config (P23)
+    - type: javascript
+      value: |
+        const data = JSON.parse(output);
+        const want = { subjectPattern: null, subjectPatternError: null, allowedTypes: null };
+        if (JSON.stringify(data.commit) !== JSON.stringify(want)) return `unexpected commit: ${JSON.stringify(data.commit)}`;
+        return true;
+    # from: plan-prepare: planTemplate field present with path null when .sdlc/plan-template.md does not exist
+    - type: icontains
+      value: '"planTemplate"'
+    - type: icontains
+      value: '"path": null'
+
+- description: "plan-prepare T3b: GitLab origin → githubHosting.detected false, host gitlab.com (R32, Fixes #417)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-gitlab-remote"
+  assert:
+    - type: icontains
+      value: '"githubHosting"'
+    - type: icontains
+      value: '"detected": false'
+    - type: icontains
+      value: '"host": "gitlab.com"'
+
+- description: "plan-prepare T3c: no origin → githubHosting.detected false, host null (R32, Fixes #417)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-no-remote"
+  assert:
+    - type: icontains
+      value: '"githubHosting"'
+    - type: icontains
+      value: '"detected": false'
+    - type: icontains
+      value: '"host": null'
+
+# --- P16/P17 signals: lanes[] and lensReviewers[] (R35, R36 — Fixes #418) ---
 
 - description: "plan-prepare: --quality minimal sets lens dispatchModel opus and dispatchEffort high"
   vars:
@@ -651,55 +651,6 @@
 # tasksUpdated would stay 0.
 # --- G20/G21 in content-coverage lane gateIds (Task 5, #470) ---
 
-- description: "plan-prepare T4c: content-coverage lane gateIds includes G20 and G21; no other lane claims them"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output);
-        if (!data.lanes || !Array.isArray(data.lanes)) return 'lanes field missing or not array';
-        const contentLane = data.lanes.find(l => l.name === 'content-coverage');
-        if (!contentLane) return 'content-coverage lane not found';
-        if (!contentLane.gateIds.includes('G20')) return 'G20 missing from content-coverage gateIds';
-        if (!contentLane.gateIds.includes('G21')) return 'G21 missing from content-coverage gateIds';
-        // Assert no other lane claims G20 or G21
-        for (const lane of data.lanes) {
-          if (lane.name === 'content-coverage') continue;
-          if (lane.gateIds.includes('G20')) return `G20 also claimed by lane: ${lane.name}`;
-          if (lane.gateIds.includes('G21')) return `G21 also claimed by lane: ${lane.name}`;
-        }
-        return true;
-
-- description: "plan-prepare T4d: critiqueDir is an absolute sdlc-plan-critique- temp directory (P22)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output);
-        if (typeof data.critiqueDir !== 'string') return 'critiqueDir missing or not a string';
-        if (!data.critiqueDir.startsWith('/')) return `critiqueDir not absolute: ${data.critiqueDir}`;
-        if (!data.critiqueDir.split('/').pop().startsWith('sdlc-plan-critique-')) return `unexpected critiqueDir basename: ${data.critiqueDir}`;
-        return true;
-
-- description: "plan-prepare T4e: commit fields are null without a commit config (P23)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
-    - type: javascript
-      value: |
-        const data = JSON.parse(output);
-        const want = { subjectPattern: null, subjectPatternError: null, allowedTypes: null };
-        if (JSON.stringify(data.commit) !== JSON.stringify(want)) return `unexpected commit: ${JSON.stringify(data.commit)}`;
-        return true;
-
 - description: "plan-prepare T4f: commit carries the project commit config (P23)"
   vars:
     script_path: "-e"
@@ -730,17 +681,6 @@
       value: '"valid": true'
 
 # --- planTemplate detection (Task 7) ---
-
-- description: "plan-prepare: planTemplate field present with path null when .sdlc/plan-template.md does not exist"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-prepare-github-remote"
-  assert:
-    - type: icontains
-      value: '"planTemplate"'
-    - type: icontains
-      value: '"path": null'
 
 - description: "plan-prepare: planTemplate field has correct path when .sdlc/plan-template.md exists"
   vars:
@@ -813,6 +753,9 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.material === true && JSON.stringify(r.triggers) === JSON.stringify(['contracts']) && JSON.stringify(r.affectedGates) === JSON.stringify(['G14', 'G18', 'G19', 'G20', 'G21']) && JSON.stringify(r.affectedLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance', 'lens:all']) && !r.affectedLanes.includes('static-structural') && JSON.stringify(r.dispatch.lenses) === JSON.stringify(['all']) && JSON.stringify(r.recheckLanes) === JSON.stringify(['content-coverage', 'guardrail-compliance'])"
+    # from: plan-diff: without --prev-dir rerun is empty
+    - type: javascript
+      value: "const r = JSON.parse(output); Array.isArray(r.rerun) && r.rerun.length === 0"
 
 - description: "plan-diff: --prev-dir adds lanes and lenses with blocking results to affectedLanes"
   vars:
@@ -849,15 +792,6 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.material === false && r.review.route === 'fan-out' && JSON.stringify(r.review.lenses) === JSON.stringify(['architecture', 'requirements', 'risk'])"
-
-- description: "plan-diff: without --prev-dir rerun is empty"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    project_root: "file://fixtures-fs/plan-diff-material"
-    script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/after-contract.md"
-  assert:
-    - type: javascript
-      value: "const r = JSON.parse(output); Array.isArray(r.rerun) && r.rerun.length === 0"
 
 - description: "plan-diff: unreadable --prev-dir is a usage error"
   vars:
@@ -898,25 +832,13 @@
       value: |
         const c = JSON.parse(output).candidates[0];
         return c.kind === 'CREATE' && c.dimension === 'infrastructure-review' && c.criteria.includes('C4') && c.severity === 'critical' && JSON.stringify(c.triggers) === JSON.stringify(['**/infra/**'])
-
-- description: "plan-g17: U1 fires for the .ts path of a covered dimension"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    project_root: "file://fixtures-fs/plan-g17-prepare"
-    script_args: "g17-prepare --plan {{project_root}}/plans/plan.md --dimensions-dir {{project_root}}/.sdlc/review-dimensions --instructions-dir {{project_root}}/.github/instructions --learnings {{project_root}}/.sdlc/learnings/log.md --window 14 --github-hosting true --root {{project_root}} --today 2026-11-05"
-  assert:
+    # from: plan-g17: U1 fires for the .ts path of a covered dimension
     - type: javascript
       value: |
         const r = JSON.parse(output);
         const u = r.candidates.find(c => c.kind === 'UPDATE-path' && c.dimension === 'code-review');
         return !!u && JSON.stringify(u.criteria) === JSON.stringify(['U1']) && JSON.stringify(u.paths) === JSON.stringify(['src/a.ts']) && u.patch === 'add trigger `src/**/*.ts`' && u.copilotMirror === '.github/instructions/code.instructions.md' && r.mirrorMap['code-review'] === 'code'
-
-- description: "plan-g17: harden-sdlc deferral suppresses database-migrations-review"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    project_root: "file://fixtures-fs/plan-g17-prepare"
-    script_args: "g17-prepare --plan {{project_root}}/plans/plan.md --dimensions-dir {{project_root}}/.sdlc/review-dimensions --instructions-dir {{project_root}}/.github/instructions --learnings {{project_root}}/.sdlc/learnings/log.md --window 14 --github-hosting true --root {{project_root}} --today 2026-11-05"
-  assert:
+    # from: plan-g17: harden-sdlc deferral suppresses database-migrations-review
     - type: javascript
       value: |
         const r = JSON.parse(output);
@@ -1024,6 +946,16 @@
       value: |
         const r = JSON.parse(output);
         return r.blockingCount === 14 && !r.laneFailures.some(f => f.lane === 'dimension-coverage')
+    # from: plan-merge: G17 findings ranked, capped and rendered
+    - type: javascript
+      value: |
+        const g = JSON.parse(output).g17Findings;
+        const f = g.findings;
+        return JSON.stringify(f.map(x => x.dimension)) === JSON.stringify(['infrastructure-review', 'auth-review', 'code-review']) &&
+          f[0].why.startsWith('Task 1 creates') && f[2].kind === 'UPDATE-behavior' && g.suppressed_count === 3 &&
+          g.rendering.includes('### UPDATE: code-review (B1)') &&
+          g.rendering.includes('regenerate .github/instructions/code.instructions.md') &&
+          g.rendering.includes('_3 additional candidates suppressed_')
 
 - description: "plan-merge: --no-guardrails synthesizes the guardrail payload"
   vars:
@@ -1051,22 +983,6 @@
           md.includes('| Correctness | 1 | 0 | 0 | 2 |') &&
           md.includes('| REQ-3 Prepare G17 | — | uncovered |') &&
           r.lens.status === 'Issues Found' && r.blockingCount === 1 && r.coverage === null
-
-- description: "plan-merge: G17 findings ranked, capped and rendered"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    project_root: "file://fixtures-fs/plan-merge-lanes"
-    script_args: "merge-lanes --dir {{project_root}} --lanes static-structural,dimension-coverage --no-guardrails"
-  assert:
-    - type: javascript
-      value: |
-        const g = JSON.parse(output).g17Findings;
-        const f = g.findings;
-        return JSON.stringify(f.map(x => x.dimension)) === JSON.stringify(['infrastructure-review', 'auth-review', 'code-review']) &&
-          f[0].why.startsWith('Task 1 creates') && f[2].kind === 'UPDATE-behavior' && g.suppressed_count === 3 &&
-          g.rendering.includes('### UPDATE: code-review (B1)') &&
-          g.rendering.includes('regenerate .github/instructions/code.instructions.md') &&
-          g.rendering.includes('_3 additional candidates suppressed_')
 
 - description: "plan-merge: --carry copies the results of lanes and lenses not re-dispatched and keeps coverage complete"
   vars:
@@ -1182,6 +1098,15 @@
         const one = p => cc.filter(i => i.blocking === true && i.gateId === null && i.message.startsWith(p + ' ')).length === 1;
         return cc.length === 3 && one('docs/skills/demo-sdlc.md') && one('site/skills/demo-sdlc.md') && one('site/skills-meta.ts') &&
           r.copyCheck.rules === 1 && r.copyCheck.missing.length === 3 && r.copyCheck.missing.every(m => m.rule === 0)
+    # from: plan-copy: (d) trigger and covered copies are never reported; every missing path exists
+    - type: javascript
+      value: |
+        const fs = process.getBuiltinModule('fs');
+        const path = process.getBuiltinModule('path');
+        const r = JSON.parse(output);
+        const named = p => r.issues.some(i => i.lane === 'copy-check' && i.message.startsWith(p + ' ')) || r.copyCheck.missing.some(m => m.path === p);
+        return !named('skills/demo-sdlc/SKILL.md') && !named('skills/demo-sdlc/reference.md') &&
+          r.copyCheck.missing.every(m => fs.existsSync(path.join(context.vars.project_root, m.path)))
 
 - description: "plan-copy: (b) every required copy listed gives no copy-check issue"
   vars:
@@ -1206,22 +1131,6 @@
       value: |
         const r = JSON.parse(output);
         return r.copyCheck === null && !r.issues.some(i => i.lane === 'copy-check')
-
-- description: "plan-copy: (d) trigger and covered copies are never reported; every missing path exists"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/plan-copy-rules"
-    script_args: "merge-lanes --dir {{project_root}}/iter --lenses all --plan {{project_root}}/plans/missing-doc.md"
-  assert:
-    - type: javascript
-      value: |
-        const fs = process.getBuiltinModule('fs');
-        const path = process.getBuiltinModule('path');
-        const r = JSON.parse(output);
-        const named = p => r.issues.some(i => i.lane === 'copy-check' && i.message.startsWith(p + ' ')) || r.copyCheck.missing.some(m => m.path === p);
-        return !named('skills/demo-sdlc/SKILL.md') && !named('skills/demo-sdlc/reference.md') &&
-          r.copyCheck.missing.every(m => fs.existsSync(path.join(context.vars.project_root, m.path)))
 
 - description: "plan-copy: (e) directory entries and a ./ prefix cover the required copies"
   vars:

@@ -29,6 +29,13 @@
   assert:
     - type: contains
       value: "Verdict:         APPROVED WITH NOTES"
+    # from: review-consolidate: block relays post decision lines
+    - type: contains
+      value: "Post decision:   save"
+    - type: contains
+      value: "Auto:            true"
+    - type: contains
+      value: "Save path:"
 
 - description: "review-consolidate: 5 medium give APPROVED WITH NOTES"
   vars:
@@ -97,13 +104,7 @@
           && c.includes('Also flagged by:')
           && c.includes('· OWASP A01')
           && c.includes('_2 additional finding(s) omitted by the reviewer._');
-
-- description: "review-consolidate: summary JSON matches block and schema fields"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
-    project_root: "file://fixtures-fs/review-consolidate"
-    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-mixed --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
-  assert:
+    # from: review-consolidate: summary JSON matches block and schema fields
     - type: javascript
       value: |
         const m = output.match(/Comment file:\s+(\S+)/);
@@ -115,13 +116,7 @@
           && keys === 'critical,high,info,low,medium'
           && dispatched.length === 2
           && dispatched.every(d => typeof d.model === 'string' && d.model);
-
-- description: "review-consolidate: summary findings list each finding's severity, dimension, path, line and title"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
-    project_root: "file://fixtures-fs/review-consolidate"
-    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-mixed --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
-  assert:
+    # from: review-consolidate: summary findings list each finding's severity, dimension, path, line and title
     - type: javascript
       value: |
         const m = output.match(/Comment file:\s+(\S+)/);
@@ -133,19 +128,6 @@
           && s.findings.length > 0
           && s.findings.every(f => Object.keys(f).sort().join(',') === 'dimension,line,path,severity,title'
             && typeof f.title === 'string' && typeof f.path === 'string' && typeof f.dimension === 'string');
-
-- description: "review-consolidate: block relays post decision lines"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review-consolidate.js"
-    project_root: "file://fixtures-fs/review-consolidate"
-    script_args: "--manifest {{project_root}}/manifest.json --findings {{project_root}}/findings-1high --output-dir {{project_root}}/out --summary-path {{project_root}}/summary.json"
-  assert:
-    - type: contains
-      value: "Post decision:   save"
-    - type: contains
-      value: "Auto:            true"
-    - type: contains
-      value: "Save path:"
 
 - description: "review-consolidate: comment copy beside the summary"
   vars:

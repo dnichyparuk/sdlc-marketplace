@@ -3,40 +3,6 @@
 # Covers: P7 shipFields emission, field shape, order, v2 schema migration (issues #152, #180),
 # and when-gate evaluation (issue #292).
 
-- description: "setup-prepare: emits shipFields with 13 entries (7 base + 6 R57 tunables, W5.2)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: icontains
-      value: '"shipFields"'
-    - type: javascript
-      value: "JSON.parse(output).shipFields.length === 13"
-
-- description: "setup-prepare: shipFields order is stable (steps → reviewThreshold → 6 R57 tunables, W5.2)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const names = JSON.parse(output).shipFields.map(f => f.name);
-        const expected = ['steps','quick','bump','draft','auto','rebase','reviewThreshold','verifyPipelineTimeout','verifyPipelineInterval','verifyPipelineMaxIterations','awaitRemoteReviewTimeout','awaitRemoteReviewInterval','awaitRemoteReviewers'];
-        return JSON.stringify(names) === JSON.stringify(expected)
-
-- description: "setup-prepare: shipFields entries have the full 6-key descriptor shape"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const keys = ['name','label','type','options','default','description'];
-        return JSON.parse(output).shipFields.every(f => keys.every(k => k in f))
-
 - description: "setup-prepare: shipFields.steps has exactly 10 canonical options"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
@@ -48,24 +14,70 @@
         const steps = JSON.parse(output).shipFields.find(f => f.name === 'steps');
         const expected = ['execute','commit','review','version','verify-openspec','archive-openspec','pr','verify-pipeline','await-remote-review','learnings-commit'];
         return steps.type === 'multi-select' && JSON.stringify(steps.options) === JSON.stringify(expected)
-
-- description: "setup-prepare: shipFields no longer emits preset or skip fields"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
+    # from: setup-copy-rules: (b) copyRules is null when plan.copyRules is absent
+    - type: javascript
+      value: "JSON.parse(output).copyRules === null"
+    # from: setup-prepare: no --scan omits the scan key
     - type: javascript
       value: |
-        const fields = JSON.parse(output).shipFields;
-        return !fields.some(f => f.name === 'preset') && !fields.some(f => f.name === 'skip')
-
-- description: "setup-prepare: still emits P1-P6 fields alongside shipFields"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
+        const out = JSON.parse(output);
+        return !('scan' in out) ? true : 'FAIL: scan key present without --scan';
+    # from: setup-prepare (#370 #372): hooks section is absent from sections[]
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const hooks = out.sections && out.sections.find(s => s.id === 'hooks');
+        return hooks === undefined ? true : 'FAIL: hooks section still present';
+    # from: setup-prepare (#378): workspace section is absent from sections[]
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const ws = out.sections && out.sections.find(s => s.id === 'workspace');
+        return ws === undefined ? true : 'FAIL: workspace section still present';
+    # from: setup-prepare (#9361): ship purpose names real fields, no workspace
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const p = out.sections.find(s => s.id === 'ship').purpose;
+        return !/workspace/i.test(p) && p.includes('rebase policy')
+    # from: setup-prepare (#9361): no --skip → flags.skip is []
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        return Array.isArray(out.flags.skip) && out.flags.skip.length === 0
+    # from: setup-prepare (#337): menuInputContract.defaultToken === 'all' when --unset-only is absent
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        return out.menuInputContract && out.menuInputContract.defaultToken === 'all'
+    # from: setup-prepare (#338): preReleaseCompat contains all six fileType keys with correct levels
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const pc = out.preReleaseCompat;
+        if (!pc) return false;
+        const expected = {
+          'package.json': 'compatible',
+          'cargo.toml': 'compatible',
+          'plugin.json': 'compatible',
+          'pyproject.toml': 'partial',
+          'pubspec.yaml': 'incompatible',
+          'version-file': 'unknown',
+        };
+        return Object.entries(expected).every(([k, v]) => pc[k] && pc[k].level === v) &&
+               Object.keys(pc).length === 6
+    # from: setup-prepare (#9362): empty project emits no current keys
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        return out.sections.every(s => s.fields.every(f => !('current' in f))) &&
+               out.shipFields.every(f => !('current' in f))
+    # from: setup-prepare (issue #235): first-run on empty project — flags.unsetOnly defaults false
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        return out.flags.unsetOnly === false && out.defaultSelectionMode === 'all'
+    # from: setup-prepare: still emits P1-P6 fields alongside shipFields
     - type: icontains
       value: '"projectConfig"'
     - type: icontains
@@ -78,6 +90,27 @@
       value: '"detected"'
     - type: icontains
       value: '"needsMigration"'
+    # from: setup-prepare: shipFields no longer emits preset or skip fields
+    - type: javascript
+      value: |
+        const fields = JSON.parse(output).shipFields;
+        return !fields.some(f => f.name === 'preset') && !fields.some(f => f.name === 'skip')
+    # from: setup-prepare: emits shipFields with 13 entries (7 base + 6 R57 tunables, W5.2)
+    - type: icontains
+      value: '"shipFields"'
+    - type: javascript
+      value: "JSON.parse(output).shipFields.length === 13"
+    # from: setup-prepare: shipFields entries have the full 6-key descriptor shape
+    - type: javascript
+      value: |
+        const keys = ['name','label','type','options','default','description'];
+        return JSON.parse(output).shipFields.every(f => keys.every(k => k in f))
+    # from: setup-prepare: shipFields order is stable (steps → reviewThreshold → 6 R57 tunables, W5.2)
+    - type: javascript
+      value: |
+        const names = JSON.parse(output).shipFields.map(f => f.name);
+        const expected = ['steps','quick','bump','draft','auto','rebase','reviewThreshold','verifyPipelineTimeout','verifyPipelineInterval','verifyPipelineMaxIterations','awaitRemoteReviewTimeout','awaitRemoteReviewInterval','awaitRemoteReviewers'];
+        return JSON.stringify(names) === JSON.stringify(expected)
 
 - description: "setup-prepare: needsMigration true when local config has legacy preset (v1)"
   vars:
@@ -110,6 +143,28 @@
       value: |
         const out = JSON.parse(output);
         return out.flags && out.flags.unsetOnly === false && out.defaultSelectionMode === 'all'
+    # from: setup-prepare (#9362): fields carry current config values (R7, P-sections)
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const f = (id, name) => out.sections.find(s => s.id === id).fields.find(x => x.name === name);
+        const checks = {
+          tagPrefix: f('version', 'tagPrefix').current === 'v',
+          account: f('pr', 'expectedAccount').current === 'test-user',
+          unsetHasNoKey: !('current' in f('version', 'changelog')),
+          shipRow: f('ship', 'bump').current === 'patch',
+          shipFields: out.shipFields.find(x => x.name === 'bump').current === 'patch',
+        };
+        const failed = Object.keys(checks).filter(k => !checks[k]);
+        return failed.length === 0 ? true : 'FAIL: ' + failed.join(', ');
+    # from: setup-prepare (issue #234): pr section exposes expectedAccount field with origin-owner default
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const pr = out.sections.find(s => s.id === 'pr');
+        if (!pr) return false;
+        const ea = pr.fields.find(f => f.name === 'expectedAccount');
+        return Boolean(ea) && ea.type === 'string' && ea.default === 'test-user'
 
 - description: "setup-prepare (issue #235): --unset-only → flags.unsetOnly=true, defaultSelectionMode=unset-only"
   vars:
@@ -136,64 +191,7 @@
         return out.flags.unsetOnly === true && out.flags.force === true && out.defaultSelectionMode === 'all'
 
 # Issue #235 — first-run on empty project: every section is 'not-set'; both modes yield identical pre-checks.
-- description: "setup-prepare (issue #235): first-run on empty project — flags.unsetOnly defaults false"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        return out.flags.unsetOnly === false && out.defaultSelectionMode === 'all'
-
 # Issue #234 — pr.expectedAccount surfaces in the standard menu walk.
-- description: "setup-prepare (issue #234): pr section exposes expectedAccount field with origin-owner default"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/setup-fully-configured"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        const pr = out.sections.find(s => s.id === 'pr');
-        if (!pr) return false;
-        const ea = pr.fields.find(f => f.name === 'expectedAccount');
-        return Boolean(ea) && ea.type === 'string' && ea.default === 'test-user'
-
-- description: "setup-prepare (#9362): fields carry current config values (R7, P-sections)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/setup-fully-configured"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        const f = (id, name) => out.sections.find(s => s.id === id).fields.find(x => x.name === name);
-        const checks = {
-          tagPrefix: f('version', 'tagPrefix').current === 'v',
-          account: f('pr', 'expectedAccount').current === 'test-user',
-          unsetHasNoKey: !('current' in f('version', 'changelog')),
-          shipRow: f('ship', 'bump').current === 'patch',
-          shipFields: out.shipFields.find(x => x.name === 'bump').current === 'patch',
-        };
-        const failed = Object.keys(checks).filter(k => !checks[k]);
-        return failed.length === 0 ? true : 'FAIL: ' + failed.join(', ');
-
-- description: "setup-prepare (#9362): empty project emits no current keys"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        return out.sections.every(s => s.fields.every(f => !('current' in f))) &&
-               out.shipFields.every(f => !('current' in f))
-
 # ---------------------------------------------------------------------------
 # Issue #292 — when-gate evaluation: setup.js --steps <csv> marks gated entries
 # ---------------------------------------------------------------------------
@@ -253,39 +251,6 @@
 # Issue #338 — preReleaseCompat; Issue #337 — menuInputContract
 # ---------------------------------------------------------------------------
 
-- description: "setup-prepare (#338): preReleaseCompat contains all six fileType keys with correct levels"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        const pc = out.preReleaseCompat;
-        if (!pc) return false;
-        const expected = {
-          'package.json': 'compatible',
-          'cargo.toml': 'compatible',
-          'plugin.json': 'compatible',
-          'pyproject.toml': 'partial',
-          'pubspec.yaml': 'incompatible',
-          'version-file': 'unknown',
-        };
-        return Object.entries(expected).every(([k, v]) => pc[k] && pc[k].level === v) &&
-               Object.keys(pc).length === 6
-
-- description: "setup-prepare (#337): menuInputContract.defaultToken === 'all' when --unset-only is absent"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        return out.menuInputContract && out.menuInputContract.defaultToken === 'all'
-
 - description: "setup-prepare (#337): menuInputContract.defaultToken === 'not-set' when --unset-only is passed"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
@@ -322,17 +287,6 @@
         const out = JSON.parse(output);
         return JSON.stringify(out.flags.skip) === '["ship","jira"]'
 
-- description: "setup-prepare (#9361): no --skip → flags.skip is []"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        return Array.isArray(out.flags.skip) && out.flags.skip.length === 0
-
 - description: "setup-prepare (#9361): --skip with a sub-flow id exits with an error naming it"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
@@ -344,46 +298,10 @@
       value: |
         output.includes('unknown section id(s): plan-template') && output.includes('received-review')
 
-- description: "setup-prepare (#9361): ship purpose names real fields, no workspace"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        const p = out.sections.find(s => s.id === 'ship').purpose;
-        return !/workspace/i.test(p) && p.includes('rebase policy')
-
 # ---------------------------------------------------------------------------
 # Workspace + hooks sections removed (#378, #379, #370, #372): workspace is
 # auto-detected (no placement wizard) and the agentIsolationGuard hook is deleted.
 # ---------------------------------------------------------------------------
-
-- description: "setup-prepare (#378): workspace section is absent from sections[]"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        const ws = out.sections && out.sections.find(s => s.id === 'workspace');
-        return ws === undefined ? true : 'FAIL: workspace section still present';
-
-- description: "setup-prepare (#370 #372): hooks section is absent from sections[]"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        const hooks = out.sections && out.sections.find(s => s.id === 'hooks');
-        return hooks === undefined ? true : 'FAIL: hooks section still present';
 
 # ---------------------------------------------------------------------------
 # Project scan (R10, R14, P-scan; W6a.9): --scan emits `scan` from lib/project-scan.js.
@@ -435,17 +353,6 @@
         const failed = Object.keys(checks).filter(k => !checks[k]);
         return failed.length === 0 ? true : 'FAIL: ' + failed.join(', ');
 
-- description: "setup-prepare: no --scan omits the scan key"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: |
-        const out = JSON.parse(output);
-        return !('scan' in out) ? true : 'FAIL: scan key present without --scan';
-
 - description: "setup-prepare: --scan reports the active branch"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
@@ -471,12 +378,3 @@
         if (c.errors.length !== 1 || !c.errors[0].startsWith('plan.copyRules[2]')) return 'FAIL: errors ' + JSON.stringify(c.errors);
         if (c.warnings.length !== 1 || !c.warnings[0].startsWith('plan.copyRules[1]')) return 'FAIL: warnings ' + JSON.stringify(c.warnings);
         return true
-
-- description: "setup-copy-rules: (b) copyRules is null when plan.copyRules is absent"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-setup-empty"
-  assert:
-    - type: javascript
-      value: "JSON.parse(output).copyRules === null"

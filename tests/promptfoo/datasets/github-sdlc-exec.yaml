@@ -492,6 +492,15 @@
         const ok = o.exit === 0 && o.json.flags.skipConfigCheck === false && o.json.flags.auto === false
           && o.json.migration !== null && typeof o.json.migration === 'object';
         return ok ? true : `FAIL ${output}`;
+    # from: github-sdlc/check P4: a complete cache needs no refresh
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = o.json.cache;
+        const ok = o.exit === 0 && c.exists === true && c.refreshNeeded === false && c.reason === null
+          && c.fresh === true && c.missing.length === 0
+          && c.path.endsWith('/home/.sdlc-cache/github/github_com/acme/widgets.json');
+        return ok ? true : `FAIL ${output}`;
 
 # ── github.js --check: auth and acting account (P3, R20, R30, G2, E3, E11) ───
 
@@ -607,23 +616,6 @@
         return ok ? true : `FAIL ${output}`;
 
 # ── github.js --check: cache status (P4, G1, A2, R6) ──────────────────────────
-
-- description: "github-sdlc/check P4: a complete cache needs no refresh"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
-    script_args: "-- --check --repo acme/widgets"
-    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
-  assert:
-    - type: javascript
-      value: |
-        const o = JSON.parse(output);
-        const c = o.json.cache;
-        const ok = o.exit === 0 && c.exists === true && c.refreshNeeded === false && c.reason === null
-          && c.fresh === true && c.missing.length === 0
-          && c.path.endsWith('/home/.sdlc-cache/github/github_com/acme/widgets.json');
-        return ok ? true : `FAIL ${output}`;
 
 - description: "github-sdlc/check G1: a cache without labels is incomplete"
   vars:
@@ -1897,15 +1889,7 @@
           && JSON.stringify(ops[1].unknownHeadings) === '["Extra"]'
           && JSON.stringify(ops[2].missingRequired) === '["Problem"]' && ops[2].unknownHeadings.length === 0;
         return ok ? true : `FAIL ${output}`;
-
-- description: "github-sdlc/payload-content R13: markers and template comments are placeholders; GitHub markdown and bracketed text outside the template are not"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
-    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@"
-    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
-  assert:
+    # from: github-sdlc/payload-content R13: markers and template comments are placeholders; GitHub markdown and bracketed text outside the template are not
     - type: javascript
       value: |
         const o = JSON.parse(output);
@@ -1916,15 +1900,7 @@
           && ops[5].placeholders.length === 1 && ops[5].placeholders[0].kind === 'bracket'
           && ops[6].placeholders.length === 0;
         return ok ? true : `FAIL ${output}`;
-
-- description: "github-sdlc/payload-content R15: a long title, a filler opening and prose under Acceptance Criteria are findings"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
-    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@"
-    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
-  assert:
+    # from: github-sdlc/payload-content R15: a long title, a filler opening and prose under Acceptance Criteria are findings
     - type: javascript
       value: |
         const o = JSON.parse(output);
@@ -1933,6 +1909,12 @@
           && ops[14].fillerOpening === true && ops[7].fillerOpening === false
           && JSON.stringify(ops[8].nonChecklistAcceptance) === '["The bug is fixed."]';
         return ok ? true : `FAIL ${output}`;
+    # from: github-sdlc/payload-content G10 C8: a comment holding a placeholder exits 1 without --auto
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const p = o.json.ops[13].placeholders;
+        return o.exit === 1 && p.length === 1 && p[0].text === '{summary}' ? true : `FAIL ${output}`;
 
 - description: "github-sdlc/payload-content R16 R34: mentions skip code, comments and need not be assignable; refs and autoBlockers"
   vars:
@@ -1955,29 +1937,7 @@
           && JSON.stringify(ops[12].crossRepoRefs) === '["https://github.com/acme/other/issues/9"]'
           && ops[12].autoBlockers.includes('crossRepoRefs') && ops[12].autoApprovable === false;
         return ok ? true : `FAIL ${output}`;
-
-- description: "github-sdlc/payload-content G10 C8: a comment holding a placeholder exits 1 without --auto"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
-    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@"
-    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
-  assert:
-    - type: javascript
-      value: |
-        const o = JSON.parse(output);
-        const p = o.json.ops[13].placeholders;
-        return o.exit === 1 && p.length === 1 && p[0].text === '{summary}' ? true : `FAIL ${output}`;
-
-- description: "github-sdlc/payload-content G10 C8: a comment holding a placeholder exits 1 with --auto"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
-    script_args: "-- --check-payload --input @FIX:github-sdlc-inputs/payloads-content.json@ --auto"
-    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
-  assert:
+    # from: github-sdlc/payload-content G10 C8: a comment holding a placeholder exits 1 with --auto
     - type: javascript
       value: |
         const o = JSON.parse(output);
@@ -2026,15 +1986,7 @@
           && ops[1].live.issues['acme/widgets#20'].isPullRequest === true && ops[0].isPullRequest === false
           && !o.calls.some((c) => c.argv[1] === 'graphql' && c.argv.includes('--field=number=20'));
         return ok ? true : `FAIL ${output}`;
-
-- description: "github-sdlc/payload-live R19: a self sub-issue is selfLink; a parent that descends from the target and a missing issue are findings"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
-    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --check-payload --input @FIX:github-sdlc-inputs/payloads-live.json@'
-    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
-  assert:
+    # from: github-sdlc/payload-live R19: a self sub-issue is selfLink; a parent that descends from the target and a missing issue are findings
     - type: javascript
       value: |
         const o = JSON.parse(output);
@@ -2045,15 +1997,7 @@
           && JSON.stringify(ops[4].errors) === '["addBlockedBy 999: acme/widgets#999 does not exist"]'
           && ops[4].live.issues['acme/widgets#999'].exists === false;
         return ok ? true : `FAIL ${output}`;
-
-- description: "github-sdlc/payload-live R12: an edit with template existing checks only the headings it adds"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
-    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --check-payload --input @FIX:github-sdlc-inputs/payloads-live.json@'
-    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
-  assert:
+    # from: github-sdlc/payload-live R12: an edit with template existing checks only the headings it adds
     - type: javascript
       value: |
         const o = JSON.parse(output);
@@ -2061,6 +2005,20 @@
         const ok = ops[5].templateMissing === false && ops[5].unknownHeadings.length === 0
           && ops[6].templateMissing === false && JSON.stringify(ops[6].unknownHeadings) === '["Extra"]';
         return ok ? true : `FAIL ${output}`;
+    # from: github-sdlc/payload-live R8: with a complete cache no metadata call runs; every per-issue call is an R37 read
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const lines = o.calls.map((c) => c.argv.join(' '));
+        const metadata = lines.filter((l) => /^(label|project) |\/labels|\/milestones|\/assignees|assignableUsers|projectV2|__type|issueTypes|field-list/.test(l));
+        const isRest = (a) => a.length === 3 && a[0] === 'api' && /^repos\/acme\/widgets\/issues\/[1-9]\d*$/.test(a[1]) && a[2] === '--hostname=github.com';
+        const isLiveQuery = (a) => a.length === 7 && a[0] === 'api' && a[1] === 'graphql' && a[2] === '--hostname=github.com'
+          && a[3].startsWith('--raw-field=query=') && a[3].includes('projectItems') && a[3].includes('parent{')
+          && a[4] === '--field=owner=acme' && a[5] === '--field=name=widgets' && /^--field=number=[1-9]\d*$/.test(a[6]);
+        const perIssue = o.calls.map((c) => c.argv).filter((a) => a[1] === 'graphql' || /\/issues\//.test(a[1] || ''));
+        const bad = perIssue.filter((a) => !isRest(a) && !isLiveQuery(a));
+        const ok = metadata.length === 0 && bad.length === 0 && perIssue.some(isRest) && perIssue.some(isLiveQuery);
+        return ok ? true : `FAIL metadata=${JSON.stringify(metadata)} bad=${JSON.stringify(bad)}`;
 
 - description: "github-sdlc/payload-live R34: a Status set on an item already on board acme 2 is auto; on an issue not on it, notExistingItem"
   vars:
@@ -2078,28 +2036,6 @@
           && off.autoApprovable === false && off.autoBlockers.includes('notExistingItem')
           && off.commands[0][2] === '--id=<item-id>' && o.json.autoApprovable === false;
         return ok ? true : `FAIL ${output}`;
-
-- description: "github-sdlc/payload-live R8: with a complete cache no metadata call runs; every per-issue call is an R37 read"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
-    script_args: '--config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --check-payload --input @FIX:github-sdlc-inputs/payloads-live.json@'
-    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
-    script_home: "fixtures-fs/github-sdlc-home"
-    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": "", "GH_STUB_DATA": "live"}'
-  assert:
-    - type: javascript
-      value: |
-        const o = JSON.parse(output);
-        const lines = o.calls.map((c) => c.argv.join(' '));
-        const metadata = lines.filter((l) => /^(label|project) |\/labels|\/milestones|\/assignees|assignableUsers|projectV2|__type|issueTypes|field-list/.test(l));
-        const isRest = (a) => a.length === 3 && a[0] === 'api' && /^repos\/acme\/widgets\/issues\/[1-9]\d*$/.test(a[1]) && a[2] === '--hostname=github.com';
-        const isLiveQuery = (a) => a.length === 7 && a[0] === 'api' && a[1] === 'graphql' && a[2] === '--hostname=github.com'
-          && a[3].startsWith('--raw-field=query=') && a[3].includes('projectItems') && a[3].includes('parent{')
-          && a[4] === '--field=owner=acme' && a[5] === '--field=name=widgets' && /^--field=number=[1-9]\d*$/.test(a[6]);
-        const perIssue = o.calls.map((c) => c.argv).filter((a) => a[1] === 'graphql' || /\/issues\//.test(a[1] || ''));
-        const bad = perIssue.filter((a) => !isRest(a) && !isLiveQuery(a));
-        const ok = metadata.length === 0 && bad.length === 0 && perIssue.some(isRest) && perIssue.some(isLiveQuery);
-        return ok ? true : `FAIL metadata=${JSON.stringify(metadata)} bad=${JSON.stringify(bad)}`;
 
 - description: "github-sdlc/payload-live C6: a failed live read is a finding with its class"
   vars:

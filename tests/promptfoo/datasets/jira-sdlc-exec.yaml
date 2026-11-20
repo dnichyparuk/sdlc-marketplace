@@ -251,6 +251,16 @@
       value: |
         const o = JSON.parse(output);
         return Array.isArray(o.candidateSites) && o.candidateSites.length === 0 && o.exists === false ? true : `FAIL: ${output}`;
+    # from: jira-prepare: (P10) without --force-refresh flags.forceRefresh is false
+    - type: javascript
+      value: |
+        const o = JSON.parse(output.trim());
+        return o.flags.forceRefresh === false;
+    # from: jira-prepare: --project accepted when it is in jira.projects
+    - type: not-icontains
+      value: "is not in jira.projects"
+    - type: icontains
+      value: '"projectKey": "FOO"'
 
 - description: "jira-prepare: legacy .sdlc/jira-cache migration — emits warning, populates home layout"
   vars:
@@ -324,19 +334,6 @@
     - type: icontains
       value: '"forceRefresh": true'
 
-- description: "jira-prepare: (P10) without --force-refresh flags.forceRefresh is false"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
-    script_cwd: "{{project_root}}"
-    script_home: "{{project_root}}"
-    project_root: "file://fixtures-fs/jira-multi-project-config"
-    script_args: "--project FOO --check"
-  assert:
-    - type: javascript
-      value: |
-        const o = JSON.parse(output.trim());
-        return o.flags.forceRefresh === false;
-
 - description: "jira-prepare: --project rejected when not in jira.projects"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
@@ -347,19 +344,6 @@
   assert:
     - type: icontains
       value: "Project BAZ is not in jira.projects: [FOO, BAR]"
-
-- description: "jira-prepare: --project accepted when it is in jira.projects"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
-    script_cwd: "{{project_root}}"
-    script_home: "{{project_root}}"
-    project_root: "file://fixtures-fs/jira-multi-project-config"
-    script_args: "--project FOO --check"
-  assert:
-    - type: not-icontains
-      value: "is not in jira.projects"
-    - type: icontains
-      value: '"projectKey": "FOO"'
 
 - description: "jira-prepare: --site disambiguates multi-candidate to a single cache"
   vars:

@@ -56,14 +56,7 @@
           r.slice_has_body === true &&
           r.slice_has_matched_files === true &&
           r.index_bytes < 8000;
-
-- description: "dimension-effort: dimension effort forwarded in thin index"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-review-manifest-split.js"
-    script_args: "--project-root {{project_root}}"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-manifest-split"
-  assert:
+    # from: dimension-effort: dimension effort forwarded in thin index
     - type: javascript
       value: |
         const r = JSON.parse(output);
@@ -107,29 +100,18 @@
     # not zero (which is what a HEAD-relative bug computed from the main worktree would yield)
     - type: icontains
       value: '"changed_files_count": 1'
-
-- description: "review-prepare (summary_copy_path): manifest emits an absolute review-summary copy path under the state dir, slugged from the branch"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
-    script_args: "--committed --base main"
-    script_cwd: "{{project_root}}/worktrees/wt1"
-    project_root: "file://fixtures-fs/worktree-linked-ahead"
-  assert:
+    # from: review-prepare (summary_copy_path): manifest emits an absolute review-summary copy path under the state dir, slugged from the branch
     # summary_copy_path is absolute and ends with .sdlc/execution/review-summary-<slug>.json (slug of feature/cwd-test)
     - type: regex
       value: '"summary_copy_path": "/[^"]*/\.sdlc/execution/review-summary-feature-cwd-test\.json"'
-
-- description: "review-prepare-post: default run has flags.auto false and post_decision null"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
-    script_args: "--committed --base main"
-    script_cwd: "{{project_root}}/worktrees/wt1"
-    project_root: "file://fixtures-fs/worktree-linked-ahead"
-  assert:
+    # from: review-prepare-post: default run has flags.auto false and post_decision null
     - type: regex
       value: '"auto": false'
     - type: regex
       value: '"post_decision": null'
+    # from: review-prepare-plan: (b) no --plan gives null
+    - type: regex
+      value: '"plan_file": null'
 
 - description: "review-prepare-plan: (a) --plan sets plan_file"
   vars:
@@ -143,16 +125,6 @@
       value: '"plan_file": "/[^"]*/tests/promptfoo/fixtures-fs/ship-todos/plan-3-tasks\.md"'
     - type: not-contains
       value: 'is not a readable file'
-
-- description: "review-prepare-plan: (b) no --plan gives null"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
-    script_args: "--committed --base main"
-    script_cwd: "{{project_root}}/worktrees/wt1"
-    project_root: "file://fixtures-fs/worktree-linked-ahead"
-  assert:
-    - type: regex
-      value: '"plan_file": null'
 
 - description: "review-prepare-plan: (c) unreadable --plan warns"
   vars:
