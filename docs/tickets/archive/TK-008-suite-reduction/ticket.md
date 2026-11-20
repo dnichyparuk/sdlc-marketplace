@@ -3,6 +3,9 @@ id: TK-008
 type: task
 title: Suite reduction (#9426)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-20
+by: [2026-11-19-w-d1-suite-reduction#1, 2026-11-19-w-d1-suite-reduction#2, 2026-11-19-w-d1-suite-reduction#3, 2026-11-19-w-d1-suite-reduction#4, 2026-11-19-w-d1-suite-reduction#5, 2026-11-19-w-d1-suite-reduction#6, 2026-11-19-w-d1-suite-reduction#7, 2026-11-19-w-d1-suite-reduction#8, 2026-11-19-w-d1-suite-reduction#9, 2026-11-19-w-d1-suite-reduction#10, 2026-11-19-w-d1-suite-reduction#11]
 ---
 
 # TK-008: Suite reduction (#9426)
