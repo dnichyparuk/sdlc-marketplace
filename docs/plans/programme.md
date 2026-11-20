@@ -40,7 +40,7 @@ Scope (wave order, 2026-11-19): "D1: #9426 reduction (~8 tasks; lean-w35 lows mo
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | TK-008 | none | ~8 tasks |
+| M1 | TK-008 | `2026-11-19-w-d1-suite-reduction` | ~8 tasks |
 
 ## W-D2: Ship, execute and plan follow-ups
 

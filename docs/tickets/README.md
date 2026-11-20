@@ -13,7 +13,7 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-008](./TK-008-suite-reduction/ticket.md) | task | Suite reduction (#9426) | — | scheduled | W-D1 M1 | — |
+| [TK-008](./TK-008-suite-reduction/ticket.md) | task | Suite reduction (#9426) | — | planned | W-D1 M1 | 2026-11-19-w-d1-suite-reduction#1, 2026-11-19-w-d1-suite-reduction#2, 2026-11-19-w-d1-suite-reduction#3, 2026-11-19-w-d1-suite-reduction#4, 2026-11-19-w-d1-suite-reduction#5, 2026-11-19-w-d1-suite-reduction#6, 2026-11-19-w-d1-suite-reduction#7, 2026-11-19-w-d1-suite-reduction#8, 2026-11-19-w-d1-suite-reduction#9, 2026-11-19-w-d1-suite-reduction#10, 2026-11-19-w-d1-suite-reduction#11 |
 | [TK-009](./TK-009-removed-phrase-cases/ticket.md) | task | Update exec cases of removed phrases (#9445) | — | scheduled | W-D2 M1 | — |
 | [TK-010](./TK-010-commit-waits-drafter/ticket.md) | task | Commit step waits for its message drafter (#9446) | — | scheduled | W-D2 M1 | — |
 | [TK-011](./TK-011-r74-rerun-lanes/ticket.md) | task | R74 re-check keeps the rerun lanes (#9449) | — | scheduled | W-D2 M1 | — |
