@@ -36,7 +36,8 @@ const path = require('node:path');
 const LIB = path.join(__dirname, '..', 'lib');
 
 const { exec, checkGitState, splitDiffByFile } = require(path.join(LIB, 'git'));
-const { readSection, resolveSdlcRoot } = require(path.join(LIB, 'config'));
+const { readSection } = require(path.join(LIB, 'config'));
+const { resolveActiveWorktreeSafe } = require(path.join(LIB, 'worktree'));
 const { writeOutput } = require(path.join(LIB, 'output'));
 const { writeManifestState, resolveStateDir, slugifyBranch } = require(path.join(LIB, 'state'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
@@ -275,7 +276,7 @@ function main() {
   if (process.argv.includes('--check-message')) {
     process.exit(checkMessageMode(process.argv));
   }
-  const projectRoot = resolveSdlcRoot(); // issue #351: route to main worktree .sdlc/
+  const configRoot = resolveActiveWorktreeSafe(); // R21: project config from the worktree toplevel; state stays in the main checkout (#9444)
   const { noStash, scope, type, amend, auto, noSquashWip, expectedBranch, forceDefaultBranch, subject, messageFile: messageFileArg, expectedSubject, warnings: parseWarnings } = parseArgs(process.argv);
   const messageFile = messageFileArg ? path.resolve(messageFileArg) : messageFileArg;
 
@@ -284,7 +285,7 @@ function main() {
 
   // Issue #232: verifyAndMigrate gate (CLI > env > default false).
   const skipConfigCheck = resolveSkipConfigCheck(process.argv);
-  const cv = ensureConfigVersion(projectRoot, { skip: skipConfigCheck, roles: ['project'] });
+  const cv = ensureConfigVersion(configRoot, { skip: skipConfigCheck, roles: ['project'] });
   if (cv.errors.length > 0) {
     for (const e of cv.errors) errors.push(`config-version: ${e.role}: ${e.message}`);
     writeOutput({ errors, warnings, flags: { skipConfigCheck }, migration: cv.migration }, 'commit-context', 1);
@@ -321,7 +322,7 @@ function main() {
   // Step 3b: Read commit config
   let commitConfig = null;
   try {
-    commitConfig = readSection(projectRoot, 'commit');
+    commitConfig = readSection(configRoot, 'commit');
   } catch (err) {
     warnings.push(`Could not read commit config: ${err.message}`);
   }

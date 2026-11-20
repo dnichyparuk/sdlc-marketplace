@@ -193,6 +193,17 @@
     - type: icontains
       value: 'plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md'
 
+- description: "script-resolution: (R-subagent-brief) ship dispatch prompt and six step agents carry the plugin root line"
+  vars:
+    script_path: "-e"
+    script_args: '((r=(p)=>require("fs").readFileSync("{{repo_root}}/"+p,"utf8"),c=(t,n)=>t.split(n).length-1,S="The~task~message~carries~a~`sdlc~plugin~root:~<path>`~line:~use~that~path~wherever~the~skill~substitutes~`<PLUGIN_ROOT>`~from~the~`sdlc~plugin~root:`~line,~and~never~derive~the~plugin~root~from~the~skill\x27s~base~directory~(ship-sdlc~R-subagent-brief).".split("~").join("\x20"))=>console.log(JSON.stringify({s:c(r("plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md"),"\\nsdlc\x20plugin\x20root:\x20<PLUGIN_ROOT>\\n"),a:["commit","review","received-review","version","pr","execute"].map((n)=>c(r("plugins/sdlc-utilities/agents/ship-step-"+n+".md"),S))})))()'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.s === 1 && JSON.stringify(o.a) === '[1,1,1,1,1,1]') return true;
+        return { pass: false, score: 0, reason: output };
+
 - description: "ask-auto-branch: passes a guarded site and a prohibition line"
   vars:
     script_path: "repo://.claude/skills/validate-plugin-consistency/check-consistency.js"

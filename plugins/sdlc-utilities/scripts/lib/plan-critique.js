@@ -219,7 +219,7 @@ function diffMaterial(beforeText, afterText, { full = false, prevDir = null } = 
     lenses: all ? afterRoute.lenses : sets.affectedLanes.filter(l => l.startsWith('lens:')).map(l => l.slice(5)).sort(),
   };
   const material = triggers.length > 0;
-  return { material, triggers, details, ...sets, rerun, dispatch, recheckLanes: material ? dispatch.lanes : [], review: afterRoute };
+  return { material, triggers, details, ...sets, rerun, dispatch, recheckLanes: dispatch.lanes, review: afterRoute };
 }
 
 /** Lanes and lenses whose previous result in prevDir is blocking or unreadable: they must be re-dispatched (R67). */

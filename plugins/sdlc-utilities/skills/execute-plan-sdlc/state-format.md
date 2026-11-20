@@ -79,6 +79,8 @@ If there is only one worktree entry (no linked worktrees), the main working tree
 | `totalTasks` | number        | Total number of tasks across all waves.                                              |
 | `selection` | object \| null | The run's task or wave selection (execute R43): `{ tasks, fromWave, taskIds }` as the prepare script emits it in `flags.selection`, recorded by `init --selection`; `null` when the run has none. On resume the recorded selection wins over the CLI. |
 | `waves`      | array         | Ordered list of wave records (see below).                                            |
+| `specReviewRequired` | boolean | Stamped `true` by `init` (R94). While it is `true`, the verifying cleanup and `verify-completeness --final` fail (exit 65, `specReview: "unrecorded"`) until `specReview` holds a record. Absent on older state files, which are not checked. |
+| `specReview` | object \| absent | Written by `spec-review --status ran\|skipped --reason <text>` (R94): `{ status, reason, at }`. `status` is `"ran"` or `"skipped"`; `reason` is the verdict or the skip rule; `at` is an ISO 8601 UTC timestamp. A second call replaces the record. |
 | `worktree`   | string \| absent | Absolute realpath of the active worktree at init. Optional, absent on pre-#501 state files. Display/diagnostic metadata only—does not affect state file location keying or resume behavior. Used to scope the session-start banner to the active worktree. |
 | `context`    | object        | Accumulated cross-wave context enabling fresh-session resume (see below).            |
 

@@ -394,6 +394,8 @@ For each change: make the edit, verify it compiles/passes tests, then move to th
 
 **A refusal is a stop (R36).** When a check or script you run to verify a fix refuses to run and names its guard (for example an owner-only script that exits because `CLAUDECODE` or `CI` is set, or `--owner` is missing), never change the environment or the command to get past it: do not unset, export or override a variable, add a flag such as `--owner`, or run the command through another shell or wrapper. A command that the project notes or its own refusal mark as owner-only is never a verification step of a fix: run another real check, or name the check you did not run. Keep the fix in the working tree, name each check that did not run and its refusal message in the Step 12 summary (on a path that skips Step 12, in the final report or the failure text), and go on with the other items; this holds also under `--auto` and the R18 bypass.
 
+**Removed phrases (R38).** When the project has `tests/promptfoo/datasets`, before a fix removes or rewords a sentence, phrase, name or count, run `git grep -n -F -- "<old text>" tests/promptfoo/datasets` as one plain Bash call. Update every case that counts or asserts the old text in the same change set as the fix, and name those cases in the Step 12 summary. A case that must keep the old text is a reason to keep the phrase, not to skip the update.
+
 Do NOT batch changes across items.
 
 **Items marked "disagree", "needs discussion" or "below threshold":** Do NOT implement — await reviewer or

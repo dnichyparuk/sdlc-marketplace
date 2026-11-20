@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.3] - 2026-11-20
+
+### Fixed
+- plan-sdlc: the R74 re-check keeps the rerun lanes after a non-material fix, and PF13 accepts `Modify:` entries whose note starts with `delete` (TK-009, TK-018).
+- execute-plan-sdlc: Step 8-bis records the final spec review with `state/execute.js spec-review`, `cleanup` and `verify-completeness --final` fail a run with no record, and spec-review skip rules are stated per cadence.
+- ship-sdlc: step agents get the plugin root line, the commit agent waits for its drafter, a ship summary file is written, the Stop hook stays quiet while a step agent is live, and state lookups match the exact branch.
+- commit-sdlc, received-review-sdlc: project config is read from the linked worktree, while local.json and state stay in the main checkout.
+- received-review-sdlc: the fix step updates exec cases that count a phrase the fix removes.
+- state: gc also sweeps ship-summary and review-rounds files of gone branches and keeps live ones.
+
 ## [0.57.2] - 2026-11-20
 
 ### Changed

@@ -103,6 +103,9 @@
   - Acceptance: behavioural; verified by review: an `--auto --min-severity high` run with one high "needs discussion" item returns failure with options fix and defer.
 - R36: A refusal is a stop. When a check or script that Step 11 runs to verify a fix refuses to run and names its guard (for example an owner-only script that exits because `CLAUDECODE` or `CI` is set, or `--owner` is missing), the skill never changes the environment or the command to get past it: no unset, export or override of a variable, no added flag such as `--owner`, no other shell or wrapper. A command that the project notes or its own refusal mark as owner-only is never a verification step of a fix: the skill runs another real check, or names the check it did not run. The fix stays in the working tree; the Step 12 summary (and, in a ship run, the step result) names each check that did not run and its refusal message. The run goes on with the other items; this holds also under `--auto` and the R18 bypass.
   - Acceptance: exec case `rr-refusal: (a)` (SKILL.md Step 11, the DO NOT list and `agents/ship-step-received-review.md` carry the R36 rule).
+- R37: Config root. `skill/received-review.js` reads `.sdlc/config.json`, review dimensions, guardrails and git state from the active worktree toplevel; the `receivedReview` settings in `.sdlc/local.json` stay in the main checkout. `--project-root` sets both.
+  - Acceptance: exec case `received-review-prepare (R37):`.
+- R38 (Removed phrases): when the project has `tests/promptfoo/datasets`, Step 11 greps `tests/promptfoo/datasets` for each phrase a fix removes or rewords and updates the cases that count or assert it in the same change set. Acceptance: exec case `rr-skill-text: (R38)`.
 
 ### Step-emitter contract
 
@@ -243,6 +246,8 @@ Critique 2 (responses):
 | R34 | doc-versus-spec findings checked against the code (ledger F-58), #9365 |
 | R35 | open decisions stop an unattended run (ledger F-53), #9372 |
 | R36 | a script refusal is a stop; owner-only commands are never a fix check (ledger F-152), #9459 (#9457) |
+| R37 | config root in a linked worktree, W-D2 (TK-017) |
+| R38 | removed-phrase cases updated with the fix, W-D2 (TK-009) |
 | R28 | run-time scope widening for copies (ledger F-62(b)) rejected in favour of the plan-time copy check (plan-sdlc R71(d)), #9368 |
 | R22 | per issue #429 table |
 | P8 | (issue #233) |

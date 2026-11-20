@@ -185,6 +185,18 @@
         const o = JSON.parse(output.split('\n')[0]);
         return o.status === 2 && o.stderr.includes('is not a readable file.') && o.stderr.includes('--comment-file') ? true : `FAIL: ${output}`;
 
+- description: "received-review-prepare (R37): in a linked worktree projectRoot is the worktree, localRoot the main checkout; --project-root sets both"
+  vars:
+    script_path: "-e"
+    script_args: '((p,a,b)=>console.log(JSON.stringify({wt:a.projectRoot.endsWith("/worktrees/wt1"),main:!a.localRoot.includes("/worktrees/"),both:b.projectRoot===b.localRoot&&b.localRoot.endsWith("/zz")})))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs,require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs(["node","x"]),require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs(["node","x","--project-root","/tmp/zz"]))'
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/project-linked-worktree-config"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.wt === true && o.main === true && o.both === true ? true : `FAIL: ${output}`;
+
 - description: "rr-comment-file: (c) parseArgs carries commentFile"
   vars:
     script_path: "-e"
@@ -396,6 +408,18 @@
       value: |
         const o = JSON.parse(output);
         return o.auto === 2 && o.verdict === 2 ? true : `FAIL: ${output}`;
+
+- description: "rr-skill-text: (R38) removed-phrase rule in SKILL.md Step 11 and ship-step-received-review"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,r)=>((s,a)=>((c)=>console.log(JSON.stringify({step:c(s,"**Removed\x20phrases\x20(R38).**"),agent:c(a,"(received-review-sdlc\x20R38)")})))((t,x)=>t.split(x).length-1))(fs.readFileSync(r+"/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"),fs.readFileSync(r+"/plugins/sdlc-utilities/agents/ship-step-received-review.md","utf8")))(require("fs"),"{{repo_root}}")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-received-review-scope"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.step === 1 && o.agent === 1 ? true : `FAIL: ${output}`;
 
 - description: "rr-refusal: (a) R36 refusal rule in SKILL.md Step 11, the DO NOT list and ship-step-received-review"
   vars:

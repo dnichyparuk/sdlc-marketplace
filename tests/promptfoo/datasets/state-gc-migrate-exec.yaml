@@ -352,3 +352,84 @@
       value: |
         const d = JSON.parse(output);
         return d.out.deleted.length === 1 && d.staleGone === true && d.freshKept === true;
+
+# ---------------------------------------------------------------------------
+# R111 (ship-sdlc spec) — lib/state.js matches the exact branch, not a name prefix
+# Fixture state-exact-branch: ship-fix-a-…01 (branch fix/a), ship-fix-a-…02
+# (branch fix-a), ship-fix-…03 (branch fix). Each case sets mtimes so the fix
+# file is oldest and the fix-a file newest: a prefix or slug-only match picks it.
+# Every case works on a temp copy of the fixture state dir, so reruns see the same files.
+# ---------------------------------------------------------------------------
+
+- description: "state-exact-branch: state/ship.js read picks the fix/a, fix-a and fix ledgers by exact branch (R111)"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,cp,d,js)=>(fs.utimesSync(d+"/ship-fix-a-20261101T000000Z.json",2000,2000),fs.utimesSync(d+"/ship-fix-a-20261102T000000Z.json",3000,3000),fs.utimesSync(d+"/ship-fix-20261103T000000Z.json",1000,1000),((run)=>console.log(JSON.stringify({slash:run("fix/a"),dash:run("fix-a"),fix:run("fix")})))((b)=>((r)=>({status:r.status,branch:r.status===0?JSON.parse(r.stdout).branch:r.stderr}))(cp.spawnSync("node",[js,"read","--branch",b],{encoding:"utf8",env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:b})})))))(require("fs"),require("child_process"),((t)=>(require("fs").cpSync(process.cwd()+"/.sdlc/execution",t,{recursive:true}),t))(require("fs").mkdtempSync(require("os").tmpdir()+"/seb-")),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/ship.js")'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/state-exact-branch"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.slash.status === 0 && o.slash.branch === 'fix/a' &&
+                   o.dash.status === 0 && o.dash.branch === 'fix-a' &&
+                   o.fix.status === 0 && o.fix.branch === 'fix';
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "state-exact-branch: file names keep the slug format, slugifyBranch('fix/a') is fix-a (R111)"
+  vars:
+    script_path: "-e"
+    script_args: '((s,d)=>(process.env.SDLC_STATE_DIR_OVERRIDE=d,console.log(JSON.stringify({slug:s.slugifyBranch("fix/a"),file:s.initState("ship","fix/a",{branch:"fix/a"}).split("/").pop()}))))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js"),((t)=>(require("fs").cpSync(process.cwd()+"/.sdlc/execution",t,{recursive:true}),t))(require("fs").mkdtempSync(require("os").tmpdir()+"/seb-")))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/state-exact-branch"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.slug === 'fix-a' && /^ship-fix-a-\d{8}T\d{6}Z\.json$/.test(o.file) ? true : `FAIL: ${output}`;
+
+- description: "state-exact-branch: readState and detectResumeState return the same exact-branch file twice, skip ship-summary (R111)"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,s,d)=>(process.env.SDLC_STATE_DIR_OVERRIDE=d,process.env.SDLC_BRANCH_OVERRIDE="fix/a",fs.utimesSync(d+"/ship-fix-a-20261101T000000Z.json",2000,2000),fs.utimesSync(d+"/ship-fix-a-20261102T000000Z.json",3000,3000),fs.utimesSync(d+"/ship-fix-20261103T000000Z.json",1000,1000),fs.writeFileSync(d+"/ship-summary-x.json","{}"),console.log(JSON.stringify({read:[s.readState("ship","fix-a"),s.readState("ship","fix-a")].map((r)=>r&&r.filePath.split("/").pop()),any:[s.detectResumeState({prefix:"ship"}),s.detectResumeState({prefix:"ship"})].map((r)=>r.stateFile.split("/").pop()),slash:s.detectResumeState({prefix:"ship",branch:"fix/a"}).stateFile.split("/").pop()}))))(require("fs"),require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js"),((t)=>(require("fs").cpSync(process.cwd()+"/.sdlc/execution",t,{recursive:true}),t))(require("fs").mkdtempSync(require("os").tmpdir()+"/seb-")))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/state-exact-branch"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = o.read[0] === 'ship-fix-a-20261101T000000Z.json' && o.read[1] === o.read[0] &&
+                   o.any[0] === 'ship-fix-a-20261102T000000Z.json' && o.any[1] === o.any[0] &&
+                   o.slash === 'ship-fix-a-20261101T000000Z.json';
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "state-exact-branch: pruneStateFiles('ship','fix-a','fix/a') twice removes the fix/a file once, keeps fix-a (R111)"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,s,d)=>(process.env.SDLC_STATE_DIR_OVERRIDE=d,console.log(JSON.stringify({first:s.pruneStateFiles("ship","fix-a","fix/a"),second:s.pruneStateFiles("ship","fix-a","fix/a"),left:fs.readdirSync(d).sort()}))))(require("fs"),require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js"),((t)=>(require("fs").cpSync(process.cwd()+"/.sdlc/execution",t,{recursive:true}),t))(require("fs").mkdtempSync(require("os").tmpdir()+"/seb-")))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/state-exact-branch"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const ok = JSON.stringify(o.first) === '["ship-fix-a-20261101T000000Z.json"]' &&
+                   o.second.length === 0 &&
+                   o.left.includes('ship-fix-a-20261102T000000Z.json') &&
+                   o.left.includes('ship-fix-20261103T000000Z.json');
+        return ok ? true : `FAIL: ${output}`;
+
+- description: "state-exact-branch: gcStateFiles sweeps ship-summary and review-rounds files of gone branches, keeps live ones (R109)"
+  vars:
+    script_path: "-e"
+    script_args: '((fs,s,d)=>(process.env.SDLC_STATE_DIR_OVERRIDE=d,["ship-summary-gone.json","ship-summary-live.json","review-rounds-gone.json"].forEach((n)=>fs.writeFileSync(d+"/"+n,"{}")),console.log(JSON.stringify({r:s.gcStateFiles({ttlDays:0,knownBranches:["live"]}),left:fs.readdirSync(d).sort()}))))(require("fs"),require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js"),require("fs").mkdtempSync(require("os").tmpdir()+"/gcs-"))'
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/state-exact-branch"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const del = o.r.deleted.map((x) => x.file).sort();
+        const ok = JSON.stringify(del) === '["review-rounds-gone.json","ship-summary-gone.json"]' &&
+                   o.left.includes('ship-summary-live.json') && !o.left.includes('ship-summary-gone.json');
+        return ok ? true : `FAIL: ${output}`;

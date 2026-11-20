@@ -203,7 +203,9 @@ After mechanical verification passes (git diff + canary checks), a spec complian
 
 **Cadence (`execute.specReviewer`):** `once` (default) runs one review after the final wave (Step 8-bis), covering every non-trivial task of every wave; `per-wave` reviews after every wave that has a non-trivial task. `--quality quality` (deprecated alias `minimal`) forces `per-wave` and warns when the config set `once`. The Speed tier (`--quality speed`) does not skip the review.
 
-**Skipped when:** the reviewed tasks are all Trivial.
+**Skipped when:** the reviewed tasks are all Trivial; the cadence is `per-wave` and the plan has no OpenSpec specs; or the cadence is `per-wave`, every per-wave review passed and the plan has 3 or fewer waves (this skips the OpenSpec completeness check too). Otherwise the OpenSpec completeness check runs when specs exist. The small-plan path (no state file) records nothing.
+
+Step 8-bis always records whether the final review ran or which rule skipped it; the state cleanup fails a run with no record.
 
 If the reviewer finds issues:
 - 1–2 minor issues → fixed inline in the main context

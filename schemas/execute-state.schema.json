@@ -41,6 +41,18 @@
     "worktree": {
       "type": "string"
     },
+    "specReviewRequired": {
+      "type": "boolean"
+    },
+    "specReview": {
+      "type": "object",
+      "required": ["status", "reason", "at"],
+      "properties": {
+        "status": { "enum": ["ran", "skipped"] },
+        "reason": { "type": "string" },
+        "at": { "type": "string" }
+      }
+    },
     "sessionId": {
       "oneOf": [
         {

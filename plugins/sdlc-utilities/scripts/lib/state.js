@@ -152,15 +152,37 @@ function resolveHookContext(payload) {
 // File lookup
 // ---------------------------------------------------------------------------
 
+/** R111: the branch a lookup means — the caller's, else the checked-out branch when its slug matches. */
+function expectedBranch(branchSlug, branch) {
+  if (typeof branch === 'string' && branch) return branch;
+  const cur = process.env.SDLC_BRANCH_OVERRIDE || branchFromHeadFile(process.cwd());
+  return cur && slugifyBranch(cur) === branchSlug ? cur : null;
+}
+
+/** R111: a file whose JSON names another branch is skipped; a missing or unreadable branch field matches. */
+function branchMatches(fullPath, want) {
+  if (want === null) return true;
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+  } catch (_) {
+    return true;
+  }
+  return !data || typeof data.branch !== 'string' || data.branch === want;
+}
+
 /**
- * Find the most recent state file matching `<prefix>-<branchSlug>-*.json`.
+ * Find the most recent state file named `<prefix>-<branchSlug>-<timestamp>.json`
+ * (parsed by `parseStateFilename`, exact prefix and slug) whose JSON `branch`
+ * is the expected branch (R111, see `expectedBranch` / `branchMatches`).
  * @param {string} prefix      e.g. `"ship"`, `"execute"`, or `"plan"`
  * @param {string} branchSlug  Slugified branch name (via slugifyBranch)
+ * @param {string} [branch]    Raw branch name; defaults to the checked-out branch when its slug matches
  * @returns {{ file: string, fullPath: string } | null}
  *   `file` is relative to the state directory parent (`".sdlc/execution/<filename>"`),
  *   `fullPath` is the absolute path.
  */
-function findStateFile(prefix, branchSlug) {
+function findStateFile(prefix, branchSlug, branch) {
   const stateDir = resolveStateDir();
   if (!fs.existsSync(stateDir)) return null;
 
@@ -171,14 +193,14 @@ function findStateFile(prefix, branchSlug) {
     return null;
   }
 
-  // Match files like: <prefix>-<branchSlug>-<timestamp>.json
-  // Use delimiter-aware matching to avoid "main" matching "fix-maintain-feature"
-  const slugPattern = `${prefix}-${branchSlug}-`;
+  // R111: exact match on the parsed name (`fix` never matches `ship-fix-a-…`),
+  // then on the JSON branch (`fix/a` and `fix-a` share one slug).
+  const want = expectedBranch(branchSlug, branch);
   const matching = entries
-    .filter(f =>
-      f.startsWith(slugPattern) &&
-      f.endsWith('.json')
-    )
+    .filter(f => {
+      const p = parseStateFilename(f);
+      return p && p.prefix === prefix && (branchSlug === null || p.slug === branchSlug);
+    })
     .map(f => {
       const fullPath = path.join(stateDir, f);
       try {
@@ -188,7 +210,7 @@ function findStateFile(prefix, branchSlug) {
         return null;
       }
     })
-    .filter(Boolean)
+    .filter(m => m && branchMatches(m.fullPath, want))
     .sort((a, b) => b.mtime - a.mtime);
 
   if (matching.length === 0) return null;
@@ -204,10 +226,11 @@ function findStateFile(prefix, branchSlug) {
  * Locate the most recent `<prefix>-*.json` state file in the canonical
  * execution directory.
  *
- * Selection rule (canonical for the project):
- *   1. If `branch` is supplied, slugify it via `slugifyBranch` and filter
- *      filenames to those starting with `<prefix>-<slug>-`.
- *   2. If `branch` is omitted, accept any file with the given prefix.
+ * Selection rule (canonical for the project; R111):
+ *   1. Accept only names `parseStateFilename` parses, with exactly `prefix`.
+ *      If `branch` is supplied, the parsed slug must equal `slugifyBranch(branch)`
+ *      and a file whose JSON `branch` names another branch is skipped.
+ *   2. If `branch` is omitted, accept any parsed file with the given prefix.
  *   3. Among the survivors, pick the one with the highest mtimeMs.
  *
  * Adopted from `skill/ship.js::detectResumeState` so that both ship.js
@@ -256,11 +279,16 @@ function detectResumeState({ prefix, branch } = {}) {
     return empty;
   }
 
+  // R111: exact parsed-name match (a `ship-summary-<slug>.json` never matches),
+  // then the JSON branch when a branch is given.
   const branchSlug = branch ? slugifyBranch(branch) : null;
-  const namePrefix = branchSlug ? `${prefix}-${branchSlug}-` : `${prefix}-`;
+  const want = branchSlug ? expectedBranch(branchSlug, branch) : null;
 
   const matching = entries
-    .filter(f => f.startsWith(namePrefix) && f.endsWith('.json'))
+    .filter(f => {
+      const p = parseStateFilename(f);
+      return p && p.prefix === prefix && (branchSlug === null || p.slug === branchSlug);
+    })
     .map(f => {
       const fullPath = path.join(stateDir, f);
       try {
@@ -274,7 +302,7 @@ function detectResumeState({ prefix, branch } = {}) {
         return null;
       }
     })
-    .filter(Boolean)
+    .filter(m => m && branchMatches(m.fullPath, want))
     .sort((a, b) => b.mtime - a.mtime);
 
   if (matching.length === 0) return empty;
@@ -331,10 +359,11 @@ function detectResumeState({ prefix, branch } = {}) {
  * Read and parse the most recent state file for a given prefix + branch.
  * @param {string} prefix
  * @param {string} branchSlug
+ * @param {string} [branch]  Raw branch name (R111, see `findStateFile`)
  * @returns {{ data: object, filePath: string } | null}
  */
-function readState(prefix, branchSlug) {
-  const found = findStateFile(prefix, branchSlug);
+function readState(prefix, branchSlug, branch) {
+  const found = findStateFile(prefix, branchSlug, branch);
   if (!found) return null;
 
   try {
@@ -406,7 +435,7 @@ function writeManifestState(prefix, branch, data) {
   const branchSlug = slugifyBranch(branch);
 
   // Prune-on-write: remove stale same-branch manifests before writing.
-  pruneStateFiles(prefix, branchSlug);
+  pruneStateFiles(prefix, branchSlug, branch);
 
   const timestamp = new Date()
     .toISOString()
@@ -518,10 +547,15 @@ function gcStateFiles({ prefix = null, ttlDays = 7, knownBranches = [], now } = 
   for (const name of entries) {
     if (!name.endsWith('.json')) continue;
 
-    const parsed = parseStateFilename(name);
+    let parsed = parseStateFilename(name);
     if (!parsed) {
-      result.kept.push({ file: name, prefix: null, branch: null, reason: 'unparseable-name' });
-      continue;
+      // R109/R108: `ship-summary-<slug>.json` and `review-rounds-<slug>.json` carry no timestamp; ship.js writes both, so both map to the `ship` prefix that every gc caller sweeps.
+      const side = name.match(/^(ship-summary|review-rounds)-(.+)\.json$/);
+      if (!side) {
+        result.kept.push({ file: name, prefix: null, branch: null, reason: 'unparseable-name' });
+        continue;
+      }
+      parsed = { prefix: 'ship', slug: side[2], timestamp: null };
     }
 
     if (prefix && parsed.prefix !== prefix) continue;
@@ -573,13 +607,15 @@ function gcStateFiles({ prefix = null, ttlDays = 7, knownBranches = [], now } = 
  * consult TTL or branch-existence — same-branch state files predating a new
  * `init` are by definition orphans (one branch hosts one active pipeline).
  *
- * Implements R-ship-init-prune (issue #255).
+ * Implements R-ship-init-prune (issue #255). R111: a file whose JSON `branch`
+ * names another branch with the same slug is kept.
  *
  * @param {string} prefix      "ship" | "execute" | "plan"
  * @param {string} branchSlug  branch slug as produced by `slugifyBranch`
+ * @param {string} [branch]    Raw branch name (R111, see `expectedBranch`)
  * @returns {string[]} filenames that were removed (basename only, not absolute paths)
  */
-function pruneStateFiles(prefix, branchSlug) {
+function pruneStateFiles(prefix, branchSlug, branch) {
   const stateDir = resolveStateDir();
   if (!fs.existsSync(stateDir)) return [];
 
@@ -590,6 +626,7 @@ function pruneStateFiles(prefix, branchSlug) {
     return [];
   }
 
+  const want = expectedBranch(branchSlug, branch);
   const removed = [];
   for (const name of entries) {
     if (!name.endsWith('.json')) continue;
@@ -597,6 +634,7 @@ function pruneStateFiles(prefix, branchSlug) {
     if (!parsed) continue;
     if (parsed.prefix !== prefix) continue;
     if (parsed.slug !== branchSlug) continue;
+    if (!branchMatches(path.join(stateDir, name), want)) continue;
 
     try {
       fs.unlinkSync(path.join(stateDir, name));

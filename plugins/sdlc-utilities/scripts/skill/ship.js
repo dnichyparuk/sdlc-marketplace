@@ -1999,6 +1999,17 @@ function commitSubject(sha, cwd) {
   return r.status === 0 && r.stdout.trim() ? r.stdout.trim() : null;
 }
 
+/** R109: persisted ship summary; a write error never stops the pipeline. */
+function writeShipSummaryFile(ledger, summary) {
+  try {
+    let head = null;
+    try { head = exec('git rev-parse HEAD', { cwd: resolveActiveWorktreeSafe() }) || null; } catch (_) { /* null */ }
+    const file = path.join(resolveStateDir(), `ship-summary-${slugifyBranch(ledger.branch || 'nobranch')}.json`);
+    fs.writeFileSync(file, JSON.stringify({ schemaVersion: 1, branch: ledger.branch, startedAt: ledger.startedAt,
+      head, finalCheck: summary.finalCheck || null, steps: summary.steps, prUrl: summary.prUrl }, null, 2) + '\n');
+  } catch (_) { /* R109 */ }
+}
+
 /** Step 6 report data: step statuses, usage totals, PR url, step commits, review summary path (R78). */
 function buildSummary(ledger) {
   const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
@@ -2808,8 +2819,10 @@ function runAfter(stepArgs) {
   const finalCheckStop = () => {
     ledger.finalCheck.handoff = true; // R104: the next resume re-checks or asks
     ledger.paused = { at: new Date().toISOString(), reason: 'final check open' };
+    const summary = buildSummary(ledger);
+    writeShipSummaryFile(ledger, summary); // R109
     return finish(createEnvelope('done', null, {
-      ext: { ...ext, reason: 'final-check-open', summary: buildSummary(ledger), commands: [resumeCommand(flags, true)] },
+      ext: { ...ext, reason: 'final-check-open', summary, commands: [resumeCommand(flags, true)] },
       stateFile: ledgerPath, progress: progress(),
     }));
   };
@@ -3034,6 +3047,7 @@ function runAfter(stepArgs) {
       fs.writeFileSync(roundsFile, JSON.stringify({ schemaVersion: 1, branch: ledger.branch, startedAt: ledger.startedAt,
         rounds: next.step.data.summary.reviewRounds || [] }, null, 2) + '\n');
     } catch (_) { /* R108: a write error never stops the pipeline */ }
+    writeShipSummaryFile(ledger, next.step.data.summary); // R109
   }
 
   // 7. Persist and emit.

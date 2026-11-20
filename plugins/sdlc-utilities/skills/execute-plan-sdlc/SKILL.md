@@ -570,7 +570,7 @@ The verb rejects unknown keys, non-objects, and empty objects with exit 2 — it
 
 The `state/execute.js` verb surface is unchanged — only the SKILL.md call-site shape shifts (writes happen after wave-runner returns, driven by `WAVE_SUMMARY` data), plus the optional `--files-added` / `--verify-token` / `--decisions` flags documented in the table above.
 
-On successful completion: `node "<PLUGIN_ROOT>/scripts/state/execute.js" cleanup` (verifying cleanup, R14: see **State file cleanup** in Step 9 for its exit handling)
+The verifying cleanup (R14) runs once, in Step 9, after Step 8-bis has recorded its R94 outcome; see **State file cleanup** in Step 9 for its exit handling. Do not run it here.
 
 **5d-bis — OpenSpec task flip (R37, R39).** When `openspec.taskMap` in the prepare output is non-empty → Read `./openspec-tasks.md` and follow its 5d-bis section after the wave's `task-done` writes. Do not read preemptively.
 
@@ -646,9 +646,26 @@ Fix inline if possible; report to user otherwise.
 
 **8-bis. Final spec review (once per run, and OpenSpec completeness):**
 
-Runs when `flags.specReviewer === 'once'` (the once-per-run review of Step 5c-bis; like every 5c-bis review it skips when the reviewed tasks are all Trivial, but the OpenSpec check below still runs) or when `openspecSpecs` is non-empty. Skip this sub-step when `flags.specReviewer === 'per-wave'` and `openspecSpecs` is empty — the per-wave reviews already ran.
+Runs when `flags.specReviewer === 'once'` (the once-per-run review of Step 5c-bis; like every 5c-bis review it skips when the reviewed tasks are all Trivial, but the OpenSpec check below still runs) or when `openspecSpecs` is non-empty, except under the per-wave few-waves rule below. Skip this sub-step when `flags.specReviewer === 'per-wave'` and `openspecSpecs` is empty — the per-wave reviews already ran.
 
-When `flags.specReviewer === 'per-wave'`, also skip if ALL per-wave spec compliance reviews (Step 5c-bis) passed without issues AND the plan has 3 or fewer waves — the per-wave reviews already provided sufficient coverage in that case.
+Record the skip:
+```bash
+node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "per-wave cadence, no OpenSpec specs"
+```
+
+When `flags.specReviewer === 'per-wave'`, also skip if ALL per-wave spec compliance reviews (Step 5c-bis) passed without issues AND the plan has 3 or fewer waves (this rule applies only when `openspecSpecs` is non-empty, because the rule above already skips the rest; the OpenSpec completeness check is skipped too) — the per-wave reviews already provided sufficient coverage in that case.
+
+Record the skip:
+```bash
+node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "per-wave reviews passed, 3 or fewer waves"
+```
+
+When `flags.specReviewer === 'once'`, the reviewed tasks are all Trivial and `openspecSpecs` is empty, skip the reviewer dispatch and record the skip:
+```bash
+node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "all reviewed tasks Trivial"
+```
+
+When `flags.specReviewer === 'once'`, the reviewed tasks are all Trivial but `openspecSpecs` is non-empty, dispatch the reviewer with only the OpenSpec section; do not record a skip, record `ran` after the reviewer returns (below).
 
 Otherwise, dispatch a single spec compliance reviewer (sonnet). Read `./spec-compliance-reviewer.md` for the prompt template. Unlike the per-wave review in Step 5c-bis which provides only that wave's tasks, provide:
 
@@ -662,6 +679,13 @@ The reviewer's focus in this final check is **cross-wave coverage**:
 - Requirements where the sum of per-wave implementations still has gaps
 
 **Verdict handling:** Same as Step 5c-bis — fix inline for 1–2 minor issues, re-dispatch the original task's agent with specific fix instructions for major spec gaps (counts toward the 2-retry budget).
+
+After the reviewer returns, record the outcome:
+```bash
+node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status ran --reason "<verdict>"
+```
+
+On the Step 2b small-plan path there is no state file (R5): skip every `spec-review` call in this step; R94 applies only to states stamped by `init`. Run each of these calls as one plain Bash call; a non-zero exit is reported and the run stops as in Step 5f. Every branch of this step records its outcome (R94); the verifying cleanup fails a run that recorded none.
 
 **8-ter. Learning Capture (runs before Step 9 returns control):**
 
@@ -733,8 +757,8 @@ On failure or interruption (not all tasks completed), preserve the state file. P
 | Final verification | Full suite green |
 | No drift | Tasks match their specifications |
 | No orphans | All created files are referenced/used |
-| Spec compliance reviewed | Non-trivial tasks pass spec review at the `flags.specReviewer` cadence (Step 5c-bis, Step 8-bis) |
-| Final spec completeness | All delta spec requirements covered across all waves (when openspecSpecs available) |
+| Spec compliance reviewed | Non-trivial tasks pass spec review at the `flags.specReviewer` cadence (Step 5c-bis, Step 8-bis); Step 8-bis records its outcome (R94) |
+| Final spec completeness | All delta spec requirements covered across all waves (when openspecSpecs available, unless the per-wave few-waves skip of Step 8-bis applied) |
 | Post-wave guardrail check | Error-severity guardrails pass, fixed, or user overrides; warnings reported (Step 5c-ter) |
 | Completion checklists valid | Each agent's COMPLETE/VERIFY/STATUS block is present and cross-checked |
 | Strict files (G13) | Under `flags.strictFiles`, no wave diff path outside `expectedFiles` (R44, Step 5c 1a) |

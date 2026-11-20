@@ -63,7 +63,7 @@ This skill is for **expert users working on projects with established quality gu
 To enable post-PR CI verification, add `verify-pipeline` to `ship.steps` in `.sdlc/local.json` (or pass it via `--steps`). To await an automated reviewer's verdict, add `await-remote-review`. See R41 / R50 in `docs/specs/ship-sdlc.md`. To validate implementation completeness against the spec before archiving, add `verify-openspec` between `version` and `archive-openspec` — requires a matched OpenSpec change (`flags.openspecChange`, or auto-detection by branch name or git diff); the step is skipped with a clear reason when neither is present.
 
 
-**Workspace is auto-detected (#378, #379):** There is no workspace flag. ship-sdlc derives the workspace from your cwd and current branch — on the **main worktree on the default branch** it auto-creates a feature branch (`git checkout -b`); on a **feature branch or inside a manual git worktree** it runs in place. The removed flags `--workspace`, `--branch`, and `--tree` are rejected with a clear error. The version step always runs when in `steps[]` (tags are repo-global, writable from any checkout) — there is no worktree-mode version skip or `skip-version-check` PR label.
+**Workspace is auto-detected (#378, #379):** There is no workspace flag. ship-sdlc derives the workspace from your cwd and current branch — on the **main worktree on the default branch** it auto-creates a feature branch (`git checkout -b`); on a **feature branch or inside a manual git worktree** it runs in place. The removed flags `--workspace`, `--branch`, and `--tree` are rejected with a clear error. The version step always runs when in `steps[]` (tags are repo-global, writable from any checkout) — there is no worktree-mode version skip or `skip-version-check` PR label. State, execution and learnings files (ledgers, `review-summary.json`, `review-rounds-<slug>.json`, `ship-summary-<slug>.json`, `.sdlc/learnings/log.md`) go to the main checkout's `.sdlc/` even when ship runs in a linked worktree; saved review reports (`review-sdlc --post save`, `.sdlc/reviews/`) go to the active worktree.
 
 **Removed (#190 hard-remove):** `--preset` and `--skip` are no longer accepted. Passing either produces an error pointing at `--steps <csv>` (for step composition) and `--quality <speed|balanced|quality>` (`full` and `minimal` are deprecated aliases) (for the execute-plan-sdlc model tier). Legacy on-disk v1 configs (`ship.preset`/`ship.skip`) are still auto-migrated to v2 by `lib/config.js`.
 
@@ -881,6 +881,10 @@ ship-sdlc also removes the intermediate prepare output file (`$PLAN_MODE_OUTPUT_
 - **`--plan <path>` (#505)** — when a plan is present in context and the execute step is not skipped, the plan document must also be passed explicitly via `--plan <path>` (or `--resume` on a branch whose ledger recorded the plan); plan autodiscovery (the old `plansDirectory` scan) was removed and there is no other fallback. Use [`/plan-sdlc`](plan-sdlc.md) to write the plan document, then pass its path.
 - **Workspace is auto-detected** — there is no workspace mode and no cwd assertion. ship-sdlc derives the workspace from cwd + current branch (R60): on the main worktree on the default branch it auto-creates a feature branch; inside a linked worktree or on a feature branch it runs in place. Invoking from inside a manual git worktree is fully supported (`.sdlc/` stays anchored to the main worktree).
 
+### Which plugin copy ship runs
+
+Ship and its step agents run the installed plugin (the plugin root of your session), never the scripts of the worktree being shipped (R112). When a wave ships a change to this plugin itself, that change is not active in the ship run that delivers it. For a feature the wave ships, apply it by hand, or re-install the plugin before you start the ship run, and record that in the PR.
+
 ### Harness Configuration
 
 | Field | Value |
@@ -897,11 +901,13 @@ ship-sdlc also removes the intermediate prepare output file (`$PLAN_MODE_OUTPUT_
 | `.sdlc/local.json` | Developer-local config. Gitignored by `.sdlc/.gitignore` (created by `--init-config` via `ship-init.js`). |
 | `.sdlc/.gitignore` | Internal gitignore that prevents `.sdlc/` contents from being committed. Created by `--init-config` via `ship-init.js`. |
 | `.sdlc/execution/ship-*.json` | Pipeline state file. Holds each step's status plus the `history` and `currentStep` fields. Created at start, deleted on successful completion, retained on failure for `--resume`. |
+| `.sdlc/execution/ship-summary-<slug>.json` | Ship summary file (R109): branch, `startedAt`, `head`, `finalCheck`, `steps` and `prUrl`. Written at cleanup and when the pipeline stops with `final-check-open`; not removed by cleanup; the next run on the branch overwrites it. |
+| `.sdlc/execution/.step-agent-live-<branchSlug>.json` | Live step agents (R110), kept by `hooks/subagent-track.js` on SubagentStart and SubagentStop. |
 | Git commits | Feature commit (step 2) and optionally a review fix commit (step 5). |
 | Git tag | Created by version-sdlc if the version step runs. |
 | GitHub PR | Opened or updated by pr-sdlc as the final step. |
 | `hooks/pipeline-continue.js` (PostToolUse, R67) | Fires after `Bash` tool calls. When a ship state file for the current branch has any step with status `in_progress`, emits `hookSpecificOutput.additionalContext` stating which step is in progress — once per step transition, not after every call. Silent (no stdout) when no state file exists, no step is `in_progress`, the same step was already announced, or git/state resolution fails. Fires regardless of `flags.auto`. |
-| `hooks/stop-pipeline-continue.js` (Stop, R68) | Fires on every Stop event. Returns `decision: "block"` when all four conditions hold: a ship state file exists for the current branch, any step is `in_progress`, `flags.auto === true` in the state file, and `stop_hook_active !== true` on stdin. Silent in all other cases (non-auto, no state file, all resolved, `stop_hook_active === true`). Read-only — never mutates state. |
+| `hooks/stop-pipeline-continue.js` (Stop, R68) | Fires on every Stop event. Returns `decision: "block"` when all four conditions hold: a ship state file exists for the current branch, any step is `in_progress`, `flags.auto === true` in the state file, and `stop_hook_active !== true` on stdin. Silent in all other cases (non-auto, no state file, all resolved, `stop_hook_active === true`). Read-only — never mutates state. It stays quiet while a dispatched step agent works (R110). |
 
 ---
 

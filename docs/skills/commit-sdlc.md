@@ -172,6 +172,8 @@ No external tools or configuration files are required beyond `git`.
 
 Commit message validation is configured in `.sdlc/config.json` under the `commit` key. All fields are optional; if absent, the skill uses auto-detected style from recent commits and does not enforce pattern or type validation.
 
+In a linked worktree the skill reads `.sdlc/config.json` from that worktree (R21); `.sdlc/local.json` and the commit manifest stay in the main checkout.
+
 ### Full Configuration Example
 
 ```json

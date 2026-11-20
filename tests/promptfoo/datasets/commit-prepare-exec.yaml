@@ -19,6 +19,32 @@
     - type: not-icontains
       value: "No staged changes"
 
+# R21 — project config comes from the active worktree; state stays in the main checkout.
+- description: "commit-prepare (R21): linked worktree reads its own .sdlc/config.json"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    project_root: "file://fixtures-fs/project-linked-worktree-config"
+  assert:
+    - type: icontains
+      value: '"subjectPattern": "^wt: .+$"'
+    - type: not-icontains
+      value: '^main: .+$'
+
+- description: "commit-prepare (R21): manifest is written under the main checkout's .sdlc/execution/"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    script_passthrough: true
+    project_root: "file://fixtures-fs/project-linked-worktree-config"
+  assert:
+    - type: javascript
+      value: |
+        const want = context.vars.project_root + '/.sdlc/execution/commit-';
+        return output.trim().startsWith(want) ? true : `FAIL: manifest path ${output.trim()} does not start with ${want}`;
+    - type: not-icontains
+      value: "worktrees/wt1/.sdlc"
+
 - description: "commit-prepare: default flags with no args"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/commit.js"

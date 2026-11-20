@@ -13,16 +13,16 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-009](./TK-009-removed-phrase-cases/ticket.md) | task | Update exec cases of removed phrases (#9445) | — | scheduled | W-D2 M1 | — |
-| [TK-010](./TK-010-commit-waits-drafter/ticket.md) | task | Commit step waits for its message drafter (#9446) | — | scheduled | W-D2 M1 | — |
-| [TK-011](./TK-011-r74-rerun-lanes/ticket.md) | task | R74 re-check keeps the rerun lanes (#9449) | — | scheduled | W-D2 M1 | — |
-| [TK-012](./TK-012-spec-review-step/ticket.md) | task | Final spec-compliance review runs or records a skip (#9451) | — | scheduled | W-D2 M1 | — |
-| [TK-013](./TK-013-ship-step-plugin-root/ticket.md) | task | Ship-step prompts pass PLUGIN_ROOT (#9452) | — | scheduled | W-D2 M1 | — |
-| [TK-014](./TK-014-installed-plugin-doc/ticket.md) | task | Ship of the plugin uses the installed plugin (#9456) | — | scheduled | W-D2 M1 | — |
-| [TK-015](./TK-015-ship-summary-file/ticket.md) | task | Persisted ship summary file (#9454) | — | scheduled | W-D2 M2 | — |
-| [TK-016](./TK-016-stop-hook-step-agent/ticket.md) | task | Ship Stop hook quiet while a step agent runs (#9455) | — | scheduled | W-D2 M2 | — |
-| [TK-017](./TK-017-worktree-config-reads/ticket.md) | task | Config and plan reads from the worktree (#9458) | — | scheduled | W-D2 M2 | — |
-| [TK-018](./TK-018-state-exact-branch/ticket.md) | task | State files match the exact branch name (#9450) | — | scheduled | W-D2 M2 | — |
+| [TK-009](./TK-009-removed-phrase-cases/ticket.md) | task | Update exec cases of removed phrases (#9445) | — | planned | W-D2 M1 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#12 |
+| [TK-010](./TK-010-commit-waits-drafter/ticket.md) | task | Commit step waits for its message drafter (#9446) | — | planned | W-D2 M1 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#5 |
+| [TK-011](./TK-011-r74-rerun-lanes/ticket.md) | task | R74 re-check keeps the rerun lanes (#9449) | — | planned | W-D2 M1 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#1 |
+| [TK-012](./TK-012-spec-review-step/ticket.md) | task | Final spec-compliance review runs or records a skip (#9451) | — | planned | W-D2 M1 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#3, 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#4 |
+| [TK-013](./TK-013-ship-step-plugin-root/ticket.md) | task | Ship-step prompts pass PLUGIN_ROOT (#9452) | — | planned | W-D2 M1 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#6 |
+| [TK-014](./TK-014-installed-plugin-doc/ticket.md) | task | Ship of the plugin uses the installed plugin (#9456) | — | planned | W-D2 M1 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#7 |
+| [TK-015](./TK-015-ship-summary-file/ticket.md) | task | Persisted ship summary file (#9454) | — | planned | W-D2 M2 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#8 |
+| [TK-016](./TK-016-stop-hook-step-agent/ticket.md) | task | Ship Stop hook quiet while a step agent runs (#9455) | — | planned | W-D2 M2 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#9 |
+| [TK-017](./TK-017-worktree-config-reads/ticket.md) | task | Config and plan reads from the worktree (#9458) | — | planned | W-D2 M2 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#10, 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#11 |
+| [TK-018](./TK-018-state-exact-branch/ticket.md) | task | State files match the exact branch name (#9450) | — | planned | W-D2 M2 | 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#13 |
 | [TK-019](./TK-019-suite-coverage-gaps/ticket.md) | task | Suite coverage gaps (#9428) | — | scheduled | W-F M1 | — |
 | [TK-020](./TK-020-suite-tiers-structure/ticket.md) | task | Suite tiers and structure (#9427) | — | scheduled | W-F M1 | — |
 | [TK-021](./TK-021-wave-split-no-exit/ticket.md) | task | Wave split returns an error instead of exiting (#9463) | — | scheduled | W-F M1 | — |

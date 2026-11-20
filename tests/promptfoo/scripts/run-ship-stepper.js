@@ -221,7 +221,7 @@ function readJson(p) {
 }
 
 function ledgerFiles() {
-  try { return fs.readdirSync(execDir).filter(f => /^ship-.*\.json$/.test(f)).sort(); } catch (_) { return []; }
+  try { return fs.readdirSync(execDir).filter(f => /^ship-.+-\d{8}T\d{6}Z\.json$/.test(f)).sort(); } catch (_) { return []; }
 }
 
 function ship(shipArgs) {

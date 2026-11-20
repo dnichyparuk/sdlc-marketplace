@@ -581,6 +581,8 @@ function checkPF13(tasks, rootDir) {
     const ancestors = dependencyClosure(depsOf, t.number);
     for (const e of entries[k]) {
       if (e.kind !== 'Modify' || e.path.includes('*')) continue;
+      // PF13: a Modify entry whose note starts with "delete" lists a file the task deletes.
+      if (/^deleted?\b/i.test(e.note || '')) continue;
       if ([...ancestors].some(n => creates.has(n) && creates.get(n).has(e.path))) continue;
       if (!fs.existsSync(path.resolve(rootDir, e.path))) {
         details.push({
