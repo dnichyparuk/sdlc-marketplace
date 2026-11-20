@@ -549,13 +549,13 @@ function gcStateFiles({ prefix = null, ttlDays = 7, knownBranches = [], now } = 
 
     let parsed = parseStateFilename(name);
     if (!parsed) {
-      // R109/R108: `ship-summary-<slug>.json` and `review-rounds-<slug>.json` carry no timestamp.
+      // R109/R108: `ship-summary-<slug>.json` and `review-rounds-<slug>.json` carry no timestamp; ship.js writes both, so both map to the `ship` prefix that every gc caller sweeps.
       const side = name.match(/^(ship-summary|review-rounds)-(.+)\.json$/);
       if (!side) {
         result.kept.push({ file: name, prefix: null, branch: null, reason: 'unparseable-name' });
         continue;
       }
-      parsed = { prefix: side[1] === 'ship-summary' ? 'ship' : 'review', slug: side[2], timestamp: null };
+      parsed = { prefix: 'ship', slug: side[2], timestamp: null };
     }
 
     if (prefix && parsed.prefix !== prefix) continue;

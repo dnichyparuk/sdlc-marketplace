@@ -660,10 +660,12 @@ Record the skip:
 node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "per-wave reviews passed, 3 or fewer waves"
 ```
 
-When `flags.specReviewer === 'once'`, the reviewed tasks are all Trivial and `openspecSpecs` is empty, skip the reviewer dispatch and record it. With `openspecSpecs` non-empty, dispatch the reviewer with only the OpenSpec section and record `ran`:
+When `flags.specReviewer === 'once'`, the reviewed tasks are all Trivial and `openspecSpecs` is empty, skip the reviewer dispatch and record the skip:
 ```bash
 node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status skipped --reason "all reviewed tasks Trivial"
 ```
+
+When the reviewed tasks are all Trivial but `openspecSpecs` is non-empty, dispatch the reviewer with only the OpenSpec section; do not record a skip, record `ran` after the reviewer returns (below).
 
 Otherwise, dispatch a single spec compliance reviewer (sonnet). Read `./spec-compliance-reviewer.md` for the prompt template. Unlike the per-wave review in Step 5c-bis which provides only that wave's tasks, provide:
 
@@ -683,7 +685,7 @@ After the reviewer returns, record the outcome:
 node "<PLUGIN_ROOT>/scripts/state/execute.js" spec-review --status ran --reason "<verdict>"
 ```
 
-Run each of these calls as one plain Bash call; a non-zero exit is reported and the run stops as in Step 5f. Every branch of this step records its outcome (R94); the verifying cleanup fails a run that recorded none.
+On the Step 2b small-plan path there is no state file (R5): skip every `spec-review` call in this step; R94 applies only to states stamped by `init`. Run each of these calls as one plain Bash call; a non-zero exit is reported and the run stops as in Step 5f. Every branch of this step records its outcome (R94); the verifying cleanup fails a run that recorded none.
 
 **8-ter. Learning Capture (runs before Step 9 returns control):**
 
