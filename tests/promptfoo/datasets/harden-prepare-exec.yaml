@@ -140,27 +140,13 @@
         const names = (m.surfaces.reviewDimensions || []).map(d => d.name);
         return names.includes('branch-only') && !names.includes('main-only');
       description: "branch-only dimension present and main-only absent when running from linked-wt"
-
-- description: "harden-prepare #474: repository.contentRoot equals active linked worktree"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/harden-prepare.js"
-    script_args: '--failure-text "test failure" --skill plan-sdlc'
-    script_cwd: "{{project_root}}/linked-wt"
-    project_root: "file://fixtures-fs/harden-worktree-content-root"
-  assert:
+    # from: harden-prepare #474: repository.contentRoot equals active linked worktree
     - type: javascript
       value: |
         const m = JSON.parse(output);
         return typeof m.repository.contentRoot === 'string' && m.repository.contentRoot.includes('/linked-wt');
       description: "repository.contentRoot must contain linked-wt path"
-
-- description: "harden-prepare #474: repository.root stays main-rooted; planGuardrails from main config"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/harden-prepare.js"
-    script_args: '--failure-text "test failure" --skill plan-sdlc'
-    script_cwd: "{{project_root}}/linked-wt"
-    project_root: "file://fixtures-fs/harden-worktree-content-root"
-  assert:
+    # from: harden-prepare #474: repository.root stays main-rooted; planGuardrails from main config
     - type: javascript
       value: |
         const m = JSON.parse(output);

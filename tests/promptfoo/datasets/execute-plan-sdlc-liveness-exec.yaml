@@ -230,15 +230,7 @@
           && !r.resetWaves.includes(1)
           && !r.resetWaves.includes(2)
           && JSON.stringify(r.clearedTaskIds) === JSON.stringify(['T5', 'T6']);
-
-- description: "execute-plan-sdlc/resume-reset/: a partial + timedOut wave is terminal and is not reset"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
-    script_args: "resume-reset --branch fix/resume-mixed"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/execute-state-mid-wave"
-    script_env: '{"SDLC_STATE_DIR_OVERRIDE": "{{project_root}}/.sdlc/execution"}'
-  assert:
+    # from: execute-plan-sdlc/resume-reset/: a partial + timedOut wave is terminal and is not reset
     - type: javascript
       value: |
         const r = JSON.parse(output);

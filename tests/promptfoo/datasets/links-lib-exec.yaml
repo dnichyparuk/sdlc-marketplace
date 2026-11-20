@@ -17,6 +17,9 @@
       value: '"ok":true'
     - type: not-contains
       value: 'github-context-mismatch'
+    # from: links: CLI exits 0 with --json on clean body (skipped only)
+    - type: contains
+      value: '"violations":[]'
 
 - description: "links: github wrong-owner mismatch (PR #192 case) violates"
   vars:
@@ -117,18 +120,6 @@
       value: '"ok":false'
     - type: contains
       value: 'url-unreachable'
-
-- description: "links: CLI exits 0 with --json on clean body (skipped only)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
-    script_args: "--file {{project_root}}/clean-github.txt --json --ctx {{ctx}}"
-    project_root: "file://fixtures-fs/links-lib"
-    ctx: '{"expectedRepo":{"host":"github.com","owner":"rnagrodzki","repo":"sdlc-marketplace"},"offline":true}'
-  assert:
-    - type: contains
-      value: '"ok":true'
-    - type: contains
-      value: '"violations":[]'
 
 - description: "links: ctx.github skips identity match, checks URLs and refs by existence (stub gh)"
   vars:
@@ -286,16 +277,7 @@
       value: '127.0.0.1'
     - type: not-contains
       value: '169.254.169.254'
-
-- description: "links: a plain URL after a fenced block keeps its original line number"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
-    script_args: "--file {{project_root}}/urls-in-code.txt --json --ctx {{ctx}}"
-    project_root: "file://fixtures-fs/links-lib"
-    ctx: '{"offline":true}'
-  assert:
-    - type: contains
-      value: '"ok":false'
+    # from: links: a plain URL after a fenced block keeps its original line number
     - type: contains
       value: '"url":"http://10.0.0.6/after","line":8'
 
@@ -312,40 +294,15 @@
       value: '"url":"http://10.0.0.5/x","line":1'
     - type: contains
       value: 'url-blocked-host'
-
-- description: "links: a URL after a lone unclosed backtick is still reported with its line"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
-    script_args: "--file {{project_root}}/urls-plain-and-spans.txt --json --ctx {{ctx}}"
-    project_root: "file://fixtures-fs/links-lib"
-    ctx: '{"offline":true}'
-  assert:
+    # from: links: a URL after a lone unclosed backtick is still reported with its line
     - type: contains
       value: '"url":"http://localhost:8080/y","line":2'
-
-- description: "links: a backtick opener with a backtick in its info string is not a fence"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
-    script_args: "--file {{project_root}}/urls-plain-and-spans.txt --json --ctx {{ctx}}"
-    project_root: "file://fixtures-fs/links-lib"
-    ctx: '{"offline":true}'
-  assert:
+    # from: links: a backtick opener with a backtick in its info string is not a fence
     - type: contains
       value: '"url":"http://10.0.0.6/y","line":5'
-    - type: contains
-      value: 'url-blocked-host'
-
-- description: "links: backtick runs of different lengths do not form a span"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/lib/links.js"
-    script_args: "--file {{project_root}}/urls-plain-and-spans.txt --json --ctx {{ctx}}"
-    project_root: "file://fixtures-fs/links-lib"
-    ctx: '{"offline":true}'
-  assert:
+    # from: links: backtick runs of different lengths do not form a span
     - type: contains
       value: '"url":"http://10.0.0.7/m","line":3'
-    - type: contains
-      value: 'url-blocked-host'
 
 - description: "links: reserved, benchmarking, multicast and broadcast URLs are reported as url-blocked-host"
   vars:

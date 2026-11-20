@@ -34,27 +34,12 @@
       value: |
         const data = JSON.parse(output);
         return data.exitCode === 0;
+    # from: plan-prepare: prune-at-init is idempotent — second invocation leaves exactly one plan file (issue #334)
+    # Same assertion as Case 1: second run also leaves exactly one plan file
 
 # ---------------------------------------------------------------------------
 # Case 2: idempotency — second run leaves exactly one plan file
 # ---------------------------------------------------------------------------
-
-- description: "plan-prepare: prune-at-init is idempotent — second invocation leaves exactly one plan file (issue #334)"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-plan-state.js"
-    script_args: "--project-root {{project_root}}"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-plan-state-stale"
-  assert:
-    # Same assertion as Case 1: second run also leaves exactly one plan file
-    - type: javascript
-      value: |
-        const data = JSON.parse(output);
-        return data.planFileCount === 1;
-    - type: javascript
-      value: |
-        const data = JSON.parse(output);
-        return data.otherBranchFilesPresent === true;
 
 # ---------------------------------------------------------------------------
 # Case 3: stop-plan-integrity consume-then-delete removes marker after evaluation

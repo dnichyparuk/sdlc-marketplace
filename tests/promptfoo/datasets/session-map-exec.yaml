@@ -12,6 +12,13 @@
       value: |
         const o = JSON.parse(output);
         return o.schema === 'sdlc-session-map-1' && JSON.stringify(o.map) === '{"orch":["-fixture-wt-a/s-a1.jsonl"],"exec":["-fixture-wt-b/s-b1.jsonl"]}' && o.unassigned.length === 0;
+    # from: session-map: (f) the output holds no usd or token field
+    - type: not-icontains
+      value: "usd"
+    - type: not-icontains
+      value: "token"
+    - type: javascript
+      value: "JSON.parse(output).map.orch.length === 1"
 
 - description: "session-map: (b) an executor and a planner in one worktree are split by their windows"
   vars:
@@ -58,16 +65,3 @@
       value: |
         const r = JSON.parse(output);
         return r.mapExit === 0 && r.costExit === 0 && r.map.orch.length === 1 && r.map.exec.length === 1;
-
-- description: "session-map: (f) the output holds no usd or token field"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/session-map.js"
-    project_root: "file://fixtures-fs/session-map"
-    script_args: "--agents {{project_root}}/agents-two.json --projects-dir {{project_root}}/projects --json"
-  assert:
-    - type: not-icontains
-      value: "usd"
-    - type: not-icontains
-      value: "token"
-    - type: javascript
-      value: "JSON.parse(output).map.orch.length === 1"

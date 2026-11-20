@@ -33,6 +33,31 @@
       value: '"isDraft": false'
     - type: icontains
       value: '"isAuto": false'
+    # from: pr-prepare: no config sets prConfig null
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return o.prConfig === null ? true : `FAIL: prConfig ${JSON.stringify(o.prConfig)}`;
+    # from: pr.js #339: no config.pr.defaultBranch field falls back to git auto-detection (existing behavior preserved)
+    - type: icontains
+      value: '"prConfig": null'
+    # from: pr-prepare: active-account-access — no origin remote skips probe (env unset)
+    - type: icontains
+      value: '"repoAccessProbed": false'
+    # from: pr-prepare: no --expected-branch flag emits branchGuard.active=false (R-expected-branch, #347)
+    - type: icontains
+      value: '"active": false'
+    # from: pr-prepare: branchGuard field present in successful output (R-expected-branch, #349)
+    - type: icontains
+      value: '"branchGuard":'
+    # from: pr-prepare: openspec field reports no OpenSpec in a plain project (W4.4)
+    - type: icontains
+      value: '"openspec": {'
+    - type: javascript
+      value: |
+        const m = /"openspec": \{[^}]*\}/.exec(output);
+        if (!m) return 'FAIL: no openspec block';
+        return /"detected": false/.test(m[0]) && /"changeName": null/.test(m[0]) ? true : `FAIL: ${m[0]}`;
 
 - description: "pr-prepare: --draft flag"
   vars:
@@ -114,18 +139,6 @@
         const o = JSON.parse(output);
         const labels = o.prConfig && o.prConfig.requiredLabels;
         return JSON.stringify(labels) === JSON.stringify(['review']) ? true : `FAIL: prConfig.requiredLabels ${JSON.stringify(labels)}`;
-
-- description: "pr-prepare: no config sets prConfig null"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
-    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-pr-no-config"
-  assert:
-    - type: javascript
-      value: |
-        const o = JSON.parse(output);
-        return o.prConfig === null ? true : `FAIL: prConfig ${JSON.stringify(o.prConfig)}`;
 
 # fetchBaseRef non-fatal when origin is unreachable (issue #239).
 # pr.js calls lib/git.js::fetchBaseRef before getDiffStat/getDiffContent. The
@@ -348,16 +361,6 @@
     - type: icontains
       value: '"baseBranchOverride": "main"'
 
-- description: "pr.js #339: no config.pr.defaultBranch field falls back to git auto-detection (existing behavior preserved)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
-    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-pr-no-config"
-  assert:
-    - type: icontains
-      value: '"prConfig": null'
-
 - description: "pr.js: rejects pr.defaultBranch containing shell metacharacters before any shell interpolation reaches git rev-parse"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
@@ -431,27 +434,7 @@
     - type: icontains
       value: '"repoAccessProbed": false'
 
-- description: "pr-prepare: active-account-access — no origin remote skips probe (env unset)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
-    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-pr-no-config"
-  assert:
-    - type: icontains
-      value: '"repoAccessProbed": false'
-
 # R-expected-branch (issues #347, #348, #349): --expected-branch flag is parsed and validated.
-
-- description: "pr-prepare: no --expected-branch flag emits branchGuard.active=false (R-expected-branch, #347)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
-    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-pr-no-config"
-  assert:
-    - type: icontains
-      value: '"active": false'
 
 - description: "pr-prepare: --expected-branch matching current branch emits branchGuard.ok=true (R-expected-branch, #348)"
   vars:
@@ -480,16 +463,6 @@
     - type: icontains
       value: "feat/nonexistent-branch"
 
-- description: "pr-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
-    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-pr-no-config"
-  assert:
-    - type: icontains
-      value: '"branchGuard":'
-
 # Issue #490 — cwd-aware git state: pr-prepare must read the linked worktree's
 # commits/changedFiles (not the main worktree's) when invoked from a linked
 # worktree. The fix routes detectBaseBranch/getCommitsStructured/getChangedFiles
@@ -517,21 +490,6 @@
     - type: not-icontains
       value: '"changedFiles": []'
 
-- description: "pr-prepare: openspec field reports no OpenSpec in a plain project (W4.4)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
-    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-pr-no-config"
-  assert:
-    - type: icontains
-      value: '"openspec": {'
-    - type: javascript
-      value: |
-        const m = /"openspec": \{[^}]*\}/.exec(output);
-        if (!m) return 'FAIL: no openspec block';
-        return /"detected": false/.test(m[0]) && /"changeName": null/.test(m[0]) ? true : `FAIL: ${m[0]}`;
-
 - description: "pr-prepare: openspec field names the branch-matched change and its proposal (W4.4)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
@@ -547,6 +505,9 @@
           && /"proposalPath": "[^"]*openspec\/changes\/my-change\/proposal\.md"/.test(m[0])
           && /"designPath": null/.test(m[0]);
         return ok ? true : `FAIL: ${m[0]}`;
+    # from: pr-prepare-testing: (b) no flag gives null
+    - type: icontains
+      value: '"testingSummary": null'
 
 - description: "pr-prepare-testing: (a) --testing-file fills testingSummary"
   vars:
@@ -570,16 +531,6 @@
           '- Not run: the full behavioural promptfoo suite (user-initiated only).',
         ].join('\n');
         return got === want ? true : 'FAIL: ' + got.slice(0, 60);
-
-- description: "pr-prepare-testing: (b) no flag gives null"
-  vars:
-    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/pr.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-openspec-detect-diff"
-  assert:
-    - type: icontains
-      value: '"testingSummary": null'
 
 - description: "pr-prepare-testing: (c) unreadable file warns"
   vars:

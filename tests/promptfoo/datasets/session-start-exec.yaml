@@ -23,6 +23,9 @@
       value: "openspec/config.yaml"
     - type: icontains
       value: "2 specs, 0 active changes"
+    # from: session-start: openspec baseline returns specsCount 2 from lib
+    - type: icontains
+      value: "2 specs"
 
 - description: "session-start: openspec with active change emits INITIALIZED prefix and change details"
   vars:
@@ -36,15 +39,6 @@
       value: "1 spec)"
     - type: icontains
       value: "add-auth"
-
-- description: "session-start: openspec baseline returns specsCount 2 from lib"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/hooks/session-start.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
-  assert:
-    - type: icontains
-      value: "2 specs"
 
 # ---------------------------------------------------------------------------
 # Compact recovery — consumption removed; the SessionStart banner is ledger-derived
@@ -90,6 +84,11 @@
       value: "Active execution (post-compact): execute-plan-sdlc on feat/execute-only"
     - type: not-icontains
       value: "Active pipeline: ship-sdlc"
+    # from: session-start: matcher=compact + execute state, no ship state emits 'execute-resume: implicit' (R36)
+    - type: icontains
+      value: "execute-resume: implicit"
+    - type: not-icontains
+      value: "execute-resume: deferred-to-ship"
 
 - description: "session-start: matcher=startup + execute state emits legacy 'Active execution:' (byte-stable for prompt-cache)"
   vars:
@@ -132,30 +131,7 @@
       value: "Active pipeline: ship-sdlc on feat/execute-and-ship"
     - type: icontains
       value: "Active execution (post-compact): execute-plan-sdlc on feat/execute-and-ship"
-
-- description: "session-start: matcher=compact + execute state, no ship state emits 'execute-resume: implicit' (R36)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/hooks/session-start.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-execute-post-compact-no-ship"
-    script_stdin:
-      hook_event_name: "SessionStart"
-      source: "compact"
-  assert:
-    - type: icontains
-      value: "execute-resume: implicit"
-    - type: not-icontains
-      value: "execute-resume: deferred-to-ship"
-
-- description: "session-start: matcher=compact + BOTH ship and execute states emits 'execute-resume: deferred-to-ship' (R36)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/hooks/session-start.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-execute-post-compact-with-ship"
-    script_stdin:
-      hook_event_name: "SessionStart"
-      source: "compact"
-  assert:
+    # from: session-start: matcher=compact + BOTH ship and execute states emits 'execute-resume: deferred-to-ship' (R36)
     - type: icontains
       value: "execute-resume: deferred-to-ship"
     - type: not-icontains
@@ -283,12 +259,6 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.staleRemoved === true && r.freshKept === true && r.exitCode === 0"
-
-- description: "session-start-gc-tempdirs: stale sdlc-plan-critique dir is removed, fresh one kept"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-session-start-gc-tempdirs.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-ship-gc-explore-tempdirs"
-  assert:
+    # from: session-start-gc-tempdirs: stale sdlc-plan-critique dir is removed, fresh one kept
     - type: javascript
       value: "const r = JSON.parse(output); r.critiqueStaleRemoved === true && r.critiqueFreshKept === true && r.exitCode === 0 && r.secondRunExit === 0 && r.critiqueFreshKeptAfterSecond === true"

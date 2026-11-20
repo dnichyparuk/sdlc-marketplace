@@ -25,6 +25,9 @@
     # No failed checks
     - type: not-icontains
       value: '"status": "fail"'
+    # from: sdlc-plugin-discovery: PD16 passes an agent without tools
+    - type: javascript
+      value: "JSON.parse(output).checks.find(c => c.id === 'PD16').status === 'pass'"
 
 - description: "sdlc-plugin-discovery: broken marketplace reports errors"
   vars:
@@ -50,15 +53,6 @@
     # Agent without description must be reported by PD16 (warning)
     - type: icontains
       value: 'no-description.md: frontmatter missing \"description\"'
-
-- description: "sdlc-plugin-discovery: PD16 passes an agent without tools"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-discovery.js"
-    script_args: "--project-root {{project_root}} --json"
-    project_root: "file://fixtures-fs/healthy-marketplace"
-  assert:
-    - type: javascript
-      value: "JSON.parse(output).checks.find(c => c.id === 'PD16').status === 'pass'"
 
 - description: "sdlc-plugin-discovery: markdown output contains report header and PASS"
   vars:

@@ -92,11 +92,7 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.plain3.metadata.exitCode === 3 && r.plain3.output === 'CHILD-OUT\\nCHILD-ERR'"
-
-- description: "script-runner exit: (b) script_show_exit appends [exit N] as the last line, after stderr"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
-  assert:
+    # from: script-runner exit: (b) script_show_exit appends [exit N] as the last line, after stderr
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.show3.output === 'CHILD-OUT\\nCHILD-ERR\\n[exit 3]' && r.show0.output === 'CHILD-OUT\\n[exit 0]' && r.show0.metadata.exitCode === 0"
 
@@ -124,20 +120,10 @@
   assert:
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.inTmp === true && r.existsAfter === false && r.cwd.split('/').pop().startsWith('promptfoo-cwd-')"
-
-- description: "script-runner: git ssh and prompt are off by default"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
-    script_args: "--cwd-probe"
-  assert:
+    # from: script-runner: git ssh and prompt are off by default
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.ssh === 'false' && r.prompt === '0'"
-
-- description: "script-runner: script_env overrides the git defaults"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/run-script-runner-exit.js"
-    script_args: "--cwd-probe"
-  assert:
+    # from: script-runner: script_env overrides the git defaults
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.override === 'ssh -o BatchMode=yes'"
 

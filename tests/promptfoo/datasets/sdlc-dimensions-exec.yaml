@@ -24,6 +24,23 @@
       value: "security-review"
     - type: icontains
       value: "code-quality-review"
+    # from: sdlc-dimensions: valid model field passes (R15)
+    # Dimension carrying a valid `model:` string still passes overall
+    # The model-override fixture dimension is enumerated
+    - type: icontains
+      value: "model-override-review"
+    # from: sdlc-dimensions-model: a claude-* model id passes
+    # The fixture dimension uses a claude-* id; no D13 finding
+    - type: not-icontains
+      value: "D13"
+    # from: sdlc-dimensions: _common.md is excluded from validation results
+    # With _common.md in the fixture but excluded, total should still be 3
+    - type: regex
+      value: '"total":\s*3'
+    # _common.md file must NOT appear in results
+    - type: not-icontains
+      value: "_common"
+    # Three dimensions should be present
 
 - description: "sdlc-dimensions: no dimensions directory returns empty array"
   vars:
@@ -136,21 +153,6 @@
     - type: regex
       value: '"total_errors":\s*[1-9]'
 
-- description: "sdlc-dimensions: valid model field passes (R15)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
-    script_args: "--project-root {{project_root}} --json"
-    project_root: "file://fixtures-fs/project-with-dimensions"
-  assert:
-    # Dimension carrying a valid `model:` string still passes overall
-    - type: icontains
-      value: '"overall": "PASS"'
-    - type: regex
-      value: '"total_errors":\s*0'
-    # The model-override fixture dimension is enumerated
-    - type: icontains
-      value: "model-override-review"
-
 - description: "sdlc-dimensions: non-string model field triggers D13 warning (R15)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
@@ -183,18 +185,6 @@
     - type: regex
       value: '"total_errors":\s*[1-9]'
 
-- description: "sdlc-dimensions-model: a claude-* model id passes"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
-    script_args: "--project-root {{project_root}} --json"
-    project_root: "file://fixtures-fs/project-with-dimensions"
-  assert:
-    # The fixture dimension uses a claude-* id; no D13 finding
-    - type: not-icontains
-      value: "D13"
-    - type: regex
-      value: '"total_errors":\s*0'
-
 - description: "sdlc-dimensions-model: haiku, sonnet and opus aliases pass"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
@@ -205,26 +195,6 @@
       value: "D13"
     - type: regex
       value: '"total_errors":\s*0'
-
-- description: "sdlc-dimensions: _common.md is excluded from validation results"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"
-    script_args: "--project-root {{project_root}} --json"
-    project_root: "file://fixtures-fs/project-with-dimensions"
-  assert:
-    # With _common.md in the fixture but excluded, total should still be 3
-    - type: regex
-      value: '"total":\s*3'
-    # _common.md file must NOT appear in results
-    - type: not-icontains
-      value: "_common"
-    # Three dimensions should be present
-    - type: icontains
-      value: "security-review"
-    - type: icontains
-      value: "code-quality-review"
-    - type: icontains
-      value: "model-override-review"
 
 - description: "sdlc-dimensions: _common.md absent has no effect on validation (regression guard)"
   vars:

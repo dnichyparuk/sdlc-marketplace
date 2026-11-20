@@ -12,6 +12,9 @@
       value: '"migrated": false'
     - type: icontains
       value: '"errors": []'
+    # from: migrate-config: idempotent re-run (no second backup)
+    - type: icontains
+      value: '"backupPath": null'
 
 - description: "migrate-config: legacy v0 → v3 relocation"
   vars:
@@ -77,17 +80,6 @@
   assert:
     - type: icontains
       value: 'CONFIG_MIGRATION_LOCKED'
-
-- description: "migrate-config: idempotent re-run (no second backup)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/migrate-config.js"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-config-current-v3"
-  assert:
-    - type: icontains
-      value: '"migrated": false'
-    - type: icontains
-      value: '"backupPath": null'
 
 # Acceptance does NOT include full-suite CI eval — full-suite/wide-subset `promptfoo eval`
 # remains user-initiated per project policy. Single targeted test cases scoped to the

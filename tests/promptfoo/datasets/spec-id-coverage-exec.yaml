@@ -7,12 +7,12 @@
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === true && r.drops.length === 0"
 
-- description: "spec-id-coverage: (b) exec floors: 2 configs, at least 77 datasets, 1817 cases and 2645 assertions"
+- description: "spec-id-coverage: (b) exec floors: 2 configs, at least 77 datasets, 1641 cases and 2645 assertions"
   vars:
     script_path: "repo://tests/promptfoo/scripts/check-spec-id-coverage.js"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output.split('\\n')[0]); r.configs === 2 && r.datasets >= 77 && r.cases >= 1817 && r.asserts >= 2645"
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.configs === 2 && r.datasets >= 77 && r.cases >= 1641 && r.asserts >= 2645"
 
 - description: "spec-id-coverage: (c) a dropped dataset, assertion, id and flag are reported; growth is not"
   vars:

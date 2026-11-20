@@ -254,14 +254,7 @@
   assert:
     - type: contains
       value: '"prunedOrphans":[]'
-
-- description: "state/ship.js init records the active worktree via resolveActiveWorktreeSafe (#490/#498-class)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/state/ship.js"
-    script_args: "init --branch main --flags {}"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-execute-state-stale"
-  assert:
+    # from: state/ship.js init records the active worktree via resolveActiveWorktreeSafe (#490/#498-class)
     # Single-worktree fixture: worktree resolves to the fixture's own git toplevel
     # (== script_cwd), proving resolveActiveWorktreeSafe ran without throwing.
     - type: javascript

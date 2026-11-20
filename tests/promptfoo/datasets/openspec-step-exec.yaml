@@ -20,14 +20,7 @@
         if (o.designPath !== null) return `FAIL designPath: ${output}`;
         if (!Array.isArray(o.specPaths) || o.specPaths.length !== 1) return `FAIL specPaths: ${output}`;
         return true;
-
-- description: "openspec-step: detect output keys are the item's keys plus activeChanges (W44-R7)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/openspec-step.js"
-    script_args: "detect --project-root {{project_root}}"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-openspec-active"
-  assert:
+    # from: openspec-step: detect output keys are the item's keys plus activeChanges (W44-R7)
     - type: javascript
       value: |
         const o = JSON.parse(output);

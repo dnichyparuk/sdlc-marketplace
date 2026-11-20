@@ -243,6 +243,7 @@
   assert:
     - type: javascript
       value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+    # from: worker-write-guard: (l34) cp into site copy allowed (not checked)
 
 - description: "worker-write-guard: (l2) mv allowed (mv not checked)"
   vars:
@@ -371,6 +372,7 @@
   assert:
     - type: javascript
       value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
+    # from: worker-write-guard: (l32) git commit -m with double-quoted words allowed
 
 - description: "worker-write-guard: (l20) patch -o repo file denied"
   vars:
@@ -512,26 +514,10 @@
         const o = JSON.parse(r.stdout).hookSpecificOutput;
         return o.permissionDecision === 'deny' && /Blocked rule: tee\./.test(o.permissionDecisionReason) || 'FAIL: not denied by tee';
 
-- description: "worker-write-guard: (l32) git commit -m with double-quoted words allowed"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
-    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"git commit -m \"apply fix\""}}'
-  assert:
-    - type: javascript
-      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
-
 - description: "worker-write-guard: (l33) single-quoted substitution text allowed"
   vars:
     script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
     script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"git commit -m ''x $(tee src/a)''"}}'
-  assert:
-    - type: javascript
-      value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"
-
-- description: "worker-write-guard: (l34) cp into site copy allowed (not checked)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/hooks/worker-write-guard.js"
-    script_stdin: '{"tool_name":"Bash","agent_type":"sdlc:execute-worker","tool_input":{"command":"cp docs/x site/x"}}'
   assert:
     - type: javascript
       value: "JSON.parse(output).exitCode === 0 && JSON.parse(output).stdout === ''"

@@ -62,11 +62,12 @@
       "key": "W-D1",
       "aliases": ["D1"],
       "title": "Suite reduction",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": ["W-B"],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-D1", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-D1", "role": "brief" },
+        { "path": "docs/plans/2026-11-19-w-d1-suite-reduction.md", "role": "executable" }
       ]
     },
     {

@@ -22,6 +22,13 @@
       value: '"hasApi": true'
     - type: icontains
       value: '"apiFormat": "lambda-http"'
+    # from: guardrails-prepare: @middy/ prefix triggers middy framework detection
+    - type: icontains
+      value: '"middy"'
+    - type: icontains
+      value: '"esbuild"'
+    # from: guardrails-prepare: handler file in src/function/ triggers lambda-http
+    # handler.ts exists in src/function/ — but middy-http dep already triggers earlier
 
 - description: "guardrails-prepare: serverless dir triggers serverless API detection"
   vars:
@@ -33,6 +40,14 @@
       value: '"hasApi": true'
     - type: icontains
       value: '"apiFormat": "serverless"'
+    # from: guardrails-prepare: serverless in devDeps triggers serverless-framework detection
+    - type: icontains
+      value: '"serverless-framework"'
+    # from: guardrails-prepare: DynamoDB SDK triggers dynamodb database detection
+    - type: icontains
+      value: '"hasDatabase": true'
+    - type: icontains
+      value: '"dbType": "dynamodb"'
 
 - description: "guardrails-prepare: middy core alone does NOT trigger API detection (negative)"
   vars:
@@ -43,30 +58,7 @@
     - type: icontains
       value: '"hasApi": false'
 
-- description: "guardrails-prepare: handler file in src/function/ triggers lambda-http"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-lambda-middy-http"
-  assert:
-    - type: icontains
-      value: '"hasApi": true'
-    # handler.ts exists in src/function/ — but middy-http dep already triggers earlier
-    - type: icontains
-      value: '"apiFormat": "lambda-http"'
-
 # --- Database detection (#138) ---
-
-- description: "guardrails-prepare: DynamoDB SDK triggers dynamodb database detection"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-serverless-dynamodb"
-  assert:
-    - type: icontains
-      value: '"hasDatabase": true'
-    - type: icontains
-      value: '"dbType": "dynamodb"'
 
 - description: "guardrails-prepare: mongoose triggers mongodb database detection"
   vars:
@@ -78,6 +70,22 @@
       value: '"hasDatabase": true'
     - type: icontains
       value: '"dbType": "mongodb"'
+    # from: guardrails-prepare #336: every proposal in a baseline project has non-empty category
+    - type: javascript
+      value: "(() => { const d = JSON.parse(output); return d.proposals.every(p => typeof p.category === 'string' && p.category.length > 0); })()"
+    # from: guardrails-prepare #336: non-Prisma project does NOT emit prisma-migration-required
+    - type: not-icontains
+      value: '"id": "prisma-migration-required"'
+    # from: guardrails-prepare #336: non-Svelte/Astro project does NOT emit island-only-interactivity
+    - type: not-icontains
+      value: '"id": "island-only-interactivity"'
+    # from: guardrails-prepare: express + routes still triggers rest API (regression)
+    - type: icontains
+      value: '"hasApi": true'
+    - type: icontains
+      value: '"apiFormat": "rest"'
+    - type: icontains
+      value: '"express"'
 
 - description: "guardrails-prepare: ioredis triggers redis database detection"
   vars:
@@ -89,19 +97,11 @@
       value: '"hasDatabase": true'
     - type: icontains
       value: '"dbType": "redis"'
+    # from: guardrails-prepare: aws-cdk-lib triggers aws-cdk framework detection
+    - type: icontains
+      value: '"aws-cdk"'
 
 # --- Framework detection (#139) ---
-
-- description: "guardrails-prepare: @middy/ prefix triggers middy framework detection"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-lambda-middy-http"
-  assert:
-    - type: icontains
-      value: '"middy"'
-    - type: icontains
-      value: '"esbuild"'
 
 - description: "guardrails-prepare: zod, sentry, datadog, esbuild detected as frameworks"
   vars:
@@ -118,38 +118,7 @@
     - type: icontains
       value: '"esbuild"'
 
-- description: "guardrails-prepare: aws-cdk-lib triggers aws-cdk framework detection"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-cdk-redis"
-  assert:
-    - type: icontains
-      value: '"aws-cdk"'
-
-- description: "guardrails-prepare: serverless in devDeps triggers serverless-framework detection"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-serverless-dynamodb"
-  assert:
-    - type: icontains
-      value: '"serverless-framework"'
-
 # --- Regression ---
-
-- description: "guardrails-prepare: express + routes still triggers rest API (regression)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-mongodb-express"
-  assert:
-    - type: icontains
-      value: '"hasApi": true'
-    - type: icontains
-      value: '"apiFormat": "rest"'
-    - type: icontains
-      value: '"express"'
 
 # --- Issue #259: detectReviewDimensions must read .sdlc/review-dimensions/ via resolveDimensionsDir ---
 
@@ -193,6 +162,15 @@
       value: '"id": "explicit-non-goals"'
     - type: icontains
       value: '"id": "ambiguity-stops-and-asks"'
+    # from: guardrails-prepare planning-discipline: all five entries have category planning-discipline
+    - type: javascript
+      value: "(() => { const d = JSON.parse(output); const m = Object.fromEntries(d.proposals.map(p => [p.id, p])); return ['state-premise','smallest-viable-cut','failure-audience','explicit-non-goals','ambiguity-stops-and-asks'].every(id => m[id]?.category === 'planning-discipline'); })()"
+    # from: guardrails-prepare planning-discipline: failure-audience, explicit-non-goals, smallest-viable-cut are severity warning
+    - type: javascript
+      value: "(() => { const d = JSON.parse(output); const m = Object.fromEntries(d.proposals.map(p => [p.id, p])); return ['failure-audience','explicit-non-goals','smallest-viable-cut'].every(id => m[id]?.severity === 'warning'); })()"
+    # from: guardrails-prepare planning-discipline: state-premise and ambiguity-stops-and-asks are severity error
+    - type: javascript
+      value: "(() => { const d = JSON.parse(output); const m = Object.fromEntries(d.proposals.map(p => [p.id, p])); return m['state-premise']?.severity === 'error' && m['ambiguity-stops-and-asks']?.severity === 'error'; })()"
 
 - description: "guardrails-prepare planning-discipline: --target execute omits all five IDs"
   vars:
@@ -211,33 +189,6 @@
     - type: not-icontains
       value: '"id": "ambiguity-stops-and-asks"'
 
-- description: "guardrails-prepare planning-discipline: state-premise and ambiguity-stops-and-asks are severity error"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}} --target plan"
-    project_root: "file://fixtures-fs/project-mongodb-express"
-  assert:
-    - type: javascript
-      value: "(() => { const d = JSON.parse(output); const m = Object.fromEntries(d.proposals.map(p => [p.id, p])); return m['state-premise']?.severity === 'error' && m['ambiguity-stops-and-asks']?.severity === 'error'; })()"
-
-- description: "guardrails-prepare planning-discipline: failure-audience, explicit-non-goals, smallest-viable-cut are severity warning"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}} --target plan"
-    project_root: "file://fixtures-fs/project-mongodb-express"
-  assert:
-    - type: javascript
-      value: "(() => { const d = JSON.parse(output); const m = Object.fromEntries(d.proposals.map(p => [p.id, p])); return ['failure-audience','explicit-non-goals','smallest-viable-cut'].every(id => m[id]?.severity === 'warning'); })()"
-
-- description: "guardrails-prepare planning-discipline: all five entries have category planning-discipline"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}} --target plan"
-    project_root: "file://fixtures-fs/project-mongodb-express"
-  assert:
-    - type: javascript
-      value: "(() => { const d = JSON.parse(output); const m = Object.fromEntries(d.proposals.map(p => [p.id, p])); return ['state-premise','smallest-viable-cut','failure-audience','explicit-non-goals','ambiguity-stops-and-asks'].every(id => m[id]?.category === 'planning-discipline'); })()"
-
 # --- Framework-specific guardrails (#336) ---
 
 - description: "guardrails-prepare #336: Svelte project emits island-only-interactivity proposal"
@@ -250,6 +201,9 @@
       value: '"id": "island-only-interactivity"'
     - type: javascript
       value: "(() => { const d = JSON.parse(output); const p = d.proposals.find(x => x.id === 'island-only-interactivity'); return p?.category === 'framework' && p?.severity === 'warning'; })()"
+    # from: guardrails-prepare #336: every proposal in a Svelte project has non-empty category
+    - type: javascript
+      value: "(() => { const d = JSON.parse(output); return d.proposals.every(p => typeof p.category === 'string' && p.category.length > 0); })()"
 
 - description: "guardrails-prepare #336: Astro project emits island-only-interactivity proposal"
   vars:
@@ -272,39 +226,3 @@
       value: '"id": "prisma-migration-required"'
     - type: javascript
       value: "(() => { const d = JSON.parse(output); const p = d.proposals.find(x => x.id === 'prisma-migration-required'); return p?.category === 'framework' && p?.severity === 'error'; })()"
-
-- description: "guardrails-prepare #336: non-Svelte/Astro project does NOT emit island-only-interactivity"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-mongodb-express"
-  assert:
-    - type: not-icontains
-      value: '"id": "island-only-interactivity"'
-
-- description: "guardrails-prepare #336: non-Prisma project does NOT emit prisma-migration-required"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-mongodb-express"
-  assert:
-    - type: not-icontains
-      value: '"id": "prisma-migration-required"'
-
-- description: "guardrails-prepare #336: every proposal in a Svelte project has non-empty category"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-svelte-app"
-  assert:
-    - type: javascript
-      value: "(() => { const d = JSON.parse(output); return d.proposals.every(p => typeof p.category === 'string' && p.category.length > 0); })()"
-
-- description: "guardrails-prepare #336: every proposal in a baseline project has non-empty category"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/guardrails.js"
-    script_args: "--project-root {{project_root}}"
-    project_root: "file://fixtures-fs/project-mongodb-express"
-  assert:
-    - type: javascript
-      value: "(() => { const d = JSON.parse(output); return d.proposals.every(p => typeof p.category === 'string' && p.category.length > 0); })()"

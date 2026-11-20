@@ -4,7 +4,7 @@
     {
       "rule": "key-only-contains",
       "dataset": "datasets/commit-prepare-exec.yaml",
-      "description": "commit-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
+      "description": "commit-prepare: config present includes commitConfig"
     },
     {
       "rule": "key-only-contains",
@@ -39,7 +39,7 @@
     {
       "rule": "key-only-contains",
       "dataset": "datasets/pr-prepare-exec.yaml",
-      "description": "pr-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
+      "description": "pr-prepare: default flags with no args"
     },
     {
       "rule": "key-only-contains",
@@ -59,17 +59,12 @@
     {
       "rule": "key-only-contains",
       "dataset": "datasets/version-prepare-exec.yaml",
-      "description": "version-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
+      "description": "version-prepare: patch bump produces no 'Unknown flag' warnings (#212)"
     },
     {
       "rule": "key-only-contains",
       "dataset": "datasets/version-prepare-exec.yaml",
       "description": "version-prepare: bumpPromotionDetected field is present in output (R-bump-promote, #358)"
-    },
-    {
-      "rule": "key-only-contains",
-      "dataset": "datasets/version-prepare-exec.yaml",
-      "description": "version-prepare: config.changelog=true with no --changelog flag emits flags.changelog=true (#213)"
     },
     {
       "rule": "negative-only",
@@ -78,28 +73,8 @@
     },
     {
       "rule": "negative-only",
-      "dataset": "datasets/dimension-to-instructions-exec.yaml",
-      "description": "dimension-to-instructions (#519): without --common-file, no Common Review Instructions section is emitted"
-    },
-    {
-      "rule": "negative-only",
-      "dataset": "datasets/guardrails-prepare-exec.yaml",
-      "description": "guardrails-prepare #336: non-Prisma project does NOT emit prisma-migration-required"
-    },
-    {
-      "rule": "negative-only",
-      "dataset": "datasets/guardrails-prepare-exec.yaml",
-      "description": "guardrails-prepare #336: non-Svelte/Astro project does NOT emit island-only-interactivity"
-    },
-    {
-      "rule": "negative-only",
       "dataset": "datasets/guardrails-prepare-exec.yaml",
       "description": "guardrails-prepare planning-discipline: --target execute omits all five IDs"
-    },
-    {
-      "rule": "negative-only",
-      "dataset": "datasets/plan-format-exec.yaml",
-      "description": "plan-format: PF13 not run without --root"
     },
     {
       "rule": "negative-only",

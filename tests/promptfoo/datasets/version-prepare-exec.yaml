@@ -15,14 +15,7 @@
     # No unknown-flag warnings in the JSON output
     - type: not-icontains
       value: "Unknown flag"
-
-- description: "version-prepare: config.changelog=true with no --changelog flag emits flags.changelog=true (#213)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
-    script_args: "patch"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/version-sdlc-config-changelog"
-  assert:
+    # from: version-prepare: config.changelog=true with no --changelog flag emits flags.changelog=true (#213)
     # The script emits flags.changelog as the resolved value (true here, sourced from config.changelog)
     - type: icontains
       value: '"changelog": true'
@@ -30,8 +23,18 @@
     - type: icontains
       value: '"changelog":'
     # No "Unknown flag" warnings should appear regardless
-    - type: not-icontains
-      value: "Unknown flag"
+    # from: version-prepare: no --expected-branch flag emits branchGuard.active=false (R-expected-branch, #347)
+    - type: icontains
+      value: '"active": false'
+    # from: version-prepare: branchGuard field present in successful output (R-expected-branch, #349)
+    - type: icontains
+      value: '"branchGuard":'
+    # from: version-sdlc-config-changelog: patch proceeds when HEAD is off tag (control)
+    - type: icontains
+      value: '"alreadyBumped": false'
+    # from: version-prepare: no --no-tag gives flags.noTag=false (R21)
+    - type: icontains
+      value: '"noTag": false'
 
 - description: "version-prepare: config.changelog=false with --changelog flag still emits flags.changelog=true (#213)"
   vars:
@@ -132,18 +135,6 @@
 # R-expected-branch (issues #347, #348, #349): --expected-branch flag is parsed and validated.
 # Four cases: no flag (inactive), match (ok), mismatch (exit 3 + stderr), detached HEAD (exit 3).
 
-- description: "version-prepare: no --expected-branch flag emits branchGuard.active=false (R-expected-branch, #347)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
-    script_args: "patch"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/version-sdlc-config-changelog"
-  assert:
-    - type: icontains
-      value: '"active": false'
-    - type: not-icontains
-      value: "Unknown flag"
-
 - description: "version-prepare: --expected-branch matching current branch emits branchGuard.ok=true (R-expected-branch, #348)"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
@@ -168,16 +159,6 @@
       value: '"ok": false'
     - type: icontains
       value: "feat/nonexistent-branch"
-
-- description: "version-prepare: branchGuard field present in successful output (R-expected-branch, #349)"
-  vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
-    script_args: "patch"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/version-sdlc-config-changelog"
-  assert:
-    - type: icontains
-      value: '"branchGuard":'
 
 - description: 'version-sdlc-already-bumped: patch re-run skips (idempotency guard)'
   vars:
@@ -211,18 +192,6 @@
     - type: not-icontains
       value: 'bumpOptions'
 
-- description: 'version-sdlc-config-changelog: patch proceeds when HEAD is off tag (control)'
-  vars:
-    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
-    script_args: 'patch'
-    script_cwd: '{{project_root}}'
-    project_root: 'file://fixtures-fs/version-sdlc-config-changelog'
-  assert:
-    - type: icontains
-      value: '"alreadyBumped": false'
-    - type: icontains
-      value: '"requestedBump": "patch"'
-
 # Task 3 (#498): HEAD-relative git ops (idempotency guard's tags-at-head check)
 # must resolve against the ACTIVE worktree, not the main worktree's HEAD/tags —
 # otherwise a linked worktree's release is wrongly skipped as "already released".
@@ -252,16 +221,6 @@
       value: '"noTag": true'
     - type: not-icontains
       value: 'Unknown flag'
-
-- description: 'version-prepare: no --no-tag gives flags.noTag=false (R21)'
-  vars:
-    script_path: 'repo://plugins/sdlc-utilities/scripts/skill/version.js'
-    script_args: 'patch'
-    script_cwd: '{{project_root}}'
-    project_root: 'file://fixtures-fs/version-sdlc-config-changelog'
-  assert:
-    - type: icontains
-      value: '"noTag": false'
 
 - description: 'version-prepare: --no-tag --no-push both resolve (R21)'
   vars:

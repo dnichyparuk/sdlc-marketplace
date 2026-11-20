@@ -75,18 +75,17 @@
       value: '"hasDetectActiveChanges": true'
     - type: icontains
       value: '"hasValidateChange": true'
-
-# --- getRequirementInventory tests (R38 — Fixes #445) ---
-
-- description: "openspec-lib: getRequirementInventory is exported"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/openspec-lib-test.js"
-    script_args: "--op exports"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
-  assert:
+    # from: openspec-lib: getRequirementInventory is exported
     - type: icontains
       value: '"hasGetRequirementInventory": true'
+    # from: openspec-lib: syncIncompleteTasks is exported
+    - type: icontains
+      value: '"hasSyncIncompleteTasks": true'
+    # from: openspec-lib: getTaskCounts is exported
+    - type: icontains
+      value: '"hasGetTaskCounts": true'
+
+# --- getRequirementInventory tests (R38 — Fixes #445) ---
 
 - description: "openspec-lib: getRequirementInventory returns cliAvailable false when openspec not on PATH"
   vars:
@@ -158,29 +157,9 @@
     - type: icontains
       value: '"second":{"synced":0,"alreadyDone":0,"failed":[]}'
 
-- description: "openspec-lib: syncIncompleteTasks is exported"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/openspec-lib-test.js"
-    script_args: "--op exports"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
-  assert:
-    - type: icontains
-      value: '"hasSyncIncompleteTasks": true'
-
 # --- getTaskCounts tests (review fix — consolidates the path-traversal guard
 # and the ENOENT-vs-real-error distinction that used to live ad hoc inline in
 # ship-sdlc/SKILL.md's archive-openspec step 3) ---
-
-- description: "openspec-lib: getTaskCounts is exported"
-  vars:
-    script_path: "repo://tests/promptfoo/scripts/openspec-lib-test.js"
-    script_args: "--op exports"
-    script_cwd: "{{project_root}}"
-    project_root: "file://fixtures-fs/project-openspec-baseline"
-  assert:
-    - type: icontains
-      value: '"hasGetTaskCounts": true'
 
 - description: "openspec-lib: getTaskCounts returns zero counts with no error when tasks.md does not exist (ENOENT)"
   vars:
