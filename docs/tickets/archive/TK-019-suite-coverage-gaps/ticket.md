@@ -3,6 +3,9 @@ id: TK-019
 type: task
 title: Suite coverage gaps (#9428)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#2, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#3, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#4, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#5, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#6, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#7]
 ---
 
 # TK-019: Suite coverage gaps (#9428)

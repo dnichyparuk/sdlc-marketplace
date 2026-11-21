@@ -3,6 +3,9 @@ id: TK-021
 type: task
 title: Wave split returns an error instead of exiting (#9463)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#1]
 ---
 
 # TK-021: Wave split returns an error instead of exiting (#9463)
