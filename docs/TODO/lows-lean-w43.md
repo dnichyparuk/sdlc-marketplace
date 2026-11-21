@@ -13,3 +13,4 @@ Source: the ship report and the review of PR #125 (wave lean-w43).
 ## Process finding (plugin defect, low)
 
 - low | plan-sdlc plan.copyRules | a spec edit that only changes acceptance file names still requires the skill's user doc, its site copy and all companions as check-only Files entries (8 in W-F Task 11), costing about two blocking plan-critique rounds | lean-w43 ledger F-176
+- low | execute-plan-sdlc wave-runner | the wave-4 WAVE_SUMMARY reported Task 10 (Complex split) FAILED/TIMEOUT although its worker finished with a passing eval; a false TIMEOUT can trigger needless retries | lean-w43 ledger F-177
