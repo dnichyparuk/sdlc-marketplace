@@ -58,7 +58,7 @@ const calls = [];
 function run(args, stdin) {
   const res = spawnSync('node', [jiraScript, '--project', project, ...args], {
     cwd: tmp,
-    env: { ...process.env, HOME: tmp },
+    env: { ...process.env, HOME: tmp, TMPDIR: tmp },
     input: stdin === undefined ? '' : stdin,
     encoding: 'utf8',
     timeout: 15_000,
