@@ -554,6 +554,7 @@ Review feedback processing complete:
 - N comments addressed (code changes implemented)
 - M comments pushed back (with technical reasoning)
 - K comments intentionally skipped (agree, won't fix)
+- D comments deferred (needs discussion or below threshold)
 ```
 
 2. **Consent gate:**

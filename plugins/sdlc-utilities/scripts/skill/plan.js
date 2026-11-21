@@ -45,7 +45,7 @@ const { resolveQuality, QUALITY_EXPECTED } = require(path.join(LIB, 'quality'));
 const { resolveSkipConfigCheck, ensureConfigVersion } = require(path.join(LIB, 'config-version-prepare'));
 const { initState, findStateFile, readState, writeState, slugifyBranch, pruneStateFiles } = require(path.join(LIB, 'state'));
 const { exec, parseRemoteOwner } = require(path.join(LIB, 'git'));
-const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes, renderSummary, splicePlan, latestGuardrailMerged, tierCheck } = require(path.join(LIB, 'plan-critique'));
+const { LANE_DEFS, diffMaterial, g17Prepare, mergeLanes, renderSummary, splicePlan, latestGuardrailMerged, readCritiqueDir, tierCheck } = require(path.join(LIB, 'plan-critique'));
 const { extractFrontmatter, parseSimpleYaml } = require(path.join(LIB, 'yaml'));
 const { validateCopyRules, requiredCopies } = require(path.join(LIB, 'plan-parse'));
 
@@ -486,6 +486,7 @@ function runSplice(flags) {
   const planPath = requireFlag(flags, 'plan');
   if ((flags.merged === undefined) === (flags['critique-dir'] === undefined)) throw usageError('give exactly one of --merged or --critique-dir');
   if (flags['critique-dir'] !== undefined) {
+    readCritiqueDir(flags['critique-dir']);
     const latest = flags.noGuardrails === true ? null : latestGuardrailMerged(flags['critique-dir']);
     const planText = readPlanFile(planPath);
     if (!latest) return { written: [], replaced: [], source: null };

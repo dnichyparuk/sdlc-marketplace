@@ -15,7 +15,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-D1` (D1) | - | Suite reduction | [programme](./programme.md) (brief; §W-D1)<br>[2026-11-19-w-d1-suite-reduction](../archived/plans/2026-11-19-w-d1-suite-reduction.md) (executable) | Done | 78/78 | W-B | PR #121, 2018b10 |
 | `W-D2` (D2) | - | Ship, execute and plan follow-ups | [programme](./programme.md) (brief; §W-D2)<br>[2026-11-20-w-d2-ship-execute-and-plan-follow-ups](../archived/plans/2026-11-20-w-d2-ship-execute-and-plan-follow-ups.md) (executable) | Done | 49/49 | W-D1 | PR #123, 1e3e3d7 |
 | `W-F` (F) | - | Suite coverage gaps, tiers and structure | [programme](./programme.md) (brief; §W-F)<br>[2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure](../archived/plans/2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure.md) (executable) | Done | 51/51 | W-D2 | PR #125, bb03139 |
-| `W-E1` (E1) | - | Plugin contract and script fixes | [programme](./programme.md) (brief; §W-E1) | Not started | 0/0 | W-F | - |
+| `W-E1` (E1) | - | Plugin contract and script fixes | [programme](./programme.md) (brief; §W-E1)<br>[2026-11-21-w-e1-plugin-contract-and-script-fixes](./2026-11-21-w-e1-plugin-contract-and-script-fixes.md) (executable) | In progress | 0/38 | W-F | - |
 | `W-E2` (E2) | - | Spec, doc and test traceability | [programme](./programme.md) (brief; §W-E2) | Not started | 0/0 | W-F | - |
 | `W-E3` (E3) | - | Test-tooling hygiene | [programme](./programme.md) (brief; §W-E3) | Not started | 0/0 | W-F | - |
 | `W-E4` (E4) | - | `-e` programs to wrappers, batch A | [programme](./programme.md) (brief; §W-E4) | Not started | 0/0 | W-E2, W-E3 | - |
@@ -31,12 +31,12 @@ Executable plans of this repository and the generated programme status. The regi
 | 3 | `W-D1` | Done | W-B | done |
 | 4 | `W-D2` | Done | W-D1 | done |
 | 5 | `W-F` | Done | W-D2 | done |
-| 6 | `W-E1` | Not started | W-F | ready |
+| 6 | `W-E1` | In progress | W-F | in progress |
 | 7 | `W-E2` | Not started | W-F | ready |
 | 8 | `W-E3` | Not started | W-F | ready |
 | 9 | `W-E4` | Not started | W-E2, W-E3 | waiting: W-E2 (Not started), W-E3 (Not started) |
 | 10 | `W-E5` | Not started | W-E4 | waiting: W-E4 (Not started) |
-| 11 | `W-END` | Not started | W-E1, W-E2, W-E3, W-E4, W-E5 | waiting: W-E1 (Not started), W-E2 (Not started), W-E3 (Not started), W-E4 (Not started), W-E5 (Not started) |
+| 11 | `W-END` | Not started | W-E1, W-E2, W-E3, W-E4, W-E5 | waiting: W-E1 (In progress), W-E2 (Not started), W-E3 (Not started), W-E4 (Not started), W-E5 (Not started) |
 
 Longest dependency chain among open waves (dependsOn only; no effort estimates): W-E2 → W-E4 → W-E5 → W-END (4 waves).
 
@@ -46,9 +46,9 @@ Longest dependency chain among open waves (dependsOn only; no effort estimates):
 | --- | --- | --- |
 | [end-e-programs-to-wrappers](../TODO/end-e-programs-to-wrappers.md) | `W-E4` | Not started |
 | [lean-skill-pr-b-9464](../TODO/lean-skill-pr-b-9464.md) | `W-END` | Not started |
-| [lows-lean-w34](../TODO/lows-lean-w34.md) | `W-E1` | Not started |
+| [lows-lean-w34](../TODO/lows-lean-w34.md) | `W-E1` | In progress |
 | [lows-lean-w35](../TODO/lows-lean-w35.md) | `W-E3` | Not started |
-| [lows-lean-w36](../TODO/lows-lean-w36.md) | `W-E1` | Not started |
+| [lows-lean-w36](../TODO/lows-lean-w36.md) | `W-E1` | In progress |
 | [lows-lean-w39](../TODO/lows-lean-w39.md) | `W-END` | Not started |
 | [lows-lean-w40](../TODO/lows-lean-w40.md) | `W-END` | Not started |
 | [lows-lean-w42](../TODO/lows-lean-w42.md) | `W-E2` | Not started |

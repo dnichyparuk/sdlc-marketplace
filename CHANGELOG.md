@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.5] - 2026-11-21
+
+### Fixed
+- plan-sdlc, execute-plan-sdlc, ship-sdlc: plan critique, ship step agents (review, received-review, version) and wave progress waiting are corrected, with matching spec and cost-tier updates (W-E1).
+- tests: the wave progress test builds its temp directory with `path.join` (W-E1).
+
 ## [0.57.4] - 2026-11-21
 
 ### Changed
