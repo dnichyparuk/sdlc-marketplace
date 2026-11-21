@@ -1,5 +1,7 @@
 # W-E1 Plugin Contract and Script Fixes Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #129, bb344de
+
 **Commit:** `fix(W-E1): plugin - plan critique, step agents and wave wait fixes`
 **Goal:**
 - Make the plan-sdlc Step 5 no-agent-tool fallback follow R76: a rerun lane that still blocks blocks the iteration, and the E9 path carries nothing.
@@ -145,12 +147,12 @@ Discovery brief: `/tmp/sdlc-explore-main-Nqzn7N/discovery-brief.md` (5 code dime
 **Notes:** Cites F-r76-rerun-lanes-coherence-2 and F-plan-critique-dir-guardrail-check-3. Spec first: Tasks 2 and 3 implement these sentences. The user doc describes the fallback only in one sentence ("the author falls back to dispatching the lanes directly"), which stays true.
 
 **Acceptance criteria:**
-- [ ] R75 names the R76 rerun lanes in its Step 5 dispatch list (text below).
-- [ ] R76 states the fallback merge rule (text below).
-- [ ] R67 (f) states that the readable-directory check holds with or without `--no-guardrails`.
-- [ ] The appendix row `| R67, R74, R77 | guardrail table re-splice, W-B (#9453) |` names E9, and a W-E1 row is appended.
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
-- [ ] `cmp docs/specs/plan-sdlc.md site/src/content-source/specs/plan-sdlc.md` exits 0.
+- [x] R75 names the R76 rerun lanes in its Step 5 dispatch list (text below).
+- [x] R76 states the fallback merge rule (text below).
+- [x] R67 (f) states that the readable-directory check holds with or without `--no-guardrails`.
+- [x] The appendix row `| R67, R74, R77 | guardrail table re-splice, W-B (#9453) |` names E9, and a W-E1 row is appended.
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
+- [x] `cmp docs/specs/plan-sdlc.md site/src/content-source/specs/plan-sdlc.md` exits 0.
 
 **Contract:**
 - shape (openspec): MODIFY R75, R76, R67 (f) and the appendix of `docs/specs/plan-sdlc.md`; no new id.
@@ -195,10 +197,10 @@ Discovery brief: `/tmp/sdlc-explore-main-Nqzn7N/discovery-brief.md` (5 code dime
 **Notes:** Cites F-r76-rerun-lanes-coherence-1, -3 and -4. Only the assertion of the sentinel case changes, so the W-E5 `-e` count stays the same. The literals removed here are asserted by no test (`git grep -F 'reads only \`lens\`' tests` and `git grep -F 'lanes dispatched or written by hand' tests` find nothing); `check-plan-critique-orchestrator.js` pins only words that stay.
 
 **Acceptance criteria:**
-- [ ] The fallback lens merge in `review-loop.md` is the command below, and the two paragraphs after it read as below.
-- [ ] The orchestrator Step 2 iteration-1 command is a fenced `bash` block, and its `--lanes` row has one description.
-- [ ] The case `plan-sdlc/rerun-sentinels:` asserts the new literals and the absence of the old one.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-sdlc/"` passes.
+- [x] The fallback lens merge in `review-loop.md` is the command below, and the two paragraphs after it read as below.
+- [x] The orchestrator Step 2 iteration-1 command is a fenced `bash` block, and its `--lanes` row has one description.
+- [x] The case `plan-sdlc/rerun-sentinels:` asserts the new literals and the absence of the old one.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-sdlc/"` passes.
 
 **Contract:**
 - shape (docs): `review-loop.md`, under "Merge lens reviewer results (per iteration)":
@@ -263,9 +265,9 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Cites F-plan-critique-dir-guardrail-check-1 and -2. Depends on Task 2 only because both edit `plan-prepare-exec.yaml`. Extending case (e) keeps the number of inline `-e` programs unchanged (Deviations). Run the new assertion against HEAD first; it must fail there (exit 0 today).
 
 **Acceptance criteria:**
-- [ ] `plan.js splice --plan <p> --critique-dir <missing> --no-guardrails` exits 1, prints nothing on stdout, writes `plan.js splice error: --critique-dir is not a readable directory: <dir>` on stderr and leaves the plan unchanged.
-- [ ] `--critique-dir <existing> --no-guardrails` still exits 0 with `written: []`.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-splice:"` passes.
+- [x] `plan.js splice --plan <p> --critique-dir <missing> --no-guardrails` exits 1, prints nothing on stdout, writes `plan.js splice error: --critique-dir is not a readable directory: <dir>` on stderr and leaves the plan unchanged.
+- [x] `--critique-dir <existing> --no-guardrails` still exits 0 with `written: []`.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-splice:"` passes.
 
 **Contract:**
 - shape (code):
@@ -348,10 +350,10 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Cites F-ship-agent-plugin-root-rule-1 and -2. R39 is the next free id of the received-review spec (highest is R38). The user docs do not describe the plugin-root sentence; `docs/skills/received-review-sdlc.md:247` shows the Step 12 summary only as an example that already omits the K line, so it needs no change.
 
 **Acceptance criteria:**
-- [ ] R-subagent-brief states the override sentence and its acceptance (text below).
-- [ ] `docs/specs/received-review-sdlc.md` has R39 directly after R38, and both specs have their appendix row.
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
-- [ ] Both `cmp` checks of spec and site copy exit 0.
+- [x] R-subagent-brief states the override sentence and its acceptance (text below).
+- [x] `docs/specs/received-review-sdlc.md` has R39 directly after R38, and both specs have their appendix row.
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
+- [x] Both `cmp` checks of spec and site copy exit 0.
 
 **Contract:**
 - shape (openspec): MODIFY R-subagent-brief (`docs/specs/ship-sdlc.md`); ADD R39 (`docs/specs/received-review-sdlc.md`, after R38, numbering continues from R38).
@@ -386,10 +388,10 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Cites F-ship-agent-plugin-root-rule-1 and -2. The old sentence is asserted by no test (`git grep -F "never derive the plugin root" tests` finds nothing); the `ARGS` sentinel of the same line stays byte-equal. `ship-step-received-review.md:21` already asks for the deferred count and needs no change.
 
 **Acceptance criteria:**
-- [ ] The three agents carry the new sentence below, byte-identical, in place of the old one.
-- [ ] The Step 12 item 1 summary has the four lines below.
-- [ ] `check-handback-sentinels.js` prints `stepRoot` (three `true` values) and `rrDeferred: true`, and `ok` requires both.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-plan-sdlc/handback"` passes.
+- [x] The three agents carry the new sentence below, byte-identical, in place of the old one.
+- [x] The Step 12 item 1 summary has the four lines below.
+- [x] `check-handback-sentinels.js` prints `stepRoot` (three `true` values) and `rrDeferred: true`, and `ok` requires both.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-plan-sdlc/handback"` passes.
 
 **Contract:**
 - shape (docs): line 11 of each agent:
@@ -444,10 +446,10 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Cites F-wave-runner-false-failed-timeout-1 to -5. Spec first for Tasks 7 and 8. The threat model and accepted gaps go into the spec so reviewers report only gaps outside them (F-73). The user doc (`docs/skills/execute-plan-sdlc.md:452`) describes the wait at a level that stays true.
 
 **Acceptance criteria:**
-- [ ] R-WAVE-LIVENESS carries the lock sentences, the threat model, the accepted gaps and the acceptance line (text below).
-- [ ] R92 carries the wait-target sentences (text below).
-- [ ] An appendix row for W-E1 is appended.
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0; `cmp` of spec and site copy exits 0.
+- [x] R-WAVE-LIVENESS carries the lock sentences, the threat model, the accepted gaps and the acceptance line (text below).
+- [x] R92 carries the wait-target sentences (text below).
+- [x] An appendix row for W-E1 is appended.
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0; `cmp` of spec and site copy exits 0.
 
 **Contract:**
 - shape (openspec): MODIFY R-WAVE-LIVENESS and R92 of `docs/specs/execute-plan-sdlc.md`; no new id.
@@ -481,10 +483,10 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Cites F-wave-runner-false-failed-timeout-4. Complex because it adds concurrency control to a script every worker calls. Readers stay unchanged: the rename is still atomic, so `readProgress` and `--wait` need no lock. Run the new case against HEAD first: it is expected to fail there (lost entries); record the HEAD result in the report. The lock path is derived only from the marker path, which `progressPath` builds from the caller's `stateDir` (`resolveStateDir()` in `state/execute.js`, the main checkout's `.sdlc/execution`), never from the working directory; so `ship.workspace` `branch` and `worktree` behave the same: every worker of a wave, in any checkout, takes the same lock beside the same marker. The GC removes the per-run directory as a whole, so a left lock file needs no GC change. No per-dataset count check covers the liveness dataset (`git grep -n liveness-exec tests/promptfoo/scripts` finds nothing). Two global floors scan every dataset: `dataset-asserts-exec.yaml:8` (`r.cases >= 1641`) and `spec-id-coverage-exec.yaml:15` (`r.cases >= 1641 && r.asserts >= 2645`); they are `>=` floors, so the one added case and its assertion cannot break them and their values stay unchanged.
 
 **Acceptance criteria:**
-- [ ] Six writer processes that each write 25 distinct task ids into one wave marker leave 150 entries, every child exits 0 and no lock file is left.
-- [ ] `writeProgress` keeps its signature, return value and phase-enum error.
-- [ ] The wrapper with any argument exits 2, prints `usage: run-wave-progress-parallel.js (no arguments)` on stderr and nothing on stdout.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-plan-sdlc/liveness/"` passes.
+- [x] Six writer processes that each write 25 distinct task ids into one wave marker leave 150 entries, every child exits 0 and no lock file is left.
+- [x] `writeProgress` keeps its signature, return value and phase-enum error.
+- [x] The wrapper with any argument exits 2, prints `usage: run-wave-progress-parallel.js (no arguments)` on stderr and nothing on stdout.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-plan-sdlc/liveness/"` passes.
 
 **Contract:**
 - shape (code): in `scripts/lib/wave-progress.js`:
@@ -568,11 +570,11 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Cites F-wave-runner-false-failed-timeout-2, -3 and -5. Depends on Task 5 only because both edit `check-handback-sentinels.js`. The two files state the same procedure, so the same sentences go into both (direct mode keeps its map wording of step 1). The literals removed here are asserted by no test (`git grep -F "a returned task ID is in flight" tests` and `git grep -F "plan task ids of the wave" tests` find nothing); the kept sentinels `wave-progress --wait`, `--wait --tasks` and "Never start `Monitor`" stay.
 
 **Acceptance criteria:**
-- [ ] In both files the `--wait` command lists `--tasks <plan task ids whose worker has not returned, comma-separated>`.
-- [ ] In both files step 3 uses the "background task ID" wording below, and no text "a returned task ID" is left.
-- [ ] In both files step 5 reports TIMEOUT only for a task stopped in step 4.
-- [ ] `check-handback-sentinels.js` prints `waitTarget` with `skill: true` and `waveRunner: true`, and `ok` requires both.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-plan-sdlc/"` passes.
+- [x] In both files the `--wait` command lists `--tasks <plan task ids whose worker has not returned, comma-separated>`.
+- [x] In both files step 3 uses the "background task ID" wording below, and no text "a returned task ID" is left.
+- [x] In both files step 5 reports TIMEOUT only for a task stopped in step 4.
+- [x] `check-handback-sentinels.js` prints `waitTarget` with `skill: true` and `waveRunner: true`, and `ok` requires both.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-plan-sdlc/"` passes.
 
 **Contract:**
 - shape (docs): `wave-runner-template.md` §2b (SKILL.md direct mode gets the same edits; its step 2 command uses `"<PLUGIN_ROOT>/scripts/state/execute.js"` and `<N>`/`<runId>`):
@@ -636,8 +638,8 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Whitespace only (F-shipjs-spacing-and-pr-placeholders-1, -2); the existing `ship-prepare` cases cover the function.
 
 **Acceptance criteria:**
-- [ ] `git grep -n "flags,flagSources" plugins` finds nothing.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^ship-prepare"` passes.
+- [x] `git grep -n "flags,flagSources" plugins` finds nothing.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^ship-prepare"` passes.
 
 **Contract:** shape (code): `function computeSteps(flags,flagSources, {` becomes `function computeSteps(flags, flagSources, {` at `scripts/skill/ship.js:526`, rest of the line unchanged; names: `computeSteps`
 
@@ -658,8 +660,8 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Formatting only, so no spec task: spec R21 already uses code spans and no test asserts the sentence (F-shipjs-spacing-and-pr-placeholders-3, -4).
 
 **Acceptance criteria:**
-- [ ] The sentence reads as in the Contract.
-- [ ] `node .claude/skills/validate-plugin-consistency/check-consistency.js` exits 0.
+- [x] The sentence reads as in the Contract.
+- [x] `node .claude/skills/validate-plugin-consistency/check-consistency.js` exits 0.
 
 **Contract:** shape (docs): `Do not write the pr.footer text yourself: step 3 appends it to <BODY_FILE> (R21).` → ``Do not write the `pr.footer` text yourself: step 3 appends it to `<BODY_FILE>` (R21).`` in `skills/pr-sdlc/SKILL.md` step 2 (line 456); names: `pr.footer`, `<BODY_FILE>`
 
