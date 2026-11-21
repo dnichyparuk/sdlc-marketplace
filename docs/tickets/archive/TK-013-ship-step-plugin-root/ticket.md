@@ -3,6 +3,9 @@ id: TK-013
 type: task
 title: Ship-step prompts pass PLUGIN_ROOT (#9452)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#6]
 ---
 
 # TK-013: Ship-step prompts pass PLUGIN_ROOT (#9452)

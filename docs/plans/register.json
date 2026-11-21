@@ -75,14 +75,15 @@
       "key": "W-D2",
       "aliases": ["D2"],
       "title": "Ship, execute and plan follow-ups",
-      "status": "In progress",
+      "status": "Done",
       "dependsOn": ["W-D1"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-D2", "role": "brief" },
-        { "path": "docs/plans/2026-11-20-w-d2-ship-execute-and-plan-follow-ups.md", "role": "executable" }
+        { "path": "docs/archived/plans/2026-11-20-w-d2-ship-execute-and-plan-follow-ups.md", "role": "executable" }
       ],
-      "todos": ["docs/TODO/plan-format-pf13-deleted-paths.md"]
+      "todos": ["docs/TODO/archive/plan-format-pf13-deleted-paths.md"],
+      "closedBy": "PR #123, 1e3e3d7"
     },
     {
       "key": "W-F",
@@ -107,7 +108,7 @@
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-END", "role": "brief" }
       ],
-      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w36.md", "docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/end-recover-counts-only-lows.md", "docs/TODO/script-runner-eisdir-plan-splice.md", "docs/TODO/review-severity-drift-fix-round.md"],
+      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w36.md", "docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/end-recover-counts-only-lows.md", "docs/TODO/script-runner-eisdir-plan-splice.md", "docs/TODO/review-severity-drift-fix-round.md", "docs/TODO/lows-lean-w42.md"],
       "decisions": ["PD-1"]
     }
   ]

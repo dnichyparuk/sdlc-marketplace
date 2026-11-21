@@ -3,6 +3,9 @@ id: TK-015
 type: task
 title: Persisted ship summary file (#9454)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#8]
 ---
 
 # TK-015: Persisted ship summary file (#9454)

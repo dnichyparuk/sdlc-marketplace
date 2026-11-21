@@ -3,6 +3,9 @@ id: TK-014
 type: task
 title: Ship of the plugin uses the installed plugin (#9456)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#7]
 ---
 
 # TK-014: Ship of the plugin uses the installed plugin (#9456)

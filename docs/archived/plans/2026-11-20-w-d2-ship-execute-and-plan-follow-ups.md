@@ -1,5 +1,7 @@
 # W-D2 Ship, Execute and Plan Follow-ups Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #123, 1e3e3d7
+
 **Commit:** `fix(W-D2): ship, execute and plan - ten follow-ups and PF13 delete`
 **Goal:**
 - Close the ten W-D2 tickets (TK-009 to TK-018) of the sdlc-utilities plugin.
@@ -207,15 +209,15 @@ Every spec and skill doc has a byte copy under `site/src/content-source/` (`spec
 **Notes:** Cites F-plan-critique-recheck-and-final-reviewer-1. When no trigger fires, `affectedLanes` is exactly the rerun set, so `dispatch.lanes` already holds only the rerun lanes (lens entries are filtered out by the lane table); without `--prev-dir` it is `[]`, so the old empty result stays for that case.
 
 **Acceptance criteria:**
-- [ ] `diff-material --prev-dir` on a non-material fix whose previous `static-structural.json` is blocking returns `recheckLanes: ["static-structural"]` (A1).
-- [ ] Without `--prev-dir` and with no trigger, `recheckLanes` is `[]`.
-- [ ] The existing non-material case keeps its `plan-diff:` name and its assertion changes as below (A2):
+- [x] `diff-material --prev-dir` on a non-material fix whose previous `static-structural.json` is blocking returns `recheckLanes: ["static-structural"]` (A1).
+- [x] Without `--prev-dir` and with no trigger, `recheckLanes` is `[]`.
+- [x] The existing non-material case keeps its `plan-diff:` name and its assertion changes as below (A2):
   ```diff
   -      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0 && Array.isArray(r.recheckLanes) && r.recheckLanes.length === 0 && JSON.stringify(r.rerun) === JSON.stringify(['lens:requirements', 'static-structural'])"
   +      value: "const r = JSON.parse(output); r.material === false && r.triggers.length === 0 && JSON.stringify(r.recheckLanes) === JSON.stringify(['static-structural']) && JSON.stringify(r.rerun) === JSON.stringify(['lens:requirements', 'static-structural'])"
   ```
-- [ ] The five plan-sdlc companion files were checked and need no change (they do not state `recheckLanes`).
-- [ ] Spec and site copy are byte-equal (`cmp`).
+- [x] The five plan-sdlc companion files were checked and need no change (they do not state `recheckLanes`).
+- [x] Spec and site copy are byte-equal (`cmp`).
 
 **Contract:**
 - shape (code): one-line change at the return of `diffMaterial`:
@@ -249,9 +251,9 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Implements the homed TODO `docs/TODO/plan-format-pf13-deleted-paths.md` (no ticket; the main session archives the note). The parser already keeps the text after the path (`lib/plan-parse.js:250`, leading dashes and spaces stripped), so no Delete kind is needed; the real format in archived plans is ``- Modify: `path` — delete`` (docs/archived/plans/2026-11-19-w-d1-suite-reduction.md:729). Depends on Task 1 only for the shared spec file. Cites F-plan-critique-recheck-and-final-reviewer-3.
 
 **Acceptance criteria:**
-- [ ] A plan with ``- Modify: `gone.js` — delete`` and no `gone.js` under `--root` passes PF13 with `--final`.
-- [ ] A plan with ``- Modify: `gone.js` — deleted`` passes too; ``- Modify: `gone.js` — update the delete helper`` (the note does not start with the word) still fails PF13.
-- [ ] Spec, skill doc and both site copies are updated and byte-equal to their sources.
+- [x] A plan with ``- Modify: `gone.js` — delete`` and no `gone.js` under `--root` passes PF13 with `--final`.
+- [x] A plan with ``- Modify: `gone.js` — deleted`` passes too; ``- Modify: `gone.js` — update the delete helper`` (the note does not start with the word) still fails PF13.
+- [x] Spec, skill doc and both site copies are updated and byte-equal to their sources.
 
 **Contract:**
 - shape (code): in `checkPF13`, after the `*` skip:
@@ -296,12 +298,12 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Cites F-plan-critique-recheck-and-final-reviewer-2. Step 5f (`verify-completeness` without `--final`) runs before Step 8-bis, so it must not require the record; ship.js calls it the same way (ship.js:1803), so ship is unchanged. Six paths: the two fixtures are small JSON files copied from `state-all-done.json`.
 
 **Acceptance criteria:**
-- [ ] `verify-completeness --final --state-file state-spec-review-unrecorded.json` exits 65 with stderr JSON `{"missingIds":[],"totalPlanned":4,"totalAccounted":4,"specReview":"unrecorded"}` (A2).
-- [ ] `verify-completeness --final` exits 0 on `state-spec-review-skipped.json` and on `state-all-done.json` (no `specReviewRequired`).
-- [ ] `verify-completeness` without `--final` exits 0 on `state-spec-review-unrecorded.json`.
-- [ ] `spec-review` with no `--status`, an unknown status, or `--status skipped` without `--reason` exits 2 with the message on stderr and nothing on stdout.
-- [ ] `cleanup` on a state with `specReviewRequired: true` and no record keeps the file and exits 65 (A1 enforced).
-- [ ] Run-twice (state-machine idempotency): in a case that copies a fixture state into an `fs.mkdtempSync` dir (`SDLC_STATE_DIR_OVERRIDE`), `spec-review --status ran --reason a` then `--status skipped --reason b` leaves one valid JSON state whose `specReview` is the second record and whose other fields are unchanged; `verify-completeness --final` run twice on it gives the same exit code and output.
+- [x] `verify-completeness --final --state-file state-spec-review-unrecorded.json` exits 65 with stderr JSON `{"missingIds":[],"totalPlanned":4,"totalAccounted":4,"specReview":"unrecorded"}` (A2).
+- [x] `verify-completeness --final` exits 0 on `state-spec-review-skipped.json` and on `state-all-done.json` (no `specReviewRequired`).
+- [x] `verify-completeness` without `--final` exits 0 on `state-spec-review-unrecorded.json`.
+- [x] `spec-review` with no `--status`, an unknown status, or `--status skipped` without `--reason` exits 2 with the message on stderr and nothing on stdout.
+- [x] `cleanup` on a state with `specReviewRequired: true` and no record keeps the file and exits 65 (A1 enforced).
+- [x] Run-twice (state-machine idempotency): in a case that copies a fixture state into an `fs.mkdtempSync` dir (`SDLC_STATE_DIR_OVERRIDE`), `spec-review --status ran --reason a` then `--status skipped --reason b` leaves one valid JSON state whose `specReview` is the second record and whose other fields are unchanged; `verify-completeness --final` run twice on it gives the same exit code and output.
 
 **Contract:**
 - shape (code): CLI and state field:
@@ -347,9 +349,9 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** The Step 8-bis skip branches each name their rule; the reason text is that rule, so a reader of the state can tell a real skip from a forgotten step. Depends on Task 3 for the subcommand and the shared dataset. Cites F-plan-critique-recheck-and-final-reviewer-2.
 
 **Acceptance criteria:**
-- [ ] Step 8-bis has one `spec-review --status skipped` call per skip rule (three: per-wave cadence without OpenSpec specs, per-wave reviews all passed with 3 or fewer waves, all reviewed tasks Trivial) and one `spec-review --status ran` call after the reviewer returns.
-- [ ] The gate table row "Spec compliance reviewed" names R94.
-- [ ] A text case "execute-plan-sdlc/wave-runner-overflow/skill-text: (R94)" counts `state/execute.js" spec-review --status` in SKILL.md as 4 and fails otherwise.
+- [x] Step 8-bis has one `spec-review --status skipped` call per skip rule (three: per-wave cadence without OpenSpec specs, per-wave reviews all passed with 3 or fewer waves, all reviewed tasks Trivial) and one `spec-review --status ran` call after the reviewer returns.
+- [x] The gate table row "Spec compliance reviewed" names R94.
+- [x] A text case "execute-plan-sdlc/wave-runner-overflow/skill-text: (R94)" counts `state/execute.js" spec-review --status` in SKILL.md as 4 and fails otherwise.
 
 **Contract:**
 - shape (code): Step 8-bis call, rendered once per call site:
@@ -388,8 +390,8 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Mirrors the review agents' paragraph (agents/ship-step-review.md:16); the spec text (R97 amendment) is written by Task 7.
 
 **Acceptance criteria:**
-- [ ] `ship-step-commit.md` contains the paragraph below once (A1).
-- [ ] Case "ship-step-text: (R97) commit agent waits for its drafter" counts `never end your turn while the commit-orchestrator` as 1 and `Run \`git commit\` with the drafted message` as 1 (A2).
+- [x] `ship-step-commit.md` contains the paragraph below once (A1).
+- [x] Case "ship-step-text: (R97) commit agent waits for its drafter" counts `never end your turn while the commit-orchestrator` as 1 and `Run \`git commit\` with the drafted message` as 1 (A2).
 
 **Contract:** shape (docs): paragraph "Return only once, at a terminal point: after the skill's last step, or at a stop that records a pending question or a failure. Dispatch the commit-orchestrator in the foreground and wait for its message; never end your turn while the commit-orchestrator you dispatched is still running, and never wait with `Monitor`, a background Bash command or a `sleep` timer. Run `git commit` with the drafted message before you report. After your final report, answer any later notification with one short line, no tool call and no new report (ship-sdlc R97)."; names: R97; sync: Task 7 spec R97
 
@@ -416,9 +418,9 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** The preloaded skills tell the agent to ignore a plugin-root line in "user-supplied text" and to fall back to the skill's base directory; the agent sentence makes the task-message line the one to use. Depends on Task 5 only for `ship-step-commit.md`. Eight paths: one identical sentence per agent file. The spec text (R-subagent-brief) is written by Task 7. Cites F-ship-step-agents-and-summary-2.
 
 **Acceptance criteria:**
-- [ ] The SKILL.md:273 prompt reads `"<step.data.invocation>\nBranch: <branch>\nsdlc plugin root: <PLUGIN_ROOT>\nPrior results: <one line>"` (A1).
-- [ ] Each of the six agent files has the sentence below exactly once (A2).
-- [ ] Case "script-resolution: (R-subagent-brief) ship dispatch prompt and six step agents carry the plugin root line" counts the SKILL.md literal `\nsdlc plugin root: <PLUGIN_ROOT>\n` as 1 and the agent sentence as 1 in each of the six files.
+- [x] The SKILL.md:273 prompt reads `"<step.data.invocation>\nBranch: <branch>\nsdlc plugin root: <PLUGIN_ROOT>\nPrior results: <one line>"` (A1).
+- [x] Each of the six agent files has the sentence below exactly once (A2).
+- [x] Case "script-resolution: (R-subagent-brief) ship dispatch prompt and six step agents carry the plugin root line" counts the SKILL.md literal `\nsdlc plugin root: <PLUGIN_ROOT>\n` as 1 and the agent sentence as 1 in each of the six files.
 
 **Contract:**
 - shape (docs): SKILL.md Step 5 `dispatch_*` bullet (the rest of the line is unchanged):
@@ -457,10 +459,10 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Owns every ship-sdlc spec and doc edit of the wave, and runs in wave 1; Tasks 5, 6, 8, 9 and 13 depend on it (spec first) and share no other file with it (Key Decisions). Also writes the TK-017 A2 sentence. Cites F-ship-step-agents-and-summary-1 to -5 and F-worktree-config-and-state-slug-5. Each new requirement carries an `Acceptance:` line (validate-spec-shape.js).
 
 **Acceptance criteria:**
-- [ ] The spec holds R109–R112 with the text below, in the sections named, each with an Acceptance line; R97 and R-subagent-brief carry the amendments; the appendix has the rows below.
-- [ ] `docs/skills/ship-sdlc.md` states which plugin copy ship steps use when a wave ships the plugin itself (TK-014 A1) and what to do for a feature the wave ships (A2).
-- [ ] `docs/skills/ship-sdlc.md` states where state, execution, learnings and saved review-report files go (TK-017 A2).
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0; both copies are `cmp` equal.
+- [x] The spec holds R109–R112 with the text below, in the sections named, each with an Acceptance line; R97 and R-subagent-brief carry the amendments; the appendix has the rows below.
+- [x] `docs/skills/ship-sdlc.md` states which plugin copy ship steps use when a wave ships the plugin itself (TK-014 A1) and what to do for a feature the wave ships (A2).
+- [x] `docs/skills/ship-sdlc.md` states where state, execution, learnings and saved review-report files go (TK-017 A2).
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0; both copies are `cmp` equal.
 
 **Contract:**
 - shape (openspec): requirement text, numbering continues from R108:
@@ -493,9 +495,9 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Implements R109 (text in Task 7). The name starts with `ship-` but has no timestamp, so `parseStateFilename` rejects it: GC keeps it ("unparseable-name"), and with R111 (Task 13) no ledger lookup reads it. Depends on Task 5 only for the shared dataset. Cites F-ship-step-agents-and-summary-4.
 
 **Acceptance criteria:**
-- [ ] After the R108 walk scenario (`rounds-final-check`, `--walk`), `.sdlc/execution/ship-summary-feat-ship.json` exists with `schemaVersion` 1, `branch` `"feat/ship"`, `head` (40 hex characters or null), `finalCheck` equal to the cleanup summary's `finalCheck`, and `steps` equal to its `steps` (A1).
-- [ ] `file.finalCheck.commit` equals the cleanup summary's `finalCheck.commit` (A2).
-- [ ] A case with an unwritable summary path (a directory pre-created at that path) still gets the same cleanup envelope.
+- [x] After the R108 walk scenario (`rounds-final-check`, `--walk`), `.sdlc/execution/ship-summary-feat-ship.json` exists with `schemaVersion` 1, `branch` `"feat/ship"`, `head` (40 hex characters or null), `finalCheck` equal to the cleanup summary's `finalCheck`, and `steps` equal to its `steps` (A1).
+- [x] `file.finalCheck.commit` equals the cleanup summary's `finalCheck.commit` (A2).
+- [x] A case with an unwritable summary path (a directory pre-created at that path) still gets the same cleanup envelope.
 
 **Contract:**
 - shape (code):
@@ -553,11 +555,11 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Implements R110 (text in Task 7); its threat model and accepted gaps are stated there. The marker is dot-prefixed, so no state glob or `parseStateFilename` matches it. Check the SubagentStart/SubagentStop payload fields (`agent_id`, `agent_type`) against the Claude Code hooks reference before coding; if the harness has no SubagentStart event, stop and report. Adds no deny or block rule: the new hook only writes a marker and never blocks. Cites F-ship-step-agents-and-summary-5.
 
 **Acceptance criteria:**
-- [ ] After `subagent-track.js start` with `{"agent_id":"a1","agent_type":"sdlc:ship-step-review","session_id":"sess-fixture"}`, the Stop hook on an in-progress ledger exits 0 with empty stdout and writes no stop-cap counter file (A1).
-- [ ] After `start` then `stop` for the same id, the Stop hook blocks (A2).
-- [ ] A marker whose only agent started 3 hours ago does not silence the hook.
-- [ ] `start` for `agent_type` `general-purpose` writes no marker; the hook blocks.
-- [ ] The existing cases at ship-hooks-exec.yaml:160-214 stay green; hooks.json stays valid JSON and `check-consistency.js` passes.
+- [x] After `subagent-track.js start` with `{"agent_id":"a1","agent_type":"sdlc:ship-step-review","session_id":"sess-fixture"}`, the Stop hook on an in-progress ledger exits 0 with empty stdout and writes no stop-cap counter file (A1).
+- [x] After `start` then `stop` for the same id, the Stop hook blocks (A2).
+- [x] A marker whose only agent started 3 hours ago does not silence the hook.
+- [x] `start` for `agent_type` `general-purpose` writes no marker; the hook blocks.
+- [x] The existing cases at ship-hooks-exec.yaml:160-214 stay green; hooks.json stays valid JSON and `check-consistency.js` passes.
 
 **Contract:**
 - shape (code): hooks.json additions:
@@ -624,9 +626,9 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** #351 routed reads to the main checkout on purpose; this keeps that for state and `local.json` and moves only `.sdlc/config.json` (tracked per branch). The TK-017 doc sentence (A2) is written by Task 7. Cites F-worktree-config-and-state-slug-3, -7.
 
 **Acceptance criteria:**
-- [ ] Run from `worktrees/wt1` of the new fixture, `commit.js` reports the worktree's `commitConfig.subjectPattern`, not the main checkout's (A1).
-- [ ] The commit manifest is still written under the main checkout's `.sdlc/execution/` (the case asserts the printed manifest path).
-- [ ] The #406 case at commit-prepare-exec.yaml:9 stays green.
+- [x] Run from `worktrees/wt1` of the new fixture, `commit.js` reports the worktree's `commitConfig.subjectPattern`, not the main checkout's (A1).
+- [x] The commit manifest is still written under the main checkout's `.sdlc/execution/` (the case asserts the printed manifest path).
+- [x] The #406 case at commit-prepare-exec.yaml:9 stays green.
 
 **Contract:**
 - shape (code):
@@ -659,9 +661,9 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Depends on Task 10 for the fixture. `--project-root` keeps setting both roots, so the existing fixture cases (:11, :21, :31, :75, :87) read their fixture's `local.json` unchanged. Dimensions, guardrails, git remote and changed files then come from the worktree, which is what the answered review saw. Cites F-worktree-config-and-state-slug-4.
 
 **Acceptance criteria:**
-- [ ] Run from `worktrees/wt1` of the Task 10 fixture with `--comment-file`, the manifest's project-config fields come from the worktree's `.sdlc/config.json` (A1).
-- [ ] `alwaysFixSeverities` is still read from the main checkout's `.sdlc/local.json`.
-- [ ] The existing `received-review-prepare` cases stay green.
+- [x] Run from `worktrees/wt1` of the Task 10 fixture with `--comment-file`, the manifest's project-config fields come from the worktree's `.sdlc/config.json` (A1).
+- [x] `alwaysFixSeverities` is still read from the main checkout's `.sdlc/local.json`.
+- [x] The existing `received-review-prepare` cases stay green.
 
 **Contract:**
 - shape (code):
@@ -733,9 +735,9 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** In ship, received-review leaves its fixes in the working tree and commit-fixes commits them, so "the same commit" means the same change set. The rule is prose because the fix step is model work; the text case guards its presence. Depends on Task 11 (shared spec and dataset) and Task 6 (shared agent file). Cites F-worktree-config-and-state-slug-6.
 
 **Acceptance criteria:**
-- [ ] SKILL.md Step 11 holds the rule below once (A1).
-- [ ] The rule names the scan command and says that a fix that removes a phrase also updates every exec case that counts it (A2).
-- [ ] The text case counts `**Removed phrases (R38).**` in SKILL.md as 1 and `(received-review-sdlc R38)` in the agent file as 1.
+- [x] SKILL.md Step 11 holds the rule below once (A1).
+- [x] The rule names the scan command and says that a fix that removes a phrase also updates every exec case that counts it (A2).
+- [x] The text case counts `**Removed phrases (R38).**` in SKILL.md as 1 and `(received-review-sdlc R38)` in the agent file as 1.
 
 **Contract:**
 - shape (docs): SKILL.md rule, verbatim core: "**Removed phrases (R38).** Before a fix removes or rewords a sentence, phrase, name or count, run `git grep -n -F -- \"<old text>\" tests/promptfoo/datasets` as one plain Bash call. Update every case that counts or asserts the old text in the same change set as the fix, and name those cases in the Step 12 summary. A case that must keep the old text is a reason to keep the phrase, not to skip the update." Agent sentence: "When a fix removes or rewords a phrase, update the exec cases that count it in the same change set (received-review-sdlc R38)."
@@ -764,12 +766,12 @@ Verify command: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promp
 **Notes:** Implements R111 (text in Task 7); its threat model and gaps bound what reviewers report. No caller changes (Key Decisions). This changes a shared helper that every state reader inherits (F-160): find the affected cases with `git grep -l -E "SDLC_STATE_DIR_OVERRIDE|SDLC_BRANCH_OVERRIDE|\.sdlc/execution" tests/promptfoo/datasets` and run each listed dataset's description prefix as a targeted filter, under the exec and the hooks configs. Cites F-worktree-config-and-state-slug-1, -2.
 
 **Acceptance criteria:**
-- [ ] With `SDLC_STATE_DIR_OVERRIDE` on the fixture, `state/ship.js read --branch fix/a` (with `SDLC_BRANCH_OVERRIDE=fix/a`) returns the `fix/a` ledger, and `--branch fix-a` (with `SDLC_BRANCH_OVERRIDE=fix-a`) the `fix-a` ledger, though the `fix-a` file is newer (A1).
-- [ ] `--branch fix` reads the `fix` ledger, never a `fix-a` file.
-- [ ] File names stay `<prefix>-<slugifyBranch(branch)>-<timestamp>.json` (A2; a case asserts `slugifyBranch('fix/a') === 'fix-a'` and the `initState` file name).
-- [ ] `detectResumeState({ prefix: 'ship' })` ignores a `ship-summary-x.json` file in the state dir.
-- [ ] Every dataset found by the scan in Notes passes its targeted run.
-- [ ] Run-twice (state-machine idempotency): `readState` and `detectResumeState` called twice on the same fixture return the same file; `pruneStateFiles('ship', 'fix-a', 'fix/a')` run twice on a temp copy removes the `fix/a` file once, keeps the `fix-a` file, and the second call returns `[]`.
+- [x] With `SDLC_STATE_DIR_OVERRIDE` on the fixture, `state/ship.js read --branch fix/a` (with `SDLC_BRANCH_OVERRIDE=fix/a`) returns the `fix/a` ledger, and `--branch fix-a` (with `SDLC_BRANCH_OVERRIDE=fix-a`) the `fix-a` ledger, though the `fix-a` file is newer (A1).
+- [x] `--branch fix` reads the `fix` ledger, never a `fix-a` file.
+- [x] File names stay `<prefix>-<slugifyBranch(branch)>-<timestamp>.json` (A2; a case asserts `slugifyBranch('fix/a') === 'fix-a'` and the `initState` file name).
+- [x] `detectResumeState({ prefix: 'ship' })` ignores a `ship-summary-x.json` file in the state dir.
+- [x] Every dataset found by the scan in Notes passes its targeted run.
+- [x] Run-twice (state-machine idempotency): `readState` and `detectResumeState` called twice on the same fixture return the same file; `pruneStateFiles('ship', 'fix-a', 'fix/a')` run twice on a temp copy removes the `fix/a` file once, keeps the `fix-a` file, and the second call returns `[]`.
 
 **Contract:**
 - shape (code):
