@@ -8,13 +8,9 @@ Source: `.sdlc/orchestration/programme-lows.md`, written by lean-sdlc-w37-main o
 
 Format: severity | path:line | title | one-line text | wave/PR. No line number where the source had none.
 
-- low | tests/promptfoo/scripts/mutation-smoke.js | --only without a value silently runs every mutation | — | lean-w35 / #112
-- low | tests/promptfoo/scripts/mutation-smoke.js | --run does not verify the mutation applied before running promptfoo | — | lean-w35 / #112
-- low | tests/promptfoo/scripts/mutation-smoke.js | Mutation expected to survive makes --run always report ok:false | — | lean-w35 / #112
+- low | tests/promptfoo/scripts/mutation-smoke.js | --run does not verify the mutation applied before running promptfoo (a mutation that does not apply is reported as a survivor, not an error) | — | lean-w35 / #112
+- low | tests/promptfoo/scripts/mutation-smoke.js | Mutation expected to survive makes --run always report ok:false (one mutation is declared to survive, so --run can never report ok) | — | lean-w35 / #112
 - low | tests/promptfoo/scripts/check-dataset-asserts.js:175 | Allowlist JSON parse error lacks file context | inconsistent with the baseline reader | lean-w35 / #112
 - low | tests/promptfoo/scripts/check-spec-id-coverage.js:73 | Missing exec config throws ENOENT | the sibling lint skips a missing config | lean-w35 / #112
 - low | tests/promptfoo/scripts/mutation-smoke.js | Temp path built by string concatenation | — | lean-w35 / #112
-- low | tests/promptfoo/scripts/mutation-smoke.js | A mutation that does not apply is reported as a survivor, not an error | — | lean-w35 / #112
-- low | tests/promptfoo/scripts/mutation-smoke.js | One mutation is declared to survive, so --run can never report ok | — | lean-w35 / #112
-- low | (unknown) | 1 low, text lost (counts-only) | — | lean-w35 / #112
 - note | tests/promptfoo/scripts/mutation-smoke.js:164,165,172,187 | END-line file:line list for the mutation-smoke lows above (mapping per line not recorded) | — | lean-w35 / #112

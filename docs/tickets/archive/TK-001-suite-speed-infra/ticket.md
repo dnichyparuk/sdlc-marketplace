@@ -22,6 +22,7 @@ Memoised fixture build per run, drop the wasted project_root, an in-process gh s
 
 - A1: each fixture is built once per run and the github cases use an in-process gh stub.
 - A2: an owner trial run at -j 4 passes, while maxConcurrency, the docs, the Taskfile, the pre-push hook and CI keep -j 1 as the default.
+  - Trial result (2026-11-21, one run by an agent the owner delegated): `promptfooconfig-exec.yaml` 1529/1529 passed (8 min 8 s) and `promptfooconfig-exec-hooks.yaml` 179/179 passed (36 s), command `npx --yes promptfoo@0.123.1 eval -c <config> -j 4 --no-cache`.
 
 ## Notes
 

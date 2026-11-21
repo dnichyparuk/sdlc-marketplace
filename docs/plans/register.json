@@ -99,19 +99,78 @@
       "closedBy": "PR #125, bb03139"
     },
     {
+      "key": "W-E1",
+      "aliases": ["E1"],
+      "title": "Plugin contract and script fixes",
+      "status": "Not started",
+      "dependsOn": ["W-F"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-E1", "role": "brief" }
+      ],
+      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w36.md"]
+    },
+    {
+      "key": "W-E2",
+      "aliases": ["E2"],
+      "title": "Spec, doc and test traceability",
+      "status": "Not started",
+      "dependsOn": ["W-F"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-E2", "role": "brief" }
+      ],
+      "todos": ["docs/TODO/lows-lean-w42.md"]
+    },
+    {
+      "key": "W-E3",
+      "aliases": ["E3"],
+      "title": "Test-tooling hygiene",
+      "status": "Not started",
+      "dependsOn": ["W-F"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-E3", "role": "brief" }
+      ],
+      "todos": ["docs/TODO/lows-lean-w35.md"]
+    },
+    {
+      "key": "W-E4",
+      "aliases": ["E4"],
+      "title": "`-e` programs to wrappers, batch A",
+      "status": "Not started",
+      "dependsOn": ["W-E2", "W-E3"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-E4", "role": "brief" }
+      ],
+      "todos": ["docs/TODO/end-e-programs-to-wrappers.md"]
+    },
+    {
+      "key": "W-E5",
+      "aliases": ["E5"],
+      "title": "`-e` programs to wrappers, batch B",
+      "status": "Not started",
+      "dependsOn": ["W-E4"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-E5", "role": "brief" }
+      ]
+    },
+    {
       "key": "W-END",
       "kind": "gate",
       "aliases": ["END"],
       "title": "Programme post-merge audit",
       "status": "Not started",
       "owner": "owner",
-      "dependsOn": ["W-F"],
+      "dependsOn": ["W-E1", "W-E2", "W-E3", "W-E4", "W-E5"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-END", "role": "brief" }
       ],
-      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w36.md", "docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/end-recover-counts-only-lows.md", "docs/TODO/script-runner-eisdir-plan-splice.md", "docs/TODO/review-severity-drift-fix-round.md", "docs/TODO/lows-lean-w42.md", "docs/TODO/lows-lean-w43.md", "docs/TODO/end-e-programs-to-wrappers.md"],
-      "decisions": ["PD-1"]
+      "todos": ["docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/archive/end-recover-counts-only-lows.md", "docs/TODO/archive/script-runner-eisdir-plan-splice.md", "docs/TODO/archive/review-severity-drift-fix-round.md", "docs/TODO/lows-lean-w43.md"],
+      "decisions": ["PD-1", "PD-2"]
     }
   ]
 }
