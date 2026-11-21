@@ -82,6 +82,7 @@ Scope (END audit result, owner delegation 2026-11-21; 9 tasks, mostly trivial). 
 - D4: `jira-sdlc-exec.yaml:615-621`: the `--cache-dir` case cannot fail (use a cache dir outside HOME and assert `cachePath`).
 - D5: R77 has no g17Findings test (`fixtures-fs/plan-splice-latest/iter-1/merged.json`); the R37 case checks only the parseArgs roots (`received-review-prepare-exec.yaml:188-197`); the R109 write at final-check-open has no case (`ship.js:2823`).
 - D8 and P11: `docs/specs/review-sdlc.md:134` `findings: []` is untested (`review-consolidate-exec.yaml:58-67`); the wording "sorted as in the comment" against `review-consolidate.js:436` and `:398`.
+- R110 (decision PD-2): add one sentence to the "Accepted gaps" of `docs/specs/ship-sdlc.md` R110: the marker read-modify-write of `subagent-track.js` has no lock, two step agents that start or stop at the same moment can lose an update (a lost stop keeps the hook quiet up to the 2-hour limit; a lost start gives the behaviour from before R110); this race is accepted. Copy the spec to its site copy.
 - R106: the filter text is missing from `docs/specs/ship-sdlc.md:247` (`ship.js:1863-1868`).
 - D6 and D7: `tests/promptfoo/README.md:63` (the hooks config uses `providers/hook-runner.js`) and `:73` (`hook-runner.js` does not copy HOME).
 - R38 is missing from `docs/skills/received-review-sdlc.md`; `execute-plan-sdlc` `SKILL.md:649` "few-waves" label against `:658`.
