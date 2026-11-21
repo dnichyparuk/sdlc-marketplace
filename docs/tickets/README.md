@@ -13,9 +13,9 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-019](./TK-019-suite-coverage-gaps/ticket.md) | task | Suite coverage gaps (#9428) | — | scheduled | W-F M1 | — |
-| [TK-020](./TK-020-suite-tiers-structure/ticket.md) | task | Suite tiers and structure (#9427) | — | scheduled | W-F M1 | — |
-| [TK-021](./TK-021-wave-split-no-exit/ticket.md) | task | Wave split returns an error instead of exiting (#9463) | — | scheduled | W-F M1 | — |
+| [TK-019](./TK-019-suite-coverage-gaps/ticket.md) | task | Suite coverage gaps (#9428) | — | planned | W-F M1 | 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#2, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#3, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#4, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#5, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#6, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#7 |
+| [TK-020](./TK-020-suite-tiers-structure/ticket.md) | task | Suite tiers and structure (#9427) | — | planned | W-F M1 | 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#8, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#9, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#10, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#11 |
+| [TK-021](./TK-021-wave-split-no-exit/ticket.md) | task | Wave split returns an error instead of exiting (#9463) | — | planned | W-F M1 | 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#1 |
 
 **Open, backlog** (0):
 

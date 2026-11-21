@@ -61,7 +61,7 @@ Scope (wave order, 2026-11-19): "F: #9428 + #9427 without the pre-push tier; the
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | TK-019, TK-020, TK-021 | none | ship-prepare-exec.yaml split last |
+| M1 | TK-019, TK-020, TK-021 | `2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure` | ship-prepare-exec.yaml split last |
 
 ## W-END: Programme post-merge audit
 

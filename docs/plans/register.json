@@ -89,11 +89,12 @@
       "key": "W-F",
       "aliases": ["F"],
       "title": "Suite coverage gaps, tiers and structure",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": ["W-D2"],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-F", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-F", "role": "brief" },
+        { "path": "docs/plans/2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure.md", "role": "executable" }
       ]
     },
     {
