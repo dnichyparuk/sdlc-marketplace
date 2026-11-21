@@ -42,6 +42,10 @@ When `--plan` is set, the manifest also carries `planFile`. A finding whose fix 
 
 A finding that says a doc disagrees with the spec is checked against the code first (R34). When the code matches the doc, received-review keeps the doc true: it documents the gap, or names the spec/code mismatch in its reply, and never rewrites the doc to claim behaviour the code lacks. When the code matches the spec, the doc is fixed.
 
+### Removed phrases
+
+When the project has `tests/promptfoo/datasets`, a fix that removes or rewords a sentence, phrase, name or count first greps those datasets for the old text (R38). Every case that counts or asserts the old text is updated in the same change set, and the Step 12 summary names those cases.
+
 ---
 
 ## Configuration

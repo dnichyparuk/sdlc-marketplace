@@ -595,7 +595,7 @@
         if (o.inFence === 0 && o.call === 1 && o.rule === 1 && o.notFlag === 1) return true;
         return { pass: false, score: 0, reason: output };
 
-# jira.js cache flags (--load, --cache-dir plain; --clear, --save-field, --init-templates,
+# jira.js cache flags (--load plain; --cache-dir, --clear, --save-field, --init-templates,
 # --copy-template via run-jira-cache.js, which runs both calls in one HOME copy).
 
 - description: "jira-cache: --load returns the cached project key"
@@ -614,17 +614,20 @@
 
 - description: "jira-cache: --cache-dir finds the cache in the given dir"
   vars:
-    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
-    script_cwd: "{{project_root}}"
-    script_home: "{{project_root}}"
+    script_path: "repo://tests/promptfoo/scripts/run-jira-cache.js"
     project_root: "file://fixtures-fs/jira-save-roundtrip"
-    script_args: "--project SAVETEST --check --cache-dir {{project_root}}/.sdlc-cache/jira/mycompany_atlassian_net"
+    script_args: "--scenario cache-dir --home {{project_root}} --project SAVETEST"
   assert:
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        if (o.exists === true && String(o.cachePath).endsWith('mycompany_atlassian_net/SAVETEST.json')) return true;
-        return { pass: false, score: 0, reason: output };
+        const c = JSON.parse(o.calls[0].stdout);
+        return c.exists === true && c.cachePath === o.calls[0].args[2] + '/SAVETEST.json' ? true : `FAIL: ${output}`;
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const c = JSON.parse(o.calls[1].stdout);
+        return c.exists === false && c.cachePath === null ? true : `FAIL: without --cache-dir ${output}`;
 
 - description: "jira-cache: --clear deletes the cache file, then --check reports it missing"
   vars:

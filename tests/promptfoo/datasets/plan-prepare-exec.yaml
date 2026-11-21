@@ -1521,7 +1521,9 @@
           count('## Guardrail Compliance') === 1 &&
           o.text.includes('| no-scope-creep | warning | PASS | Newest table with a payload |') &&
           !o.text.includes('FAIL') &&
-          o.text.includes('OLD SCORECARD BODY') && !o.text.includes('NEW SCORECARD BODY');
+          o.text.includes('OLD SCORECARD BODY') && !o.text.includes('NEW SCORECARD BODY') &&
+          // R77: --critique-dir writes only the guardrail table, never the g17 rendering
+          !o.text.includes('## Suggested Review Dimensions') && !o.text.includes('LEAKED G17 RENDERING');
         return ok ? true : `FAIL: ${output}`;
 
 - description: "plan-splice: (e) --critique-dir usage and empty cases (R77)"

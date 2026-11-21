@@ -2,11 +2,11 @@
 /**
  * run-jira-cache.js
  * Test wrapper for the file-changing jira.js cache flags (--clear, --save-field,
- * --init-templates, --copy-template). Their effect is only visible to a second
+ * --init-templates, --copy-template) and --cache-dir. Their effect is only visible to a second
  * call in the same HOME, so the wrapper runs the calls in order and reports them.
  *
  * Usage:
- *   node run-jira-cache.js --scenario clear|save-field|init-templates|copy-template --home <dir> --project <KEY>
+ *   node run-jira-cache.js --scenario clear|save-field|init-templates|copy-template|cache-dir --home <dir> --project <KEY>
  *
  * The wrapper copies --home into its own temp dir and runs every call with that
  * as HOME and cwd, so neither the real HOME nor the fixture is ever written.
@@ -27,7 +27,7 @@ const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
 
-const SCENARIOS = ['clear', 'save-field', 'init-templates', 'copy-template'];
+const SCENARIOS = ['clear', 'save-field', 'init-templates', 'copy-template', 'cache-dir'];
 
 function usage(msg) {
   process.stderr.write(`run-jira-cache: ${msg}\n`);
@@ -78,6 +78,16 @@ switch (scenario) {
     run(['--clear']);
     run(['--check']);
     break;
+  case 'cache-dir': {
+    // The cache leaves HOME, so only --cache-dir can find it.
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-cache-dir-'));
+    fs.renameSync(path.join(tmp, '.sdlc-cache'), path.join(outside, '.sdlc-cache'));
+    const dir = path.join(outside, '.sdlc-cache', 'jira', 'mycompany_atlassian_net');
+    run(['--check', '--cache-dir', dir]);
+    run(['--check']);
+    fs.rmSync(outside, { recursive: true, force: true });
+    break;
+  }
   case 'save-field':
     // --save-field reads its JSON from stdin.
     run(['--save-field', 'savedNote'], JSON.stringify({ text: 'hello-roundtrip' }));
