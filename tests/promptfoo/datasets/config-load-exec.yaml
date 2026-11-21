@@ -1,6 +1,5 @@
 # Script execution tests for lib/config.js read paths (issue #232
-# schemaVersion stamping). Uses a tiny inline runner script invoked
-# with different fixture directories.
+# schemaVersion stamping). Runs runners/config-load-runner.js against different fixture directories.
 
 - description: "config-load: new .sdlc/config.json preferred when present"
   vars:

@@ -1,8 +1,7 @@
-# Script execution tests for pr-prepare.js.
-# These tests run pr-prepare.js directly against fixture directories (no LLM).
-# Ported from tests/unit/pr-prepare.test.js.
+# Script execution tests for skill/pr.js.
+# These tests run pr.js directly against fixture directories (no LLM).
 #
-# Note: pr-prepare.js calls gh CLI which fails without a remote.
+# Note: pr.js calls gh CLI which fails without a remote.
 # Tests assert on fields populated before remote operations (flags, prConfig).
 # Every case sets script_stub_bin to the stub gh (fixtures-fs/stub-bin-gh), so no case,
 # and no child an -e case spawns, reaches the real gh (`gh auth switch` is global state).

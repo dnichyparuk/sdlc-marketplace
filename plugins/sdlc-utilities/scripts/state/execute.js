@@ -1068,6 +1068,9 @@ function cmdGc(opts) {
  * Idempotent: if the wave already has a splitTree for the same splitDepth, returns the
  * persisted tree without re-computing (same inputs → same partition is guaranteed by splitWave).
  *
+ * Without --state-file, a branch-resolution failure skips persistence and the result
+ * still prints (exit 0).
+ *
  * Exit codes:
  *   0 = success; JSON printed to stdout
  *   2 = argument error, JSON parse error, MaxSplitDepthExceededError
@@ -1140,7 +1143,7 @@ function cmdWaveSplit(opts) {
         // fall through — no state to persist to
       }
     } else {
-      const branch = resolveBranchOrExit(opts.branch);
+      const branch = resolveBranch(opts.branch);
       const slug = slugifyBranch(branch);
       found = readState('execute', slug);
     }

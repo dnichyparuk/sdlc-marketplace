@@ -20,7 +20,7 @@
       "ids": []
     },
     "datasets/commit-prepare-exec.yaml": {
-      "asserts": 92,
+      "asserts": 98,
       "ids": [
         "A7",
         "A9",
@@ -32,6 +32,7 @@
         "R18",
         "R19",
         "R20",
+        "R21",
         "R35",
         "R5",
         "W8"
@@ -104,16 +105,17 @@
       ]
     },
     "datasets/execute-plan-sdlc-overflow-exec.yaml": {
-      "asserts": 34,
+      "asserts": 44,
       "ids": [
         "R14",
         "R15",
         "R40",
+        "R94",
         "T3"
       ]
     },
     "datasets/execute-prepare-exec.yaml": {
-      "asserts": 77,
+      "asserts": 79,
       "ids": [
         "A6",
         "H1",
@@ -283,7 +285,7 @@
       ]
     },
     "datasets/jira-sdlc-exec.yaml": {
-      "asserts": 81,
+      "asserts": 87,
       "ids": [
         "A6",
         "C16",
@@ -368,7 +370,7 @@
       ]
     },
     "datasets/plan-format-exec.yaml": {
-      "asserts": 105,
+      "asserts": 108,
       "ids": [
         "G12",
         "PF1",
@@ -389,7 +391,7 @@
       ]
     },
     "datasets/plan-prepare-exec.yaml": {
-      "asserts": 182,
+      "asserts": 183,
       "ids": [
         "A5",
         "C4",
@@ -465,7 +467,7 @@
       "ids": []
     },
     "datasets/received-review-prepare-exec.yaml": {
-      "asserts": 40,
+      "asserts": 42,
       "ids": [
         "A7",
         "C20",
@@ -479,7 +481,9 @@
         "R31",
         "R32",
         "R34",
-        "R36"
+        "R36",
+        "R37",
+        "R38"
       ]
     },
     "datasets/review-consolidate-exec.yaml": {
@@ -489,7 +493,7 @@
       ]
     },
     "datasets/review-prepare-exec.yaml": {
-      "asserts": 41,
+      "asserts": 48,
       "ids": [
         "R3"
       ]
@@ -536,7 +540,7 @@
       ]
     },
     "datasets/sdlc-script-resolution-exec.yaml": {
-      "asserts": 32,
+      "asserts": 33,
       "ids": [
         "C20",
         "R85",
@@ -572,7 +576,7 @@
       "ids": []
     },
     "datasets/setup-prepare-exec.yaml": {
-      "asserts": 41,
+      "asserts": 43,
       "ids": [
         "P1",
         "P6",
@@ -590,9 +594,10 @@
       "ids": []
     },
     "datasets/ship-hooks-exec.yaml": {
-      "asserts": 51,
+      "asserts": 55,
       "ids": [
         "C18",
+        "R110",
         "R38",
         "R64",
         "R67",
@@ -604,73 +609,32 @@
       ]
     },
     "datasets/ship-prepare-exec.yaml": {
-      "asserts": 445,
+      "asserts": 214,
       "ids": [
-        "A15",
-        "A17",
-        "A19",
         "A8",
         "C19",
         "F4",
-        "G9",
         "KD3",
-        "M7",
         "P8",
         "Q1",
         "Q16",
-        "R100",
-        "R101",
-        "R102",
-        "R103",
-        "R104",
         "R105",
-        "R106",
         "R11",
-        "R14",
         "R15",
-        "R2",
         "R20",
-        "R25",
-        "R3",
         "R35",
-        "R36",
-        "R38",
-        "R4",
-        "R45",
-        "R5",
         "R57",
-        "R6",
         "R60",
         "R64",
         "R66",
-        "R69",
         "R72",
         "R75",
         "R76",
-        "R78",
-        "R79",
-        "R80",
-        "R82",
-        "R83",
-        "R84",
-        "R86",
-        "R87",
-        "R88",
-        "R89",
         "R91",
-        "R93",
-        "R94",
-        "R95",
         "R96",
-        "R97",
-        "RF6",
         "T8",
-        "W1",
-        "W4",
-        "W44",
         "W5",
-        "W8",
-        "X1"
+        "W8"
       ]
     },
     "datasets/ship-review-gate-exec.yaml": {
@@ -686,6 +650,69 @@
       "asserts": 5,
       "ids": []
     },
+    "datasets/ship-state-exec.yaml": {
+      "asserts": 38,
+      "ids": [
+        "R38",
+        "R69",
+        "W1",
+        "W4"
+      ]
+    },
+    "datasets/ship-stepper-exec.yaml": {
+      "asserts": 104,
+      "ids": [
+        "M7",
+        "R105",
+        "R14",
+        "R2",
+        "R25",
+        "R3",
+        "R38",
+        "R4",
+        "R45",
+        "R5",
+        "R6",
+        "R93",
+        "R97",
+        "RF6",
+        "W4",
+        "W44",
+        "X1"
+      ]
+    },
+    "datasets/ship-stepper-flows-exec.yaml": {
+      "asserts": 93,
+      "ids": [
+        "A15",
+        "A17",
+        "A19",
+        "G9",
+        "R100",
+        "R101",
+        "R102",
+        "R103",
+        "R104",
+        "R105",
+        "R106",
+        "R11",
+        "R36",
+        "R78",
+        "R79",
+        "R80",
+        "R82",
+        "R83",
+        "R84",
+        "R86",
+        "R87",
+        "R88",
+        "R89",
+        "R94",
+        "R95",
+        "R97",
+        "W8"
+      ]
+    },
     "datasets/ship-todos-exec.yaml": {
       "asserts": 4,
       "ids": []
@@ -694,9 +721,15 @@
       "asserts": 3,
       "ids": []
     },
+    "datasets/state-commands-exec.yaml": {
+      "asserts": 13,
+      "ids": []
+    },
     "datasets/state-gc-migrate-exec.yaml": {
-      "asserts": 43,
+      "asserts": 48,
       "ids": [
+        "R109",
+        "R111",
         "R35",
         "R37",
         "W1"
@@ -735,7 +768,7 @@
       ]
     },
     "datasets/version-prepare-exec.yaml": {
-      "asserts": 54,
+      "asserts": 61,
       "ids": [
         "G8",
         "G9",
@@ -819,35 +852,38 @@
     "error-report-prepare.js --step": 6,
     "execute.js --auto": 3,
     "execute.js --branch": 25,
+    "execute.js --commit-waves": 2,
     "execute.js --data": 4,
     "execute.js --decisions": 1,
-    "execute.js --dispatched": 2,
+    "execute.js --dispatched": 3,
     "execute.js --dry-run": 1,
     "execute.js --files-added": 1,
     "execute.js --files-changed": 2,
+    "execute.js --final": 1,
     "execute.js --from-wave": 4,
     "execute.js --grace": 2,
     "execute.js --interval": 3,
     "execute.js --manifest-json": 1,
-    "execute.js --max-split-depth": 2,
+    "execute.js --max-split-depth": 3,
     "execute.js --max-task-ids": 1,
-    "execute.js --missing-ids": 1,
+    "execute.js --missing-ids": 2,
     "execute.js --once": 1,
     "execute.js --phase": 1,
-    "execute.js --plan": 46,
+    "execute.js --plan": 48,
     "execute.js --plan-hash": 2,
     "execute.js --plan-path": 2,
-    "execute.js --project-root": 50,
+    "execute.js --project-root": 52,
     "execute.js --quality": 13,
     "execute.js --read": 2,
+    "execute.js --reason": 2,
     "execute.js --rebase": 1,
     "execute.js --resume": 3,
     "execute.js --run-id": 8,
     "execute.js --sha": 2,
     "execute.js --skip-config-check": 2,
-    "execute.js --split-depth": 2,
-    "execute.js --state-file": 4,
-    "execute.js --status": 1,
+    "execute.js --split-depth": 3,
+    "execute.js --state-file": 6,
+    "execute.js --status": 3,
     "execute.js --strict-files": 1,
     "execute.js --task": 3,
     "execute.js --tasks": 8,
@@ -858,7 +894,7 @@
     "execute.js --usage": 1,
     "execute.js --verify-token": 1,
     "execute.js --wait": 4,
-    "execute.js --wave": 19,
+    "execute.js --wave": 20,
     "execute.js --wave-interval": 1,
     "execute.js --wave-timeout": 2,
     "execute.js context": 4,
@@ -866,13 +902,14 @@
     "execute.js init": 3,
     "execute.js read": 2,
     "execute.js resume-reset": 2,
+    "execute.js spec-review": 3,
     "execute.js summarize-prior-wave-context": 2,
     "execute.js task-done": 2,
-    "execute.js verify-completeness": 4,
+    "execute.js verify-completeness": 6,
     "execute.js wave-committed": 2,
     "execute.js wave-done": 3,
     "execute.js wave-progress": 7,
-    "execute.js wave-split": 2,
+    "execute.js wave-split": 3,
     "execute.js wave-start": 3,
     "execute.js wave-watch": 3,
     "git-lib-test.js --base": 8,
@@ -892,13 +929,15 @@
     "harvest-learnings.js --since": 1,
     "jira-write-guard-test.js --op": 3,
     "jira.js --assemble": 4,
-    "jira.js --check": 13,
+    "jira.js --cache-dir": 1,
+    "jira.js --check": 14,
     "jira.js --check-payload": 6,
     "jira.js --file": 4,
     "jira.js --force-refresh": 1,
     "jira.js --input": 5,
     "jira.js --json": 4,
-    "jira.js --project": 32,
+    "jira.js --load": 1,
+    "jira.js --project": 34,
     "jira.js --save": 4,
     "jira.js --site": 5,
     "jira.js --skip-workflow-discovery": 2,
@@ -948,8 +987,8 @@
     "plan-explore.js --from-openspec": 1,
     "plan-register.mjs --root": 1,
     "plan-register.mjs check": 1,
-    "plan.js --after": 12,
-    "plan.js --before": 13,
+    "plan.js --after": 13,
+    "plan.js --before": 14,
     "plan.js --carry": 3,
     "plan.js --critique-dir": 1,
     "plan.js --dimensions-dir": 6,
@@ -973,7 +1012,7 @@
     "plan.js --today": 5,
     "plan.js --window": 5,
     "plan.js critique-prep": 1,
-    "plan.js diff-material": 13,
+    "plan.js diff-material": 14,
     "plan.js g17-prepare": 6,
     "plan.js merge-lanes": 19,
     "plan.js tier": 4,
@@ -1000,15 +1039,19 @@
     "review-consolidate.js --render-plan": 1,
     "review-consolidate.js --summary-path": 9,
     "review.js --auto": 2,
-    "review.js --base": 7,
+    "review.js --base": 9,
     "review.js --committed": 7,
     "review.js --grace": 1,
     "review.js --interval": 2,
     "review.js --manifest": 4,
     "review.js --plan": 2,
     "review.js --post": 3,
+    "review.js --set-default": 1,
+    "review.js --staged": 3,
     "review.js --timeout": 1,
     "review.js --wait-summary": 5,
+    "review.js --working": 1,
+    "review.js --worktree": 1,
     "run-await-remote-review-evaluate.js --reviewers": 14,
     "run-await-remote-review-evaluate.js --reviews": 14,
     "run-claude-cli-limit-stub.js exit": 1,
@@ -1085,6 +1128,9 @@
     "run-headless-case-stub.js --scenario": 15,
     "run-headless-case-stub.js --tier": 1,
     "run-headless-case-stub.js --variant": 7,
+    "run-jira-cache.js --home": 4,
+    "run-jira-cache.js --project": 4,
+    "run-jira-cache.js --scenario": 4,
     "run-manifest-cross-process.js --mode": 4,
     "run-openspec-step.js --change": 12,
     "run-openspec-step.js --changes": 1,
@@ -1129,6 +1175,9 @@
     "run-ship-detect-resume.js --project-root": 4,
     "run-ship-detect-resume.js --scenario": 4,
     "run-ship-detect-resume.js --state-rel": 4,
+    "run-ship-prepare-ledger.js --case": 20,
+    "run-ship-prepare-plan-fields.js --case": 18,
+    "run-ship-prepare-summary.js --case": 10,
     "run-ship-stepper.js --again": 5,
     "run-ship-stepper.js --answer": 19,
     "run-ship-stepper.js --answer-text": 7,
@@ -1189,6 +1238,19 @@
     "run-ship-stepper.js --with-state": 2,
     "run-ship-stepper.js --write": 10,
     "run-ship-stepper.js --write-after": 1,
+    "run-state-command.js --branch": 13,
+    "run-state-command.js --error": 3,
+    "run-state-command.js --file": 2,
+    "run-state-command.js --reason": 1,
+    "run-state-command.js --script": 13,
+    "run-state-command.js --seed": 13,
+    "run-state-command.js --severity": 2,
+    "run-state-command.js --skipped-dependency": 1,
+    "run-state-command.js --step": 4,
+    "run-state-command.js --task": 3,
+    "run-state-command.js --text": 1,
+    "run-state-command.js --title": 1,
+    "run-state-command.js --wave": 6,
     "run-stop-plan-integrity.js --branch": 1,
     "run-stop-plan-integrity.js --critique-dir": 5,
     "run-stop-plan-integrity.js --fix-planfile-path": 12,
@@ -1216,7 +1278,8 @@
     "setup-migrate-dispatch-test.js --op": 2,
     "setup-script-versions-test.js --op": 3,
     "setup.js --force": 2,
-    "setup.js --scan": 2,
+    "setup.js --scan": 4,
+    "setup.js --scan-prs": 1,
     "setup.js --skip": 2,
     "setup.js --steps": 4,
     "setup.js --unset-only": 4,
@@ -1226,6 +1289,7 @@
     "ship-todos.js --plan": 3,
     "ship-todos.js --state-file": 9,
     "ship.js --auto": 10,
+    "ship.js --await-review": 1,
     "ship.js --branch": 3,
     "ship.js --bump": 4,
     "ship.js --dry-run": 1,
@@ -1235,7 +1299,7 @@
     "ship.js --from": 3,
     "ship.js --from-wave": 2,
     "ship.js --gc": 3,
-    "ship.js --has-plan": 79,
+    "ship.js --has-plan": 80,
     "ship.js --hook-active-pipeline": 2,
     "ship.js --openspec-change": 5,
     "ship.js --output-file": 2,
@@ -1305,12 +1369,13 @@
     "version-lib-test.js --op": 2,
     "version-retag-test.js --op": 7,
     "version.js --auto": 1,
-    "version.js --bump": 4,
+    "version.js --bump": 6,
     "version.js --changelog": 1,
     "version.js --expected-branch": 2,
     "version.js --message-file": 2,
     "version.js --no-push": 1,
     "version.js --no-tag": 3,
+    "version.js --pre": 1,
     "version.js --retag": 2,
     "version.js --subject": 2,
     "version.js patch": 16,

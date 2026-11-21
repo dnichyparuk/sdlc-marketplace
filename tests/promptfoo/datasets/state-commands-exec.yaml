@@ -1,0 +1,178 @@
+# Success-path write tests for state/execute.js and state/ship.js subcommands.
+# The wrapper seeds a temp state dir, runs the subcommand and reads the state back
+# (run-state-command.js), because the success path prints nothing.
+
+- description: "state-commands: execute wave-fail marks wave 2 failed with completedAt (a)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script execute --seed mid-run --branch fix/sc -- wave-fail --wave 2"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 0) return `FAIL: exit ${o.exitCode} ${o.stderr}`;
+        const w = o.state.waves.find(w => w.number === 2);
+        if (w.status !== 'failed') return `FAIL: status ${w.status}`;
+        if (!w.completedAt) return 'FAIL: completedAt not set';
+        return true;
+
+- description: "state-commands: execute wave-fail without --wave exits 2 and leaves the wave in_progress (b)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script execute --seed mid-run --branch fix/sc -- wave-fail"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 2) return `FAIL: exit ${o.exitCode}`;
+        if (!o.stderr.includes('--wave')) return `FAIL: stderr ${o.stderr}`;
+        const w = o.state.waves.find(w => w.number === 2);
+        if (w.status !== 'in_progress') return `FAIL: status ${w.status}`;
+        return true;
+
+- description: "state-commands: execute task-fail records a failed task with error and empty filesChanged (c)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script execute --seed mid-run --branch fix/sc -- task-fail --wave 2 --task 3 --error boom"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 0) return `FAIL: exit ${o.exitCode} ${o.stderr}`;
+        const t = o.state.waves.find(w => w.number === 2).tasks.find(t => t.id === '3');
+        if (!t) return 'FAIL: task 3 missing';
+        if (t.status !== 'failed') return `FAIL: status ${t.status}`;
+        if (t.error !== 'boom') return `FAIL: error ${t.error}`;
+        if (JSON.stringify(t.filesChanged) !== '[]') return 'FAIL: filesChanged';
+        return true;
+
+- description: "state-commands: execute task-fail --skipped-dependency records status skipped-dependency (d)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script execute --seed mid-run --branch fix/sc -- task-fail --wave 2 --task 3 --skipped-dependency"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 0) return `FAIL: exit ${o.exitCode} ${o.stderr}`;
+        const t = o.state.waves.find(w => w.number === 2).tasks.find(t => t.id === '3');
+        if (!t) return 'FAIL: task 3 missing';
+        if (t.status !== 'skipped-dependency') return `FAIL: status ${t.status}`;
+        return true;
+
+- description: "state-commands: execute task-fail on an existing task replaces it instead of adding (e)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script execute --seed mid-run --branch fix/sc -- task-fail --wave 2 --task 1 --error x"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 0) return `FAIL: exit ${o.exitCode} ${o.stderr}`;
+        const tasks = o.state.waves.find(w => w.number === 2).tasks;
+        if (tasks.length !== 1) return `FAIL: ${tasks.length} tasks`;
+        if (tasks[0].id !== '1' || tasks[0].status !== 'failed') return `FAIL: ${JSON.stringify(tasks[0])}`;
+        return true;
+
+- description: "state-commands: execute task-fail without --task exits 2 (f)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script execute --seed mid-run --branch fix/sc -- task-fail --wave 2"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 2) return `FAIL: exit ${o.exitCode}`;
+        if (!o.stderr.includes('--task')) return `FAIL: stderr ${o.stderr}`;
+        return true;
+
+- description: "state-commands: execute wave-fail with no state file exits 1 (g)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script execute --seed none --branch fix/sc -- wave-fail --wave 2"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 1) return `FAIL: exit ${o.exitCode}`;
+        if (o.state !== null) return 'FAIL: state should be null';
+        return true;
+
+- description: "state-commands: ship skip marks the step skipped with its reason (h)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script ship --seed mid-run --branch fix/sc -- skip --step version --reason r"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 0) return `FAIL: exit ${o.exitCode} ${o.stderr}`;
+        const s = o.state.steps.find(s => s.name === 'version');
+        if (s.status !== 'skipped') return `FAIL: status ${s.status}`;
+        if (s.reason !== 'r') return `FAIL: reason ${s.reason}`;
+        return true;
+
+- description: "state-commands: ship fail marks the step failed with its error (i)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script ship --seed mid-run --branch fix/sc -- fail --step review --error e"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 0) return `FAIL: exit ${o.exitCode} ${o.stderr}`;
+        const s = o.state.steps.find(s => s.name === 'review');
+        if (s.status !== 'failed') return `FAIL: status ${s.status}`;
+        if (s.error !== 'e') return `FAIL: error ${s.error}`;
+        return true;
+
+- description: "state-commands: ship decide appends a decision (j)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script ship --seed mid-run --branch fix/sc -- decide --step review --text t"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 0) return `FAIL: exit ${o.exitCode} ${o.stderr}`;
+        const d = o.state.decisions[o.state.decisions.length - 1];
+        if (!d || d.step !== 'review' || d.decision !== 't') return `FAIL: ${JSON.stringify(d)}`;
+        return true;
+
+- description: "state-commands: ship defer appends a deferred finding with a null line (k)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script ship --seed mid-run --branch fix/sc -- defer --severity high --file a.js --title T"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 0) return `FAIL: exit ${o.exitCode} ${o.stderr}`;
+        const d = o.state.deferredFindings[o.state.deferredFindings.length - 1];
+        if (JSON.stringify(d) !== JSON.stringify({ severity: 'high', file: 'a.js', line: null, title: 'T' })) return `FAIL: ${JSON.stringify(d)}`;
+        return true;
+
+- description: "state-commands: ship defer without --title exits 2 and records nothing (l)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script ship --seed mid-run --branch fix/sc -- defer --severity high --file a.js"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 2) return `FAIL: exit ${o.exitCode}`;
+        if (!o.stderr.includes('--title')) return `FAIL: stderr ${o.stderr}`;
+        if (o.state.deferredFindings.length !== 0) return 'FAIL: finding recorded';
+        return true;
+
+- description: "state-commands: ship skip on an unknown step exits 1 naming the step (m)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-state-command.js"
+    script_args: "--script ship --seed mid-run --branch fix/sc -- skip --step nosuch"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCode !== 1) return `FAIL: exit ${o.exitCode}`;
+        if (!o.stderr.includes('nosuch')) return `FAIL: stderr ${o.stderr}`;
+        return true;

@@ -336,3 +336,71 @@
   assert:
     - type: contains
       value: "Error: --interval requires an integer >= 1"
+
+- description: "review-scope: --staged lists only the staged file"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--staged"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-review-scopes"
+  assert:
+    - type: javascript
+      value: |
+        const m = JSON.parse(output);
+        const fs = process.getBuiltinModule('fs');
+        const files = m.dimensions.flatMap(d => d.slice_file ? JSON.parse(fs.readFileSync(d.slice_file, 'utf8')).matched_files : []).sort();
+        return m.scope === 'staged' && JSON.stringify(files) === JSON.stringify(["staged.txt"]);
+
+- description: "review-scope: --working lists staged and unstaged files"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--working"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-review-scopes"
+  assert:
+    - type: javascript
+      value: |
+        const m = JSON.parse(output);
+        const fs = process.getBuiltinModule('fs');
+        const files = m.dimensions.flatMap(d => d.slice_file ? JSON.parse(fs.readFileSync(d.slice_file, 'utf8')).matched_files : []).sort();
+        return m.scope === 'working' && JSON.stringify(files) === JSON.stringify(["staged.txt","unstaged.txt"]);
+
+- description: "review-scope: --worktree lists committed, staged and unstaged files"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--worktree --base main"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-review-scopes"
+  assert:
+    - type: javascript
+      value: |
+        const m = JSON.parse(output);
+        const fs = process.getBuiltinModule('fs');
+        const files = m.dimensions.flatMap(d => d.slice_file ? JSON.parse(fs.readFileSync(d.slice_file, 'utf8')).matched_files : []).sort();
+        return m.scope === 'worktree' && JSON.stringify(files) === JSON.stringify(["committed.txt","staged.txt","unstaged.txt"]);
+
+- description: "review-scope: --staged with --base is rejected as mutually exclusive"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--staged --base main"
+    script_show_exit: true
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-review-scopes"
+  assert:
+    - type: contains
+      value: "--staged and --base are mutually exclusive"
+    - type: contains
+      value: "[exit 2]"
+
+- description: "review-scope: --set-default --staged saves the default and runs the staged scope"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
+    script_args: "--set-default --staged"
+    script_capture_stderr: true
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-review-scopes"
+  assert:
+    - type: contains
+      value: 'Saved default scope "staged" to .sdlc/review.json'
+    - type: regex
+      value: '"scope": "staged"'

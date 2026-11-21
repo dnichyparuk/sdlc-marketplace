@@ -43,7 +43,7 @@
     },
     {
       "rule": "key-only-contains",
-      "dataset": "datasets/ship-prepare-exec.yaml",
+      "dataset": "datasets/ship-state-exec.yaml",
       "description": "verify-side-effect: commit with the HEAD sha → landed:true"
     },
     {

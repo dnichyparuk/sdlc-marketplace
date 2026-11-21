@@ -378,3 +378,30 @@
         if (c.errors.length !== 1 || !c.errors[0].startsWith('plan.copyRules[2]')) return 'FAIL: errors ' + JSON.stringify(c.errors);
         if (c.warnings.length !== 1 || !c.warnings[0].startsWith('plan.copyRules[1]')) return 'FAIL: warnings ' + JSON.stringify(c.warnings);
         return true
+
+- description: "setup-scan-prs: (a) --scan --scan-prs fills recentPrs from gh pr list"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh-prs/bin"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+    script_args: "--scan --scan-prs"
+  assert:
+    - type: javascript
+      value: |
+        const s = JSON.parse(output).scan;
+        const t = s && s.recentPrs ? s.recentPrs.map(p => p.title) : null;
+        return t && t.length === 2 && t[0] === 'feat: one' && t[1] === 'fix: two' ? true : 'FAIL: recentPrs ' + JSON.stringify(s && s.recentPrs);
+
+- description: "setup-scan-prs: (b) --scan without --scan-prs never calls gh pr list"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/setup.js"
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh-prs/bin"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/plan-prepare-github-remote"
+    script_args: "--scan"
+  assert:
+    - type: javascript
+      value: |
+        const s = JSON.parse(output).scan;
+        return s && Array.isArray(s.recentPrs) && s.recentPrs.length === 0 ? true : 'FAIL: recentPrs ' + JSON.stringify(s && s.recentPrs);

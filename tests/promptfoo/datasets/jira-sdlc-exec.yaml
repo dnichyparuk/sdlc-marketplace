@@ -594,3 +594,100 @@
         const o = JSON.parse(output);
         if (o.inFence === 0 && o.call === 1 && o.rule === 1 && o.notFlag === 1) return true;
         return { pass: false, score: 0, reason: output };
+
+# jira.js cache flags (--load, --cache-dir plain; --clear, --save-field, --init-templates,
+# --copy-template via run-jira-cache.js, which runs both calls in one HOME copy).
+
+- description: "jira-cache: --load returns the cached project key"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-save-roundtrip"
+    script_args: "--project SAVETEST --load"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.project && o.project.key === 'SAVETEST') return true;
+        return { pass: false, score: 0, reason: output };
+
+- description: "jira-cache: --cache-dir finds the cache in the given dir"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/jira.js"
+    script_cwd: "{{project_root}}"
+    script_home: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-save-roundtrip"
+    script_args: "--project SAVETEST --check --cache-dir {{project_root}}/.sdlc-cache/jira/mycompany_atlassian_net"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exists === true && String(o.cachePath).endsWith('mycompany_atlassian_net/SAVETEST.json')) return true;
+        return { pass: false, score: 0, reason: output };
+
+- description: "jira-cache: --clear deletes the cache file, then --check reports it missing"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-jira-cache.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-save-roundtrip"
+    script_args: "--scenario clear --home {{project_root}} --project SAVETEST"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [clear, check] = o.calls;
+        if (clear.exitCode !== 0) return `FAIL: clear exit ${clear.exitCode}`;
+        if (JSON.parse(check.stdout).exists !== false) return `FAIL: check still reports exists: ${check.stdout}`;
+        if (o.files['.sdlc-cache/jira/mycompany_atlassian_net/SAVETEST.json'] !== false) return 'FAIL: cache file still present';
+        return true;
+
+- description: "jira-cache: --save-field persists the value, --load returns it"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-jira-cache.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-save-roundtrip"
+    script_args: "--scenario save-field --home {{project_root}} --project SAVETEST"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const [save, load] = o.calls;
+        if (save.exitCode !== 0) return `FAIL: save exit ${save.exitCode}`;
+        if (load.exitCode !== 0) return `FAIL: load exit ${load.exitCode}`;
+        const cache = JSON.parse(load.stdout);
+        if (cache.savedNote && cache.savedNote.text === 'hello-roundtrip' && cache.project.key === 'SAVETEST') return true;
+        return `FAIL: savedNote missing in ${load.stdout}`;
+
+- description: "jira-cache: --init-templates writes a template file for each cached issue type"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-jira-cache.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-save-roundtrip"
+    script_args: "--scenario init-templates --home {{project_root}} --project SAVETEST"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const call = o.calls[0];
+        if (call.exitCode !== 0) return `FAIL: exit ${call.exitCode}`;
+        if (!JSON.parse(call.stdout).initialized.includes('Task')) return `FAIL: Task not initialized: ${call.stdout}`;
+        if (o.files['.sdlc/jira-templates/Task.md'] !== true) return 'FAIL: Task.md missing';
+        return true;
+
+- description: "jira-cache: --copy-template creates the target template file"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-jira-cache.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/jira-save-roundtrip"
+    script_args: "--scenario copy-template --home {{project_root}} --project SAVETEST"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const call = o.calls[0];
+        if (call.exitCode !== 0) return `FAIL: exit ${call.exitCode}`;
+        const r = JSON.parse(call.stdout);
+        if (r.copied !== true || r.type !== 'Custom' || r.from !== 'Bug') return `FAIL: ${call.stdout}`;
+        if (o.files['.sdlc/jira-templates/Custom.md'] !== true) return 'FAIL: Custom.md missing';
+        return true;

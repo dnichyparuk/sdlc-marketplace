@@ -1,7 +1,7 @@
 /**
  * pipeline-advancing-test.js — exercise the pure pipelineAdvancing export in lib/state.js.
  *
- * Used by datasets/ship-prepare-exec.yaml pipelineAdvancing cases via
+ * Used by datasets/ship-state-exec.yaml pipelineAdvancing cases via
  *   script_path: "repo://tests/promptfoo/scripts/pipeline-advancing-test.js".
  * The lib path is resolved relative to this script's real __dirname so it works
  * regardless of cwd.

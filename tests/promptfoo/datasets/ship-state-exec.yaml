@@ -1,0 +1,365 @@
+# Script execution tests for the ship state subcommands (no LLM), run through skill/ship.js,
+# pipeline-advancing-test.js, run-ship-begin-complete.js and run-verify-side-effect-commit.js.
+# Covers the pipelineAdvancing predicate, begin-step and complete-step (with their usage errors)
+# and verify-side-effect.
+
+# pipelineAdvancing predicate (R-advancing-predicate, #452) — pure helper in
+# lib/state.js, exercised via the pipeline-advancing-test.js runner (no fixture).
+# The five cases match the spec acceptance list verbatim.
+
+- description: "pipelineAdvancing: in_progress step advancing"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/pipeline-advancing-test.js"
+    script_args: '--data {"steps":[{"name":"execute","status":"completed"},{"name":"commit","status":"in_progress"},{"name":"pr","status":"pending"}]}'
+  assert:
+    - type: contains
+      value: '"advancing":true'
+    - type: contains
+      value: '"step":"commit"'
+
+- description: "pipelineAdvancing: completed+pending (none in_progress, none failed) advancing"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/pipeline-advancing-test.js"
+    script_args: '--data {"steps":[{"name":"execute","status":"completed"},{"name":"commit","status":"pending"}]}'
+  assert:
+    - type: contains
+      value: '"advancing":true'
+    - type: contains
+      value: '"step":"commit"'
+
+- description: "pipelineAdvancing: all terminal not advancing"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/pipeline-advancing-test.js"
+    script_args: '--data {"steps":[{"name":"execute","status":"completed"},{"name":"commit","status":"skipped"}]}'
+  assert:
+    - type: contains
+      value: '"advancing":false'
+
+- description: "pipelineAdvancing: failed without pending cleanup not advancing"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/pipeline-advancing-test.js"
+    script_args: '--data {"steps":[{"name":"execute","status":"completed"},{"name":"commit","status":"failed"}]}'
+  assert:
+    - type: contains
+      value: '"advancing":false'
+
+- description: "pipelineAdvancing: failed with terminal cleanup pending advancing (R38)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/pipeline-advancing-test.js"
+    script_args: '--data {"steps":[{"name":"execute","status":"completed"},{"name":"commit","status":"failed"},{"name":"cleanup","status":"pending"}]}'
+  assert:
+    - type: contains
+      value: '"advancing":true'
+    - type: contains
+      value: '"step":"cleanup"'
+
+# ---------------------------------------------------------------------------
+# R69 (#452) — state/ship.js begin-step / complete-step subcommands.
+# Driven through tests/promptfoo/scripts/run-ship-begin-complete.js so multi-call
+# sequences (begin→complete, begin twice for idempotency) run in one invocation
+# and the post-mutation step status is reported as JSON for assertion.
+# Fixture: ship-state-begin-complete (array-shaped ship state, all steps pending).
+# ---------------------------------------------------------------------------
+
+# 1. begin-step marks the execute step in_progress AND prints todos JSON.
+- description: "ship begin-step (R69): marks execute step in_progress and prints todos JSON"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario begin"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes[0] !== 0) return `FAIL: exit ${o.exitCodes[0]}`;
+        if (o.finalStatus !== 'in_progress') return `FAIL: status ${o.finalStatus}`;
+        if (!(o.todosCount >= 1)) return `FAIL: todosCount ${o.todosCount}`;
+        // stdout from begin-step must be valid { todos, marker } JSON
+        const inner = JSON.parse(o.lastStdout);
+        if (!Array.isArray(inner.todos)) return 'FAIL: stdout has no todos array';
+        if (typeof inner.marker !== 'string') return 'FAIL: stdout has no marker';
+        return true;
+
+# 2. complete-step marks the execute step completed (after begin-step) and prints todos JSON.
+- description: "ship complete-step (R69): marks execute step completed and prints todos JSON"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario begin-then-complete"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes.some(c => c !== 0)) return `FAIL: exitCodes ${o.exitCodes}`;
+        if (o.finalStatus !== 'completed') return `FAIL: status ${o.finalStatus}`;
+        const inner = JSON.parse(o.lastStdout);
+        if (!Array.isArray(inner.todos)) return 'FAIL: stdout has no todos array';
+        return true;
+
+# 3. begin-step idempotency — double-call does not corrupt state (still in_progress, both exit 0).
+- description: "ship begin-step (R69): double-call is idempotent (no corruption)"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario begin-twice"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes.length !== 2) return `FAIL: expected 2 calls, got ${o.exitCodes.length}`;
+        if (o.exitCodes.some(c => c !== 0)) return `FAIL: exitCodes ${o.exitCodes}`;
+        if (o.finalStatus !== 'in_progress') return `FAIL: status ${o.finalStatus}`;
+        return true;
+
+# 4. begin-step unknown step name → exits non-zero with informative stderr.
+- description: "ship begin-step (R69): unknown step name exits non-zero with error"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step nonexistent --scenario begin-unknown"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes[0] === 0) return 'FAIL: expected non-zero exit for unknown step';
+        if (!/not found/i.test(o.lastStderr)) return `FAIL: stderr missing 'not found': ${o.lastStderr}`;
+        return true;
+
+# 5. complete-step unknown step name → exits non-zero with informative stderr.
+- description: "ship complete-step (R69): unknown step name exits non-zero with error"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step nonexistent --scenario complete-unknown"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes[0] === 0) return 'FAIL: expected non-zero exit for unknown step';
+        if (!/not found/i.test(o.lastStderr)) return `FAIL: stderr missing 'not found': ${o.lastStderr}`;
+        return true;
+
+# 6. complete-step on a never-begun (pending) step → handled gracefully (no corruption / no crash).
+- description: "ship complete-step (R69): completing a pending step does not corrupt state"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step commit --scenario complete-pending"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        // Either exits non-zero (strict guard) or exits 0 with the step found and
+        // not corrupted. Both satisfy the AC ("exit non-zero or no corruption").
+        if (o.exitCodes[0] === 0) {
+          if (!o.finalStepFound) return 'FAIL: step lost from state';
+          return true;
+        }
+        return true;
+
+# --- verify-side-effect subcommand (R-b3, issue #478 — F-ship-step-status-integrity-guard-8) ---
+# Objective post-dispatch tag check: the version step is `landed` only when the expected
+# release tag exists in `getTagList(activeRoot)`. Reuses the verify-tag-ancestry fixture,
+# whose setup.sh produces semver tags v1.0.0 and v1.0.1 on main.
+- description: "ship verify-side-effect (R-b3): version tag present → landed:true"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step version --expected v1.0.0"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"step": "version"'
+    - type: contains
+      value: '"sideEffect": "tag"'
+    - type: contains
+      value: '"landed": true'
+    - type: contains
+      value: '"expected": "v1.0.0"'
+
+- description: "ship verify-side-effect (R-b3): version tag absent → landed:false"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step version --expected v99.99.99"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"landed": false'
+    - type: contains
+      value: '"expected": "v99.99.99"'
+
+# No --expected (version-sdlc produced no tag) is itself the #478 failure mode → landed:false.
+- description: "ship verify-side-effect (R-b3): version with no expected tag → landed:false"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step version"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"landed": false'
+    - type: contains
+      value: '"expected": null'
+
+# Steps without a defined side-effect emit a uniform pass-through (exit 0) so callers need no branch.
+- description: "ship verify-side-effect (R-b3): step without side-effect → no-side-effect pass-through"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step review"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"landed": true'
+    - type: contains
+      value: '"reason": "no-side-effect"'
+
+# W4.6: commit (HEAD sha) and pr (gh pr view) side-effects. The commit sha is not deterministic,
+# so a wrapper resolves HEAD of the generated verify-tag-ancestry repo; the pr cases use a stub gh.
+- description: "verify-side-effect: commit with the HEAD sha → landed:true"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-verify-side-effect-commit.js"
+    script_args: ""
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"sideEffect": "head-commit"'
+    - type: contains
+      value: '"landed": true'
+    - type: contains
+      value: '"head":'
+
+- description: "verify-side-effect: commit with a short HEAD sha → landed:true"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-verify-side-effect-commit.js"
+    script_args: "--short"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"landed": true'
+
+- description: "verify-side-effect: commit with an unknown sha → landed:false"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step commit --expected deadbeef"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/verify-tag-ancestry"
+  assert:
+    - type: contains
+      value: '"landed": false'
+    - type: contains
+      value: '"expected": "deadbeef"'
+
+- description: "verify-side-effect: pr whose URL gh confirms → landed:true"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step pr --expected https://example/pr/1"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin-ok"
+    project_root: "file://fixtures-fs/verify-side-effect-pr"
+  assert:
+    - type: contains
+      value: '"sideEffect": "pr-url"'
+    - type: contains
+      value: '"landed": true'
+
+- description: "verify-side-effect: pr that gh does not confirm → landed:false"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/ship.js"
+    script_args: "verify-side-effect --step pr --expected https://example/pr/1"
+    script_cwd: "{{project_root}}"
+    script_stub_bin: "bin-empty"
+    project_root: "file://fixtures-fs/verify-side-effect-pr"
+  assert:
+    - type: contains
+      value: '"landed": false'
+    - type: contains
+      value: '"sideEffect": "pr-url"'
+
+# --- --usage accounting on ship steps (W1.1) ---
+# Driven through run-ship-begin-complete.js (finalUsage = persisted step.usage).
+
+- description: "ship complete-step (usage): --usage persisted on the step"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-with-usage"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes[0] !== 0) return `FAIL: exit ${o.exitCodes[0]}`;
+        if (o.finalStatus !== 'completed') return `FAIL: step status ${o.finalStatus}`;
+        if (!o.finalUsage || o.finalUsage.inputTokens !== 10) return `FAIL: finalUsage ${JSON.stringify(o.finalUsage)}`;
+        if (o.finalUsage.model !== 'sonnet' || o.finalUsage.effort !== 'medium') return 'FAIL: model/effort not persisted';
+        return true;
+
+- description: "ship complete-step (usage): invalid --usage exits 2"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-bad-usage"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes[0] !== 2) return `FAIL: expected exit 2, got ${o.exitCodes[0]}`;
+        if (!o.lastStderr.includes('--usage is not valid')) return `FAIL: stderr ${o.lastStderr}`;
+        if (o.finalStatus !== 'pending') return `FAIL: state written before validation (${o.finalStatus})`;
+        return true;
+
+- description: "ship complete-step (usage): self-report does not replace a subagent-stop value"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-usage-guard"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes.some(c => c !== 0)) return `FAIL: exitCodes ${o.exitCodes}`;
+        if (!o.finalUsage || o.finalUsage.source !== 'subagent-stop' || o.finalUsage.inputTokens !== 99) return `FAIL: finalUsage ${JSON.stringify(o.finalUsage)}`;
+        return true;
+
+- description: "ship complete-step (usage): a subagent-stop value replaces an earlier self-report"
+  vars:
+    script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
+    script_path: "repo://tests/promptfoo/scripts/run-ship-begin-complete.js"
+    script_args: "--project-root {{project_root}} --state-rel .sdlc/execution/ship-main-20260608T120000Z.json --step execute --scenario complete-usage-guard-reverse"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/ship-state-begin-complete"
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        if (o.exitCodes.some(c => c !== 0)) return `FAIL: exitCodes ${o.exitCodes}`;
+        if (!o.finalUsage || o.finalUsage.source !== 'subagent-stop' || o.finalUsage.inputTokens !== 99) return `FAIL: finalUsage ${JSON.stringify(o.finalUsage)}`;
+        return true;

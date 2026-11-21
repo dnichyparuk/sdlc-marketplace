@@ -1,5 +1,5 @@
-# Script execution tests for guardrails-prepare.js detection gaps (Issues #137, #138, #139).
-# These tests run guardrails-prepare.js directly against fixture directories (no LLM).
+# Script execution tests for skill/guardrails.js detection gaps (Issues #137, #138, #139).
+# These tests run guardrails.js directly against fixture directories (no LLM).
 # They validate expanded framework, database, and API signal detection.
 #
 # Fixture appropriateness:
