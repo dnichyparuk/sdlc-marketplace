@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.6] - 2026-11-21
+
+### Fixed
+- tests: spec acceptance lines name the real host case and assertion, wrapper headers name the right datasets, the jira cache case is replaced by a wrapper scenario that keeps the cache outside HOME, and new cases cover the R77 splice, linked-worktree R37, R109 and P11 (W-E2).
+- docs: the received-review doc covers R38, the ship spec states the R106 entry filter and the R110 marker race, the review spec P11 sort wording is corrected, and the promptfoo README and execute-plan-sdlc Step 8-bis references are fixed (W-E2).
+
 ## [0.57.5] - 2026-11-21
 
 ### Fixed
