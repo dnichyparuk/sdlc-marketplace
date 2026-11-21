@@ -1,5 +1,7 @@
 # W-E2 Spec, Doc and Test Traceability Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #131, 25c3ffc
+
 **Commit:** `fix(W-E2): traceability - spec, doc and test case gaps`
 **Goal:** Make every spec acceptance line, test-script header and user doc of the W-E2 scope point at cases and behaviour that exist, and close five exec-test gaps.
 **Architecture:** Spec and doc edits are text fixes with byte copies under `site/src/content-source/`. Test gaps are closed with repo:// cases: new `--case` or `--scenario` entries in existing wrapper scripts, one new fixture, and one stronger assertion on an existing fixture. No plugin script code changes.
@@ -157,9 +159,9 @@ Spec (Task 1):
 **Notes:** The R106 and R110 text documents code that exists (`summaryFindings` and `subagent-track.js`), so no new id or test is needed. The R110 clause is the wording that decision PD-2 fixes. The check-only entries satisfy `plan.copyRules`. Findings: F-spec-acceptance-vs-dataset-cases-2, -3, -5, -8, -9, -10, -11.
 
 **Acceptance criteria:**
-- [ ] The R81, R78 and R107 acceptance lines name only case descriptions or `# from:` assertions that `grep -F` finds in the named dataset.
-- [ ] R106 states the entry filter of `summaryFindings`, and R110 "Accepted gaps" ends with the marker-race clause.
-- [ ] `cmp docs/specs/ship-sdlc.md site/src/content-source/specs/ship-sdlc.md` is silent, and `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
+- [x] The R81, R78 and R107 acceptance lines name only case descriptions or `# from:` assertions that `grep -F` finds in the named dataset.
+- [x] R106 states the entry filter of `summaryFindings`, and R110 "Accepted gaps" ends with the marker-race clause.
+- [x] `cmp docs/specs/ship-sdlc.md site/src/content-source/specs/ship-sdlc.md` is silent, and `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
 
 **Contract:**
 - shape (openspec): five in-place edits, no new ids, rendered below.
@@ -219,9 +221,9 @@ Spec (Task 1):
 **Notes:** received-review-sdlc has no companion `*.md` besides SKILL.md, and `skills-meta.ts` is listed in Task 1, so the copy rule is met. The new paragraph restates the R38 rule of SKILL.md Step 11 for users. It is not a new rule. Findings: F-spec-acceptance-vs-dataset-cases-1, F-readme-skilldoc-skillmd-wording-3.
 
 **Acceptance criteria:**
-- [ ] The R33 acceptance line names the `# from: rr-plan:` assertions of cases `rr-scope: (a)` and `rr-scope: (b)` in `received-review-prepare-exec.yaml`.
-- [ ] `docs/skills/received-review-sdlc.md` has a `### Removed phrases` section that cites R38, placed between `### Doc-versus-spec findings` and `## Configuration`.
-- [ ] `cmp` of each edited file against its site copy is silent.
+- [x] The R33 acceptance line names the `# from: rr-plan:` assertions of cases `rr-scope: (a)` and `rr-scope: (b)` in `received-review-prepare-exec.yaml`.
+- [x] `docs/skills/received-review-sdlc.md` has a `### Removed phrases` section that cites R38, placed between `### Doc-versus-spec findings` and `## Configuration`.
+- [x] `cmp` of each edited file against its site copy is silent.
 
 **Contract:**
 - shape (openspec + docs): spec edit:
@@ -259,8 +261,8 @@ Spec (Task 1):
 **Notes:** Case (d) lives as a `# from:` assertion in `commit-prepare: default flags with no args` of `commit-prepare-exec.yaml` (F-spec-acceptance-vs-dataset-cases-4).
 
 **Acceptance criteria:**
-- [ ] The acceptance line reads: ``Acceptance: exec cases `commit-subject: (a)` to `commit-subject: (c)` and the `# from: commit-subject: (d)` assertion of exec case `commit-prepare: default flags with no args` show `flags.subject` set, rejected or null; exec case `commit-subject: expected-subject gate` shows the gate's exit 3 path.``
-- [ ] `cmp docs/specs/commit-sdlc.md site/src/content-source/specs/commit-sdlc.md` is silent.
+- [x] The acceptance line reads: ``Acceptance: exec cases `commit-subject: (a)` to `commit-subject: (c)` and the `# from: commit-subject: (d)` assertion of exec case `commit-prepare: default flags with no args` show `flags.subject` set, rejected or null; exec case `commit-subject: expected-subject gate` shows the gate's exit 3 path.``
+- [x] `cmp docs/specs/commit-sdlc.md site/src/content-source/specs/commit-sdlc.md` is silent.
 
 **Contract:** shape (openspec): one acceptance line under R-subject-verbatim, replacing ``exec cases `commit-subject: (a)` to `commit-subject: (d)` show`` with the text in the first criterion; names: R-subject-verbatim; sync: site spec copy via `cp`
 
@@ -283,9 +285,9 @@ Spec (Task 1):
 **Notes:** The case already writes `{{project_root}}/summary.json`. The assertion reads it the way the `findings-mixed` summary assertions in the same dataset do. With `-j 1` no other case writes that path between the run and the assertion. Findings: F-review-consolidate-findings-empty-and-sort-1, -2, -3.
 
 **Acceptance criteria:**
-- [ ] P11 states the `compareFindings` order across all dimensions, and that the comment uses the same order within each dimension section.
-- [ ] The case gains a JavaScript assertion that `summary.json` `findings` is an array of length 0 and `counts` sum to 0. Assertion count in `review-consolidate-exec.yaml`: +1 (spec-id coverage baseline: growth only, no update needed).
-- [ ] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "review-consolidate: no findings"`: it passes.
+- [x] P11 states the `compareFindings` order across all dimensions, and that the comment uses the same order within each dimension section.
+- [x] The case gains a JavaScript assertion that `summary.json` `findings` is an array of length 0 and `counts` sum to 0. Assertion count in `review-consolidate-exec.yaml`: +1 (spec-id coverage baseline: growth only, no update needed).
+- [x] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "review-consolidate: no findings"`: it passes.
 
 **Contract:**
 - shape (openspec + code): spec edit in P11:
@@ -325,9 +327,9 @@ Spec (Task 1):
 **Notes:** The description starts `ship-summary-file:`, so the R109 acceptance line covers it without a spec edit. The case removes any old summary file first, so a file left by case (a) cannot make it pass. Findings: F-exec-test-gaps-jira-r77-r37-r109-4, F-spec-acceptance-vs-dataset-cases-6, -7.
 
 **Acceptance criteria:**
-- [ ] `node tests/promptfoo/scripts/run-ship-prepare-summary.js --case summary-file-final-check-open` prints one JSON line `{ o, file }`. The new case asserts that the last `dispatch_review` envelope has `ext.reason === 'final-check-open'` and that `file.finalCheck.open`, `file.steps` and `file.branch` match the envelope's summary.
-- [ ] The `run-ship-prepare-summary.js` header names `datasets/ship-stepper-exec.yaml` and `datasets/ship-stepper-flows-exec.yaml`, not `ship-prepare-exec.yaml`, and its `Cases` list gains the new name. The `run-ship-prepare-plan-fields.js` header names both `datasets/ship-prepare-exec.yaml` and `datasets/ship-stepper-flows-exec.yaml`.
-- [ ] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "ship-summary-file"`: all matching cases pass. Case count in `ship-stepper-flows-exec.yaml`: +1, assertions +1 (baseline growth only).
+- [x] `node tests/promptfoo/scripts/run-ship-prepare-summary.js --case summary-file-final-check-open` prints one JSON line `{ o, file }`. The new case asserts that the last `dispatch_review` envelope has `ext.reason === 'final-check-open'` and that `file.finalCheck.open`, `file.steps` and `file.branch` match the envelope's summary.
+- [x] The `run-ship-prepare-summary.js` header names `datasets/ship-stepper-exec.yaml` and `datasets/ship-stepper-flows-exec.yaml`, not `ship-prepare-exec.yaml`, and its `Cases` list gains the new name. The `run-ship-prepare-plan-fields.js` header names both `datasets/ship-prepare-exec.yaml` and `datasets/ship-stepper-flows-exec.yaml`.
+- [x] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "ship-summary-file"`: all matching cases pass. Case count in `ship-stepper-flows-exec.yaml`: +1, assertions +1 (baseline growth only).
 
 **Contract:**
 - shape (code): new entry in `CASES`:
@@ -401,12 +403,12 @@ Spec (Task 1):
 **Notes:** The section comment above the `jira-cache:` cases (`# jira.js cache flags (--load, --cache-dir plain; --clear, ...` and its next line) says `--cache-dir` runs plain; after the rewrite it runs through `run-jira-cache.js`, so the comment reads `--load plain; --cache-dir, --clear, --save-field, --init-templates, --copy-template via run-jira-cache.js`. The rewrite drops the baseline flag key `jira.js --cache-dir` (its only case was this one) and adds growth to `run-jira-cache.js --scenario`, `--home` and `--project`. After the dataset edit, run `node tests/promptfoo/scripts/check-spec-id-coverage.js --update`, then `git diff tests/promptfoo/baselines/spec-id-coverage.json`: the removed or lowered lines must be only `"jira.js --cache-dir": 1` (removed) and `"jira.js --check"` and `"jira.js --project"` (each down by 1); every other change is growth (a count up or a new key, possibly from other tasks of the same wave or an already stale count at HEAD). `--update` rewrites the whole baseline from the current scan, so run it after the wave's other dataset edits are done. The wrapper moves the copied `.sdlc-cache` out of the temp HOME into a sibling temp dir. So the cache is outside HOME and outside the cwd: the home scan cannot find it, and `getCachePath` writes no `.gitignore` into it. The header names the scenarios in two places (the description and the Usage line); both gain `cache-dir`. Finding: F-exec-test-gaps-jira-r77-r37-r109-1.
 
 **Acceptance criteria:**
-- [ ] With `--cache-dir`, the call reports `exists: true` and `cachePath` equal to `<cache dir>/SAVETEST.json` exactly. Without the flag, the same HOME reports `exists: false` and `cachePath: null`.
-- [ ] The rewritten case asserts both calls. Assertions in `jira-sdlc-exec.yaml`: from 1 to 2 for this case (+1). The `dataset-asserts-allow.json` entry for `jira-prepare: --check surfaces templates.fallbacks ...` is not touched.
-- [ ] The section comment above the `jira-cache:` cases no longer says `--cache-dir plain`.
-- [ ] `tests/promptfoo/baselines/spec-id-coverage.json` is refreshed with `--update`; its diff removes the `"jira.js --cache-dir"` key; `"jira.js --check"` and `"jira.js --project"` each go down by 1 and stay above 0; every other change is growth.
-- [ ] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "jira-cache"`: every `jira-cache` case passes.
-- [ ] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "spec-id-coverage: \(a\)"`: it passes.
+- [x] With `--cache-dir`, the call reports `exists: true` and `cachePath` equal to `<cache dir>/SAVETEST.json` exactly. Without the flag, the same HOME reports `exists: false` and `cachePath: null`.
+- [x] The rewritten case asserts both calls. Assertions in `jira-sdlc-exec.yaml`: from 1 to 2 for this case (+1). The `dataset-asserts-allow.json` entry for `jira-prepare: --check surfaces templates.fallbacks ...` is not touched.
+- [x] The section comment above the `jira-cache:` cases no longer says `--cache-dir plain`.
+- [x] `tests/promptfoo/baselines/spec-id-coverage.json` is refreshed with `--update`; its diff removes the `"jira.js --cache-dir"` key; `"jira.js --check"` and `"jira.js --project"` each go down by 1 and stay above 0; every other change is growth.
+- [x] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "jira-cache"`: every `jira-cache` case passes.
+- [x] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "spec-id-coverage: \(a\)"`: it passes.
 
 **Contract:**
 - shape (code): `SCENARIOS` gains `'cache-dir'`; new switch branch:
@@ -465,9 +467,9 @@ Spec (Task 1):
 **Notes:** This edits an assertion of an existing inline case. It adds no new case, so the "new cases are repo:// scripts" rule does not apply. Converting the case is W-E4 and W-E5 scope. Finding: F-exec-test-gaps-jira-r77-r37-r109-2.
 
 **Acceptance criteria:**
-- [ ] `iter-1/merged.json` carries `g17Findings` with one finding and a `rendering` that holds `## Suggested Review Dimensions` and the marker `LEAKED G17 RENDERING`.
-- [ ] The case (d) expression also requires `!o.text.includes('## Suggested Review Dimensions') && !o.text.includes('LEAKED G17 RENDERING')`. The assertion count is unchanged (one condition is added to the existing expression).
-- [ ] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "plan-splice"`: cases (a) to (f) pass.
+- [x] `iter-1/merged.json` carries `g17Findings` with one finding and a `rendering` that holds `## Suggested Review Dimensions` and the marker `LEAKED G17 RENDERING`.
+- [x] The case (d) expression also requires `!o.text.includes('## Suggested Review Dimensions') && !o.text.includes('LEAKED G17 RENDERING')`. The assertion count is unchanged (one condition is added to the existing expression).
+- [x] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "plan-splice"`: cases (a) to (f) pass.
 
 **Contract:**
 - shape (code): fixture field diff:
@@ -511,9 +513,9 @@ Spec (Task 1):
 **Notes:** The fixture uses `git worktree add`, so the harness builds it per case. The setup writes `local.json` with different values in the main checkout and in the worktree, and a review dimension only in the worktree. So a manifest value read from the wrong root fails an assertion. `setup.sh` creates `worktrees/wt1/.sdlc/review-dimensions/` with `mkdir -p`, since the worktree has no `.sdlc/` of its own beyond the committed `config.json`. Finding: F-exec-test-gaps-jira-r77-r37-r109-3.
 
 **Acceptance criteria:**
-- [ ] `setup.sh` carries the fixture guard line (`if git rev-parse --show-toplevel >/dev/null 2>&1; then echo "refusing: inside a git work tree" >&2; exit 1; fi`) before its first `git init` (`fixture-guard: (a)`).
-- [ ] The case runs `skill/received-review.js --output-file --comment-file review-comment.md` from `worktrees/wt1` with no `--project-root`. It asserts that the manifest path starts with `<project_root>/.sdlc/execution/` (main checkout), that `flags.alwaysFixSeverities` is `["low"]` (main `local.json`, not the worktree's `["critical"]`), and that `findings[0].hardenSurfaceHint` is `"review-dimensions"` (the dimension exists only in the worktree).
-- [ ] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "received-review-prepare \(R37"`: both R37 cases pass. The `fixture-refs: (a)` count `refs` is unchanged (that check scans only the behavioural and headless datasets). `received-review-prepare-exec.yaml`: +1 case, +1 assertion. The spec-id coverage scan gains the new flag keys `received-review.js --output-file` and `received-review.js --comment-file` (growth only, no baseline update needed).
+- [x] `setup.sh` carries the fixture guard line (`if git rev-parse --show-toplevel >/dev/null 2>&1; then echo "refusing: inside a git work tree" >&2; exit 1; fi`) before its first `git init` (`fixture-guard: (a)`).
+- [x] The case runs `skill/received-review.js --output-file --comment-file review-comment.md` from `worktrees/wt1` with no `--project-root`. It asserts that the manifest path starts with `<project_root>/.sdlc/execution/` (main checkout), that `flags.alwaysFixSeverities` is `["low"]` (main `local.json`, not the worktree's `["critical"]`), and that `findings[0].hardenSurfaceHint` is `"review-dimensions"` (the dimension exists only in the worktree).
+- [x] Run `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "received-review-prepare \(R37"`: both R37 cases pass. The `fixture-refs: (a)` count `refs` is unchanged (that check scans only the behavioural and headless datasets). `received-review-prepare-exec.yaml`: +1 case, +1 assertion. The spec-id coverage scan gains the new flag keys `received-review.js --output-file` and `received-review.js --comment-file` (growth only, no baseline update needed).
 
 **Contract:**
 - shape (code): fixture layout after `setup.sh`:
@@ -566,8 +568,8 @@ Spec (Task 1):
 **Notes:** `hook-runner.js` sets HOME to `script_home` without a copy, and gives a temp cwd only when `script_cwd` is unset; the README has no site copy. Findings: F-readme-skilldoc-skillmd-wording-1, -2.
 
 **Acceptance criteria:**
-- [ ] The first sentence of "Script execution tests" reads: "The exec config `promptfooconfig-exec.yaml` runs the plugin's scripts directly through `providers/script-runner.js`, and `promptfooconfig-exec-hooks.yaml` runs the hooks through `providers/hook-runner.js`, which pipes `script_stdin` to the hook and returns its stdout, stderr and exit code as JSON (no LLM involved), about 80 datasets in total under `datasets/*-exec*.yaml`."
-- [ ] The parallel-runs sentence reads: ``Parallel runs (`-j N`) are supported: a case without `script_cwd` runs in its own temp cwd, a fixture with a `setup.sh` is copied per case, and `script-runner.js` copies an in-repository `script_home` per case; `hook-runner.js` sets HOME to `script_home` as given and copies nothing.``
+- [x] The first sentence of "Script execution tests" reads: "The exec config `promptfooconfig-exec.yaml` runs the plugin's scripts directly through `providers/script-runner.js`, and `promptfooconfig-exec-hooks.yaml` runs the hooks through `providers/hook-runner.js`, which pipes `script_stdin` to the hook and returns its stdout, stderr and exit code as JSON (no LLM involved), about 80 datasets in total under `datasets/*-exec*.yaml`."
+- [x] The parallel-runs sentence reads: ``Parallel runs (`-j N`) are supported: a case without `script_cwd` runs in its own temp cwd, a fixture with a `setup.sh` is copied per case, and `script-runner.js` copies an in-repository `script_home` per case; `hook-runner.js` sets HOME to `script_home` as given and copies nothing.``
 
 **Contract:** shape (docs): two in-place sentence rewrites in `tests/promptfoo/README.md`, text as in the criteria; names: `providers/hook-runner.js`, `script_home`; sync: none (no site copy)
 
@@ -593,8 +595,8 @@ Spec (Task 1):
 **Notes:** Only the reference to the rule is renamed; the rule is unchanged, so no spec task is needed (Key Decisions). Finding: F-readme-skilldoc-skillmd-wording-4.
 
 **Acceptance criteria:**
-- [ ] Step 8-bis reads ``…or when `openspecSpecs` is non-empty, except when the per-wave skip below applies (`flags.specReviewer === 'per-wave'`, every per-wave review passed and the plan has 3 or fewer waves).`` and no `few-waves` text is left in the file.
-- [ ] The "Final spec completeness" row reads ``(when openspecSpecs available, unless the Step 8-bis per-wave skip applied: every per-wave review passed, 3 or fewer waves)``.
+- [x] Step 8-bis reads ``…or when `openspecSpecs` is non-empty, except when the per-wave skip below applies (`flags.specReviewer === 'per-wave'`, every per-wave review passed and the plan has 3 or fewer waves).`` and no `few-waves` text is left in the file.
+- [x] The "Final spec completeness" row reads ``(when openspecSpecs available, unless the Step 8-bis per-wave skip applied: every per-wave review passed, 3 or fewer waves)``.
 
 **Contract:** shape (code): two phrase replacements in SKILL.md, `except under the per-wave few-waves rule below` → the criterion-1 text and `unless the per-wave few-waves skip of Step 8-bis applied` → the criterion-2 text; names: Step 8-bis; sync: none (no test asserts `few-waves`)
 
