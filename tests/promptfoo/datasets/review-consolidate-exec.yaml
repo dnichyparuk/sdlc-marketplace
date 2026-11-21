@@ -65,6 +65,12 @@
       value: "Total findings:  0"
     - type: regex
       value: "Verdict:         APPROVED\\n"
+    # P11: no findings gives an empty findings array in the summary
+    - type: javascript
+      value: |
+        const s = JSON.parse(process.getBuiltinModule('fs').readFileSync(context.vars.project_root + '/summary.json', 'utf8'));
+        const total = Object.values(s.counts).reduce((a, b) => a + b, 0);
+        return Array.isArray(s.findings) && s.findings.length === 0 && total === 0 ? true : `FAIL: findings ${JSON.stringify(s.findings)} counts ${JSON.stringify(s.counts)}`;
 
 - description: "review-consolidate: malformed findings file exits 1 and names it"
   vars:

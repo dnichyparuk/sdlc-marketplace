@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * run-ship-prepare-summary.js
- * Test wrapper for the ship summary, step-text and lean cases of datasets/ship-prepare-exec.yaml
+ * Test wrapper for the ship summary, step-text and lean cases of datasets/ship-stepper-exec.yaml and
+ * datasets/ship-stepper-flows-exec.yaml
  * (ship-summary-commits, ship-summary-rounds, ship-summary-file, ship-summary-unwritable, ship-final-check,
  * ship-step-text, ship-lean).
  *
@@ -18,6 +19,7 @@
  *   summary-commits-usage: ship-summary-commits: (c) summary adds every round's usage and lists each round's commit-fixes commit once
  *   summary-rounds-file: ship-summary-rounds: (d) cleanup writes the round findings file with every record
  *   summary-file-equal: ship-summary-file: (a) cleanup writes ship-summary-<slug>.json equal to the cleanup summary
+ *   summary-file-final-check-open: ship-summary-file: (c) a final-check-open stop writes ship-summary-<slug>.json with the open findings
  *   summary-unwritable-dir: ship-summary-unwritable: (b) a directory at the summary path leaves the cleanup envelope unchanged
  *   final-check-summary: ship-final-check: (e) the Step 6 summary carries the ledger finalCheck, null without one
  *   step-text-no-attribution: ship-step-text: (R-subagent-brief) both in-ship agents carry the no-attribution-line sentence once
@@ -146,6 +148,15 @@ const CASES = {
   'summary-file-equal'() {
     const o = walkTwoRounds();
     print({ o, file: JSON.parse(readText(executionFile('ship-summary-feat-ship.json'))) });
+  },
+
+  'summary-file-final-check-open'() {
+    fs.rmSync(executionFile('ship-summary-feat-ship.json'), { recursive: true, force: true });
+    const r = cp.spawnSync('node', [
+      STEPPER, '--project-root', process.cwd(), '--scenario', 'rounds-final-check', '--seed', 'frozen',
+      '--summary', 'high-1.json', '--final-summary', 'medium-1.json', '--review-threshold', 'medium',
+    ], { cwd: process.cwd(), encoding: 'utf8', maxBuffer: 1 << 26 });
+    print({ o: JSON.parse(r.stdout), file: JSON.parse(readText(executionFile('ship-summary-feat-ship.json'))) });
   },
 
   'summary-unwritable-dir'() {

@@ -60,7 +60,7 @@ so a run stops spending after the limit. Re-run after the reset time.
 
 ### Script execution tests (`promptfooconfig-exec.yaml`)
 
-`promptfooconfig-exec.yaml` and `promptfooconfig-exec-hooks.yaml` run the plugin's scripts and hooks directly through `providers/script-runner.js` (no LLM involved), about 80 datasets in total under `datasets/*-exec*.yaml`. The `lefthook` pre-push hook runs the fast tier `promptfooconfig-exec-fast.yaml` (suite guards and repository validators, a subset of `promptfooconfig-exec.yaml`); `task test:exec` runs both full configs and `task test:exec:fast` runs the fast tier. Script paths use `repo://<path>` (relative to the repository root); fixture directories use `file://fixtures-fs/<name>`, and a fixture with a `setup.sh` is built once per run and copied for each case; a fixture whose `setup.sh` uses its own path (`$PWD`, `pwd`, `git worktree add`) is built per case. Helper scripts live in `scripts/`, committed baselines in `baselines/`.
+The exec config `promptfooconfig-exec.yaml` runs the plugin's scripts directly through `providers/script-runner.js`, and `promptfooconfig-exec-hooks.yaml` runs the hooks through `providers/hook-runner.js`, which pipes `script_stdin` to the hook and returns its stdout, stderr and exit code as JSON (no LLM involved), about 80 datasets in total under `datasets/*-exec*.yaml`. The `lefthook` pre-push hook runs the fast tier `promptfooconfig-exec-fast.yaml` (suite guards and repository validators, a subset of `promptfooconfig-exec.yaml`); `task test:exec` runs both full configs and `task test:exec:fast` runs the fast tier. Script paths use `repo://<path>` (relative to the repository root); fixture directories use `file://fixtures-fs/<name>`, and a fixture with a `setup.sh` is built once per run and copied for each case; a fixture whose `setup.sh` uses its own path (`$PWD`, `pwd`, `git worktree add`) is built per case. Helper scripts live in `scripts/`, committed baselines in `baselines/`.
 
 #### Run
 
@@ -70,7 +70,7 @@ Run a targeted subset from `tests/promptfoo/`:
 cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern <pattern>
 ```
 
-The hooks variant uses `-c promptfooconfig-exec-hooks.yaml` with the same flags. The default is one thread (`-j 1`, `maxConcurrency: 1`). Parallel runs (`-j N`) are supported: each case has its own temp cwd, fixture copy and HOME copy. The owner runs the `-j 4` trial. promptfoo is pinned to 0.123.1 because 0.125 and later fail with EISDIR.
+The hooks variant uses `-c promptfooconfig-exec-hooks.yaml` with the same flags. The default is one thread (`-j 1`, `maxConcurrency: 1`). Parallel runs (`-j N`) are supported: a case without `script_cwd` runs in its own temp cwd, a fixture with a `setup.sh` is copied per case, and `script-runner.js` copies an in-repository `script_home` per case; `hook-runner.js` sets HOME to `script_home` as given and copies nothing. The owner runs the `-j 4` trial. promptfoo is pinned to 0.123.1 because 0.125 and later fail with EISDIR.
 
 #### Case vars
 

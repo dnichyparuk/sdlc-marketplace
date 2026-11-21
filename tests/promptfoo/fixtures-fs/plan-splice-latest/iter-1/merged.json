@@ -1,5 +1,10 @@
 {
   "guardrailCompliancePayload": "| Guardrail | Severity | Status | Rationale |\n|---|---|---|---|\n| no-scope-creep | warning | PASS | Newest table with a payload |",
+  "g17Findings": {
+    "findings": [{ "kind": "CREATE", "dimension": "docs" }],
+    "suppressed_count": 0,
+    "rendering": "## Suggested Review Dimensions\n\n- CREATE `docs`: LEAKED G17 RENDERING"
+  },
   "scorecard": {
     "markdown": "## Verification Scorecard\n\nNEW SCORECARD BODY"
   }

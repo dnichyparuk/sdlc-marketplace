@@ -646,7 +646,7 @@ Fix inline if possible; report to user otherwise.
 
 **8-bis. Final spec review (once per run, and OpenSpec completeness):**
 
-Runs when `flags.specReviewer === 'once'` (the once-per-run review of Step 5c-bis; like every 5c-bis review it skips when the reviewed tasks are all Trivial, but the OpenSpec check below still runs) or when `openspecSpecs` is non-empty, except under the per-wave few-waves rule below. Skip this sub-step when `flags.specReviewer === 'per-wave'` and `openspecSpecs` is empty — the per-wave reviews already ran.
+Runs when `flags.specReviewer === 'once'` (the once-per-run review of Step 5c-bis; like every 5c-bis review it skips when the reviewed tasks are all Trivial, but the OpenSpec check below still runs) or when `openspecSpecs` is non-empty, except when the per-wave skip below applies (`flags.specReviewer === 'per-wave'`, every per-wave review passed and the plan has 3 or fewer waves). Skip this sub-step when `flags.specReviewer === 'per-wave'` and `openspecSpecs` is empty — the per-wave reviews already ran.
 
 Record the skip:
 ```bash
@@ -758,7 +758,7 @@ On failure or interruption (not all tasks completed), preserve the state file. P
 | No drift | Tasks match their specifications |
 | No orphans | All created files are referenced/used |
 | Spec compliance reviewed | Non-trivial tasks pass spec review at the `flags.specReviewer` cadence (Step 5c-bis, Step 8-bis); Step 8-bis records its outcome (R94) |
-| Final spec completeness | All delta spec requirements covered across all waves (when openspecSpecs available, unless the per-wave few-waves skip of Step 8-bis applied) |
+| Final spec completeness | All delta spec requirements covered across all waves (when openspecSpecs available, unless the Step 8-bis per-wave skip applied: every per-wave review passed, 3 or fewer waves) |
 | Post-wave guardrail check | Error-severity guardrails pass, fixed, or user overrides; warnings reported (Step 5c-ter) |
 | Completion checklists valid | Each agent's COMPLETE/VERIFY/STATUS block is present and cross-checked |
 | Strict files (G13) | Under `flags.strictFiles`, no wave diff path outside `expectedFiles` (R44, Step 5c 1a) |

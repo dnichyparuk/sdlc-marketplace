@@ -2,6 +2,7 @@
 /**
  * run-ship-prepare-plan-fields.js
  * Test wrapper for the ship-prepare plan-field and forwarded-flag cases of datasets/ship-prepare-exec.yaml
+ * and datasets/ship-stepper-flows-exec.yaml
  * (R-plan-commit-subject, ship-fix-subject, ship-fix-scope, ship-stage-sdlc, ship-fwd, ship-bump).
  *
  * Each case writes a plan (most in a temp dir that is removed afterwards), runs skill/ship.js or calls one

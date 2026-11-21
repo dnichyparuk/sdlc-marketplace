@@ -197,6 +197,22 @@
         const o = JSON.parse(output);
         return o.wt === true && o.main === true && o.both === true ? true : `FAIL: ${output}`;
 
+- description: "received-review-prepare (R37): (e2e) from a linked worktree the manifest takes local.json from the main checkout and dimensions from the worktree"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/received-review.js"
+    script_args: "--output-file --comment-file review-comment.md"
+    script_cwd: "{{project_root}}/worktrees/wt1"
+    script_passthrough: true
+    project_root: "file://fixtures-fs/project-received-review-worktree-roots"
+  assert:
+    - type: javascript
+      value: |
+        const p = output.trim();
+        if (!p.startsWith(context.vars.project_root + '/.sdlc/execution/')) return `FAIL: manifest path ${p}`;
+        const m = JSON.parse(process.getBuiltinModule('fs').readFileSync(p, 'utf8'));
+        if (JSON.stringify(m.flags.alwaysFixSeverities) !== '["low"]') return `FAIL: alwaysFixSeverities ${JSON.stringify(m.flags)}`;
+        return m.findings.length === 1 && m.findings[0].hardenSurfaceHint === 'review-dimensions' ? true : `FAIL: findings ${JSON.stringify(m.findings)}`;
+
 - description: "rr-comment-file: (c) parseArgs carries commentFile"
   vars:
     script_path: "-e"
