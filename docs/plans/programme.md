@@ -1,6 +1,6 @@
 # sdlc-marketplace programme
 
-The waves after lean-w37, in order. Each `##` section is the brief of one wave (unit) of `docs/plans/register.json`.
+The waves after lean-w37, in order: H2, B, D1, D2, F, the five END fix waves E1 to E5 (keys `W-E1` to `W-E5`), then the END gate. Each `##` section is the brief of one wave (unit) of `docs/plans/register.json`.
 
 | Kind of status | Lives in |
 | --- | --- |
@@ -9,7 +9,7 @@ The waves after lean-w37, in order. Each `##` section is the brief of one wave (
 | Scope and schedule of a wave | its section below |
 | Progress | the boxes of the wave's registered executable plan |
 | Decisions | `docs/plans/decisions.md` |
-| Deferred review lows | `docs/TODO/lows-<wave>.md`, homed to `W-END` (PD-1) |
+| Deferred review lows | `docs/TODO/lows-<wave>.md`, homed to the fix wave that holds the rows, or to `W-END` when a note spans waves (PD-1, PD-2) |
 | History of lean-w1 to lean-w38 | the lean ledger |
 
 ## W-H2: Suite speed infrastructure, pre-push tier and per-round review findings
@@ -63,10 +63,53 @@ Scope (wave order, 2026-11-19): "F: #9428 + #9427 without the pre-push tier; the
 | --- | --- | --- | --- |
 | M1 | TK-019, TK-020, TK-021 | `2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure` | ship-prepare-exec.yaml split last |
 
+## W-E1: Plugin contract and script fixes
+
+Scope (END audit result, owner delegation 2026-11-21; 6 tasks, one Complex). Key `W-E1` stands for the fix wave "END1": the key pattern of the register allows one letter and one digit. After W-F.
+
+- (a) R76 rerun-lanes coherence: `plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md:76` against `:105`, `:108` and `:110` (the no-agent-tool fallback merge hard-codes `--lanes ""` and always passes `--carry`; a re-run lane that still blocks must block the iteration); `docs/specs/plan-sdlc.md` R75 (`:86`) does not name the R76 rerun lanes; `agents/plan-critique-orchestrator.md:41` (inline command, the sibling uses a bash block) and `:104` (two overlapping `--lanes` descriptions).
+- (b) D1: the agents `ship-step-review.md`, `ship-step-received-review.md` and `ship-step-version.md` (line 11 of each) contradict `skills/review-sdlc/SKILL.md:20`, `skills/received-review-sdlc/SKILL.md:132` and `skills/version-sdlc/SKILL.md:39` on the plugin-root rule. Also the w36 rows: `agents/ship-step-received-review.md:21` and `skills/received-review-sdlc/SKILL.md:612` (titles never recorded). Probable defect: the agent file asks for a deferred count but the Step report at `SKILL.md:608-614` has no deferred line. Conditional: the row is NOT RECOVERED if the defect is not confirmed at plan time.
+- (c) `plugins/sdlc-utilities/scripts/skill/plan.js:489`: `--no-guardrails` skips the R67(f) readable-directory check for `--critique-dir` (also `plan.js:490`, `docs/specs/plan-sdlc.md:215`; the appendix row at `:413` omits E9); add a plan-splice case.
+- (d) F-177: the execute wave-runner reports a false FAILED or TIMEOUT (investigation; Complex).
+- (e) `ship.js:526` `computeSteps(flags,flagSources, {` spacing (also reported at `:524` and `:535`; re-check at plan time).
+- (f) `skills/pr-sdlc/SKILL.md:456`: the placeholders `pr.footer` and `<BODY_FILE>` are not in code spans.
+
+## W-E2: Spec, doc and test traceability
+
+Scope (END audit result, owner delegation 2026-11-21; 9 tasks, mostly trivial). Key `W-E2` stands for the fix wave "END2". After W-F. New cases are written as `repo://` scripts, not as `-e` programs.
+
+- D3, R78 and D10: spec acceptance lines name cases that exist only as `# from:` comments (`docs/specs/received-review-sdlc.md:99` `rr-plan:`, `ship-sdlc.md:206` `ship-nostash:`, `ship-sdlc.md:250` R107 `ship-fix-scope: (b)`, `commit-sdlc.md:65` `commit-subject: (d)`, `ship-sdlc.md:246` R78 case (a)); the header of `tests/promptfoo/scripts/run-ship-prepare-summary.js:4` names the wrong dataset (the cases are in `ship-stepper-exec.yaml` and `ship-stepper-flows-exec.yaml`; the header of `run-ship-prepare-plan-fields.js:4` is only incomplete).
+- D4: `jira-sdlc-exec.yaml:615-621`: the `--cache-dir` case cannot fail (use a cache dir outside HOME and assert `cachePath`).
+- D5: R77 has no g17Findings test (`fixtures-fs/plan-splice-latest/iter-1/merged.json`); the R37 case checks only the parseArgs roots (`received-review-prepare-exec.yaml:188-197`); the R109 write at final-check-open has no case (`ship.js:2823`).
+- D8 and P11: `docs/specs/review-sdlc.md:134` `findings: []` is untested (`review-consolidate-exec.yaml:58-67`); the wording "sorted as in the comment" against `review-consolidate.js:436` and `:398`.
+- R106: the filter text is missing from `docs/specs/ship-sdlc.md:247` (`ship.js:1863-1868`).
+- D6 and D7: `tests/promptfoo/README.md:63` (the hooks config uses `providers/hook-runner.js`) and `:73` (`hook-runner.js` does not copy HOME).
+- R38 is missing from `docs/skills/received-review-sdlc.md`; `execute-plan-sdlc` `SKILL.md:649` "few-waves" label against `:658`.
+- Optional low item: planner hint at `plan-sdlc` `SKILL.md:225` (a task that edits `docs/specs/{skill}.md` lists the four copies as check-only Files).
+
+## W-E3: Test-tooling hygiene
+
+Scope (END audit result, owner delegation 2026-11-21; 6 tasks). Key `W-E3` stands for the fix wave "END3". After W-F.
+
+- `mutation-smoke.js`: verify the mutation applied (`:176`); expected-survivor semantics (`:62`, `:190`) so `--run` can report ok; `path.join` temp path (`:165`); the unknown `--only` path is unreachable (`:164` against `:210-212`).
+- Temp-dir hygiene: `run-ship-prepare-plan-fields.js:109-114` `inTempDir` leak; `run-jira-cache.js:54-99`.
+- Lint error handling: `check-dataset-asserts.js:175` bare `JSON.parse`; `check-spec-id-coverage.js:73` `readFileSync` without a guard.
+- `tests/promptfoo/scripts/gh-inprocess.js` (`spawnSync(cmd, options)` form `:44`, `answer()` throw `:47`) and `run-fixture-memo.js` (`:59` `Promise.all` against `allSettled`; cleanup `:178`).
+- A shared plugin.json version read in `run-review-plugin-version.js:34-36` and `run-received-review-manifest-fields.js:63-64`, with a guarded parse.
+- Trivial batch: `run-ship-prepare-ledger.js:63` exit 2; `fixtures-fs/version-no-tags/setup.sh:10` and `version-invalid-semver/setup.sh:10` write the deprecated `.claude/sdlc.json` (move to `.sdlc/config.json`).
+
+## W-E4: `-e` programs to wrappers, batch A
+
+Scope (owner decision 2026-11-21): convert 99 inline `script_path: "-e"` programs to wrapper scripts: github-sdlc 29, ship-hooks 24, commit-prepare 23, received-review-prepare 23. Key `W-E4` stands for the fix wave "END4". After W-E2 and W-E3 (the wrappers may share helpers). Details and acceptance: `docs/TODO/end-e-programs-to-wrappers.md`.
+
+## W-E5: `-e` programs to wrappers, batch B
+
+Scope (owner decision 2026-11-21): convert 80 inline `script_path: "-e"` programs: plan-prepare 21, plan-format 17, review-prepare 9, state-gc 7, pr-prepare 6 and the nine small datasets (20). Key `W-E5` stands for the fix wave "END5". After W-E4. Details and acceptance: `docs/TODO/end-e-programs-to-wrappers.md`.
+
 ## W-END: Programme post-merge audit
 
-> END (owner 2026-11-19, 'accepted with optimisations'): after F, ONE post-merge audit of the programme; its brief carries, as context, every deferred low of every wave (`ledger.js backlog` + review-archive texts, incl. the placement architect's file:line list for lean-w34/w35/w36: plan-critique-orchestrator.md :41/:104, spec R75 rerun lanes, ship.js:526, pr-sdlc SKILL.md:456; mutation-smoke.js :164/:165/:172/:187, check-dataset-asserts.js:175, check-spec-id-coverage.js:73; ship-step-received-review.md:21, received-review SKILL.md:612) plus #9450's wider prefix-match note. Confirmed defects and still-present lows then go to final fix wave(s) sized by the usual bounds. No low becomes a wave before END; new lows from H1..F also accumulate in the backlog.
+> END (owner 2026-11-19, 'accepted with optimisations'): after F, ONE post-merge audit of the programme; its brief carries, as context, every deferred low of every wave (`ledger.js backlog` + review-archive texts, incl. the placement architect's file:line list for lean-w34/w35/w36: plan-critique-orchestrator.md :41/:104, spec R75 rerun lanes, ship.js:526, pr-sdlc SKILL.md:456; mutation-smoke.js :164/:165/:172/:187, check-dataset-asserts.js:175, check-spec-id-coverage.js:73; ship-step-received-review.md:21, received-review SKILL.md:612) plus #9450's wider prefix-match note. Confirmed defects and still-present lows go to the fix waves W-E1 to W-E5 (END audit result, 2026-11-21); the gate then re-checks them and closes the programme. No low becomes a wave before END; new lows from H1..F also accumulate in the backlog.
 
 > END brief: brief.js audit --prs 110-<F PR> (with --context-file from `plan-register show END --brief` once skill PR A is installed), launch prompt adds 're-check every entry of the END gate's homed lows notes on HEAD: STILL PRESENT / FIXED / NOT A DEFECT with file:line, outside the 15-defect cap'.
 
-Homed notes: `docs/TODO/lows-lean-w34.md`, `docs/TODO/lows-lean-w35.md`, `docs/TODO/lows-lean-w36.md` and decision PD-1.
+Homed notes: see the register. The gate depends on W-E1 to W-E5 and closes the programme once they are merged. Decisions PD-1 and PD-2.

@@ -10,5 +10,4 @@ Format: severity | path:line | title | one-line text | wave/PR. No line number w
 
 - low | tests/promptfoo/scripts/gh-inprocess.js:542 | spawnSync override breaks the (cmd, options) call form | child_process.spawnSync accepts spawnSync(cmd, options) with the args array omitted. The override declares (cmd, args, opts = {}) and takes opts from the third parameter. For spawnSync('gh', { env, t… | lean-w39 / #117
 - low | docs/specs/ship-sdlc.md:242 | R106 findings: spec omits the entry filtering ship.js applies | R106 says a round record's `findings` is "the `findings` array of the review summary that round's gate read". ship.js summaryFindings() (plugins/sdlc-utilities/scripts/skill/ship.js, after reviewGate… | lean-w39 / #117
-- low | (unknown) | 3 low findings, text lost (counts-only) | — | lean-w39 / #117
 - note | tests/promptfoo/scripts/gh-inprocess.js:276; tests/promptfoo/scripts/run-fixture-memo.js:346; docs/specs/review-sdlc.md P11; docs/specs/ship-sdlc.md R106 | open lows/info named by ship's done message (round 2): throw in answer(); Promise.all vs allSettled; P11 wording; R106 filtering note | — | lean-w39 / #117
