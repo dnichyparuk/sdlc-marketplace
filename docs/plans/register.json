@@ -102,14 +102,14 @@
       "key": "W-E1",
       "aliases": ["E1"],
       "title": "Plugin contract and script fixes",
-      "status": "In progress",
+      "status": "Done",
       "dependsOn": ["W-F"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-E1", "role": "brief" },
-        { "path": "docs/plans/2026-11-21-w-e1-plugin-contract-and-script-fixes.md", "role": "executable" }
+        { "path": "docs/archived/plans/2026-11-21-w-e1-plugin-contract-and-script-fixes.md", "role": "executable" }
       ],
-      "todos": ["docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w36.md"]
+      "closedBy": "PR #129, bb344de"
     },
     {
       "key": "W-E2",
@@ -170,7 +170,7 @@
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-END", "role": "brief" }
       ],
-      "todos": ["docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/archive/end-recover-counts-only-lows.md", "docs/TODO/archive/script-runner-eisdir-plan-splice.md", "docs/TODO/archive/review-severity-drift-fix-round.md", "docs/TODO/lows-lean-w43.md"],
+      "todos": ["docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/archive/end-recover-counts-only-lows.md", "docs/TODO/archive/script-runner-eisdir-plan-splice.md", "docs/TODO/archive/review-severity-drift-fix-round.md", "docs/TODO/lows-lean-w43.md", "docs/TODO/lows-lean-w45.md", "docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w36.md"],
       "decisions": ["PD-1", "PD-2"]
     }
   ]
