@@ -46,9 +46,9 @@ Longest dependency chain among open waves (dependsOn only; no effort estimates):
 | --- | --- | --- |
 | [end-e-programs-to-wrappers](../TODO/end-e-programs-to-wrappers.md) | `W-E4` | Not started |
 | [lean-skill-pr-b-9464](../TODO/lean-skill-pr-b-9464.md) | `W-END` | Not started |
-| [lows-lean-w34](../TODO/lows-lean-w34.md) | `W-E1` | Done |
+| [lows-lean-w34](../TODO/lows-lean-w34.md) | `W-END` | Not started |
 | [lows-lean-w35](../TODO/lows-lean-w35.md) | `W-E3` | Not started |
-| [lows-lean-w36](../TODO/lows-lean-w36.md) | `W-E1` | Done |
+| [lows-lean-w36](../TODO/lows-lean-w36.md) | `W-END` | Not started |
 | [lows-lean-w39](../TODO/lows-lean-w39.md) | `W-END` | Not started |
 | [lows-lean-w40](../TODO/lows-lean-w40.md) | `W-END` | Not started |
 | [lows-lean-w42](../TODO/lows-lean-w42.md) | `W-E2` | Not started |
