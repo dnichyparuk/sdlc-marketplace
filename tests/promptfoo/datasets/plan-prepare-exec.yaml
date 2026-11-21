@@ -1,6 +1,7 @@
-# Script execution tests for plan-prepare.js (plan.js).
+# Script execution tests for skill/plan.js.
 # These tests run plan.js directly against fixture directories (no LLM).
-# Covers: OpenSpec authoritative output (issue #164).
+# Covers: prepare output, OpenSpec context (issue #164), and the plan.js subcommands
+# (tier, diff-material, merge-lanes, splice, critique-prep, explore, g17-prepare).
 #
 # Fixture appropriateness (W7.3 subcommand cases; the fixtures are JSON and markdown only, no git repo):
 #   fixtures-fs/plan-merge-lanes     - validator report, static-structural, g17-prepare, dimension-coverage, lens and

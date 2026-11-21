@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stub `gh` binary (fixtures-fs/stub-bin-gh), put first on PATH by the script-runner
 # provider's `script_stub_bin` var.
-# - ship-prepare-exec.yaml (#9188): answers the calls ship.js prepare makes, so no case
+# - the ship-*-exec.yaml datasets (#9188): answers the calls ship.js prepare makes, so no case
 #   reaches a live gh: `gh auth status` (logged in), `gh auth status --json hosts`,
 #   `gh api user --jq .login` and `gh api repos/<owner>/<repo> -i` (HTTP 200).
 # - pr-prepare-exec.yaml: no pr.js case may reach the real gh (`gh auth switch` changes the

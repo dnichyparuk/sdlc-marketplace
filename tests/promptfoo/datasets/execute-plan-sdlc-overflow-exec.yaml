@@ -355,6 +355,15 @@
     - type: javascript
       value: "output.includes('MaxSplitDepth') || output.includes('max split depth') || output.includes('split depth')"
 
+- description: "execute-plan-sdlc/wave-runner-overflow/wave-split-cmd: without --state-file outside a git repo prints halves and exits 0 (TK-021)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/state/execute.js"
+    script_args: "wave-split --wave 1 --dispatched [\"T1\",\"T2\",\"T3\",\"T4\"] --missing-ids [\"T3\",\"T4\"] --split-depth 0 --max-split-depth 3"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "const lines = output.trimEnd().split('\\n'); const last = lines.pop(); const r = JSON.parse(lines.join('\\n')); r.halves.length === 2 && last === '[exit 0]'"
+
 # ---------------------------------------------------------------------------
 # R-IDNORM: task-ID normalization (T-prefix stripping)
 # ---------------------------------------------------------------------------

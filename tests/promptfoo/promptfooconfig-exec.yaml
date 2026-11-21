@@ -29,6 +29,9 @@ tests:
   - file://datasets/pr-prepare-exec.yaml
   - file://datasets/pr-recover-gh-account-exec.yaml
   - file://datasets/ship-prepare-exec.yaml
+  - file://datasets/ship-state-exec.yaml
+  - file://datasets/ship-stepper-exec.yaml
+  - file://datasets/ship-stepper-flows-exec.yaml
   - file://datasets/ship-review-gate-exec.yaml
   - file://datasets/ship-sdlc-exec.yaml
   - file://datasets/ship-todos-exec.yaml
@@ -53,6 +56,7 @@ tests:
   - file://datasets/github-sdlc-exec.yaml
   - file://datasets/mcp-failure-github-exec.yaml
   - file://datasets/state-gc-migrate-exec.yaml
+  - file://datasets/state-commands-exec.yaml
   - file://datasets/manifest-persist-exec.yaml
   - file://datasets/plan-state-cleanup-exec.yaml
   - file://datasets/compact-recovery-sweep-exec.yaml

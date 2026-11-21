@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.4] - 2026-11-21
+
+### Changed
+- tests: the exec suite closes coverage gaps with new ship state, stepper and state-command cases, wrappers and refreshed coverage baselines, and the ship-sdlc spec is updated for the ship split (W-F).
+
+### Fixed
+- tests: the jira cache wrapper points jira temp files at its own temp directory so they are removed after the run (W-F).
+
 ## [0.57.3] - 2026-11-20
 
 ### Fixed

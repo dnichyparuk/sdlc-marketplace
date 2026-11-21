@@ -314,3 +314,98 @@
   assert:
     - type: icontains
       value: 'cannot pass the Step 0 shell line'
+
+- description: "version-errors: (a) version-sdlc-config-changelog --bump Bad1"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
+    script_args: "--bump Bad1"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/version-sdlc-config-changelog"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const e = out.errors[0];
+        const ok = typeof e === 'string' && e.startsWith("Invalid --bump value 'Bad1'");
+        return out.flow === 'release' && ok ? true : 'FAIL: ' + JSON.stringify(out);
+
+- description: "version-errors: (b) version-sdlc-config-changelog --bump patch --bump minor"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
+    script_args: "--bump patch --bump minor"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/version-sdlc-config-changelog"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const e = out.errors[0];
+        const ok = e && e.id === 'bumpFlagConflict' && e.message.startsWith('--bump specified more than once');
+        return out.flow === 'release' && ok ? true : 'FAIL: ' + JSON.stringify(out);
+
+- description: "version-errors: (c) version-sdlc-config-changelog --pre 1bad"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
+    script_args: "--pre 1bad"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/version-sdlc-config-changelog"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const e = out.errors[0];
+        const ok = typeof e === 'string' && e.startsWith("Invalid --pre label '1bad'");
+        return out.flow === 'release' && ok ? true : 'FAIL: ' + JSON.stringify(out);
+
+- description: "version-errors: (d) version-sdlc-config-changelog unrecognized positional Foo"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
+    script_args: "Foo"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/version-sdlc-config-changelog"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const e = out.errors[0];
+        const ok = typeof e === 'string' && e.startsWith("Unrecognized argument 'Foo'");
+        return out.flow === 'release' && ok ? true : 'FAIL: ' + JSON.stringify(out);
+
+- description: "version-errors: (e) version-no-config"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/version-no-config"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const e = out.errors[0];
+        const ok = typeof e === 'string' && e.startsWith("No version config found");
+        return out.flow === 'release' && ok ? true : 'FAIL: ' + JSON.stringify(out);
+
+- description: "version-errors: (f) version-no-tags"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/version-no-tags"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const e = out.errors[0];
+        const ok = typeof e === 'string' && e.startsWith("No version tags found");
+        return out.flow === 'release' && ok ? true : 'FAIL: ' + JSON.stringify(out);
+
+- description: "version-errors: (g) version-invalid-semver"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/version-invalid-semver"
+  assert:
+    - type: javascript
+      value: |
+        const out = JSON.parse(output);
+        const e = out.errors[0];
+        const ok = e === "Current version '1.2' is not valid semver.";
+        return out.flow === 'release' && ok ? true : 'FAIL: ' + JSON.stringify(out);

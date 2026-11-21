@@ -1,6 +1,6 @@
 # Script execution tests for migrate-config.js (issue #232 schema versioning,
 # issue #231 legacy relocation). These tests run scripts directly against
-# fixture directories (no LLM). Manual verification only — never run from CI.
+# fixture directories (no LLM). Part of the exec suite (promptfooconfig-exec.yaml).
 
 - description: "migrate-config: matching version (no-op)"
   vars:

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Stub `gh` binary (fixtures-fs/stub-bin-gh-prs) for the setup-scan-prs cases in
+# setup-prepare-exec.yaml, put first on PATH by the script-runner provider's
+# `script_stub_bin` var.
+# - `gh pr list --state all --limit 5 --json title,body`: two fixed PRs.
+# - `gh repo view --json`: same example repo as fixtures-fs/stub-bin-gh.
+# - every other call prints "STUB-GH-INVOKED <args>" and exits 0.
+if [[ "$1 $2" == "pr list" && " $* " == *" --json "* ]]; then
+  echo '[{"title":"feat: one","body":"b1"},{"title":"fix: two","body":"b2"}]'
+  exit 0
+fi
+if [[ "$1" == "repo" && "$2" == "view" && " $* " == *" --json "* ]]; then
+  echo '{"owner":{"login":"example-org"},"name":"example-repo"}'
+  exit 0
+fi
+echo "STUB-GH-INVOKED $@"
+exit 0
