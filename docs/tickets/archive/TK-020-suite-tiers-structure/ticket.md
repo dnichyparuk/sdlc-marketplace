@@ -3,6 +3,9 @@ id: TK-020
 type: task
 title: Suite tiers and structure (#9427)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#8, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#9, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#10, 2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure#11]
 ---
 
 # TK-020: Suite tiers and structure (#9427)

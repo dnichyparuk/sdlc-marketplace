@@ -1,5 +1,7 @@
 # W-F Suite Coverage Gaps, Tiers and Structure Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #125, bb03139
+
 **Commit:** `test(W-F): tests - suite coverage gaps, wrappers and ship split`
 **Goal:**
 - Close the three W-F tickets of the sdlc-utilities test suite: TK-019 (coverage gaps), TK-020 (structure, without the pre-push tier) and TK-021 (wave-split exits instead of printing).
@@ -163,7 +165,7 @@
 **Notes:** Implements R-CONTEXT_OVERFLOW (the split is persisted best-effort). Cites F-wave-split-resolve-branch-no-exit-1, -2, -5, -7. The spec (`docs/specs/execute-plan-sdlc.md:323`), `SKILL.md:433-441` and `docs/skills/execute-plan-sdlc.md` were checked at planning and do not state the exit, so they need no change. The other 14 `resolveBranchOrExit` callers exit on purpose; `state/ship.js:105` is out of scope.
 
 **Acceptance criteria:**
-- [ ] The change at `state/execute.js:1142-1146` is exactly:
+- [x] The change at `state/execute.js:1142-1146` is exactly:
   ```diff
        } else {
   -      const branch = resolveBranchOrExit(opts.branch);
@@ -172,11 +174,11 @@
          found = readState('execute', slug);
        }
   ```
-- [ ] The doc comment of `cmdWaveSplit` says that without `--state-file` a branch-resolution failure skips persistence and the result still prints (exit 0).
-- [ ] New case `execute-plan-sdlc/wave-runner-overflow/wave-split-cmd: without --state-file outside a git repo prints halves and exits 0 (TK-021)`: no `script_cwd`, no `project_root`, `script_show_exit: true`, `script_args: "wave-split --wave 1 --dispatched [\"T1\",\"T2\",\"T3\",\"T4\"] --missing-ids [\"T3\",\"T4\"] --split-depth 0 --max-split-depth 3"`; one `javascript` assertion that parses the output without its last line and checks `halves.length === 2`, and checks that the last line is `[exit 0]`.
-- [ ] The new case fails against the old line (checked by reasoning: the old code exits 2 with no stdout).
-- [ ] The existing `wave-split-cmd` case descriptions are unchanged (`mutation-smoke.js:101-106` filters them).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern wave-split-cmd` passes.
+- [x] The doc comment of `cmdWaveSplit` says that without `--state-file` a branch-resolution failure skips persistence and the result still prints (exit 0).
+- [x] New case `execute-plan-sdlc/wave-runner-overflow/wave-split-cmd: without --state-file outside a git repo prints halves and exits 0 (TK-021)`: no `script_cwd`, no `project_root`, `script_show_exit: true`, `script_args: "wave-split --wave 1 --dispatched [\"T1\",\"T2\",\"T3\",\"T4\"] --missing-ids [\"T3\",\"T4\"] --split-depth 0 --max-split-depth 3"`; one `javascript` assertion that parses the output without its last line and checks `halves.length === 2`, and checks that the last line is `[exit 0]`.
+- [x] The new case fails against the old line (checked by reasoning: the old code exits 2 with no stdout).
+- [x] The existing `wave-split-cmd` case descriptions are unchanged (`mutation-smoke.js:101-106` filters them).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern wave-split-cmd` passes.
 
 **Contract:**
 - shape (code): see the diff above; no signature change; exit codes of `wave-split`: 0 success (with or without persistence), 2 argument error or `MaxSplitDepthExceededError` (unchanged).
@@ -201,10 +203,10 @@
 **Notes:** Cites F-exec-coverage-gap-inventory-1, -2, -10, -14. The success path of these commands prints nothing, so only a read-back proves the write. `SDLC_STATE_DIR_OVERRIDE` plus `--branch` removes the need for a git fixture.
 
 **Acceptance criteria:**
-- [ ] Every case below exists with the description prefix `state-commands:` and passes; each `javascript` assertion checks the exact field, value and exit code in the table.
-- [ ] No case uses `script_path: "-e"`; no description contains `wave-committed`.
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports no drop (growth only), and `node tests/promptfoo/scripts/check-dataset-asserts.js` reports no finding.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern state-commands:` passes.
+- [x] Every case below exists with the description prefix `state-commands:` and passes; each `javascript` assertion checks the exact field, value and exit code in the table.
+- [x] No case uses `script_path: "-e"`; no description contains `wave-committed`.
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports no drop (growth only), and `node tests/promptfoo/scripts/check-dataset-asserts.js` reports no finding.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern state-commands:` passes.
 
 **Contract:**
 - shape (code): wrapper CLI and output:
@@ -251,10 +253,10 @@
 **Notes:** Cites F-exec-coverage-gap-inventory-3, -11. A new fixture keeps the three change kinds apart, so each scope's file list is distinct and a wrong diff command fails the case.
 
 **Acceptance criteria:**
-- [ ] `setup.sh` starts with the guard line of `fixtures-fs/project-execute-commit-waves/setup.sh:4` before any `git init`, and `fixture-guard-exec.yaml` still passes.
-- [ ] Each case below exists with the description prefix `review-scope:` and passes; file-list assertions are `javascript` checks over the manifest JSON.
-- [ ] `node tests/promptfoo/scripts/check-dataset-asserts.js` reports no finding.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern review-scope:` passes.
+- [x] `setup.sh` starts with the guard line of `fixtures-fs/project-execute-commit-waves/setup.sh:4` before any `git init`, and `fixture-guard-exec.yaml` still passes.
+- [x] Each case below exists with the description prefix `review-scope:` and passes; file-list assertions are `javascript` checks over the manifest JSON.
+- [x] `node tests/promptfoo/scripts/check-dataset-asserts.js` reports no finding.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern review-scope:` passes.
 
 **Contract:**
 - shape (code): cases (all `script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"`, `script_cwd: "{{project_root}}"`, `project_root: "file://fixtures-fs/project-review-scopes"`):
@@ -286,9 +288,9 @@
 **Notes:** Cites F-exec-coverage-gap-inventory-4. `--clear`, `--save-field` and `--init-templates` change files, so their effect is only visible to a second call in the same HOME; a wrapper runs both calls.
 
 **Acceptance criteria:**
-- [ ] Each case below exists with the description prefix `jira-cache:` and passes.
-- [ ] Every assertion checks a value from the table (a field value, a file that exists or is gone, an exit code), not a key name alone.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern jira-cache:` passes.
+- [x] Each case below exists with the description prefix `jira-cache:` and passes.
+- [x] Every assertion checks a value from the table (a field value, a file that exists or is gone, an exit code), not a key name alone.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern jira-cache:` passes.
 
 **Contract:**
 - shape (code): wrapper CLI:
@@ -327,10 +329,10 @@
 **Notes:** Cites F-exec-coverage-gap-inventory-5. A new stub directory keeps the shared `stub-bin-gh` unchanged, so ship, pr and stub-bin cases are not affected. D2 drops `--migrate` and `--only`.
 
 **Acceptance criteria:**
-- [ ] The stub file is executable in git (`git ls-files -s` shows mode `100755`).
-- [ ] Case `setup-scan-prs: (a) --scan --scan-prs fills recentPrs from gh pr list` passes: `recentPrs` has the two stub titles.
-- [ ] Case `setup-scan-prs: (b) --scan without --scan-prs never calls gh pr list` passes: `recentPrs` is `[]` with the same stub.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern setup-scan-prs:` passes.
+- [x] The stub file is executable in git (`git ls-files -s` shows mode `100755`).
+- [x] Case `setup-scan-prs: (a) --scan --scan-prs fills recentPrs from gh pr list` passes: `recentPrs` has the two stub titles.
+- [x] Case `setup-scan-prs: (b) --scan without --scan-prs never calls gh pr list` passes: `recentPrs` is `[]` with the same stub.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern setup-scan-prs:` passes.
 
 **Contract:**
 - shape (code): stub behaviour:
@@ -362,9 +364,9 @@
 **Notes:** Cites F-exec-coverage-gap-inventory-6. The parse errors run against the existing `version-sdlc-config-changelog` fixture; the three config errors need their own repo state.
 
 **Acceptance criteria:**
-- [ ] Each `setup.sh` starts with the guard line before any `git init`; `fixture-guard-exec.yaml` still passes.
-- [ ] Each case below exists with the description prefix `version-errors:` and passes; each checks the `errors` entry text and `flow === 'release'` with a `javascript` assertion.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern version-errors:` passes.
+- [x] Each `setup.sh` starts with the guard line before any `git init`; `fixture-guard-exec.yaml` still passes.
+- [x] Each case below exists with the description prefix `version-errors:` and passes; each checks the `errors` entry text and `flow === 'release'` with a `javascript` assertion.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern version-errors:` passes.
 
 **Contract:**
 - shape (code): cases (`script_path: "repo://plugins/sdlc-utilities/scripts/skill/version.js"`, `script_cwd: "{{project_root}}"`):
@@ -399,10 +401,10 @@
 **Notes:** One deliverable: the small flag gaps of TK-019 (CLI `--commit-waves`, the `--await-review` rejection, the commit reject exit), each one case or a few assertions; bundled so that no task is one line. Cites F-exec-coverage-gap-inventory-7, -8, -9 and F-exec-suite-split-and-wrappers-6. The `commit-prepare-exec.yaml` header fix is a TK-020 A2 item; it sits here because this task owns that file in wave 1.
 
 **Acceptance criteria:**
-- [ ] `execute-prepare: (k1) commit-waves-cli --commit-waves with no config gives true with source cli` passes (fixture `project-execute-prepare`): `flags.commitWaves === true && flags.sources.commitWaves === 'cli'`.
-- [ ] `execute-prepare: (k2) commit-waves-cli --commit-waves wins over a legacy false` passes (fixture `project-ship-commit-waves-off`): same check.
-- [ ] `ship-prepare: --await-review is rejected with the steps hint` passes, as a twin of the `--verify-pipeline` case: `--has-plan --await-review`; output contains `--await-review is no longer accepted`.
-- [ ] The cases `commit-prepare: --type chore violates allowedTypes` and `commit-prepare: --scope ui violates allowedScopes` keep their two `icontains` assertions and change as below (the `--scope ui` case is the same with `ui` and `Commit scope`); the exit 1 comes from `commit.js:465` (`process.exit(result.errors && result.errors.length > 0 ? 1 : 0)`):
+- [x] `execute-prepare: (k1) commit-waves-cli --commit-waves with no config gives true with source cli` passes (fixture `project-execute-prepare`): `flags.commitWaves === true && flags.sources.commitWaves === 'cli'`.
+- [x] `execute-prepare: (k2) commit-waves-cli --commit-waves wins over a legacy false` passes (fixture `project-ship-commit-waves-off`): same check.
+- [x] `ship-prepare: --await-review is rejected with the steps hint` passes, as a twin of the `--verify-pipeline` case: `--has-plan --await-review`; output contains `--await-review is no longer accepted`.
+- [x] The cases `commit-prepare: --type chore violates allowedTypes` and `commit-prepare: --scope ui violates allowedScopes` keep their two `icontains` assertions and change as below (the `--scope ui` case is the same with `ui` and `Commit scope`); the exit 1 comes from `commit.js:465` (`process.exit(result.errors && result.errors.length > 0 ? 1 : 0)`):
   ```diff
    - description: "commit-prepare: --type chore violates allowedTypes"
      vars:
@@ -423,9 +425,9 @@
   +        return lines[lines.length - 1] === '[exit 1]' && o.errors.some(e => String(e).includes('"chore"'));
   ```
   The output is the manifest JSON (the provider reads the temp file whose path `commit.js` prints) followed by the `[exit N]` line.
-- [ ] The header reads: `# Script execution tests for skill/commit.js (commit-sdlc prepare).` / `# These tests run commit.js directly against fixture directories (no LLM).`; the `Ported from tests/unit/...` line is gone.
-- [ ] No assertion is removed; `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports no drop.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "commit-waves-cli|violates allowed|await-review is rejected"` passes.
+- [x] The header reads: `# Script execution tests for skill/commit.js (commit-sdlc prepare).` / `# These tests run commit.js directly against fixture directories (no LLM).`; the `Ported from tests/unit/...` line is gone.
+- [x] No assertion is removed; `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports no drop.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "commit-waves-cli|violates allowed|await-review is rejected"` passes.
 
 **Contract:**
 - shape (code): new and changed case vars:
@@ -461,7 +463,7 @@
 **Notes:** Cites F-exec-suite-split-and-wrappers-6; comment lines only, so no case or assertion changes.
 
 **Acceptance criteria:**
-- [ ] The header lines change as follows (other header lines stay):
+- [x] The header lines change as follows (other header lines stay):
 
   | File | Old text | New text |
   |---|---|---|
@@ -470,9 +472,9 @@
   | `plan-prepare-exec.yaml` | `plan-prepare.js (plan.js)`; `Covers: OpenSpec authoritative output (issue #164).` | `skill/plan.js`; `Covers: prepare output, OpenSpec context (issue #164), and the plan.js subcommands (tier, diff-material, merge-lanes, splice, critique-prep, mark).` (list the subcommands the cases actually run) |
   | `config-load-exec.yaml` | `Uses a tiny inline runner script invoked` / `with different fixture directories.` | `Runs runners/config-load-runner.js against different fixture directories.` |
   | `migrate-config-exec.yaml` | `Manual verification only — never run from CI.` | `Part of the exec suite (promptfooconfig-exec.yaml).` |
-- [ ] Every id token (`/\b[A-Z]{1,3}\d{1,4}\b/`) of the old headers is still present; `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports no drop.
-- [ ] `git grep -F` of each removed phrase over `tests/` finds no assertion that reads it.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern spec-id-coverage:` passes.
+- [x] Every id token (`/\b[A-Z]{1,3}\d{1,4}\b/`) of the old headers is still present; `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports no drop.
+- [x] `git grep -F` of each removed phrase over `tests/` finds no assertion that reads it.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern spec-id-coverage:` passes.
 
 **Contract:**
 - shape (docs): MODIFY the leading `#` comment block of the five datasets per the table above; audience: suite maintainers; no case lines change.
@@ -499,12 +501,12 @@
 **Notes:** Cites F-exec-suite-split-and-wrappers-4, -5, -7, -8. Byte-compatible output keeps every assertion unchanged, so a green targeted run proves the move. The wrappers resolve the repo root from `__dirname`, which replaces every `{{repo_root}}` inside a program; `{{project_root}}` is the case's `script_cwd`, so a wrapper uses `process.cwd()`.
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/ship-prepare-exec.yaml` prints `0`.
-- [ ] The `- description:` count and the count of assertion lines (`/^\s*-\s*type:/` outside comments) of the dataset are unchanged by this task, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; `script_cwd`, `script_stub_bin`, `script_env`, `project_root` and the assertion block stay byte-equal.
-- [ ] Each wrapper's program for a case is the old program reformatted into readable code (named helpers, real string literals instead of `\x20` escapes), with the same steps and the same stdout.
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js` is ok, after one `--update` if and only if it reported drops limited to flag keys of `-e` cases of this dataset; the baseline diff shows only those keys.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(ship-prepare \((R75|R76|R15|R64|R-plan-commit-subject|R-implicit-resume)\)|ship-(fix-subject|fix-scope|summary|stage-sdlc|fwd|final-check|resume-flags|step-text|lean|bump))"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/ship-prepare-exec.yaml` prints `0`.
+- [x] The `- description:` count and the count of assertion lines (`/^\s*-\s*type:/` outside comments) of the dataset are unchanged by this task, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; `script_cwd`, `script_stub_bin`, `script_env`, `project_root` and the assertion block stay byte-equal.
+- [x] Each wrapper's program for a case is the old program reformatted into readable code (named helpers, real string literals instead of `\x20` escapes), with the same steps and the same stdout.
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js` is ok, after one `--update` if and only if it reported drops limited to flag keys of `-e` cases of this dataset; the baseline diff shows only those keys.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(ship-prepare \((R75|R76|R15|R64|R-plan-commit-subject|R-implicit-resume)\)|ship-(fix-subject|fix-scope|summary|stage-sdlc|fwd|final-check|resume-flags|step-text|lean|bump))"` passes.
 
 **Contract:**
 - shape (code): each wrapper:
@@ -555,7 +557,7 @@
 **Notes:** Cites F-exec-suite-split-and-wrappers-1, -2, -3, -7, -8. The owner asked for the split as the last step; it runs after every other task that edits this file. Moving whole cases with their comments keeps the ids in comments with their cases.
 
 **Acceptance criteria:**
-- [ ] The families go to the files in this table; within each file the cases keep their order from the old file:
+- [x] The families go to the files in this table; within each file the cases keep their order from the old file:
 
   | File | Description families (text before the first `:`, ignoring a ` (Rnn)` suffix) |
   |---|---|
@@ -565,11 +567,11 @@
   | `ship-stepper-flows-exec.yaml` | `ship-lean`, `ship-resume-plan`, `ship-rr-input`, `ship-summary-commits`, `ship-summary-rounds`, `ship-summary-file`, `ship-summary-unwritable`, `ship-fwd`, `ship-rerun`, `ship-guard`, `ship-stage-fixes`, `ship-strict`, `ship-scope-keep`, `ship-rounds`, `ship-final-check`, `ship-self-commit` |
 
   A case of a family not in the table (for example one added after planning) stays in `ship-prepare-exec.yaml`.
-- [ ] Each file starts with a header naming the scripts its cases run and the topics they cover; the old `ship-prepare-exec.yaml:1-4` header (it names `ship-prepare.js`) is replaced.
-- [ ] No-loss check, run before `--update` and recorded in the task report: the sum of `- description:` counts of the four files equals the old count; the sorted description lists are equal; the sum of assertion lines equals the old count; the sorted union of id tokens over the four files equals the old file's set.
-- [ ] `node tests/promptfoo/scripts/check-spec-id-coverage.js --update` is run once; the baseline diff only splits the old `ship-prepare-exec.yaml` entry into four entries whose asserts sum to the old value, and the check then reports ok.
-- [ ] `node tests/promptfoo/scripts/check-dataset-asserts.js` reports no finding and no stale allowlist entry.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(ship|pipelineAdvancing|verify-side-effect|spec-id-coverage|dataset-asserts)"` passes.
+- [x] Each file starts with a header naming the scripts its cases run and the topics they cover; the old `ship-prepare-exec.yaml:1-4` header (it names `ship-prepare.js`) is replaced.
+- [x] No-loss check, run before `--update` and recorded in the task report: the sum of `- description:` counts of the four files equals the old count; the sorted description lists are equal; the sum of assertion lines equals the old count; the sorted union of id tokens over the four files equals the old file's set.
+- [x] `node tests/promptfoo/scripts/check-spec-id-coverage.js --update` is run once; the baseline diff only splits the old `ship-prepare-exec.yaml` entry into four entries whose asserts sum to the old value, and the check then reports ok.
+- [x] `node tests/promptfoo/scripts/check-dataset-asserts.js` reports no finding and no stale allowlist entry.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(ship|pipelineAdvancing|verify-side-effect|spec-id-coverage|dataset-asserts)"` passes.
 
 **Contract:**
 - shape (code): config change:
@@ -611,10 +613,10 @@
 **Notes:** Cites F-exec-suite-split-and-wrappers-3 (the files that name the dataset) and -7. Uses the family map of Task 10, so it can run beside it; families that stay keep `ship-prepare-exec.yaml`. The eight `check only` paths stay under Files because the spec's copy rule (`plan.copyRules`) requires them; the executor only greps them. At planning, `git grep ship-prepare-exec` found no hit in the user doc, its site copy or the ship-sdlc companions; they are listed only because the spec's copy rule names them.
 
 **Acceptance criteria:**
-- [ ] In `docs/specs/ship-sdlc.md`, the acceptance lines for `ship begin-step (R69)` / `ship complete-step (R69)` and `pipelineAdvancing` name `tests/promptfoo/datasets/ship-state-exec.yaml`; those for `ship-summary-file`, `ship-summary-commits`, `ship-summary-rounds` (two lines) and `ship-rr-input` name `tests/promptfoo/datasets/ship-stepper-flows-exec.yaml`; every other `ship-prepare-exec.yaml` line is unchanged.
-- [ ] No requirement id, requirement text or numbering changes; `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` passes.
-- [ ] `cmp docs/specs/ship-sdlc.md site/src/content-source/specs/ship-sdlc.md` reports no difference (copied with `cp`).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "docs-copies|pipelineAdvancing"` passes.
+- [x] In `docs/specs/ship-sdlc.md`, the acceptance lines for `ship begin-step (R69)` / `ship complete-step (R69)` and `pipelineAdvancing` name `tests/promptfoo/datasets/ship-state-exec.yaml`; those for `ship-summary-file`, `ship-summary-commits`, `ship-summary-rounds` (two lines) and `ship-rr-input` name `tests/promptfoo/datasets/ship-stepper-flows-exec.yaml`; every other `ship-prepare-exec.yaml` line is unchanged.
+- [x] No requirement id, requirement text or numbering changes; `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` passes.
+- [x] `cmp docs/specs/ship-sdlc.md site/src/content-source/specs/ship-sdlc.md` reports no difference (copied with `cp`).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "docs-copies|pipelineAdvancing"` passes.
 
 **Contract:**
 - shape (openspec): MODIFY acceptance file names only in `docs/specs/ship-sdlc.md`; no requirement ADD/REMOVE, no numbering change. Example for the R69 line (`:108`):
