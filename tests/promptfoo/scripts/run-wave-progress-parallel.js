@@ -43,7 +43,7 @@ if (process.env.WAVE_PROGRESS_CHILD !== undefined) {
   }
 }
 
-const tmp = fs.mkdtempSync(os.tmpdir() + '/wave-progress-parallel-');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wave-progress-parallel-'));
 const children = [];
 for (let k = 0; k < WRITERS; k++) {
   children.push(new Promise((resolve) => {
