@@ -3,6 +3,9 @@ id: TK-010
 type: task
 title: Commit step waits for its message drafter (#9446)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#5]
 ---
 
 # TK-010: Commit step waits for its message drafter (#9446)

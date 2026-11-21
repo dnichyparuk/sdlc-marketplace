@@ -3,6 +3,9 @@ id: TK-017
 type: task
 title: Config and plan reads from the worktree (#9458)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#10, 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#11]
 ---
 
 # TK-017: Config and plan reads from the worktree (#9458)

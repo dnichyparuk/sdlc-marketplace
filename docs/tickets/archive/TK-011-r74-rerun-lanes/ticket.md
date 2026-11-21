@@ -3,6 +3,9 @@ id: TK-011
 type: task
 title: R74 re-check keeps the rerun lanes (#9449)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#1]
 ---
 
 # TK-011: R74 re-check keeps the rerun lanes (#9449)

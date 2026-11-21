@@ -3,6 +3,9 @@ id: TK-016
 type: task
 title: Ship Stop hook quiet while a step agent runs (#9455)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#9]
 ---
 
 # TK-016: Ship Stop hook quiet while a step agent runs (#9455)

@@ -3,6 +3,9 @@ id: TK-012
 type: task
 title: Final spec-compliance review runs or records a skip (#9451)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#3, 2026-11-20-w-d2-ship-execute-and-plan-follow-ups#4]
 ---
 
 # TK-012: Final spec-compliance review runs or records a skip (#9451)

@@ -3,6 +3,9 @@ id: TK-009
 type: task
 title: Update exec cases of removed phrases (#9445)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#12]
 ---
 
 # TK-009: Update exec cases of removed phrases (#9445)

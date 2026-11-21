@@ -3,6 +3,9 @@ id: TK-018
 type: task
 title: State files match the exact branch name (#9450)
 created: 2026-11-19
+resolution: done
+closed: 2026-11-21
+by: [2026-11-20-w-d2-ship-execute-and-plan-follow-ups#13]
 ---
 
 # TK-018: State files match the exact branch name (#9450)
