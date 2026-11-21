@@ -453,7 +453,7 @@ On success:
    mktemp
    ```
 
-2. Read `<BODY_FILE>` once (it is empty; the Write tool refuses a file that was not read), then write the final PR body to it with the Write tool (no shell quoting of the body). Do not write the pr.footer text yourself: step 3 appends it to <BODY_FILE> (R21).
+2. Read `<BODY_FILE>` once (it is empty; the Write tool refuses a file that was not read), then write the final PR body to it with the Write tool (no shell quoting of the body). Do not write the `pr.footer` text yourself: step 3 appends it to `<BODY_FILE>` (R21).
 
 3. Validate it, and take the command's exit code from the tool result as `LINK_EXIT` (a tool result without an error is exit code 0):
 

@@ -89,10 +89,13 @@ You received `waveTimeout` (seconds) in your manifest. Enforce it yourself — t
 per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).
 
 1. Record the dispatch time. All per-task dispatches from §2 run in the background, so
-   each returns a task ID immediately rather than blocking.
+   each dispatch call gives back a background task ID at once. Keep a map from each background
+   task ID to the plan task IDs it covers (a batch covers several). A worker has returned when its
+   completion notification has arrived.
 2. Wait with one foreground Bash call (Bash `timeout` parameter 600000):
-   `node {STATE_SCRIPT} wave-progress --wave {WAVE} --run-id {RUN_ID} --wait --tasks <plan task ids of the wave, comma-separated> --interval <waveInterval> --grace 10 --timeout <min(540, remaining budget in seconds)>`.
-   Repeat the call while fewer than N returns have arrived and the deadline has not passed.
+   `node {STATE_SCRIPT} wave-progress --wave {WAVE} --run-id {RUN_ID} --wait --tasks <plan task ids whose worker has not returned, comma-separated> --interval <waveInterval> --grace 10 --timeout <min(540, remaining budget in seconds)>`.
+   Repeat the call while fewer than N returns have arrived and the deadline has not passed; each
+   call lists only the plan task ids whose worker has not returned yet (R92).
    Compute the remaining budget in whole seconds; when it is below 1, skip the call and go to
    step 4 with the last `inFlight` list (the full task list when there is none). When the call
    exits non-zero or prints no JSON, it is a failed call, not a timeout: read its stderr and retry it
@@ -100,14 +103,15 @@ per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).
    once); when the deadline has passed, go to step 4. When some workers have already
    returned, pass `--timeout` of at most 60 so the call does not block on a marker a returned
    worker never wrote.
-3. Use the call's `inFlight` list as the termination target in step 4; a returned task ID is in
-   flight while any plan task ID it covers is in `inFlight`. A task whose marker `phase` is not
-   yet `reporting` is in flight unless its worker has already returned: the heartbeat is advisory,
-   so a returned worker is never a `TaskStop` or TIMEOUT target, whatever its marker says. Do not rely on your own memory of the dispatch list; a worker
+3. Use the call's `inFlight` list as the termination target in step 4: a background task ID is in
+   flight while its worker has not returned and any plan task ID it covers is in `inFlight`. A
+   worker that has returned is never in flight, never a `TaskStop` target and never reported as
+   TIMEOUT, whatever its marker says (the heartbeat is advisory, R92). Do not rely on your own memory of the dispatch list; a worker
    may have finished and reported between two waits.
 4. When the deadline expires, call `TaskStop` on every task still in flight per `inFlight`.
    Terminate only overrun workers — a worker that has already reported is left alone.
-5. Report each terminated task with `status: "FAILED"` and `errorCode: "TIMEOUT"`, and set the
+5. Report each task you stopped in step 4 with `status: "FAILED"` and `errorCode: "TIMEOUT"`; a
+   task whose worker returned takes its status from its return (§3). Set the
    wave `status` to `partial` (not `failed` — completed tasks in the same wave are still valid).
 6. Return your WAVE_SUMMARY normally. **Timeout is a verdict, not a crash** — do not abort, do
    not throw, do not omit the summary. Recording the verdict in state

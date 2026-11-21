@@ -1528,7 +1528,7 @@
   vars:
     script_path: "-e"
     project_root: "file://fixtures-fs/plan-splice-latest"
-    script_args: '((cp,fs,d,js,t)=>(fs.mkdirSync(t+"/nulldir/iter-0",{recursive:true}),fs.writeFileSync(t+"/nulldir/iter-0/merged.json","{\"guardrailCompliancePayload\":null}"),((run)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({both:run("a",["--merged","{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/merged.json","--critique-dir",d]),neither:run("b",[]),missing:run("c",["--critique-dir",t+"/nope"]),nullOnly:run("d",["--critique-dir",t+"/nulldir"]),noG:run("e",["--critique-dir",d,"--no-guardrails"])}))((n,x)=>(fs.copyFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md",t+"/"+n+".md"),((r)=>({status:r.status,err:r.stderr,stdout:r.stdout,out:r.stdout?JSON.parse(r.stdout):null,same:fs.readFileSync(t+"/"+n+".md","utf8")===fs.readFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/"+n+".md",...x],{encoding:"utf8"}))))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+    script_args: '((cp,fs,d,js,t)=>(fs.mkdirSync(t+"/nulldir/iter-0",{recursive:true}),fs.writeFileSync(t+"/nulldir/iter-0/merged.json","{\"guardrailCompliancePayload\":null}"),((run)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({both:run("a",["--merged","{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/merged.json","--critique-dir",d]),neither:run("b",[]),missing:run("c",["--critique-dir",t+"/nope"]),nullOnly:run("d",["--critique-dir",t+"/nulldir"]),noG:run("e",["--critique-dir",d,"--no-guardrails"]),noGMissing:run("f",["--critique-dir",t+"/nope","--no-guardrails"])}))((n,x)=>(fs.copyFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md",t+"/"+n+".md"),((r)=>({status:r.status,err:r.stderr,stdout:r.stdout,out:r.stdout?JSON.parse(r.stdout):null,same:fs.readFileSync(t+"/"+n+".md","utf8")===fs.readFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/"+n+".md",...x],{encoding:"utf8"}))))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
   assert:
     - type: javascript
       value: |
@@ -1538,7 +1538,8 @@
           usage(o.neither) && o.neither.err.includes('exactly one of --merged or --critique-dir') &&
           usage(o.missing) && o.missing.err.includes('--critique-dir is not a readable directory') &&
           o.nullOnly.status === 0 && JSON.stringify(o.nullOnly.out.written) === '[]' && o.nullOnly.out.source === null && o.nullOnly.same &&
-          o.noG.status === 0 && JSON.stringify(o.noG.out.written) === '[]' && o.noG.same;
+          o.noG.status === 0 && JSON.stringify(o.noG.out.written) === '[]' && o.noG.same &&
+          usage(o.noGMissing) && o.noGMissing.err.includes('--critique-dir is not a readable directory');
         return ok ? true : `FAIL: ${output}`;
 
 - description: "plan-splice: (f) --critique-dir fails closed on a bad newest merged.json, skips a non-directory iter entry (R77)"
@@ -1587,6 +1588,9 @@
     - type: javascript
       value: |
         const r = JSON.parse(output);
-        const ok = r.o.includes('<!-- R76 -->') && r.o.includes('--before "<PLAN_FILE_PATH>" --after "<PLAN_FILE_PATH>"') &&
-          r.l.includes('<!-- R76 -->') && r.l.includes('dispatch.lanes');
+        const ok = r.o.includes('<!-- R76 -->') && r.o.includes('```bash\nnode "<PLAN_JS>" diff-material --before "<PLAN_FILE_PATH>" --after "<PLAN_FILE_PATH>" --prev-dir "<CARRY>"\n```') &&
+          r.l.includes('<!-- R76 -->') && r.l.includes('dispatch.lanes') &&
+          r.l.includes('--lanes "<lanes dispatched in this iteration, comma-separated, or empty>"') &&
+          r.l.includes('[--carry "<critiqueDir>/iter-<k-1>"]') &&
+          !r.l.includes('this merge reads only `lens`');
         return ok ? true : 'FAIL: R76 sentinels missing';

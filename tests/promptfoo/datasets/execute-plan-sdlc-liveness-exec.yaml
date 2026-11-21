@@ -116,6 +116,15 @@
     - type: contains
       value: "Error: --grace requires an integer >= 0"
 
+- description: "execute-plan-sdlc/liveness/wave-progress: parallel writers keep every entry (R-WAVE-LIVENESS)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-wave-progress-parallel.js"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        return r.expected === 150 && r.found === r.expected && r.exits.length === 6 && r.exits.every(c => c === 0) && r.lockLeft === false ? true : `FAIL: ${output}`;
+
 # --- wave / task liveness flags (Tasks 14, 15) -----------------------------
 
 - description: "execute-plan-sdlc/liveness/wave-done: --status bogus is rejected and lists the valid statuses"

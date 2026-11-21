@@ -914,14 +914,18 @@ function splicePlan(text, merged, { noGuardrails = false, only = null } = {}) {
   return { text: lines.join('\n') + '\n', written, replaced };
 }
 
-/** Newest iter-<k>/merged.json (numeric k) whose guardrailCompliancePayload is a string: { path, merged } or null. */
-function latestGuardrailMerged(critiqueDir) {
-  let names;
+/** Read the entries of a critique directory; a directory that cannot be read is a usage error (R67 (f)). */
+function readCritiqueDir(critiqueDir) {
   try {
-    names = fs.readdirSync(critiqueDir);
+    return fs.readdirSync(critiqueDir);
   } catch (_) {
     throw Object.assign(new Error(`--critique-dir is not a readable directory: ${critiqueDir}`), { code: 'USAGE' });
   }
+}
+
+/** Newest iter-<k>/merged.json (numeric k) whose guardrailCompliancePayload is a string: { path, merged } or null. */
+function latestGuardrailMerged(critiqueDir) {
+  const names = readCritiqueDir(critiqueDir);
   const iters = names.map(n => /^iter-(\d+)$/.exec(n)).filter(Boolean).sort((a, b) => Number(b[1]) - Number(a[1]));
   for (const m of iters) {
     const file = path.join(critiqueDir, m[0], 'merged.json');
@@ -946,7 +950,7 @@ function latestGuardrailMerged(critiqueDir) {
 }
 
 module.exports = {
-  splicePlan, latestGuardrailMerged,
+  splicePlan, latestGuardrailMerged, readCritiqueDir,
   LANE_DEFS, TRIGGER_MAP, diffMaterial, planShape, reviewRoute, TIER_BOUNDS, tierCheck, g17Prepare, mirrorPath, rankCandidates, SEVERITY_RANK,
   EXPECTED_GATES, PF_GATES, mergeLanes, renderG17, renderScorecard, renderSummary,
 };

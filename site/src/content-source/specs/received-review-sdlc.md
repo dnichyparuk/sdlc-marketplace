@@ -106,6 +106,7 @@
 - R37: Config root. `skill/received-review.js` reads `.sdlc/config.json`, review dimensions, guardrails and git state from the active worktree toplevel; the `receivedReview` settings in `.sdlc/local.json` stay in the main checkout. `--project-root` sets both.
   - Acceptance: exec case `received-review-prepare (R37):`.
 - R38 (Removed phrases): when the project has `tests/promptfoo/datasets`, Step 11 greps `tests/promptfoo/datasets` for each phrase a fix removes or rewords and updates the cases that count or assert it in the same change set. Acceptance: exec case `rr-skill-text: (R38)`.
+- R39 (Deferred count): the Step 12 summary (item 1) carries the line `- D comments deferred (needs discussion or below threshold)`, so the ship step agent can report the deferred count of the round (ship-sdlc R106). Acceptance: exec case `execute-plan-sdlc/handback:` (the `rrDeferred` sentinel).
 
 ### Step-emitter contract
 
@@ -248,6 +249,7 @@ Critique 2 (responses):
 | R36 | a script refusal is a stop; owner-only commands are never a fix check (ledger F-152), #9459 (#9457) |
 | R37 | config root in a linked worktree, W-D2 (TK-017) |
 | R38 | removed-phrase cases updated with the fix, W-D2 (TK-009) |
+| R39 | deferred count in the Step 12 summary, W-E1 |
 | R28 | run-time scope widening for copies (ledger F-62(b)) rejected in favour of the plan-time copy check (plan-sdlc R71(d)), #9368 |
 | R22 | per issue #429 table |
 | P8 | (issue #233) |

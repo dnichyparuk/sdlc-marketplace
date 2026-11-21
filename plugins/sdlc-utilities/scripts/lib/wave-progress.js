@@ -80,6 +80,39 @@ function progressPath({ runId, wave, stateDir } = {}) {
   return path.join(stateDir, runId, `progress-wave-${wave}.json`);
 }
 
+// Tuning values (docs/cost-tiers.md): lock poll and the wait after which a lock counts as stale.
+const LOCK_RETRY_MS = 10;
+const LOCK_WAIT_MS = 2000;
+
+function sleepMs(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** Run fn while holding `.progress-wave-<N>.lock` beside the marker (R-WAVE-LIVENESS). */
+function withMarkerLock(filePath, fn) {
+  const lockPath = path.join(path.dirname(filePath), `.${path.basename(filePath, '.json')}.lock`);
+  let waitStart = Date.now();
+  for (;;) {
+    try {
+      fs.closeSync(fs.openSync(lockPath, 'wx'));
+      break;
+    } catch (err) {
+      if (!err || err.code !== 'EEXIST') throw err;
+      if (Date.now() - waitStart >= LOCK_WAIT_MS) {
+        fs.rmSync(lockPath, { force: true }); // stale holder (accepted gap, R-WAVE-LIVENESS)
+        waitStart = Date.now();
+        continue;
+      }
+      sleepMs(LOCK_RETRY_MS);
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    fs.rmSync(lockPath, { force: true });
+  }
+}
+
 /**
  * Merge a single task's phase into a wave's progress marker and write it
  * atomically (tmp write + rename), mirroring `task-factsheet.js`'s
@@ -101,20 +134,22 @@ function writeProgress({ runId, wave, stateDir, taskId, phase } = {}) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  const marker = readMarkerFile(filePath);
-  marker.tasks[taskId] = { phase, updatedAt: new Date().toISOString() };
+  return withMarkerLock(filePath, () => {
+    const marker = readMarkerFile(filePath);
+    marker.tasks[taskId] = { phase, updatedAt: new Date().toISOString() };
 
-  const content = JSON.stringify(marker, null, 2);
+    const content = JSON.stringify(marker, null, 2);
 
-  // Atomic write via tmp -> rename. Suffix built from pid/time/random rather
-  // than node:crypto to keep this module's dependency surface at
-  // node:fs + node:path only.
-  const suffix = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const tmp = path.join(dir, `.progress-wave-${wave}.${suffix}.tmp`);
-  fs.writeFileSync(tmp, content, 'utf8');
-  fs.renameSync(tmp, filePath);
+    // Atomic write via tmp -> rename. Suffix built from pid/time/random rather
+    // than node:crypto to keep this module's dependency surface at
+    // node:fs + node:path only.
+    const suffix = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tmp = path.join(dir, `.progress-wave-${wave}.${suffix}.tmp`);
+    fs.writeFileSync(tmp, content, 'utf8');
+    fs.renameSync(tmp, filePath);
 
-  return filePath;
+    return filePath;
+  });
 }
 
 /**

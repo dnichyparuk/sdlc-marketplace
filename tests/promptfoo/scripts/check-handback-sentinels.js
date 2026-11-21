@@ -65,15 +65,26 @@ const stepArgs = {};
 for (const s of ['commit', 'review', 'received-review', 'version', 'pr', 'execute']) {
   stepArgs[s] = has(`agents/ship-step-${s}.md`, [ARGS]);
 }
+const ROOT = 'The skill\'s fallback for an absent line (the directory two levels above SKILL.md) does not apply';
+const stepRoot = {};
+for (const s of ['review', 'received-review', 'version']) {
+  stepRoot[s] = has(`agents/ship-step-${s}.md`, [ROOT]);
+}
+const rrDeferred = has('skills/received-review-sdlc/SKILL.md', ['- D comments deferred (needs discussion or below threshold)']);
 
 const shipStaleKey = has('skills/ship-sdlc/SKILL.md', ['the Agent task you start for the current `dispatch_*` envelope'])
   && lacks('skills/ship-sdlc/SKILL.md', ['ledger entry is already']);
 const waitNoReadPoll = lacks('skills/execute-plan-sdlc/wave-runner-template.md', ['`wave-progress --read` poll', 'keep waiting for the worker returns'])
   && lacks('skills/execute-plan-sdlc/SKILL.md', ['keep waiting for the worker returns']);
+const WAIT_TARGET = ['--tasks <plan task ids whose worker has not returned, comma-separated>', 'a background task ID is in'];
+const waitTarget = {
+  skill: has('skills/execute-plan-sdlc/SKILL.md', WAIT_TARGET) && lacks('skills/execute-plan-sdlc/SKILL.md', ['a returned task ID']),
+  waveRunner: has('skills/execute-plan-sdlc/wave-runner-template.md', WAIT_TARGET) && lacks('skills/execute-plan-sdlc/wave-runner-template.md', ['a returned task ID']),
+};
 
-const ok = shipStaleKey && waitNoReadPoll && skill && waveRunner && shipStepExecute && shipStepReview && shipStepReceivedReview && shipSkill && shipStale && executeStale && waveRunnerStale && waitSkill && waitWaveRunner && waitShipStepExecute && Object.values(workers).every(Boolean) && Object.values(stepArgs).every(Boolean);
+const ok = shipStaleKey && waitNoReadPoll && skill && waveRunner && shipStepExecute && shipStepReview && shipStepReceivedReview && shipSkill && shipStale && executeStale && waveRunnerStale && waitSkill && waitWaveRunner && waitShipStepExecute && Object.values(workers).every(Boolean) && Object.values(stepArgs).every(Boolean) && Object.values(stepRoot).every(Boolean) && rrDeferred && waitTarget.skill && waitTarget.waveRunner;
 
-process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipStepReview, shipStepReceivedReview, shipSkill, shipStale, executeStale, waveRunnerStale, waitSkill, waitWaveRunner, waitShipStepExecute, shipStaleKey, waitNoReadPoll, workers, stepArgs }) + '\n');
+process.stdout.write(JSON.stringify({ ok, skill, waveRunner, shipStepExecute, shipStepReview, shipStepReceivedReview, shipSkill, shipStale, executeStale, waveRunnerStale, waitSkill, waitWaveRunner, waitShipStepExecute, shipStaleKey, waitNoReadPoll, workers, stepArgs, stepRoot, rrDeferred, waitTarget }) + '\n');
 if (!ok) {
   process.exit(1);
 }
