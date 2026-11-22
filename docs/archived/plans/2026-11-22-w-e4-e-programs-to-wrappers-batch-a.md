@@ -1,5 +1,7 @@
 # W-E4 -e programs to wrappers, batch A Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #135, 1432562
+
 **Commit:** `test(W-E4): tests - batch A -e programs to wrapper scripts`
 **Goal:** Move the 99 inline `script_path: "-e"` programs of four exec datasets into readable wrapper scripts, with byte-identical output and unchanged assertions.
 **Architecture:** One table-driven wrapper per dataset under `tests/promptfoo/scripts/`, in the shape of `run-ship-prepare-summary.js` (`--case <name>`, usage errors exit 2). Each converted case changes only `script_path` and `script_args` (github-sdlc also drops its harness env key). A last task refreshes the coverage baseline, whose `-e` flag keys disappear.
@@ -120,11 +122,11 @@ Worked example — code (Task 3 shape):
 **Notes:** Cites F-exec-e-case-execution-mechanics-7 and F-shared-helpers-w-e2-w-e3-3. The harness bodies move nearly verbatim; only `root` changes source (from argv to the `__dirname` walk-up), so the risk is in the 27 `script_args` edits, which keep their tail unchanged (Key Decisions).
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/github-sdlc-exec.yaml` prints `0`, and `grep -c 'HARNESS' tests/promptfoo/datasets/github-sdlc-exec.yaml` prints `0`.
-- [ ] The `- description:` count (143) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] Each moved case changes only `script_path`, `script_args` and (harness cases) the removed `PARITY_HARNESS`/`APPLY_HARNESS` key; `script_stub_bin`, `script_home`, the other `script_env` keys and the assertion block stay byte-equal.
-- [ ] `node tests/promptfoo/scripts/run-github-harness.js` (no arguments) and `node tests/promptfoo/scripts/run-github-harness.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^github-sdlc/(stub: |apply |refresh C15|skill-text A14|c17-dataset-check)"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/github-sdlc-exec.yaml` prints `0`, and `grep -c 'HARNESS' tests/promptfoo/datasets/github-sdlc-exec.yaml` prints `0`.
+- [x] The `- description:` count (143) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] Each moved case changes only `script_path`, `script_args` and (harness cases) the removed `PARITY_HARNESS`/`APPLY_HARNESS` key; `script_stub_bin`, `script_home`, the other `script_env` keys and the assertion block stay byte-equal.
+- [x] `node tests/promptfoo/scripts/run-github-harness.js` (no arguments) and `node tests/promptfoo/scripts/run-github-harness.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^github-sdlc/(stub: |apply |refresh C15|skill-text A14|c17-dataset-check)"` passes.
 
 **Contract:**
 - shape (code): command-line forms:
@@ -195,12 +197,12 @@ Worked example — code (Task 3 shape):
 **Notes:** Cites F-exec-e-case-execution-mechanics-3 and -8. These are the longest programs (up to about 1300 characters of nested arrow functions); rewriting them as named steps is the main work. The hook-runner envelope exposes stderr and the exit code, so the wrapper must not log anything of its own (Key Decisions).
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/ship-hooks-exec.yaml` prints `0`.
-- [ ] The `- description:` count (55) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root`, `script_env`, `script_stdin` and the assertion block stay byte-equal.
-- [ ] Each wrapper case is the old program reformatted into readable code (named helpers, real string literals instead of `\x20`/`\x22` escapes) with the same steps, the same stdout, an empty stderr where the old one was empty, and exit 0.
-- [ ] `node tests/promptfoo/scripts/run-ship-hooks-case.js --case` and `node tests/promptfoo/scripts/run-ship-hooks-case.js --bad` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern "^(pipeline-continue|stop-pipeline-continue|hookEnforcementAllowed|claimSession|cap-exhaustion|hook-runner)"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/ship-hooks-exec.yaml` prints `0`.
+- [x] The `- description:` count (55) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root`, `script_env`, `script_stdin` and the assertion block stay byte-equal.
+- [x] Each wrapper case is the old program reformatted into readable code (named helpers, real string literals instead of `\x20`/`\x22` escapes) with the same steps, the same stdout, an empty stderr where the old one was empty, and exit 0.
+- [x] `node tests/promptfoo/scripts/run-ship-hooks-case.js --case` and `node tests/promptfoo/scripts/run-ship-hooks-case.js --bad` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern "^(pipeline-continue|stop-pipeline-continue|hookEnforcementAllowed|claimSession|cap-exhaustion|hook-runner)"` passes.
 
 **Contract:**
 - shape (code):
@@ -274,12 +276,12 @@ Worked example — code (Task 3 shape):
 **Notes:** Cites F-exec-e-case-execution-mechanics-9, -11 and F-dataset-count-floor-checks-8. Several programs build temp dirs, message files and argv lists with spaced values that `script_args` could not carry; a wrapper carries them as plain literals. `mutation-smoke.js` filters two `commit-trailers: (G10+)` cases by description, so descriptions must not change (F-dataset-count-floor-checks-6).
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/commit-prepare-exec.yaml` prints `0`.
-- [ ] The `- description:` count (54) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root`, `script_env` and the assertion block stay byte-equal.
-- [ ] Each wrapper case is the old program reformatted into readable code with the same steps and the same stdout; temp dirs are removed as before.
-- [ ] `node tests/promptfoo/scripts/run-commit-prepare-case.js` and `node tests/promptfoo/scripts/run-commit-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^commit-(subject|trailers|skill-text)"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/commit-prepare-exec.yaml` prints `0`.
+- [x] The `- description:` count (54) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root`, `script_env` and the assertion block stay byte-equal.
+- [x] Each wrapper case is the old program reformatted into readable code with the same steps and the same stdout; temp dirs are removed as before.
+- [x] `node tests/promptfoo/scripts/run-commit-prepare-case.js` and `node tests/promptfoo/scripts/run-commit-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^commit-(subject|trailers|skill-text)"` passes.
 
 **Contract:**
 - shape (code):
@@ -338,12 +340,12 @@ Worked example — code (Task 3 shape):
 **Notes:** Cites F-exec-e-case-execution-mechanics-10. Most programs count substrings of SKILL.md and agent files or spawn `received-review.js` once, so this is the simplest of the four. A program that reads skill text keeps reading the same files at run time.
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/received-review-prepare-exec.yaml` prints `0`.
-- [ ] The `- description:` count (33) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
-- [ ] Each wrapper case is the old program reformatted into readable code with the same steps and the same stdout.
-- [ ] `node tests/promptfoo/scripts/run-received-review-prepare-case.js` and `node tests/promptfoo/scripts/run-received-review-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(rr-|received-review-prepare)"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/received-review-prepare-exec.yaml` prints `0`.
+- [x] The `- description:` count (33) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
+- [x] Each wrapper case is the old program reformatted into readable code with the same steps and the same stdout.
+- [x] `node tests/promptfoo/scripts/run-received-review-prepare-case.js` and `node tests/promptfoo/scripts/run-received-review-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(rr-|received-review-prepare)"` passes.
 
 **Contract:**
 - shape (code):
@@ -388,10 +390,10 @@ Worked example — code (Task 3 shape):
 **Notes:** All four dataset tasks change the baseline's flag keys, so one task after them owns the file (F-43, F-dataset-count-floor-checks-1, -2).
 
 **Acceptance criteria:**
-- [ ] Before the update, `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports drops only for flag keys that start with `-e ` (at most the 11 listed in Research Findings); if any other drop appears, stop and report it instead of updating.
-- [ ] After `node tests/promptfoo/scripts/check-spec-id-coverage.js --update`, the check prints `"ok":true` with `cases` and `asserts` unchanged against the pre-wave run (1717 and 2775 at HEAD 66663d8), and `git diff tests/promptfoo/baselines/spec-id-coverage.json` shows only removed `-e --<flag>` keys and added keys of the four new wrappers.
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/*.yaml | awk -F: '{s+=$2} END {print s}'` prints `80` (179 minus 99).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^spec-id-coverage"` passes.
+- [x] Before the update, `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports drops only for flag keys that start with `-e ` (at most the 11 listed in Research Findings); if any other drop appears, stop and report it instead of updating.
+- [x] After `node tests/promptfoo/scripts/check-spec-id-coverage.js --update`, the check prints `"ok":true` with `cases` and `asserts` unchanged against the pre-wave run (1717 and 2775 at HEAD 66663d8), and `git diff tests/promptfoo/baselines/spec-id-coverage.json` shows only removed `-e --<flag>` keys and added keys of the four new wrappers.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/*.yaml | awk -F: '{s+=$2} END {print s}'` prints `80` (179 minus 99).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^spec-id-coverage"` passes.
 
 **Contract:** shape (code): baseline JSON regenerated by `check-spec-id-coverage.js --update`; names: `tests/promptfoo/baselines/spec-id-coverage.json` `flags` keys; sync: Tasks 1-4
 
