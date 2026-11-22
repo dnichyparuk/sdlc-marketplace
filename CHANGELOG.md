@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.9] - 2026-11-22
+
+### Changed
+- tests: the remaining inline `-e` programs of the exec datasets move into table-driven wrapper scripts under `tests/promptfoo/scripts/` (run with `--case <name>`); case descriptions and assertions are unchanged (W-E5).
+
 ## [0.57.8] - 2026-11-22
 
 ### Changed
