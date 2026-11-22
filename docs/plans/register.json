@@ -122,21 +122,20 @@
         { "path": "docs/plans/programme.md", "section": "W-E2", "role": "brief" },
         { "path": "docs/archived/plans/2026-11-21-w-e2-spec-doc-and-test-traceability.md", "role": "executable" }
       ],
-      "todos": ["docs/TODO/lows-lean-w42.md"],
       "closedBy": "PR #131, 25c3ffc"
     },
     {
       "key": "W-E3",
       "aliases": ["E3"],
       "title": "Test-tooling hygiene",
-      "status": "In progress",
+      "status": "Done",
       "dependsOn": ["W-F"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-E3", "role": "brief" },
-        { "path": "docs/plans/2026-11-21-w-e3-test-tooling-hygiene.md", "role": "executable" }
+        { "path": "docs/archived/plans/2026-11-21-w-e3-test-tooling-hygiene.md", "role": "executable" }
       ],
-      "todos": ["docs/TODO/lows-lean-w35.md"]
+      "closedBy": "PR #133, d128590"
     },
     {
       "key": "W-E4",
@@ -173,8 +172,8 @@
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-END", "role": "brief" }
       ],
-      "todos": ["docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/archive/end-recover-counts-only-lows.md", "docs/TODO/archive/script-runner-eisdir-plan-splice.md", "docs/TODO/archive/review-severity-drift-fix-round.md", "docs/TODO/lows-lean-w43.md", "docs/TODO/lows-lean-w45.md", "docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w36.md"],
-      "decisions": ["PD-1", "PD-2"]
+      "todos": ["docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/archive/end-recover-counts-only-lows.md", "docs/TODO/archive/script-runner-eisdir-plan-splice.md", "docs/TODO/archive/review-severity-drift-fix-round.md", "docs/TODO/lows-lean-w43.md", "docs/TODO/lows-lean-w45.md", "docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w36.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w42.md"],
+      "decisions": ["PD-1", "PD-2", "PD-3"]
     }
   ]
 }

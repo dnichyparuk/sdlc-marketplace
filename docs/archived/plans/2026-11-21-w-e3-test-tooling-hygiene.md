@@ -1,5 +1,7 @@
 # W-E3 Test-tooling Hygiene Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #133, d128590
+
 **Commit:** `fix(W-E3): tests - test-tooling hygiene fixes`
 **Goal:** Fix the test-tooling defects that the END audit found in unit W-E3, each with an exec test case.
 **Architecture:** Seven independent tasks, one execute wave. Each task owns its scripts and datasets, so no file is shared between tasks. Every fix stays inside `tests/promptfoo/`; no plugin code, spec or skill changes.
@@ -156,18 +158,18 @@ All items were re-checked against HEAD `ccc7b53` (W-E2 merged). The discovery br
 **Notes:** Findings F-mutation-smoke-expected-survivor-semantics-1 to -4. `--run` stays untested by exec cases (owner-only); `--probe` tests the same two functions `run()` uses. The README edit appends sentences and a command line; the existing sentence at README `:119` stays unchanged (no test asserts it; fragment grep of `prints the mutations` and `runs them` over `tests/` found only README itself and unrelated comments).
 
 **Acceptance criteria:**
-- [ ] `run()` calls `applyMutation`; a mutation whose `find` is absent gets `{ id, killed: false, expectSurvive, error: 'find-missing' }` and no promptfoo run
-- [ ] `execute-wave-committed-no-write` carries `expectSurvive: true`; no other mutation does
-- [ ] `run()` returns `{ ok: verdict(results), results }`; each result carries `expectSurvive`
-- [ ] The temp folder is made with `fs.mkdtempSync(path.join(os.tmpdir(), 'mutation-smoke-'))`
-- [ ] The `todo.length === 0` branch in `run()` is removed; case (g) still passes
-- [ ] `--list` prints `expectSurvive` (boolean) for every mutation
-- [ ] `--probe` prints `{"applied":true,"notApplied":true,"expectedOutcomes":true,"unexpectedSurvivor":false,"unexpectedKill":false,"findMissing":false}` and exits 0, with no `--owner` needed and no promptfoo start
-- [ ] The usage line reads `Usage: mutation-smoke.js (--list | --check | --probe | --run --owner [--only <id>])`
-- [ ] Case (b) also asserts that exactly one mutation, `execute-wave-committed-no-write`, has `expectSurvive: true`
-- [ ] New case (h) asserts the `--probe` output above
-- [ ] `node tests/promptfoo/scripts/mutation-smoke.js --check` prints `"ok":true`
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'mutation-smoke'` passes (8 cases, +1)
+- [x] `run()` calls `applyMutation`; a mutation whose `find` is absent gets `{ id, killed: false, expectSurvive, error: 'find-missing' }` and no promptfoo run
+- [x] `execute-wave-committed-no-write` carries `expectSurvive: true`; no other mutation does
+- [x] `run()` returns `{ ok: verdict(results), results }`; each result carries `expectSurvive`
+- [x] The temp folder is made with `fs.mkdtempSync(path.join(os.tmpdir(), 'mutation-smoke-'))`
+- [x] The `todo.length === 0` branch in `run()` is removed; case (g) still passes
+- [x] `--list` prints `expectSurvive` (boolean) for every mutation
+- [x] `--probe` prints `{"applied":true,"notApplied":true,"expectedOutcomes":true,"unexpectedSurvivor":false,"unexpectedKill":false,"findMissing":false}` and exits 0, with no `--owner` needed and no promptfoo start
+- [x] The usage line reads `Usage: mutation-smoke.js (--list | --check | --probe | --run --owner [--only <id>])`
+- [x] Case (b) also asserts that exactly one mutation, `execute-wave-committed-no-write`, has `expectSurvive: true`
+- [x] New case (h) asserts the `--probe` output above
+- [x] `node tests/promptfoo/scripts/mutation-smoke.js --check` prints `"ok":true`
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'mutation-smoke'` passes (8 cases, +1)
 
 **Contract:**
 - shape (code): changes in `mutation-smoke.js`:
@@ -273,12 +275,12 @@ All items were re-checked against HEAD `ccc7b53` (W-E2 merged). The discovery br
 **Notes:** Findings F-tempdir-hygiene-and-lint-error-handling-1, -2 and -5. A throw inside a case body cannot be forced from a dataset case without fault injection, so the 20 plan-fields cases and the 5 jira-cache cases are the regression check; the new case proves the `--home` check runs before any folder is made. Output bytes of every existing case stay the same.
 
 **Acceptance criteria:**
-- [ ] `inTempDir` removes `tmpDir` in a `finally` and prints only when `body` returned
-- [ ] `plan-commit-subject-unreadable` restores the mode and removes `tmpDir` in a `finally`
-- [ ] `run-jira-cache.js` exits 2 with `run-jira-cache: --home not found: <path>` on stderr and nothing on stdout when `--home` does not exist, before `mkdtempSync`
-- [ ] `run-jira-cache.js` removes `tmp` and, when made, `outside` in a `finally`
-- [ ] New case "jira-cache: a missing --home exits 2 before any temp folder is made" asserts exit 2 and the stderr text
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'jira-cache|ship-prepare|ship-fix|ship-fwd|ship-bump|ship-stage-sdlc'` passes
+- [x] `inTempDir` removes `tmpDir` in a `finally` and prints only when `body` returned
+- [x] `plan-commit-subject-unreadable` restores the mode and removes `tmpDir` in a `finally`
+- [x] `run-jira-cache.js` exits 2 with `run-jira-cache: --home not found: <path>` on stderr and nothing on stdout when `--home` does not exist, before `mkdtempSync`
+- [x] `run-jira-cache.js` removes `tmp` and, when made, `outside` in a `finally`
+- [x] New case "jira-cache: a missing --home exits 2 before any temp folder is made" asserts exit 2 and the stderr text
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'jira-cache|ship-prepare|ship-fix|ship-fwd|ship-bump|ship-stage-sdlc'` passes
 
 **Contract:**
 - shape (code):
@@ -381,13 +383,13 @@ All items were re-checked against HEAD `ccc7b53` (W-E2 merged). The discovery br
 **Notes:** Findings F-tempdir-hygiene-and-lint-error-handling-3, -4 and -6. The new checks go into the existing self-test modes, so no new flag and no new case is needed; each extended case keeps its single `javascript` assertion (assertion counts unchanged, no baseline drop). The failure decision is in Key Decisions.
 
 **Acceptance criteria:**
-- [ ] `readAllowlist` throws `allowlist unreadable: <file>: <parse message>` for invalid JSON, and `allowlist has no entries array: <file>` for `null` or a missing `entries`
-- [ ] `--probe` output gains `unreadable`: the message `readAllowlist` throws for a probe allowlist holding `null` (starts with `allowlist has no entries array:`) and `invalid`: the message for `{` (starts with `allowlist unreadable:`)
-- [ ] `scanCoverage` throws `exec config not found: <path>` when an `EXEC_CONFIGS` file is missing
-- [ ] `--probe-drop` output gains `missingConfig`: the message `scanCoverage` throws after the probe removes its `promptfooconfig-exec.yaml` (starts with `exec config not found:`)
-- [ ] `dataset-asserts` case (b) and `spec-id-coverage` case (c) also assert the new fields
-- [ ] `node tests/promptfoo/scripts/check-dataset-asserts.js` and `node tests/promptfoo/scripts/check-spec-id-coverage.js` still print `"ok":true`
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'dataset-asserts|spec-id-coverage'` passes
+- [x] `readAllowlist` throws `allowlist unreadable: <file>: <parse message>` for invalid JSON, and `allowlist has no entries array: <file>` for `null` or a missing `entries`
+- [x] `--probe` output gains `unreadable`: the message `readAllowlist` throws for a probe allowlist holding `null` (starts with `allowlist has no entries array:`) and `invalid`: the message for `{` (starts with `allowlist unreadable:`)
+- [x] `scanCoverage` throws `exec config not found: <path>` when an `EXEC_CONFIGS` file is missing
+- [x] `--probe-drop` output gains `missingConfig`: the message `scanCoverage` throws after the probe removes its `promptfooconfig-exec.yaml` (starts with `exec config not found:`)
+- [x] `dataset-asserts` case (b) and `spec-id-coverage` case (c) also assert the new fields
+- [x] `node tests/promptfoo/scripts/check-dataset-asserts.js` and `node tests/promptfoo/scripts/check-spec-id-coverage.js` still print `"ok":true`
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'dataset-asserts|spec-id-coverage'` passes
 
 **Contract:**
 - shape (code):
@@ -462,11 +464,11 @@ All items were re-checked against HEAD `ccc7b53` (W-E2 merged). The discovery br
 **Notes:** Findings F-gh-inprocess-and-fixture-memo-robustness-1 and -2. Medium risk because every github-sdlc exec case runs through this preload; the change is limited to the two new branches, and the regression check is the filter `github-sdlc|mcp-failure`: `grep -l run-github-case.js tests/promptfoo/datasets/*` lists exactly `github-sdlc-exec.yaml` and `mcp-failure-github-exec.yaml`, and the second dataset's cases do not match `github-sdlc` alone. The new case follows C17 (stub bin, home, `SDLC_LINKS_OFFLINE`).
 
 **Acceptance criteria:**
-- [ ] `spawnSync('gh', { encoding: 'utf8' })` through the preload is answered by the stub with `args = []` and honours the options (string stdout)
-- [ ] When `answer()` throws, the preload returns `{ status: 1, stdout: '', stderr: 'gh-inprocess: <message>\n', signal: null, ... }` instead of throwing
-- [ ] `gh-inprocess-forms.js` with no arguments prints one JSON line `{ optionsForm: { status, stdoutType }, answerThrows: { status, stderr } }` and exits 0; any argument exits 2 with `gh-inprocess-forms: unexpected argument: <arg>` on stderr and nothing on stdout
-- [ ] New case asserts `optionsForm.stdoutType === 'string'`, `optionsForm.status === 1` (unmatched route), `answerThrows.status === 1` and `answerThrows.stderr` starts with `gh-inprocess:`
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'github-sdlc|mcp-failure'` passes
+- [x] `spawnSync('gh', { encoding: 'utf8' })` through the preload is answered by the stub with `args = []` and honours the options (string stdout)
+- [x] When `answer()` throws, the preload returns `{ status: 1, stdout: '', stderr: 'gh-inprocess: <message>\n', signal: null, ... }` instead of throwing
+- [x] `gh-inprocess-forms.js` with no arguments prints one JSON line `{ optionsForm: { status, stdoutType }, answerThrows: { status, stderr } }` and exits 0; any argument exits 2 with `gh-inprocess-forms: unexpected argument: <arg>` on stderr and nothing on stdout
+- [x] New case asserts `optionsForm.stdoutType === 'string'`, `optionsForm.status === 1` (unmatched route), `answerThrows.status === 1` and `answerThrows.stderr` starts with `gh-inprocess:`
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'github-sdlc|mcp-failure'` passes
 
 **Contract:**
 - shape (code):
@@ -549,12 +551,12 @@ All items were re-checked against HEAD `ccc7b53` (W-E2 merged). The discovery br
 **Notes:** Findings F-gh-inprocess-and-fixture-memo-robustness-3 and -4. The forced failure is opt-in, so cases (a) and (c) and the owner's `--scan` still build the fixture normally. The failure line sits after `set -e`, and the fixture runs no git, so the #9161 guard rule does not apply.
 
 **Acceptance criteria:**
-- [ ] `runFixture` awaits `Promise.allSettled` for the case builds; when any rejects it throws `Error('<failed> of <cases> builds failed: <first reason message>')`
-- [ ] The templates read (`:62`) also uses `Promise.allSettled` and maps a rejected template to `null`
-- [ ] `fixture-memo-probe/setup.sh` exits 3 with `fixture-memo-probe: forced failure` on stderr when `FIXTURE_MEMO_FAIL` is set, and is unchanged otherwise
-- [ ] New case (e) runs `--fixture fixture-memo-probe --cases 3` with `FIXTURE_MEMO_FAIL=1` and asserts exit 2 and `3 of 3 builds failed`
-- [ ] Cases (a) to (d) still pass
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'fixture-memo'` passes (5 cases, +1)
+- [x] `runFixture` awaits `Promise.allSettled` for the case builds; when any rejects it throws `Error('<failed> of <cases> builds failed: <first reason message>')`
+- [x] The templates read (`:62`) also uses `Promise.allSettled` and maps a rejected template to `null`
+- [x] `fixture-memo-probe/setup.sh` exits 3 with `fixture-memo-probe: forced failure` on stderr when `FIXTURE_MEMO_FAIL` is set, and is unchanged otherwise
+- [x] New case (e) runs `--fixture fixture-memo-probe --cases 3` with `FIXTURE_MEMO_FAIL=1` and asserts exit 2 and `3 of 3 builds failed`
+- [x] Cases (a) to (d) still pass
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'fixture-memo'` passes (5 cases, +1)
 
 **Contract:**
 - shape (code):
@@ -622,12 +624,12 @@ All items were re-checked against HEAD `ccc7b53` (W-E2 merged). The discovery br
 **Notes:** Findings F-plugin-json-version-shared-read-1 to -6. The helper must not call `getPluginVersion()` (it is the code under test). Runtime failures exit 1 and usage errors exit 2, as in the sibling wrappers. The three existing plugin_version cases (`review-prepare-exec.yaml:75`, `received-review-prepare-exec.yaml:49`, `:62`) are the regression check; their output bytes stay the same.
 
 **Acceptance criteria:**
-- [ ] `readPluginJsonVersion()` returns the `version` string of `plugins/sdlc-utilities/.claude-plugin/plugin.json`
-- [ ] It throws `plugin.json unreadable: <file>: <reason>` on a read or parse failure, and `plugin.json has no string version: <file>` when `version` is not a string
-- [ ] Both wrappers use it; neither reads `plugin.json` itself; on a thrown error each prints `<script name>: <message>` on stderr, nothing on stdout, and exits 1
-- [ ] CLI: `node plugin-json-version.js [--file <path>]` prints `{"version":"<v>"}` and exits 0; an unreadable file exits 1 with the message on stderr; `--file` without a value or an unknown flag exits 2 with `plugin-json-version: <reason>` on stderr and nothing on stdout
-- [ ] Two new cases: the real file gives a semver `version`; the bad fixture exits 1 with `plugin.json unreadable:`
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'plugin_version|reply_footer|plugin-json-version|hardenSurfaceHint'` passes
+- [x] `readPluginJsonVersion()` returns the `version` string of `plugins/sdlc-utilities/.claude-plugin/plugin.json`
+- [x] It throws `plugin.json unreadable: <file>: <reason>` on a read or parse failure, and `plugin.json has no string version: <file>` when `version` is not a string
+- [x] Both wrappers use it; neither reads `plugin.json` itself; on a thrown error each prints `<script name>: <message>` on stderr, nothing on stdout, and exits 1
+- [x] CLI: `node plugin-json-version.js [--file <path>]` prints `{"version":"<v>"}` and exits 0; an unreadable file exits 1 with the message on stderr; `--file` without a value or an unknown flag exits 2 with `plugin-json-version: <reason>` on stderr and nothing on stdout
+- [x] Two new cases: the real file gives a semver `version`; the bad fixture exits 1 with `plugin.json unreadable:`
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'plugin_version|reply_footer|plugin-json-version|hardenSurfaceHint'` passes
 
 **Contract:**
 - shape (code): new module
@@ -718,8 +720,8 @@ All items were re-checked against HEAD `ccc7b53` (W-E2 merged). The discovery br
 **Notes:** `.claude/sdlc.json` is the deprecated legacy path; `schemaVersion` 4 avoids the v0 migration path (F-trivial-batch-ledger-exit-and-deprecated-config-2, -3).
 
 **Acceptance criteria:**
-- [ ] Both scripts run `mkdir -p .sdlc` and write `.sdlc/config.json` holding `"schemaVersion": 4` plus the unchanged `version` block; neither writes `.claude/`
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'version-errors'` passes, cases (f) and (g) included
+- [x] Both scripts run `mkdir -p .sdlc` and write `.sdlc/config.json` holding `"schemaVersion": 4` plus the unchanged `version` block; neither writes `.claude/`
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'version-errors'` passes, cases (f) and (g) included
 
 **Contract:** shape (code): `mkdir -p .claude` + `cat > .claude/sdlc.json` → `mkdir -p .sdlc` + `cat > .sdlc/config.json` with `{ "schemaVersion": 4, "version": { … } }`; names: `.sdlc/config.json`, `schemaVersion`; sync: `version-prepare-exec.yaml:387-410` cases (f), (g) unchanged
 
