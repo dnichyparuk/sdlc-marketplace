@@ -129,3 +129,4 @@
 {"id":"sdlc-marketplace:F-190","category":"validation-gap","severity":"low","scope":"unknown","status":"proposed","waves":["lean-w50"]}
 {"id":"sdlc-marketplace:F-191","category":"tooling","severity":"low","scope":"universal","status":"changed","waves":["lean-w50"]}
 {"id":"sdlc-marketplace:F-192","category":"validation-gap","severity":"low","scope":"universal","status":"integrated","waves":["lean-w51"]}
+{"id":"sdlc-marketplace:F-199","category":"validation-gap","severity":"low","scope":"unknown","status":"proposed","waves":["lean-w54"]}
