@@ -3,6 +3,9 @@ id: TK-031
 type: task
 title: ship SKILL cites R-todowrite-visibility
 created: 2026-11-22
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#5]
 ---
 
 # TK-031: ship SKILL cites R-todowrite-visibility

@@ -4,6 +4,9 @@ type: task
 title: pr-sdlc passes explicit base and head to gh
 created: 2026-11-22
 links: [todo:pr-step-gh-in-main-checkout]
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#1, 2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#2, 2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#3]
 ---
 
 # TK-029: pr-sdlc passes explicit base and head to gh

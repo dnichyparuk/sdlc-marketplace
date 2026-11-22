@@ -1,5 +1,7 @@
 # W-F1 pr-sdlc explicit gh refs and plan-critique lane constant Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #153, 3edc184
+
 **Commit:** `fix(W-F1): pr-sdlc - explicit gh refs and lane constant`
 **Goal:** pr-sdlc names the base and head branch in every gh call; plan-critique.js names its any-issue rerun lane in a constant; ship-sdlc SKILL.md item 3 cites its requirement.
 **Architecture:** A new pr-sdlc spec requirement (R-gh-explicit-refs) drives three SKILL.md edits, one doc sentence and their byte copies; a sentinel script and two exec cases pin the edits. A named Set replaces one inline literal in plan-critique.js with no behaviour change. One citation is appended in ship-sdlc SKILL.md.
@@ -130,10 +132,10 @@ OpenSpec / spec:
 **Notes:** The spec comes first (spec-first guardrail); the cases it names are added in Task 3.
 
 **Acceptance criteria:**
-- [ ] `docs/specs/pr-sdlc.md` holds the R-gh-explicit-refs bullet below R13 with an Acceptance sub-bullet naming the `pr-gh-refs:` cases of `tests/promptfoo/datasets/pr-prepare-exec.yaml`.
-- [ ] The Issue trail table has the row `| R-gh-explicit-refs | explicit gh base and head refs, F-195 (TK-029) |`.
-- [ ] `cmp docs/specs/pr-sdlc.md site/src/content-source/specs/pr-sdlc.md` exits 0 (copied with `cp`).
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
+- [x] `docs/specs/pr-sdlc.md` holds the R-gh-explicit-refs bullet below R13 with an Acceptance sub-bullet naming the `pr-gh-refs:` cases of `tests/promptfoo/datasets/pr-prepare-exec.yaml`.
+- [x] The Issue trail table has the row `| R-gh-explicit-refs | explicit gh base and head refs, F-195 (TK-029) |`.
+- [x] `cmp docs/specs/pr-sdlc.md site/src/content-source/specs/pr-sdlc.md` exits 0 (copied with `cp`).
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
 
 **Contract:**
 - shape (openspec): ADD after the R13 bullet in `### Pipeline steps`:
@@ -166,11 +168,11 @@ OpenSpec / spec:
 **Notes:** Medium risk because the edited lines are the live publish commands. The values come from pr-context so that R14 (prepare output is the only fact source) holds; Key Decisions explains why the retry sentence only gains a parenthesis.
 
 **Acceptance criteria:**
-- [ ] The create command in SKILL.md reads exactly as the "after" line below and cites R-gh-explicit-refs in the paragraph that follows it.
-- [ ] The E7 retry sentence contains `with the same arguments **exactly once** (the same `--base` and `--head`, R-gh-explicit-refs)`.
-- [ ] The update command reads exactly as the "after" line below.
-- [ ] `cmp docs/skills/pr-sdlc.md site/src/content-source/skills/pr-sdlc.md` exits 0 (copied with `cp`).
-- [ ] `node .claude/skills/validate-plugin-consistency/check-consistency.js` and `node .claude/skills/validate-skill-docs/check-docs-consistency.js` exit 0.
+- [x] The create command in SKILL.md reads exactly as the "after" line below and cites R-gh-explicit-refs in the paragraph that follows it.
+- [x] The E7 retry sentence contains `with the same arguments **exactly once** (the same `--base` and `--head`, R-gh-explicit-refs)`.
+- [x] The update command reads exactly as the "after" line below.
+- [x] `cmp docs/skills/pr-sdlc.md site/src/content-source/skills/pr-sdlc.md` exits 0 (copied with `cp`).
+- [x] `node .claude/skills/validate-plugin-consistency/check-consistency.js` and `node .claude/skills/validate-skill-docs/check-docs-consistency.js` exit 0.
 
 **Contract:**
 - shape (code): three SKILL.md edits.
@@ -222,11 +224,11 @@ OpenSpec / spec:
 **Notes:** Depends on Task 2 because the positive case scans the edited SKILL.md. The fixture holds the HEAD command shapes, so the negative case shows that the sentinel fails on the old SKILL.md text. No "Red on base" claim is made for the positive case (the script does not exist on base).
 
 **Acceptance criteria:**
-- [ ] `node tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js` exits 0 and prints `"ok":true` with `createCalls` 1, `createWithRefs` 1, `editCalls` 1, `editWithBranch` 1, `retryRefs` 1.
-- [ ] `node tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js --file tests/promptfoo/fixtures-fs/pr-gh-refs-missing/SKILL.md` exits 1 and prints `"ok":false`.
-- [ ] `node tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js --bogus` and `… --file` (no value) exit 2 with a usage line on stderr and nothing on stdout.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'pr-gh-refs:'` passes 2 of 2.
-- [ ] `git grep -c 'description: "pr-gh-refs:' tests/promptfoo/datasets/pr-prepare-exec.yaml` prints 2 (+2 cases; no count or floor check covers this dataset, and `check-spec-id-coverage.js` fails only on loss).
+- [x] `node tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js` exits 0 and prints `"ok":true` with `createCalls` 1, `createWithRefs` 1, `editCalls` 1, `editWithBranch` 1, `retryRefs` 1.
+- [x] `node tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js --file tests/promptfoo/fixtures-fs/pr-gh-refs-missing/SKILL.md` exits 1 and prints `"ok":false`.
+- [x] `node tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js --bogus` and `… --file` (no value) exit 2 with a usage line on stderr and nothing on stdout.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'pr-gh-refs:'` passes 2 of 2.
+- [x] `git grep -c 'description: "pr-gh-refs:' tests/promptfoo/datasets/pr-prepare-exec.yaml` prints 2 (+2 cases; no count or floor check covers this dataset, and `check-spec-id-coverage.js` fails only on loss).
 
 **Contract:**
 - shape (code): CLI and output.
@@ -292,8 +294,8 @@ OpenSpec / spec:
 **Notes:** Pure refactor from the lean-w51 deferred low (PR #144); the other `'guardrail-compliance'` literals are lane data, so they stay (Key Decisions).
 
 **Acceptance criteria:**
-- [ ] `plan-critique.js` defines `const ANY_ISSUE_RERUN_LANES = new Set(['guardrail-compliance']);` directly after the `LANE_DEFS` array, and the rerun predicate uses `ANY_ISSUE_RERUN_LANES.has(name)`.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'plan-(diff|merge):'` passes all 32 cases (`git grep -c -E 'description: "plan-(diff|merge):' tests/promptfoo/datasets/plan-prepare-exec.yaml`).
+- [x] `plan-critique.js` defines `const ANY_ISSUE_RERUN_LANES = new Set(['guardrail-compliance']);` directly after the `LANE_DEFS` array, and the rerun predicate uses `ANY_ISSUE_RERUN_LANES.has(name)`.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'plan-(diff|merge):'` passes all 32 cases (`git grep -c -E 'description: "plan-(diff|merge):' tests/promptfoo/datasets/plan-prepare-exec.yaml`).
 
 **Contract:** shape (code): in the rerun loop over `LANE_DEFS`, `- v => v.laneStatus !== 'ok' || v.issues.some(i => isObject(i) && (i.blocking === true || name === 'guardrail-compliance')))) out.add(name);` becomes `+ v => v.laneStatus !== 'ok' || v.issues.some(i => isObject(i) && (i.blocking === true || ANY_ISSUE_RERUN_LANES.has(name))))) out.add(name);`, plus a one-line comment above the constant: `// Lanes rerun on any previous issue, not only a blocking one (R67 (b)).`; names: `ANY_ISSUE_RERUN_LANES`; sync: none (not exported)
 
@@ -318,9 +320,9 @@ OpenSpec / spec:
 **Notes:** The extra paths are the copies `plan.copyRules` requires; a citation changes nothing they state (`site/src/data/skills-meta.ts` is checked in Task 2).
 
 **Acceptance criteria:**
-- [ ] Item 3 ends with "echo `step.data.marker` either way (R-todowrite-visibility)."
-- [ ] `cmp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md` exits 0.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'ship-sdlc/tool-handling:'` passes 2 of 2 (the `todoGuard` needle count stays 2).
+- [x] Item 3 ends with "echo `step.data.marker` either way (R-todowrite-visibility)."
+- [x] `cmp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md` exits 0.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern 'ship-sdlc/tool-handling:'` passes 2 of 2 (the `todoGuard` needle count stays 2).
 
 **Contract:** shape (code): `- … and echo `step.data.marker` either way.` becomes `+ … and echo `step.data.marker` either way (R-todowrite-visibility).` in item 3 ("Print `step.action`. If `step.data.todos` is present, …"); names: `R-todowrite-visibility`; sync: `tests/promptfoo/scripts/check-ship-tool-handling-sentinels.js` needle "when that tool is available (skip the call when it is not)" is untouched
 

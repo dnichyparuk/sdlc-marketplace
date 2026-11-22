@@ -3,6 +3,9 @@ id: TK-030
 type: task
 title: plan-critique lane name constant
 created: 2026-11-22
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#4]
 ---
 
 # TK-030: plan-critique lane name constant
