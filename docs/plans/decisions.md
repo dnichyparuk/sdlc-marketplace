@@ -44,3 +44,10 @@ Append-only. The log wins over the text of a plan.
 - **Decision:** one light fix wave `W-E7` for F-141 only (the guardrail lane re-run on a warning FAIL, ticket TK-022). F-144 (#9446) and F-146 (#9451) are already fixed by wave W-D2 (commit 1e3e3d7, tickets TK-010 and TK-012 closed, no recurrence in 7 later waves). F-170 stays NOT A DEFECT per PD-2(b), and no rule that fixes lows early is added.
 - **Rejected options:** a wave for the three fixed items; a fix-lows-early rule.
 - **Made obsolete or amended:** none.
+
+## PD-7: One more plugin fix wave W-E8 for the ledger findings still present
+
+- **Date and owner:** 2026-11-22, owner request ("define one more fix wave to address remaining findings and defects", then "accepted") plus architect-accepted (strong).
+- **Decision:** one more light fix wave `W-E8` for the ledger findings still present at HEAD: F-193, F-194 (two tickets) and a `plan.copyRules` addition (F-179). The other 16 candidate plugin defects were verified fixed at HEAD 70dc348 or closed by PD-2(c), and were marked resolved in the ledger. The planner-recall findings (F-55, F-158, F-160, F-179 to F-185, F-188 to F-190, F-192) need no plugin change: every miss since w45 was caught at plan stage for 0.24 to 1.42 USD, while a `plan.js` recall step would cost 20 to 40 USD for 0.5 to 1 USD saved per wave. They are handled in the orchestration skill.
+- **Rejected options:** a `plan.js` recall step; more plan-brief rules in the plugin.
+- **Made obsolete or amended:** none.

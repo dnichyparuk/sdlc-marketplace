@@ -1,5 +1,7 @@
 # Guardrail Table Re-run Fix Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #144, dfd3dbc
+
 **Commit:** `fix(W-E7): plan-sdlc - re-run guardrail lane on a warning FAIL`
 **Goal:** Make plan-sdlc re-run the guardrail-compliance critique lane whenever its previous result has any FAIL, warning severity included, so the spliced Guardrail Compliance table never keeps a stale FAIL row after a fix.
 **Architecture:** One predicate change in `rerunFrom` (`plugins/sdlc-utilities/scripts/lib/plan-critique.js`): the guardrail-compliance lane counts as dirty when its previous result has any issue. The spec (R64, R67 (b), R74, R76, R77) and two prompt companions are reworded to match, and one exec case with a new fixture directory pins the behaviour.
@@ -129,12 +131,12 @@ Re-verified at HEAD `70dc348`; the item still reproduces.
 **Notes:** Spec first (guardrail `spec-first`): Tasks 2 and 3 depend on this task. The fragment grep in Research Findings found no test that asserts the old sentences, so no test file is listed. Cites F-rerun-rule-wording-sites-1 to F-rerun-rule-wording-sites-4, F-rerun-rule-wording-sites-10, F-rerun-rule-wording-sites-11.
 
 **Acceptance criteria:**
-- [ ] R67 (b) states that the guardrail-compliance lane is in `rerun` when its previous result holds any issue, warning included
-- [ ] R64, R74 and R76 state the same rule (by the inserted text below)
-- [ ] R77 no longer contains `Accepted gap: a warning-severity FAIL fixed by a non-material edit`
-- [ ] The appendix ends with the new row below
-- [ ] `cmp docs/specs/plan-sdlc.md site/src/content-source/specs/plan-sdlc.md` exits 0
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0
+- [x] R67 (b) states that the guardrail-compliance lane is in `rerun` when its previous result holds any issue, warning included
+- [x] R64, R74 and R76 state the same rule (by the inserted text below)
+- [x] R77 no longer contains `Accepted gap: a warning-severity FAIL fixed by a non-material edit`
+- [x] The appendix ends with the new row below
+- [x] `cmp docs/specs/plan-sdlc.md site/src/content-source/specs/plan-sdlc.md` exits 0
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0
 
 **Contract:**
 - shape (openspec): MODIFY five requirements in place; ADD one appendix row; no id is added, renumbered or reused. Edits (before → after):
@@ -195,9 +197,9 @@ Re-verified at HEAD `70dc348`; the item still reproduces.
 **Notes:** Cites F-rerunfrom-guardrail-lane-logic-2, F-rerunfrom-guardrail-lane-logic-3, F-plan-prepare-exec-test-surface-1, F-plan-prepare-exec-test-surface-2. A1 follows from this change plus the unchanged splice: a re-dispatched lane writes its own file in the new iteration, and `splice --critique-dir` already takes the newest table (pinned by `plan-splice: (d)`). The content-coverage fixture is a negative control: its non-blocking warning must not put that lane in `rerun`.
 
 **Acceptance criteria:**
-- [ ] The new case passes and the existing `plan-diff:` cases still pass: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern plan-diff`
-- [ ] The `plan-splice:` cases still pass: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern plan-splice`
-- [ ] A `rerun` over `prev-blocking/` stays `['lens:all', 'static-structural']` (existing case unchanged)
+- [x] The new case passes and the existing `plan-diff:` cases still pass: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern plan-diff`
+- [x] The `plan-splice:` cases still pass: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern plan-splice`
+- [x] A `rerun` over `prev-blocking/` stays `['lens:all', 'static-structural']` (existing case unchanged)
 
 **Contract:**
 - shape (code): `rerunFrom(prevDir, afterRoute)` keeps its signature, return type (sorted string array) and usage error. Change in `plugins/sdlc-utilities/scripts/lib/plan-critique.js`:
@@ -262,11 +264,11 @@ Re-verified at HEAD `70dc348`; the item still reproduces.
 **Notes:** The check-only paths are the plan-sdlc companions that `plan.copyRules` requires for a spec change; none states the rerun rule, so none changes. `SKILL.md` only refers to the rule. Cites F-rerun-rule-wording-sites-5, F-rerun-rule-wording-sites-6, F-rerun-rule-wording-sites-7, F-rerun-rule-wording-sites-9.
 
 **Acceptance criteria:**
-- [ ] All three sentences read as in the Contract
-- [ ] `git grep -n -e "rerun" -e "held a blocking" -- docs/skills/plan-sdlc.md site/src/data/skills-meta.ts plugins/sdlc-utilities/skills/plan-sdlc/openspec-flow.md plugins/sdlc-utilities/skills/plan-sdlc/plan-format-reference.md plugins/sdlc-utilities/skills/plan-sdlc/plan-template-default.md plugins/sdlc-utilities/skills/plan-sdlc/state-format.md` shows no statement of the rerun rule, so the check-only files stay unchanged
-- [ ] `cmp docs/skills/plan-sdlc.md site/src/content-source/skills/plan-sdlc.md` exits 0
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern rerun-sentinels` passes
-- [ ] `node .claude/skills/validate-plugin-consistency/check-consistency.js` exits 0
+- [x] All three sentences read as in the Contract
+- [x] `git grep -n -e "rerun" -e "held a blocking" -- docs/skills/plan-sdlc.md site/src/data/skills-meta.ts plugins/sdlc-utilities/skills/plan-sdlc/openspec-flow.md plugins/sdlc-utilities/skills/plan-sdlc/plan-format-reference.md plugins/sdlc-utilities/skills/plan-sdlc/plan-template-default.md plugins/sdlc-utilities/skills/plan-sdlc/state-format.md` shows no statement of the rerun rule, so the check-only files stay unchanged
+- [x] `cmp docs/skills/plan-sdlc.md site/src/content-source/skills/plan-sdlc.md` exits 0
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern rerun-sentinels` passes
+- [x] `node .claude/skills/validate-plugin-consistency/check-consistency.js` exits 0
 
 **Contract:**
 - shape (docs): three one-sentence edits (audience: the orchestrator and author agents), before → after:

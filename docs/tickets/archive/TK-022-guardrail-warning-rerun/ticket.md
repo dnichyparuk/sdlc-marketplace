@@ -3,6 +3,9 @@ id: TK-022
 type: task
 title: Guardrail lane re-runs on a warning FAIL (F-141)
 created: 2026-11-22
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-e7-guardrail-table-re-run-fix#2]
 ---
 
 # TK-022: Guardrail lane re-runs on a warning FAIL (F-141)
