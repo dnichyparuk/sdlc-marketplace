@@ -56,10 +56,10 @@
 
 - description: "session-map: (e) the --map-out map is accepted by session-cost.js --sessions"
   vars:
-    script_path: "-e"
+    script_path: "repo://tests/promptfoo/scripts/run-session-map-case.js"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/session-map"
-    script_args: '((cp,fs,f,r)=>{const[a]=[cp.spawnSync("node",[r+"/plugins/sdlc-utilities/scripts/ci/session-map.js","--agents",f+"/agents-two.json","--projects-dir",f+"/projects","--map-out",f+"/map.json"],{encoding:"utf8"})];const[b]=[cp.spawnSync("node",[r+"/plugins/sdlc-utilities/scripts/ci/session-cost.js","--sessions",f+"/map.json","--projects-dir",f+"/projects","--prices",r+"/tests/promptfoo/fixtures-fs/session-cost/prices.json","--json"],{encoding:"utf8"})];console.log(JSON.stringify({mapExit:a.status,costExit:b.status,costErr:b.stderr,map:fs.existsSync(f+"/map.json")?JSON.parse(fs.readFileSync(f+"/map.json","utf8")):null}))})(require("child_process"),require("fs"),process.cwd(),"{{repo_root}}")'
+    script_args: "--case map-out-accepted"
   assert:
     - type: javascript
       value: |

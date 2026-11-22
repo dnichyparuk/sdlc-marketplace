@@ -222,8 +222,8 @@
 
 - description: "execute-plan-sdlc/wave-runner-overflow/verify-completeness: (R94) --final passes a skipped record with a reason and a state without specReviewRequired"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js,d)=>console.log(JSON.stringify(["state-spec-review-skipped.json","state-all-done.json"].map(f=>cp.spawnSync("node",[js,"verify-completeness","--final","--state-file",d+"/"+f],{encoding:"utf8"})).map(r=>r.status))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js","{{project_root}}")'
+    script_path: "repo://tests/promptfoo/scripts/run-execute-overflow-case.js"
+    script_args: "--case verify-completeness-final --fixture {{project_root}}"
     project_root: "file://fixtures-fs/execute-overflow"
   assert:
     - type: javascript
@@ -267,8 +267,8 @@
 
 - description: "execute-plan-sdlc/wave-runner-overflow/spec-review: (R94) run twice keeps the second record, other fields unchanged, and --final gives the same verdict twice"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,t=fs.mkdtempSync(os.tmpdir()+"/spec-review-"),f=t+"/execute-fix-cleanup-20261020T120000Z.json",js="{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js",env=Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:t}),run=(a)=>cp.spawnSync("node",[js].concat(a),{env:env,encoding:"utf8"}),o=(fs.copyFileSync(process.cwd()+"/state-spec-review-unrecorded.json",f),JSON.parse(fs.readFileSync(f,"utf8"))),a=run(["spec-review","--branch","fix/cleanup","--status","ran","--reason","a"]),b=run(["spec-review","--branch","fix/cleanup","--status","skipped","--reason","b"]),d=JSON.parse(fs.readFileSync(f,"utf8")),v1=run(["verify-completeness","--final","--state-file",f]),v2=run(["verify-completeness","--final","--state-file",f]))=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify({a:a.status,b:b.status,second:d.specReview.status==="skipped"&&d.specReview.reason==="b",rest:JSON.stringify(Object.assign({},d,{specReview:undefined}))===JSON.stringify(o),v:[v1.status,v2.status],same:v1.stdout===v2.stdout&&v1.stderr===v2.stderr}))))(require("child_process"),require("fs"),require("os"))'
+    script_path: "repo://tests/promptfoo/scripts/run-execute-overflow-case.js"
+    script_args: "--case spec-review-twice"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/execute-overflow"
   assert:
@@ -277,8 +277,8 @@
 
 - description: "execute-plan-sdlc/cleanup-verify: (R94) a state with specReviewRequired and no record is kept and cleanup exits 65"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,t=fs.mkdtempSync(os.tmpdir()+"/spec-cleanup-"),f=t+"/execute-fix-cleanup-20261020T120000Z.json",c=fs.copyFileSync(process.cwd()+"/state-spec-review-unrecorded.json",f),r=cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js","cleanup","--branch","fix/cleanup"],{env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:t}),encoding:"utf8"}),k=fs.existsSync(f))=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify({status:r.status,kept:k,stderr:r.stderr}))))(require("child_process"),require("fs"),require("os"))'
+    script_path: "repo://tests/promptfoo/scripts/run-execute-overflow-case.js"
+    script_args: "--case cleanup-verify-kept"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/execute-overflow"
   assert:
@@ -426,8 +426,8 @@
 
 - description: "execute-plan-sdlc/wave-runner-overflow/skill-text: (R94) Step 8-bis has three skipped calls and one ran call"
   vars:
-    script_path: "-e"
-    script_args: '((s)=>((c)=>console.log(JSON.stringify({all:c("state/execute.js\x22\x20spec-review\x20--status"),skipped:c("state/execute.js\x22\x20spec-review\x20--status\x20skipped"),ran:c("state/execute.js\x22\x20spec-review\x20--status\x20ran")})))((t)=>s.split(t).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-execute-overflow-case.js"
+    script_args: "--case skill-text-step-8-bis"
   assert:
     - type: javascript
       value: |

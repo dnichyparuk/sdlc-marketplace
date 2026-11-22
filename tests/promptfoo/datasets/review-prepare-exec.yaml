@@ -64,8 +64,8 @@
 
 - description: "dimension-effort: the orchestrator dispatch forwards effort"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify((t=>(e=>(L=>({dispatch:L.some(l=>l.startsWith("3.\x20Dispatch\x20via\x20Agent\x20tool\x20(")&&l.includes(e)),donot:L.some(l=>l.startsWith("-\x20Dispatch\x20dimension\x20subagents")&&l.includes(e)),front:!t.includes("persists\x20the\x20consolidated\x20comment\x20body")}))(t.split("\n")))("effort:\x20dimension.effort\x20||\x20manifest.subagent_effort"))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/agents/review-orchestrator.md","utf8"))))'
+    script_path: "repo://tests/promptfoo/scripts/run-review-prepare-case.js"
+    script_args: "--case effort-forwarded"
   assert:
     - type: javascript
       value: |
@@ -202,8 +202,8 @@
 
 - description: "review-cap: (a) 10 matching dimensions give 10 dispatched entries with a slice_file and batch 1 or 2, none QUEUED"
   vars:
-    script_path: "-e"
-    script_args: '(({loadAndMatchDimensions:l,writeDimensionSlices:w,toIndexEntry:t,refinePlan:r},fs,os,p)=>{const[d,o]=[l(process.cwd(),["src/a.js","lib/a.js"],null),fs.mkdtempSync(p.join(os.tmpdir(),"review-cap-"))];w(d.filter(x=>x.status==="ACTIVE"),o,null);const[n,e]=[r(d),d.map(x=>t(x))];const[ok]=[e.filter(x=>x.status==="ACTIVE").every(x=>fs.existsSync(x.slice_file))];fs.rmSync(o,{recursive:true,force:true});console.log(JSON.stringify({n,ok,e}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"),require("fs"),require("os"),require("path"))'
+    script_path: "repo://tests/promptfoo/scripts/run-review-prepare-case.js"
+    script_args: "--case cap-10-dimensions"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/review-cap-dimensions"
   assert:
@@ -214,8 +214,8 @@
 
 - description: "review-cap: (b) 8 matching dimensions all go to batch 1"
   vars:
-    script_path: "-e"
-    script_args: '(({loadAndMatchDimensions:l,writeDimensionSlices:w,toIndexEntry:t,refinePlan:r},fs,os,p)=>{const[d,o]=[l(process.cwd(),["src/a.js"],null),fs.mkdtempSync(p.join(os.tmpdir(),"review-cap-"))];w(d.filter(x=>x.status==="ACTIVE"),o,null);const[n,e]=[r(d),d.map(x=>t(x))];const[ok]=[e.filter(x=>x.status==="ACTIVE").every(x=>fs.existsSync(x.slice_file))];fs.rmSync(o,{recursive:true,force:true});console.log(JSON.stringify({n,ok,e}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"),require("fs"),require("os"),require("path"))'
+    script_path: "repo://tests/promptfoo/scripts/run-review-prepare-case.js"
+    script_args: "--case cap-8-dimensions"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/review-cap-dimensions"
   assert:
@@ -226,8 +226,8 @@
 
 - description: "review-cap: (b2) 17 matching dimensions give batches of 8, 8 and 1 in priority order"
   vars:
-    script_path: "-e"
-    script_args: '(({loadAndMatchDimensions:l,writeDimensionSlices:w,toIndexEntry:t,refinePlan:r},fs,os,p)=>{const[d,o]=[l(process.cwd(),["src/a.js","lib/a.js","pkg/a.js"],null),fs.mkdtempSync(p.join(os.tmpdir(),"review-cap-"))];w(d.filter(x=>x.status==="ACTIVE"),o,null);const[n,e]=[r(d),d.map(x=>t(x))];const[ok]=[e.filter(x=>x.status==="ACTIVE").every(x=>fs.existsSync(x.slice_file))];fs.rmSync(o,{recursive:true,force:true});console.log(JSON.stringify({n,ok,e}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"),require("fs"),require("os"),require("path"))'
+    script_path: "repo://tests/promptfoo/scripts/run-review-prepare-case.js"
+    script_args: "--case cap-17-dimensions"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/review-cap-dimensions"
   assert:
@@ -238,16 +238,16 @@
 
 - description: "review-cap: (c) the repo's code-quality dimension matches plugins/sdlc-utilities/hooks/session-start.js"
   vars:
-    script_path: "-e"
-    script_args: '(({loadAndMatchDimensions:l})=>{const[h]=[l("{{repo_root}}",["plugins/sdlc-utilities/hooks/session-start.js"],null).find(x=>x.name==="code-quality")];console.log(JSON.stringify({status:h&&h.status,matched:h&&h.matched_count}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"))'
+    script_path: "repo://tests/promptfoo/scripts/run-review-prepare-case.js"
+    script_args: "--case cap-code-quality-match"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.status === 'ACTIVE' && r.matched === 1"
 
 - description: "review-dimension-globs: runtime-contract and code-quality match scripts/skill/ and scripts/ci/ files"
   vars:
-    script_path: "-e"
-    script_args: '(({loadAndMatchDimensions:l})=>{const[d]=[l("{{repo_root}}",["plugins/sdlc-utilities/scripts/skill/review.js","plugins/sdlc-utilities/scripts/ci/validate-dimensions.js"],null)];const[f]=[n=>d.find(x=>x.name===n)];console.log(JSON.stringify({rc:f("runtime-contract"),hr:f("code-quality")}))})(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js"))'
+    script_path: "repo://tests/promptfoo/scripts/run-review-prepare-case.js"
+    script_args: "--case globs-runtime-contract"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.rc.status === 'ACTIVE' && r.rc.matched_count === 2 && r.hr.status === 'ACTIVE' && r.hr.matched_count === 2"
@@ -284,24 +284,24 @@
 
 - description: "review-glob-brace: a/*.{js,ts} matches js and ts only"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js").matchFiles({triggers:["a/*.{js,ts}"]},["a/x.js","a/y.ts","a/z.md"]).matched))'
+    script_path: "repo://tests/promptfoo/scripts/run-review-prepare-case.js"
+    script_args: "--case brace-js-ts"
   assert:
     - type: javascript
       value: "JSON.stringify(JSON.parse(output)) === JSON.stringify(['a/x.js','a/y.ts'])"
 
 - description: "review-glob-brace: {src,lib}/**/*.js matches nested files"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js").matchFiles({triggers:["{src,lib}/**/*.js"]},["src/a.js","lib/b/c.js","pkg/d.js"]).matched))'
+    script_path: "repo://tests/promptfoo/scripts/run-review-prepare-case.js"
+    script_args: "--case brace-nested"
   assert:
     - type: javascript
       value: "JSON.stringify(JSON.parse(output)) === JSON.stringify(['src/a.js','lib/b/c.js'])"
 
 - description: "review-glob-brace: unbalanced brace matches literally"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/review.js").matchFiles({triggers:["a/{b,c"]},["a/b","a/{b,c"]).matched))'
+    script_path: "repo://tests/promptfoo/scripts/run-review-prepare-case.js"
+    script_args: "--case brace-unbalanced"
   assert:
     - type: javascript
       value: "JSON.stringify(JSON.parse(output)) === JSON.stringify(['a/{b,c'])"
