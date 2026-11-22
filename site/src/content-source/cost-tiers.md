@@ -150,6 +150,7 @@ The agent tiers are execute-worker-batch → execute-worker → execute-worker-c
 | `--timeout` default of `wave-progress --wait` | 300 s (capped by `WAIT_MAX_TIMEOUT_SECONDS`) | `scripts/state/execute.js` (`waitForWaveProgress`) |
 | `WAIT_MAX_GRACE_SECONDS` | 30 s (cap and default of `--grace`) | `scripts/state/execute.js` |
 | `--grace` passed by the skill | 10 s | `skills/execute-plan-sdlc/SKILL.md`, `wave-runner-template.md` |
+| `--timeout` passed by the skill after a worker returned | at most 60 s | `skills/execute-plan-sdlc/SKILL.md`, `wave-runner-template.md` |
 | `WAIT_MAX_TIMEOUT_SECONDS` | 540 s | `scripts/state/execute.js` |
 | `LOCK_RETRY_MS` | 10 ms (poll of the progress-marker lock) | `plugins/sdlc-utilities/scripts/lib/wave-progress.js` |
 | `LOCK_WAIT_MS` | 2000 ms (a writer that waited this long removes the lock as stale) | `plugins/sdlc-utilities/scripts/lib/wave-progress.js` |
