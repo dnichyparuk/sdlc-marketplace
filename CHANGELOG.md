@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.11] - 2026-11-22
+
+### Fixed
+- plan-sdlc: the guardrail-compliance lane is re-run when it returns a warning-severity FAIL, so the Guardrail Compliance table no longer keeps a fixed issue; the accepted gap in R77 is removed (W-E7).
+
 ## [0.57.10] - 2026-11-22
 
 ### Changed
