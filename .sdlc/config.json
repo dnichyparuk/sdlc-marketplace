@@ -157,6 +157,18 @@
           "site/src/data/skills-meta.ts",
           "plugins/sdlc-utilities/skills/{skill}/*.md"
         ]
+      },
+      {
+        "when": ["docs/{doc}.md"],
+        "require": ["site/src/content-source/{doc}.md"]
+      },
+      {
+        "when": ["docs/specs/{spec}.md"],
+        "require": ["site/src/content-source/specs/{spec}.md"]
+      },
+      {
+        "when": ["docs/skills/{skill}.md"],
+        "require": ["site/src/content-source/skills/{skill}.md"]
       }
     ]
   },
