@@ -13,7 +13,7 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-022](./TK-022-guardrail-warning-rerun/ticket.md) | task | Guardrail lane re-runs on a warning FAIL (F-141) | — | scheduled | W-E7 M1 | — |
+| [TK-022](./TK-022-guardrail-warning-rerun/ticket.md) | task | Guardrail lane re-runs on a warning FAIL (F-141) | — | planned | W-E7 M1 | 2026-11-22-w-e7-guardrail-table-re-run-fix#2 |
 
 **Open, backlog** (0):
 

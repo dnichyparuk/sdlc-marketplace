@@ -198,11 +198,12 @@
       "key": "W-E7",
       "aliases": ["E7"],
       "title": "Guardrail table re-run fix",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": ["W-END"],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-E7", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-E7", "role": "brief" },
+        { "path": "docs/plans/2026-11-22-w-e7-guardrail-table-re-run-fix.md", "role": "executable" }
       ],
       "decisions": ["PD-6"]
     }
