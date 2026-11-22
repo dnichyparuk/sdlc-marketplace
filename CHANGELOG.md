@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.8] - 2026-11-22
+
+### Changed
+- tests: the inline `-e` programs of the github-sdlc, ship-hooks, commit-prepare and received-review-prepare exec datasets move into table-driven wrapper scripts under `tests/promptfoo/scripts/`; case descriptions and assertions are unchanged (W-E4).
+
 ## [0.57.7] - 2026-11-22
 
 ### Fixed

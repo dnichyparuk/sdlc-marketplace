@@ -105,8 +105,8 @@
 # 7. Second call on the same step emits nothing (nudge once per transition).
 - description: "pipeline-continue (R67): second call same step emits nothing"
   vars:
-    script_path: "-e"
-    script_args: '((cp,hook)=>console.log(JSON.stringify(Array(2).fill(0).map(_=>cp.spawnSync("node",[hook],{input:JSON.stringify({tool_name:"Bash",session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout,stderr:r.stderr})))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/hooks/pipeline-continue.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case r67-second-call-silent"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-noauto"
   assert:
@@ -283,8 +283,8 @@
 #    channel and never carries the cap-breach note.
 - description: "stop-pipeline-continue (Task 6, #505): consecutive-block cap silences after 3 unchanged blocks"
   vars:
-    script_path: "-e"
-    script_args: '((cp,hook)=>console.log(JSON.stringify(Array(4).fill(0).map(_=>cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout,stderr:r.stderr})))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case cap-silences-after-three"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -312,8 +312,8 @@
 #     resets count to 0 rather than staying silenced by the prior step's cap.
 - description: "stop-pipeline-continue (Task 6, #505): consecutive-block counter resets on step change"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,hook,statePath)=>((r1,r2,r3,r4)=>(fs.writeFileSync(statePath,JSON.stringify({version:1,startedAt:"2026-06-08T12:00:00Z",branch:"feat/ship",sessionId:"sess-fixture",flags:{auto:true,steps:["execute","commit","pr"]},steps:[{name:"execute",status:"completed"},{name:"commit",status:"in_progress"},{name:"pr",status:"pending"}]})),((r5)=>console.log(JSON.stringify([r1,r2,r3,r4,r5].map(r=>({status:r.status,stdout:r.stdout,stderr:r.stderr})))))(cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"}))))(cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"}),cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"}),cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"}),cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case cap-reset-on-step-change"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -338,8 +338,8 @@
 # in_progress rule); the extra fields do not change the hook's reading of steps[].
 - description: "stop-pipeline-continue (W4.2): ledger with history and currentStep, non-auto in_progress blocks"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,hook,statePath)=>(fs.writeFileSync(statePath,JSON.stringify({version:1,startedAt:"2026-06-08T12:00:00Z",branch:"feat/ship",sessionId:"sess-fixture",flags:{auto:false,steps:["execute","commit","pr"]},currentStep:"commit",history:[{step:"execute",result:"success",timestamp:"2026-06-08T12:05:00Z"}],steps:[{name:"execute",status:"completed"},{name:"commit",status:"in_progress"},{name:"pr",status:"pending"}]})),((r)=>console.log(JSON.stringify({status:r.status,stdout:r.stdout,stderr:r.stderr})))(cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case w42-history-current-step-blocks"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-noauto"
   assert:
@@ -363,8 +363,8 @@
 # The stale case writes the marker itself with a startedAt 3 hours old.
 - description: "stop-pipeline-continue (R110): live ship step agent silences the in_progress block, cap counter untouched"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,track,stop,src)=>((d)=>((run)=>(fs.copyFileSync(src,d+"/ship-feat-ship-20260608T120000Z.json"),((rs)=>((r)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(r))))({runs:rs.map(x=>({status:x.status,stdout:x.stdout,stderr:x.stderr})),marker:fs.existsSync(d+"/.step-agent-live-feat-ship.json"),counter:fs.existsSync(d+"/.stop-block-count-feat-ship.json")}))([run(track,"start",{agent_id:"a1",agent_type:"sdlc:ship-step-review",session_id:"sess-fixture"}),run(stop,"",{stop_hook_active:false,session_id:"sess-fixture"})])))((f,a,i)=>cp.spawnSync("node",[f,a].filter(Boolean),{input:JSON.stringify(i),cwd:process.cwd(),env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:"feat/ship"}),encoding:"utf8"})))(fs.mkdtempSync(os.tmpdir()+"/step-live-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/hooks/subagent-track.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case r110-live-agent-silences"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -383,8 +383,8 @@
 
 - description: "stop-pipeline-continue (R110): start then stop for the same agent id blocks again"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,track,stop,src)=>((d)=>((run)=>(fs.copyFileSync(src,d+"/ship-feat-ship-20260608T120000Z.json"),((rs)=>((r)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(r))))({runs:rs.map(x=>({status:x.status,stdout:x.stdout,stderr:x.stderr})),marker:fs.existsSync(d+"/.step-agent-live-feat-ship.json"),counter:fs.existsSync(d+"/.stop-block-count-feat-ship.json")}))([run(track,"start",{agent_id:"a1",agent_type:"sdlc:ship-step-review",session_id:"sess-fixture"}),run(track,"stop",{agent_id:"a1",agent_type:"sdlc:ship-step-review",session_id:"sess-fixture"}),run(stop,"",{stop_hook_active:false,session_id:"sess-fixture"})])))((f,a,i)=>cp.spawnSync("node",[f,a].filter(Boolean),{input:JSON.stringify(i),cwd:process.cwd(),env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:"feat/ship"}),encoding:"utf8"})))(fs.mkdtempSync(os.tmpdir()+"/step-live-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/hooks/subagent-track.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case r110-start-stop-blocks"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -402,8 +402,8 @@
 
 - description: "stop-pipeline-continue (R110): a marker whose only agent started 3 hours ago does not silence the block"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,track,stop,src)=>((d)=>((run)=>(fs.copyFileSync(src,d+"/ship-feat-ship-20260608T120000Z.json"),fs.writeFileSync(d+"/.step-agent-live-feat-ship.json",JSON.stringify({schemaVersion:1,branch:"feat/ship",agents:{a1:{agentType:"sdlc:ship-step-review",startedAt:new(Date)(Date.now()-108e5).toISOString()}}})),((rs)=>((r)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(r))))({runs:rs.map(x=>({status:x.status,stdout:x.stdout,stderr:x.stderr})),marker:fs.existsSync(d+"/.step-agent-live-feat-ship.json"),counter:fs.existsSync(d+"/.stop-block-count-feat-ship.json")}))([run(stop,"",{stop_hook_active:false,session_id:"sess-fixture"})])))((f,a,i)=>cp.spawnSync("node",[f,a].filter(Boolean),{input:JSON.stringify(i),cwd:process.cwd(),env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:"feat/ship"}),encoding:"utf8"})))(fs.mkdtempSync(os.tmpdir()+"/step-live-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/hooks/subagent-track.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case r110-stale-marker-blocks"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -420,8 +420,8 @@
 
 - description: "stop-pipeline-continue (R110): a general-purpose agent writes no marker and the hook blocks"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,track,stop,src)=>((d)=>((run)=>(fs.copyFileSync(src,d+"/ship-feat-ship-20260608T120000Z.json"),((rs)=>((r)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(r))))({runs:rs.map(x=>({status:x.status,stdout:x.stdout,stderr:x.stderr})),marker:fs.existsSync(d+"/.step-agent-live-feat-ship.json"),counter:fs.existsSync(d+"/.stop-block-count-feat-ship.json")}))([run(track,"start",{agent_id:"a1",agent_type:"general-purpose",session_id:"sess-fixture"}),run(stop,"",{stop_hook_active:false,session_id:"sess-fixture"})])))((f,a,i)=>cp.spawnSync("node",[f,a].filter(Boolean),{input:JSON.stringify(i),cwd:process.cwd(),env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:"feat/ship"}),encoding:"utf8"})))(fs.mkdtempSync(os.tmpdir()+"/step-live-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/hooks/subagent-track.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case r110-general-purpose-no-marker"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -480,15 +480,13 @@
 # hookEnforcementAllowed / claimSession (R73, #505) — session-identity gate.
 #
 # hookEnforcementAllowed(data, payload) is pure (no I/O), so the four
-# predicate cases invoke it directly via `node -e` — no fixture needed.
-# `script_args` is passed through hook-runner's `.split(/\s+/)`, so each
-# `-e` body below is a single whitespace-free expression (no `const`/`let`,
-# multi-param arrow functions instead of block statements).
+# predicate cases call it directly in tests/promptfoo/scripts/run-ship-hooks-case.js
+# — no fixture needed.
 #
 # The reclaim-on-resume cases drive the real skill/ship.js binary (not the
 # library directly) against the existing project-ship-state-resume fixture,
 # to prove claimSession() is actually wired into both resume branches there
-# — not just that the library function works in isolation. The `-e` script
+# — not just that the library function works in isolation. The wrapper case
 # stamps the fixture's state file with sessionId "sess-A", spawns ship.js
 # with CLAUDE_CODE_SESSION_ID set to a different session, then reads the
 # file back and reports {status, before, after} — all inside the spawned
@@ -500,8 +498,8 @@
 #    task worktree's cwd must not affect the decision — no worktree term).
 - description: "hookEnforcementAllowed (R73, #505): matching session ids allows enforcement (payload.cwd ignored)"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js").hookEnforcementAllowed({sessionId:"sess-A"},{session_id:"sess-A",cwd:"/some/other/worktree"})))'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case enforcement-match"
   assert:
     - type: javascript
       value: |
@@ -514,8 +512,8 @@
 # 2. Session ids differ → allowed:false, SILENT (no enforcement, no throw).
 - description: "hookEnforcementAllowed (R73, #505): mismatched session ids denies enforcement"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js").hookEnforcementAllowed({sessionId:"sess-A"},{session_id:"sess-B"})))'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case enforcement-mismatch"
   assert:
     - type: javascript
       value: |
@@ -529,8 +527,8 @@
 # 3. State carries no sessionId (pre-#505 state file, or absent/null) → denies.
 - description: "hookEnforcementAllowed (R73, #505): state sessionId absent denies enforcement"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js").hookEnforcementAllowed({},{session_id:"sess-A"})))'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case enforcement-state-absent"
   assert:
     - type: javascript
       value: |
@@ -544,8 +542,8 @@
 # 4. Hook payload carries no session_id (e.g. an older Claude Code build) → denies.
 - description: "hookEnforcementAllowed (R73, #505): payload session_id absent denies enforcement"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js").hookEnforcementAllowed({sessionId:"sess-A"},{})))'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case enforcement-payload-absent"
   assert:
     - type: javascript
       value: |
@@ -571,8 +569,8 @@
 #    claimSession itself (a maintenance trap, not a correctness one).
 - description: "claimSession (R73, #505): implicit resume reclaims sessionId for the resuming session"
   vars:
-    script_path: "-e"
-    script_args: '((fs,cp,fp,shipJs)=>(fs.writeFileSync(fp,JSON.stringify({version:1,startedAt:"2026-01-01T00:00:00Z",branch:"main",flags:{auto:true,steps:["commit"]},steps:[{name:"commit",status:"pending"}],decisions:[],deferredFindings:[],sessionId:"sess-A"})),console.log(JSON.stringify({status:cp.spawnSync("node",[shipJs,"--steps","commit"],{cwd:process.cwd(),env:Object.assign({},process.env,{CLAUDE_CODE_SESSION_ID:"sess-B"}),encoding:"utf8"}).status,before:"sess-A",after:JSON.parse(fs.readFileSync(fp,"utf8")).sessionId}))))(require("fs"),require("child_process"),process.cwd()+"/.sdlc/execution/ship-main-20260101T000000Z.json","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case claim-implicit-resume"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-state-resume"
   assert:
@@ -591,8 +589,8 @@
 #    second (non-implicit) call site also fires.
 - description: "claimSession (R73, #505): explicit --resume reclaims sessionId for the resuming session"
   vars:
-    script_path: "-e"
-    script_args: '((fs,cp,fp,shipJs)=>(fs.writeFileSync(fp,JSON.stringify({version:1,startedAt:"2026-01-01T00:00:00Z",branch:"main",flags:{auto:true,steps:["commit"]},steps:[{name:"commit",status:"pending"}],decisions:[],deferredFindings:[],sessionId:"sess-A"})),console.log(JSON.stringify({status:cp.spawnSync("node",[shipJs,"--resume","--steps","commit"],{cwd:process.cwd(),env:Object.assign({},process.env,{CLAUDE_CODE_SESSION_ID:"sess-C"}),encoding:"utf8"}).status,before:"sess-A",after:JSON.parse(fs.readFileSync(fp,"utf8")).sessionId}))))(require("fs"),require("child_process"),process.cwd()+"/.sdlc/execution/ship-main-20260101T000000Z.json","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/ship.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case claim-explicit-resume"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-ship-state-resume"
   assert:
@@ -760,13 +758,12 @@
 # 16. RECLAIMED — state created by session A, the real claimSession() applied for
 #     session B, then the hook invoked as B. Proves a legitimately resumed run
 #     keeps its nudges instead of being silenced by the creating session's id.
-#     `script_args` is the ONLY var that substitutes {{repo_root}}, so the claim
-#     and the hook spawn both happen inside a single whitespace-free `-e`
-#     expression (hook-runner splits script_args on /\s+/).
+#     The claim and the hook spawn both happen inside one
+#     run-ship-hooks-case.js case.
 - description: "pipeline-continue (R73, #505): reclaimed pipeline still nudges the resuming session"
   vars:
-    script_path: "-e"
-    script_args: '((cp,st,hook)=>console.log(JSON.stringify({claimed:st.claimSession("ship","feat-ship"),hook:cp.spawnSync("node",[hook],{input:JSON.stringify({tool_name:"Bash",tool_response:{},session_id:"sess-B"}),cwd:process.cwd(),encoding:"utf8"})})))(require("child_process"),require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js"),"{{repo_root}}/plugins/sdlc-utilities/hooks/pipeline-continue.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case r73-reclaimed-still-nudges"
     script_cwd: "{{project_root}}"
     script_env: '{"CLAUDE_CODE_SESSION_ID":"sess-B"}'
     project_root: "file://fixtures-fs/ship-pipeline-session-reclaimed"
@@ -917,8 +914,8 @@
 #     cap-exhausted sidecar back off disk.
 - description: "cap-exhaustion: consecutive-block cap leaves the step in_progress and writes the cap-exhausted sidecar"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,hook,statePath,sidePath)=>(Array(4).fill(0).forEach(_=>cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})),console.log(JSON.stringify({step:JSON.parse(fs.readFileSync(statePath,"utf8")).steps.find(s=>s.name==="execute"),sidecar:JSON.parse(fs.readFileSync(sidePath,"utf8"))}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json",process.cwd()+"/.sdlc/execution/.stop-cap-exhausted-feat-ship.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case cap-exhaustion-sidecar"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -937,8 +934,8 @@
 #      instead of blocking three more times).
 - description: "cap-exhaustion: fifth Stop run after exhaustion prints nothing"
   vars:
-    script_path: "-e"
-    script_args: '((cp,hook)=>console.log(JSON.stringify(Array(5).fill(0).map(_=>cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout})))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case cap-exhaustion-fifth-run-silent"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -955,8 +952,8 @@
 # 24. R-pause: `state/ship.js pause` makes the Stop hook silent.
 - description: "stop-pipeline-continue (R-pause): paused state stays silent"
   vars:
-    script_path: "-e"
-    script_args: '((cp,cli,hook,st)=>console.log(JSON.stringify([cp.spawnSync("node",[cli,"pause","--reason","test","--state-file",st],{encoding:"utf8"}),cp.spawnSync("node",[hook],{input:JSON.stringify({stop_hook_active:false,session_id:"sess-fixture"}),cwd:process.cwd(),encoding:"utf8"})].map(r=>({status:r.status,stdout:r.stdout})))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/ship.js","{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case pause-state-cli-silences"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -974,8 +971,8 @@
 # 25. R-pause: a state with `paused` set makes BOTH continuation hooks silent.
 - description: "stop-pipeline-continue (R-pause): state with paused set silences both hooks"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,stop,post,st)=>(fs.writeFileSync(st,JSON.stringify(Object.assign(JSON.parse(fs.readFileSync(st,"utf8")),{paused:{at:"2026-01-01T00:00:00.000Z",reason:null}}))),console.log(JSON.stringify([[stop,{stop_hook_active:false,session_id:"sess-fixture"}],[post,{tool_name:"Bash",session_id:"sess-fixture"}]].map(a=>cp.spawnSync("node",[a[0]],{input:JSON.stringify(a[1]),cwd:process.cwd(),encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout}))))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/hooks/stop-pipeline-continue.js","{{repo_root}}/plugins/sdlc-utilities/hooks/pipeline-continue.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case pause-silences-both-hooks"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -993,8 +990,8 @@
 # 25a. R-pause: `begin-step` clears `paused` (pause first, so the clear is observed).
 - description: "stop-pipeline-continue (R-pause): begin-step clears paused"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,cli,st)=>((p)=>((q)=>((b)=>console.log(JSON.stringify({pause:p.status,pausedSet:q,begin:b.status,pausedGone:JSON.parse(fs.readFileSync(st,"utf8")).paused===undefined})))(cp.spawnSync("node",[cli,"begin-step","--step","execute","--state-file",st],{encoding:"utf8"})))(JSON.parse(fs.readFileSync(st,"utf8")).paused!==undefined))(cp.spawnSync("node",[cli,"pause","--reason","test","--state-file",st],{encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/ship.js",process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json")'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case pause-begin-step-clears"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
   assert:
@@ -1010,8 +1007,8 @@
 # 25b. R-pause: `claimSession` (the --resume path) clears `paused`.
 - description: "stop-pipeline-continue (R-pause): claimSession clears paused"
   vars:
-    script_path: "-e"
-    script_args: '((fs,st,state)=>(fs.writeFileSync(st,JSON.stringify(Object.assign(JSON.parse(fs.readFileSync(st,"utf8")),{paused:{at:"2026-01-01T00:00:00.000Z",reason:"test"}}))),((q)=>((c)=>console.log(JSON.stringify({pausedSet:q,claimed:c,pausedGone:JSON.parse(fs.readFileSync(st,"utf8")).paused===undefined})))(state.claimSession("ship","feat-ship")))(JSON.parse(fs.readFileSync(st,"utf8")).paused!==undefined)))(require("fs"),process.cwd()+"/.sdlc/execution/ship-feat-ship-20260608T120000Z.json",require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state"))'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case pause-claim-session-clears"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/ship-pipeline-inprogress"
     script_env: '{"CLAUDE_CODE_SESSION_ID":"sess-fixture"}'
@@ -1028,8 +1025,8 @@
 # 26. W2.5: with no .sdlc/execution the hooks exit before any git spawn work.
 - description: "stop-pipeline-continue (W2.5): hooks in a repo without .sdlc/execution exit 0 silently"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,hooks)=>console.log(JSON.stringify([{hook:hooks[0],i:{stop_hook_active:false,session_id:"sess-fixture"}},{hook:hooks[1],i:{}},{hook:hooks[2],i:{tool_name:"Bash",session_id:"sess-fixture"}}].map(a=>cp.spawnSync("node",[a.hook],{input:JSON.stringify(a.i),cwd:process.cwd(),encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout,stderr:r.stderr,hasExecDir:fs.existsSync(process.cwd()+"/.sdlc/execution")})))))(require("child_process"),require("fs"),["stop-pipeline-continue.js","stop-plan-integrity.js","pipeline-continue.js"].map(f=>"{{repo_root}}/plugins/sdlc-utilities/hooks/"+f))'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case w25-no-execution-dir-silent"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-config"
   assert:
@@ -1051,8 +1048,8 @@
 #     resolveHookContext yields no stateDir/branch and each hook falls back to today's behaviour.
 - description: "stop-pipeline-continue (W2.5): no .git anywhere falls back and exits 0 silently"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,hooks)=>((d)=>console.log(JSON.stringify({gitStatus:cp.spawnSync("git",["rev-parse","--git-dir"],{cwd:d,encoding:"utf8"}).status,runs:[{hook:hooks[0],i:{stop_hook_active:false,session_id:"sess-fixture"}},{hook:hooks[1],i:{}},{hook:hooks[2],i:{tool_name:"Bash",session_id:"sess-fixture"}}].map(a=>cp.spawnSync("node",[a.hook],{input:JSON.stringify(a.i),cwd:d,encoding:"utf8"})).map(r=>({status:r.status,stdout:r.stdout}))})))(fs.mkdtempSync(os.tmpdir()+"/nogit-")))(require("child_process"),require("fs"),require("os"),["stop-pipeline-continue.js","stop-plan-integrity.js","pipeline-continue.js"].map(f=>"{{repo_root}}/plugins/sdlc-utilities/hooks/"+f))'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case w25-no-git-fallback"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-config"
   assert:
@@ -1089,8 +1086,8 @@
 # hook-runner provider: per-case temp cwd and git safety defaults.
 - description: "hook-runner: a case without script_cwd runs in a removed temp dir with git defaults"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify({cwd:process.cwd(),ssh:process.env.GIT_SSH_COMMAND,prompt:process.env.GIT_TERMINAL_PROMPT}))'
+    script_path: "repo://tests/promptfoo/scripts/run-ship-hooks-case.js"
+    script_args: "--case hook-runner-temp-cwd"
   assert:
     - type: javascript
       value: |

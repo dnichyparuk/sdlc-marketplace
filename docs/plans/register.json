@@ -141,11 +141,12 @@
       "key": "W-E4",
       "aliases": ["E4"],
       "title": "`-e` programs to wrappers, batch A",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": ["W-E2", "W-E3"],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-E4", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-E4", "role": "brief" },
+        { "path": "docs/plans/2026-11-22-w-e4-e-programs-to-wrappers-batch-a.md", "role": "executable" }
       ],
       "todos": ["docs/TODO/end-e-programs-to-wrappers.md"]
     },
