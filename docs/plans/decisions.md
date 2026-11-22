@@ -51,3 +51,10 @@ Append-only. The log wins over the text of a plan.
 - **Decision:** one more light fix wave `W-E8` for the ledger findings still present at HEAD: F-193, F-194 (two tickets) and a `plan.copyRules` addition (F-179). The other 16 candidate plugin defects were verified fixed at HEAD 70dc348 or closed by PD-2(c), and were marked resolved in the ledger. The planner-recall findings (F-55, F-158, F-160, F-179 to F-185, F-188 to F-190, F-192) need no plugin change: every miss since w45 was caught at plan stage for 0.24 to 1.42 USD, while a `plan.js` recall step would cost 20 to 40 USD for 0.5 to 1 USD saved per wave. They are handled in the orchestration skill.
 - **Rejected options:** a `plan.js` recall step; more plan-brief rules in the plugin.
 - **Made obsolete or amended:** none.
+
+## PD-8: One more doc fix wave W-E9 for three audit lows
+
+- **Date and owner:** 2026-11-22, owner request plus architect-accepted (strong).
+- **Decision:** one light fix wave `W-E9` for the three doc and spec lows left open after W-E8: F-196 (ship-sdlc doc wording of the deferred Monitor rule), F-197 (ship-sdlc spec R92 and P-STEP-2 Acceptance lines, SKILL.md:278 spec citation) and F-198 (cost-tiers 60 s `--timeout` row). Doc and spec text only; the note `pr-step-gh-in-main-checkout` stays in the backlog.
+- **Rejected options:** a wave that includes the gh-in-main-checkout note; leaving the lows to the next audit.
+- **Made obsolete or amended:** none.
