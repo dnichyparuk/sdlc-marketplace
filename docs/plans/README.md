@@ -24,7 +24,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-END` (END; gate, owner: owner) | - | Programme post-merge audit | [programme](./programme.md) (brief; §W-END) | Done | 0/0 | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | owner sign-off 2026-11-22 (PD-5), PR #142 |
 | `W-E7` (E7) | - | Guardrail table re-run fix | [programme](./programme.md) (brief; §W-E7)<br>[2026-11-22-w-e7-guardrail-table-re-run-fix](../archived/plans/2026-11-22-w-e7-guardrail-table-re-run-fix.md) (executable) | Done | 14/14 | W-END | PR #144, dfd3dbc |
 | `W-E8` (E8) | - | Ship skill tool-handling and copy rules fix | [programme](./programme.md) (brief; §W-E8)<br>[2026-11-22-w-e8-ship-skill-tool-handling-and-copy](../archived/plans/2026-11-22-w-e8-ship-skill-tool-handling-and-copy.md) (executable) | Done | 22/22 | W-E7 | PR #146, 50bd5fc |
-| `W-E9` (E9) | - | Audit follow-up doc fixes | [programme](./programme.md) (brief; §W-E9) | Not started | 0/0 | W-E8 | - |
+| `W-E9` (E9) | - | Audit follow-up doc fixes | [programme](./programme.md) (brief; §W-E9)<br>[2026-11-22-w-e9-audit-follow-up-doc-fixes](./2026-11-22-w-e9-audit-follow-up-doc-fixes.md) (executable) | In progress | 0/12 | W-E8 | - |
 
 **Order** (topological; ready = not started, hard dependencies closed, nothing waited on):
 
@@ -44,7 +44,7 @@ Executable plans of this repository and the generated programme status. The regi
 | 12 | `W-END` | Done | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | done |
 | 13 | `W-E7` | Done | W-END | done |
 | 14 | `W-E8` | Done | W-E7 | done |
-| 15 | `W-E9` | Not started | W-E8 | ready |
+| 15 | `W-E9` | In progress | W-E8 | in progress |
 
 Longest dependency chain among open waves (dependsOn only; no effort estimates): W-E9 (1 wave).
 

@@ -146,7 +146,7 @@ Scope (owner 2026-11-22; decision PD-8): three doc and spec fixes from the post-
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | TK-026, TK-027, TK-028 | | 1 light wave, about 3 tasks |
+| M1 | TK-026, TK-027, TK-028 | `2026-11-22-w-e9-audit-follow-up-doc-fixes` | 1 light wave, about 3 tasks |
 
 ## W-END: Programme post-merge audit
 
