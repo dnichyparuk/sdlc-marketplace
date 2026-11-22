@@ -4,6 +4,9 @@ type: task
 title: Cost tiers wave wait table gets the 60 s timeout row (F-198)
 created: 2026-11-22
 links: [todo:cost-tiers-wave-wait-60s-timeout-row]
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-e9-audit-follow-up-doc-fixes#3]
 ---
 
 # TK-027: Cost tiers wave wait table gets the 60 s timeout row (F-198)

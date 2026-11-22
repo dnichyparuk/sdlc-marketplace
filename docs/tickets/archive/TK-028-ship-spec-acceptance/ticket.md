@@ -4,6 +4,9 @@ type: task
 title: Ship spec R92 and P-STEP-2 Acceptance lines, SKILL.md:278 cites P-STEP-2 (F-197)
 created: 2026-11-22
 links: [todo:ship-spec-r92-acceptance-and-skill-citation]
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-e9-audit-follow-up-doc-fixes#1]
 ---
 
 # TK-028: Ship spec R92 and P-STEP-2 Acceptance lines, SKILL.md:278 cites P-STEP-2 (F-197)

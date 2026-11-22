@@ -1,5 +1,7 @@
 # W-E9 Audit Follow-up Doc and Spec Fixes Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #150, 57f9dd9
+
 **Commit:** `fix(W-E9): ship-sdlc - audit follow-up doc and spec fixes`
 **Goal:** Close three post-merge audit lows with doc and spec text only:
 - the ship-sdlc user doc states the deferred-Monitor rule as the spec and SKILL.md do (TK-026, F-196);
@@ -112,12 +114,12 @@ Docs (Task 2):
 **Notes:** Text only; the two exec cases already exist and pass at HEAD, so they are declared pins. Copy the spec with `cp docs/specs/ship-sdlc.md site/src/content-source/specs/ship-sdlc.md`; never run `site/scripts/copy-docs.mjs`.
 
 **Acceptance criteria:**
-- [ ] The R92 Acceptance line in `docs/specs/ship-sdlc.md` names the exec cases `ship-sdlc/tool-handling:` (TK-028 A1).
-- [ ] P-STEP-2 has an Acceptance sub-bullet that names the case `ship-sdlc/tool-handling: mktemp result file is read once` (TK-028 A2).
-- [ ] Step 5 item 6 of `plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md` cites `P-STEP-2` (TK-028 A3).
-- [ ] `cmp docs/specs/ship-sdlc.md site/src/content-source/specs/ship-sdlc.md` exits 0 (TK-028 A4).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern ship-sdlc/tool-handling` passes both cases.
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
+- [x] The R92 Acceptance line in `docs/specs/ship-sdlc.md` names the exec cases `ship-sdlc/tool-handling:` (TK-028 A1).
+- [x] P-STEP-2 has an Acceptance sub-bullet that names the case `ship-sdlc/tool-handling: mktemp result file is read once` (TK-028 A2).
+- [x] Step 5 item 6 of `plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md` cites `P-STEP-2` (TK-028 A3).
+- [x] `cmp docs/specs/ship-sdlc.md site/src/content-source/specs/ship-sdlc.md` exits 0 (TK-028 A4).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern ship-sdlc/tool-handling` passes both cases.
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
 
 **Contract:**
 - shape (openspec): MODIFY two lines of `docs/specs/ship-sdlc.md` and one clause of SKILL.md; no new id. Before → after:
@@ -153,9 +155,9 @@ Docs (Task 2):
 **Notes:** The doc must state the same condition as R92 and SKILL.md:274; no test asserts the old sentence (see Research Findings).
 
 **Acceptance criteria:**
-- [ ] `docs/skills/ship-sdlc.md:229` reads "When Monitor or TaskStop is a deferred tool, ship first loads Monitor and TaskStop with ToolSearch." (TK-026 A1).
-- [ ] `git grep -nF "When Monitor is a deferred tool" -- docs/skills site/src/content-source/skills` gives no hit.
-- [ ] `cmp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md` exits 0 (TK-026 A2).
+- [x] `docs/skills/ship-sdlc.md:229` reads "When Monitor or TaskStop is a deferred tool, ship first loads Monitor and TaskStop with ToolSearch." (TK-026 A1).
+- [x] `git grep -nF "When Monitor is a deferred tool" -- docs/skills site/src/content-source/skills` gives no hit.
+- [x] `cmp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md` exits 0 (TK-026 A2).
 
 **Contract:** shape (docs): in `docs/skills/ship-sdlc.md:229` replace `When Monitor is a deferred tool, ship first loads` with `When Monitor or TaskStop is a deferred tool, ship first loads`, then `cp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md`; names: `Monitor`, `TaskStop`, `ToolSearch`; sync: `site/src/content-source/skills/ship-sdlc.md` byte copy
 
@@ -174,9 +176,9 @@ Docs (Task 2):
 **Notes:** R92 of `docs/specs/execute-plan-sdlc.md` says the skill's wave wait values live in this table; the 60 s value was missing.
 
 **Acceptance criteria:**
-- [ ] The wave wait tuning table in `docs/cost-tiers.md` has the row below, right after the `--grace` passed by the skill row (TK-027 A1).
-- [ ] `cmp docs/cost-tiers.md site/src/content-source/cost-tiers.md` exits 0 (TK-027 A2).
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-cost-tiers.js` exits 0.
+- [x] The wave wait tuning table in `docs/cost-tiers.md` has the row below, right after the `--grace` passed by the skill row (TK-027 A1).
+- [x] `cmp docs/cost-tiers.md site/src/content-source/cost-tiers.md` exits 0 (TK-027 A2).
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-cost-tiers.js` exits 0.
 
 **Contract:** shape (docs): insert after the row `` | `--grace` passed by the skill | 10 s | `skills/execute-plan-sdlc/SKILL.md`, `wave-runner-template.md` | `` the row `` | `--timeout` passed by the skill after a worker returned | at most 60 s | `skills/execute-plan-sdlc/SKILL.md`, `wave-runner-template.md` | ``, then `cp docs/cost-tiers.md site/src/content-source/cost-tiers.md`; names: `--timeout`; sync: `site/src/content-source/cost-tiers.md` byte copy
 

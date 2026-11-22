@@ -4,6 +4,9 @@ type: task
 title: Ship doc words the deferred Monitor rule like the spec (F-196)
 created: 2026-11-22
 links: [todo:ship-doc-deferred-monitor-wording]
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-e9-audit-follow-up-doc-fixes#2]
 ---
 
 # TK-026: Ship doc words the deferred Monitor rule like the spec (F-196)
