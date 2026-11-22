@@ -1,5 +1,7 @@
 # W-E5 -e programs to wrappers, batch B Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #137, f6aeee3
+
 **Commit:** `test(W-E5): tests - batch B -e programs to wrapper scripts`
 **Goal:** Move the last 80 inline `script_path: "-e"` programs of the exec suite (14 datasets) into readable wrapper scripts, with byte-identical output and unchanged assertions, so that no dataset keeps a `-e` case.
 **Architecture:** One table-driven wrapper per dataset under `tests/promptfoo/scripts/`, in the shape of the batch A wrapper `run-commit-prepare-case.js` (`--case <name>`, usage errors exit 2). Each converted case changes only `script_path` and `script_args` (fixture-guard also drops its `script_env` program). Ten independent dataset tasks run in one execute wave; a last task refreshes the coverage baseline.
@@ -165,14 +167,14 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-e-case-families-per-dataset-6..12. About 12 300 characters of programs, the largest of the batch, hence Complex. The six splice cases share one `run(name, args)` shape: one helper inside the wrapper is fine (it is one dataset's code, not a shared module).
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/plan-prepare-exec.yaml` prints `0`.
-- [ ] The `- description:` count (110) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root` and the assertion block stay byte-equal.
-- [ ] The six `plan-splice:` cases pass `--fixture {{project_root}}` and the wrapper reads `plan.md` and `merged.json` from that dir; temp dirs are removed as before.
-- [ ] `node tests/promptfoo/scripts/run-plan-prepare-case.js` and `node tests/promptfoo/scripts/run-plan-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `node tests/promptfoo/scripts/run-plan-prepare-case.js --case splice-a` (no `--fixture`) exits 2 with the message on stderr and nothing on stdout.
-- [ ] `git grep -l run-plan-prepare-case.js -- tests` lists only `tests/promptfoo/datasets/plan-prepare-exec.yaml` (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-(prepare|tier|splice|sdlc/(tasks-heading|lightweight-sentinels|critique-rounds|audit-w33|rerun-sentinels))"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/plan-prepare-exec.yaml` prints `0`.
+- [x] The `- description:` count (110) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root` and the assertion block stay byte-equal.
+- [x] The six `plan-splice:` cases pass `--fixture {{project_root}}` and the wrapper reads `plan.md` and `merged.json` from that dir; temp dirs are removed as before.
+- [x] `node tests/promptfoo/scripts/run-plan-prepare-case.js` and `node tests/promptfoo/scripts/run-plan-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `node tests/promptfoo/scripts/run-plan-prepare-case.js --case splice-a` (no `--fixture`) exits 2 with the message on stderr and nothing on stdout.
+- [x] `git grep -l run-plan-prepare-case.js -- tests` lists only `tests/promptfoo/datasets/plan-prepare-exec.yaml` (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-(prepare|tier|splice|sdlc/(tasks-heading|lightweight-sentinels|critique-rounds|audit-w33|rerun-sentinels))"` passes.
 
 **Contract:**
 - shape (code): the common wrapper contract. `--fixture` is required by the `splice-*` cases (`--fixture` absent or without a value exits 2, message on stderr, nothing on stdout); another case given `--fixture` ignores it. Splice case vars:
@@ -211,13 +213,13 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-e-case-families-per-dataset-13..15. The 13 PF11/PF14 programs are one program with three parameters (commit config `o`, header line `H`, tail `T`); the wrapper holds that program once plus a table of the parameter sets, which removes the copy-paste. The dataset is in the fast tier, so a mistake shows in pre-push.
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/plan-format-exec.yaml` prints `0`.
-- [ ] The `- description:` count (45) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root` and the assertion block stay byte-equal.
-- [ ] Each PF11/PF14 parameter set (subject pattern, header lines, tail) equals the old program's literal after unescaping (`\x20` to a space; `"x".repeat(48)` kept as code or expanded to the same string).
-- [ ] `node tests/promptfoo/scripts/run-plan-format-case.js` and `node tests/promptfoo/scripts/run-plan-format-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `git grep -l run-plan-format-case.js -- tests` lists only `tests/promptfoo/datasets/plan-format-exec.yaml` (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-format(-compact)?:? "` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/plan-format-exec.yaml` prints `0`.
+- [x] The `- description:` count (45) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root` and the assertion block stay byte-equal.
+- [x] Each PF11/PF14 parameter set (subject pattern, header lines, tail) equals the old program's literal after unescaping (`\x20` to a space; `"x".repeat(48)` kept as code or expanded to the same string).
+- [x] `node tests/promptfoo/scripts/run-plan-format-case.js` and `node tests/promptfoo/scripts/run-plan-format-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `git grep -l run-plan-format-case.js -- tests` lists only `tests/promptfoo/datasets/plan-format-exec.yaml` (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^plan-format(-compact)?:? "` passes.
 
 **Contract:**
 - shape (code): the common wrapper contract. The PF11/PF14 cases write `.sdlc/config.json` (`{commit: o}`) and `plans/c.md` (header line inserted after the title, tail appended) in `process.cwd()`, then `process.stdout.write` the stdout of `validate-plan-format.js --project-root <cwd> --file <cwd>/plans/c.md --json`.
@@ -256,12 +258,12 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-e-case-families-per-dataset-16..18. The review-cap cases build N dimension files in the fixture copy (`script_cwd`); the glob cases call a lib export in-process and need no fixture.
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/review-prepare-exec.yaml` prints `0`.
-- [ ] The `- description:` count (35) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
-- [ ] `node tests/promptfoo/scripts/run-review-prepare-case.js` and `node tests/promptfoo/scripts/run-review-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `git grep -l run-review-prepare-case.js -- tests` lists only `tests/promptfoo/datasets/review-prepare-exec.yaml` (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(dimension-effort|review-cap|review-dimension-globs|review-glob-brace):"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/review-prepare-exec.yaml` prints `0`.
+- [x] The `- description:` count (35) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
+- [x] `node tests/promptfoo/scripts/run-review-prepare-case.js` and `node tests/promptfoo/scripts/run-review-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `git grep -l run-review-prepare-case.js -- tests` lists only `tests/promptfoo/datasets/review-prepare-exec.yaml` (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(dimension-effort|review-cap|review-dimension-globs|review-glob-brace):"` passes.
 
 **Contract:**
 - shape (code): the common wrapper contract.
@@ -298,12 +300,12 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-e-case-families-per-dataset-19 and F-dataset-scanning-checks-baseline-8. `mutation-smoke.js` selects the `wave-committed` cases by description, so descriptions must not change.
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/state-gc-migrate-exec.yaml` prints `0`.
-- [ ] The `- description:` count (25) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
-- [ ] `node tests/promptfoo/scripts/run-state-gc-migrate-case.js` and `node tests/promptfoo/scripts/run-state-gc-migrate-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `git grep -l run-state-gc-migrate-case.js -- tests` lists only `tests/promptfoo/datasets/state-gc-migrate-exec.yaml` (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(state/execute\.js wave-committed|state-exact-branch:)"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/state-gc-migrate-exec.yaml` prints `0`.
+- [x] The `- description:` count (25) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
+- [x] `node tests/promptfoo/scripts/run-state-gc-migrate-case.js` and `node tests/promptfoo/scripts/run-state-gc-migrate-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `git grep -l run-state-gc-migrate-case.js -- tests` lists only `tests/promptfoo/datasets/state-gc-migrate-exec.yaml` (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(state/execute\.js wave-committed|state-exact-branch:)"` passes.
 
 **Contract:**
 - shape (code): the common wrapper contract; the state files are written under `process.cwd()` (the fixture copy), as before.
@@ -339,14 +341,14 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-e-case-families-per-dataset-20 and F-shared-scripts-and-comment-text-asserts-1, -2. Risk is Medium because the #9205 case must keep `spawn` with an open stdin pipe and print only on the child's `exit` event; with `spawnSync` the case would pass without testing the fix. The footer cases make their own temp dir and set `SDLC_LINKS_OFFLINE=1` in the child env; keep both.
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/pr-prepare-exec.yaml` prints `0`.
-- [ ] The `- description:` count (40) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; `script_stub_bin`, `script_cwd`, `project_root`, `script_env` and the assertion block stay byte-equal.
-- [ ] The `validate-body-open-stdin` case spawns `pr.js --validate-body --json` with `stdio: ['pipe','pipe','pipe']`, never writes or ends the child's stdin, prints `{code, stderr}` on the child's `exit` event, then destroys stdin.
-- [ ] `git grep -nF -- '-e case' tests/promptfoo/datasets/pr-prepare-exec.yaml` and `git grep -nF 'The program keeps' tests/promptfoo/datasets/pr-prepare-exec.yaml` print nothing.
-- [ ] `node tests/promptfoo/scripts/run-pr-prepare-case.js` and `node tests/promptfoo/scripts/run-pr-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `git grep -l run-pr-prepare-case.js -- tests` lists only `tests/promptfoo/datasets/pr-prepare-exec.yaml` (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^pr\.js --validate-body:"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/pr-prepare-exec.yaml` prints `0`.
+- [x] The `- description:` count (40) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; `script_stub_bin`, `script_cwd`, `project_root`, `script_env` and the assertion block stay byte-equal.
+- [x] The `validate-body-open-stdin` case spawns `pr.js --validate-body --json` with `stdio: ['pipe','pipe','pipe']`, never writes or ends the child's stdin, prints `{code, stderr}` on the child's `exit` event, then destroys stdin.
+- [x] `git grep -nF -- '-e case' tests/promptfoo/datasets/pr-prepare-exec.yaml` and `git grep -nF 'The program keeps' tests/promptfoo/datasets/pr-prepare-exec.yaml` print nothing.
+- [x] `node tests/promptfoo/scripts/run-pr-prepare-case.js` and `node tests/promptfoo/scripts/run-pr-prepare-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `git grep -l run-pr-prepare-case.js -- tests` lists only `tests/promptfoo/datasets/pr-prepare-exec.yaml` (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^pr\.js --validate-body:"` passes.
 
 **Contract:**
 - shape (code): the common wrapper contract. The `gh` stub is found by PATH (`script_stub_bin` prepends it), as before.
@@ -400,12 +402,12 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-e-case-families-per-dataset-21, -22. Both datasets belong to execute-plan-sdlc and are small, so one task owns both. The context-producer cases keep their `script_env` (it configures the producer, not the program).
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"'` prints `0` for both datasets.
-- [ ] The `- description:` counts (61 and 12) and the assertion-line counts are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root`, `script_env` and the assertion block stay byte-equal.
-- [ ] Each wrapper, run with no arguments and with `--case nope`, exits 2 with the message on stderr and nothing on stdout.
-- [ ] `git grep -l` of each wrapper name over `tests` lists only its own dataset (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-(prepare: \((sel9|sel10|sel11|#9241)\)|plan-sdlc/context-producer/wave-start:)"` passes.
+- [x] `grep -c 'script_path: "-e"'` prints `0` for both datasets.
+- [x] The `- description:` counts (61 and 12) and the assertion-line counts are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; `script_cwd`, `project_root`, `script_env` and the assertion block stay byte-equal.
+- [x] Each wrapper, run with no arguments and with `--case nope`, exits 2 with the message on stderr and nothing on stdout.
+- [x] `git grep -l` of each wrapper name over `tests` lists only its own dataset (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-(prepare: \((sel9|sel10|sel11|#9241)\)|plan-sdlc/context-producer/wave-start:)"` passes.
 
 **Contract:**
 - shape (code): the common wrapper contract, for both wrappers.
@@ -440,13 +442,13 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-e-case-families-per-dataset-23. The verify-completeness case (line 223) uses `{{project_root}}` without `script_cwd`, so it takes `--fixture {{project_root}}` (D3). `mutation-smoke.js` selects `wave-split: depth-ceiling` in this dataset, which is not an `-e` case and stays.
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/execute-plan-sdlc-overflow-exec.yaml` prints `0`.
-- [ ] The `- description:` count (44) and the assertion-line count of the dataset are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
-- [ ] `node tests/promptfoo/scripts/run-execute-overflow-case.js` and `node tests/promptfoo/scripts/run-execute-overflow-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
-- [ ] `node tests/promptfoo/scripts/run-execute-overflow-case.js --case verify-completeness-final` (no `--fixture`) exits 2 with the message on stderr and nothing on stdout.
-- [ ] `git grep -l run-execute-overflow-case.js -- tests` lists only `tests/promptfoo/datasets/execute-plan-sdlc-overflow-exec.yaml` (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-plan-sdlc/(wave-runner-overflow/(verify-completeness|spec-review|skill-text)|cleanup-verify): \(R94\)"` passes.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/execute-plan-sdlc-overflow-exec.yaml` prints `0`.
+- [x] The `- description:` count (44) and the assertion-line count of the dataset are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
+- [x] `node tests/promptfoo/scripts/run-execute-overflow-case.js` and `node tests/promptfoo/scripts/run-execute-overflow-case.js --case nope` each exit 2 with the message on stderr and nothing on stdout.
+- [x] `node tests/promptfoo/scripts/run-execute-overflow-case.js --case verify-completeness-final` (no `--fixture`) exits 2 with the message on stderr and nothing on stdout.
+- [x] `git grep -l run-execute-overflow-case.js -- tests` lists only `tests/promptfoo/datasets/execute-plan-sdlc-overflow-exec.yaml` (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^execute-plan-sdlc/(wave-runner-overflow/(verify-completeness|spec-review|skill-text)|cleanup-verify): \(R94\)"` passes.
 
 **Contract:**
 - shape (code): the common wrapper contract; `--fixture` is required by `verify-completeness-final` only (`--fixture` absent or without a value exits 2, message on stderr, nothing on stdout).
@@ -477,13 +479,13 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-e-case-families-per-dataset-24, -27 and F-dataset-scanning-checks-baseline-6. The review-consolidate case takes `--fixture {{project_root}}` (D3).
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"'` prints `0` for both datasets.
-- [ ] The `- description:` counts (47 and 12) and the assertion-line counts are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
-- [ ] Each wrapper, run with no arguments and with `--case nope`, exits 2 with the message on stderr and nothing on stdout.
-- [ ] `node tests/promptfoo/scripts/run-review-consolidate-case.js --case comment-copy` (no `--fixture`) exits 2 with the message on stderr and nothing on stdout.
-- [ ] `git grep -l` of each wrapper name over `tests` lists only its own dataset (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(mcp-failure: record-occurrence|jira-sdlc/skill-text A6 C16|review-consolidate: comment copy)"` passes.
+- [x] `grep -c 'script_path: "-e"'` prints `0` for both datasets.
+- [x] The `- description:` counts (47 and 12) and the assertion-line counts are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
+- [x] Each wrapper, run with no arguments and with `--case nope`, exits 2 with the message on stderr and nothing on stdout.
+- [x] `node tests/promptfoo/scripts/run-review-consolidate-case.js --case comment-copy` (no `--fixture`) exits 2 with the message on stderr and nothing on stdout.
+- [x] `git grep -l` of each wrapper name over `tests` lists only its own dataset (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(mcp-failure: record-occurrence|jira-sdlc/skill-text A6 C16|review-consolidate: comment copy)"` passes.
 
 **Contract:**
 - shape (code): the common wrapper contract; `--fixture` is required by `comment-copy` (`--fixture` absent or without a value exits 2, message on stderr, nothing on stdout).
@@ -514,12 +516,12 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-e-case-families-per-dataset-25, -26 and F-special-e-cases-runner-guards-7 (the args-rule program uses absolute `{{repo_root}}` paths, not the cwd; verify once while porting). sdlc-script-resolution is in the fast tier. The session-map case writes `map.json` into the fixture copy (`script_cwd`), as before.
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"'` prints `0` for both datasets.
-- [ ] The `- description:` counts (15 and 5) and the assertion-line counts are unchanged, and no description text changes.
-- [ ] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
-- [ ] Each wrapper, run with no arguments and with `--case nope`, exits 2 with the message on stderr and nothing on stdout.
-- [ ] `git grep -l` of each wrapper name over `tests` lists only its own dataset (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(script-resolution: \((args-rule|R-subagent-brief)\)|session-map: \(e\))"` passes.
+- [x] `grep -c 'script_path: "-e"'` prints `0` for both datasets.
+- [x] The `- description:` counts (15 and 5) and the assertion-line counts are unchanged, and no description text changes.
+- [x] For each moved case only `script_path` and `script_args` change; every other var and the assertion block stay byte-equal.
+- [x] Each wrapper, run with no arguments and with `--case nope`, exits 2 with the message on stderr and nothing on stdout.
+- [x] `git grep -l` of each wrapper name over `tests` lists only its own dataset (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(script-resolution: \((args-rule|R-subagent-brief)\)|session-map: \(e\))"` passes.
 
 **Contract:**
 - shape (code): the common wrapper contract.
@@ -553,12 +555,12 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** Cites F-special-e-cases-runner-guards-1..16 and F-shared-scripts-and-comment-text-asserts-3. Risk is Medium because these cases test the runner itself (PATH set from `script_stub_bin`, HOME set from `script_home`, the temp cwd), so a wrapper that bypasses the runner's environment would still print plausible output while testing nothing.
 
 **Acceptance criteria:**
-- [ ] `grep -c 'script_path: "-e"'` prints `0` for script-runner-stub-bin-exec.yaml and fixture-guard-exec.yaml, and `git grep -n FAST_TIER_GUARD -- tests ':!tests/promptfoo/scripts/run-fast-tier-guard.js'` prints nothing.
-- [ ] The `- description:` counts (14 and 12) and the assertion-line counts are unchanged, and no description text changes; ship-stepper-flows-exec.yaml changes in its one comment line only.
-- [ ] For each moved case only `script_path` and `script_args` change (fixture-guard: also the removed `script_env` block); `script_stub_bin`, `script_home` and the assertion blocks stay byte-equal.
-- [ ] `node tests/promptfoo/scripts/run-script-runner-case.js` and `node tests/promptfoo/scripts/run-script-runner-case.js --case nope` each exit 2, and `node tests/promptfoo/scripts/run-fast-tier-guard.js --bad` exits 2, each with the message on stderr and nothing on stdout.
-- [ ] `git grep -l` of each wrapper name over `tests` lists only its own dataset (and the wrapper itself).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(script_stub_bin: a relative path|script-runner: an? |fast-tier: every|ship-lean: \(pr testing\))"` passes.
+- [x] `grep -c 'script_path: "-e"'` prints `0` for script-runner-stub-bin-exec.yaml and fixture-guard-exec.yaml, and `git grep -n FAST_TIER_GUARD -- tests ':!tests/promptfoo/scripts/run-fast-tier-guard.js'` prints nothing.
+- [x] The `- description:` counts (14 and 12) and the assertion-line counts are unchanged, and no description text changes; ship-stepper-flows-exec.yaml changes in its one comment line only.
+- [x] For each moved case only `script_path` and `script_args` change (fixture-guard: also the removed `script_env` block); `script_stub_bin`, `script_home` and the assertion blocks stay byte-equal.
+- [x] `node tests/promptfoo/scripts/run-script-runner-case.js` and `node tests/promptfoo/scripts/run-script-runner-case.js --case nope` each exit 2, and `node tests/promptfoo/scripts/run-fast-tier-guard.js --bad` exits 2, each with the message on stderr and nothing on stdout.
+- [x] `git grep -l` of each wrapper name over `tests` lists only its own dataset (and the wrapper itself).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^(script_stub_bin: a relative path|script-runner: an? |fast-tier: every|ship-lean: \(pr testing\))"` passes.
 
 **Contract:**
 - shape (code): `run-script-runner-case.js` follows the common wrapper contract, with these case bodies:
@@ -613,10 +615,10 @@ Every task's acceptance includes `git grep -l <wrapper file name> -- tests` list
 **Notes:** All ten dataset tasks add flag keys to this one file, so one task after them owns it (F-43, F-dataset-scanning-checks-baseline-2, -3). The baseline is in sync with a live scan at HEAD, so the `--update` diff must hold only the new `run-*-case.js --case` and `--fixture` keys (run-fast-tier-guard.js has no `script_args`, so it adds none); an unrelated key change is a stop. Case and assertion totals must stay unchanged.
 
 **Acceptance criteria:**
-- [ ] Before the update, `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports no drop (`"drops":[]`); if a drop appears, stop and report it instead of updating.
-- [ ] After `node tests/promptfoo/scripts/check-spec-id-coverage.js --update`, the check prints `"ok":true` with `datasets` 86, `cases` 1717 and `asserts` 2775 (unchanged against HEAD 6b832b7), and `git diff tests/promptfoo/baselines/spec-id-coverage.json` shows only added or recounted keys, none removed.
-- [ ] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/*.yaml | awk -F: '{s+=$2} END {print s}'` prints `0`.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^spec-id-coverage"` passes.
+- [x] Before the update, `node tests/promptfoo/scripts/check-spec-id-coverage.js` reports no drop (`"drops":[]`); if a drop appears, stop and report it instead of updating.
+- [x] After `node tests/promptfoo/scripts/check-spec-id-coverage.js --update`, the check prints `"ok":true` with `datasets` 86, `cases` 1717 and `asserts` 2775 (unchanged against HEAD 6b832b7), and `git diff tests/promptfoo/baselines/spec-id-coverage.json` shows only added or recounted keys, none removed.
+- [x] `grep -c 'script_path: "-e"' tests/promptfoo/datasets/*.yaml | awk -F: '{s+=$2} END {print s}'` prints `0`.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^spec-id-coverage"` passes.
 
 **Contract:** shape (code): baseline JSON regenerated by `check-spec-id-coverage.js --update`; names: `tests/promptfoo/baselines/spec-id-coverage.json` `flags` keys such as `run-plan-prepare-case.js --case` and `run-plan-prepare-case.js --fixture`; sync: Tasks 1-10
 

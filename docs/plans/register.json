@@ -155,13 +155,14 @@
       "key": "W-E5",
       "aliases": ["E5"],
       "title": "`-e` programs to wrappers, batch B",
-      "status": "In progress",
+      "status": "Done",
       "dependsOn": ["W-E4"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-E5", "role": "brief" },
-        { "path": "docs/plans/2026-11-22-w-e5-e-programs-to-wrappers-batch-b.md", "role": "executable" }
-      ]
+        { "path": "docs/archived/plans/2026-11-22-w-e5-e-programs-to-wrappers-batch-b.md", "role": "executable" }
+      ],
+      "closedBy": "PR #137, f6aeee3"
     },
     {
       "key": "W-END",
