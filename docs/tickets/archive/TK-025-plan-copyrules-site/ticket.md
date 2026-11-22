@@ -3,6 +3,9 @@ id: TK-025
 type: task
 title: Plan copy rules require the site byte copies (F-179)
 created: 2026-11-22
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-e8-ship-skill-tool-handling-and-copy#4]
 ---
 
 # TK-025: Plan copy rules require the site byte copies (F-179)
