@@ -443,8 +443,8 @@
 
 - description: "plan-prepare: invalid --quality exits 1 with an errors entry"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({exitCode:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--quality","bogus"],{encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case quality-invalid"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-prepare-github-remote"
   assert:
@@ -490,8 +490,8 @@
 
 - description: "plan-prepare: (quality-alias) deprecated --quality full and minimal print exactly one warning each"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>console.log(JSON.stringify(["full","minimal"].map((v)=>((r)=>({v,exitCode:r.status,warnings:r.stderr.split("\n").filter((l)=>l.indexOf("Warning:")===0),flags:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")).flags}))(cp.spawnSync("node",[js,"--quality",v],{encoding:"utf8"}))))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case quality-alias"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-prepare-github-remote"
   assert:
@@ -506,8 +506,8 @@
 
 - description: "plan-prepare: (lightweight) flag resolves and warns about --quality"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({exitCode:r.status,warnings:r.stderr.split("\n").filter((l)=>l.indexOf("Warning:")===0),flags:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")).flags})))(cp.spawnSync("node",[js,"--lightweight","--quality","speed"],{encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case lightweight-flag"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-prepare-github-remote"
   assert:
@@ -559,40 +559,40 @@
 
 - description: "plan-tier: (f) files-only breach"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>console.log(JSON.stringify(t)))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-critique.js").tierCheck(Array.from({length:2},(_,i)=>"###\x20Task\x20"+(i+1)+":\x20T\n\n**Complexity:**\x20Standard\n\n**Files:**\n"+Array.from({length:i?4:5},(_,j)=>"-\x20Modify:\x20`p"+i+"_"+j+".js`").join("\n")+"\n").join("\n")))'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case tier-f"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.tier === 'full' && JSON.stringify(r.breaches) === JSON.stringify([{ bound: 'files', value: 9, max: 8 }]) && r.review.route === 'single'"
 
 - description: "plan-tier: (g) six tasks stay lightweight"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>console.log(JSON.stringify(t)))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-critique.js").tierCheck(Array.from({length:6},(_,i)=>"###\x20Task\x20"+(i+1)+":\x20T\n\n**Complexity:**\x20Standard\n\n**Files:**\n-\x20Modify:\x20`p"+i+".js`\n").join("\n")))'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case tier-g"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.tier === 'lightweight' && r.breaches.length === 0 && r.review.route === 'single'"
 
 - description: "plan-tier: (h) seven tasks breach only the tasks bound"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>console.log(JSON.stringify(t)))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-critique.js").tierCheck(Array.from({length:7},(_,i)=>"###\x20Task\x20"+(i+1)+":\x20T\n\n**Complexity:**\x20Standard\n\n**Files:**\n-\x20Modify:\x20`p"+i+".js`\n").join("\n")))'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case tier-h"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.tier === 'full' && JSON.stringify(r.breaches) === JSON.stringify([{ bound: 'tasks', value: 7, max: 6 }]) && r.review.route === 'single'"
 
 - description: "plan-tier: (i) marked entries are not counted"
   vars:
-    script_path: "-e"
-    script_args: '((m,n)=>((t)=>console.log(JSON.stringify(t)))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-critique.js").tierCheck(Array.from({length:2},(_,i)=>"###\x20Task\x20"+(i+1)+":\x20T\n\n**Complexity:**\x20Standard\n\n**Files:**\n"+Array.from({length:3},(_,j)=>"-\x20Modify:\x20`e"+i+"_"+j+".js`").concat(Array.from({length:i?2:3},(_,j)=>"-\x20Modify:\x20`m"+i+"_"+j+".js`"+(j%2?n:m))).join("\n")+"\n").join("\n"))))("\x20—\x20check\x20only,\x20no\x20change\x20expected\x20(copy\x20rule)","\x20—\x20byte\x20copy")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case tier-i"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output); r.counts.files === 6 && r.tier === 'lightweight'"
 
 - description: "plan-tier: (e) usage errors exit 1"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>console.log(JSON.stringify([["tier"],["tier","--bogus","x"]].map((a)=>cp.spawnSync("node",[js,...a],{encoding:"utf8"}).status))))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case tier-e"
   assert:
     - type: javascript
       value: "JSON.stringify(JSON.parse(output)) === JSON.stringify([1, 1])"
@@ -654,8 +654,8 @@
 
 - description: "plan-prepare T4f: commit carries the project commit config (P23)"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,js)=>((d)=>(cp.spawnSync("git",["init","-q"],{cwd:d}),fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({commit:{subjectPattern:"^fix:\x20.+$",allowedTypes:["fix"]}})),((r)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))(JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))))(cp.spawnSync("node",[js,"--output-file"],{cwd:d,encoding:"utf8"}))))(fs.mkdtempSync(os.tmpdir()+"/plan-commit-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case t4f-commit-config"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-prepare-github-remote"
   assert:
@@ -1192,8 +1192,8 @@
 
 - description: "plan-sdlc/tasks-heading: plan-format-reference.md and SKILL.md name the literal ## Tasks heading that PF10 checks (R61, #9405)"
   vars:
-    script_path: "-e"
-    script_args: '((r)=>((f,s)=>((c)=>console.log(JSON.stringify({order:c(f,"8.\x20**Tasks**\x20—\x20the\x20literal\x20\x60##\x20Tasks\x60\x20heading,\x20then\x20the\x20\x60###\x20Task\x20N\x60\x20blocks\x20(required;\x20PF10\x20checks\x20the\x20heading)"),perTask:c(f,"Every\x20\x60###\x20Task\x20N\x60\x20block\x20goes\x20under\x20the\x20literal\x20\x60##\x20Tasks\x60\x20heading;\x20PF10\x20checks\x20the\x20heading."),example:c(f,"\n##\x20Tasks\n\n###\x20Task\x201:\x20JWT\x20utility\x20module"),skill:c(s,"the\x20literal\x20\x60##\x20Tasks\x60\x20heading\x20(PF10\x20checks\x20it)")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/plan-format-reference.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8")))(require("fs").readFileSync)'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case tasks-heading"
   assert:
     - type: javascript
       value: |
@@ -1203,8 +1203,8 @@
 
 - description: "plan-sdlc/lightweight-sentinels: SKILL.md and review-loop.md read the routing fields (A5, R73, R74, R36)"
   vars:
-    script_path: "-e"
-    script_args: '((r)=>((s,l)=>((c)=>console.log(JSON.stringify({tier:c(s,"plan.js\x22\x20tier\x20--plan"),final:c(s,"--final\x20--template"),noApply:c(s,"PF9\x20and\x20PF10\x20do\x20not\x20apply"),recheck:c(s,"recheckLanes"),lightweight:c(s,"flags.lightweight\x20===\x20true"),ge5:c(l,"≥5\x20tasks"),lt5:c(l,"\x3c5\x20tasks"),lenses:c(l,"dispatch.lenses")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case lightweight-sentinels"
   assert:
     - type: javascript
       value: |
@@ -1214,8 +1214,8 @@
 
 - description: "plan-sdlc/critique-rounds: SKILL.md and review-loop.md dispatch critiqueDispatch per round, keep the no-agent-tool fallback and splice with plan.js (R75, R67 (f))"
   vars:
-    script_path: "-e"
-    script_args: '((r)=>((s,l)=>((c)=>console.log(JSON.stringify({skillDispatch:c(s,"critiqueDispatch"),loopDispatch:c(l,"critiqueDispatch"),skillFallback:c(s,"no-agent-tool"),loopFallback:c(l,"no-agent-tool"),skillSplice:c(s,"plan.js\x22\x20splice"),loopSplice:c(l,"plan.js\x22\x20splice"),skillLatest:c(s,"splice\x20--plan\x20\x22\x3cPLAN_PATH\x3e\x22\x20--critique-dir"),loopLatest:c(l,"splice\x20--plan\x20\x22\x3cPLAN_PATH\x3e\x22\x20--critique-dir")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case critique-rounds"
   assert:
     - type: javascript
       value: |
@@ -1225,8 +1225,8 @@
 
 - description: "plan-sdlc/audit-w33: Step 7 pointer condition, review.lenses and the non-zero-exit lens rule (R41, R36, E9, #9435, #9437)"
   vars:
-    script_path: "-e"
-    script_args: '((r)=>((s,o,l)=>((c)=>console.log(JSON.stringify({pointer:c(s,"holds\x20one\x20of\x20the\x20three\x20verdict\x20labels\x20below\x20(Gate\x20B\x20ran\x20in\x20Step\x205)"),nonMaterial:c(o,"\x60review.lenses\x60\x20(the\x20review\x20route\x20of\x20the\x20plan\x20as\x20it\x20is\x20now,\x20R36)\x20plus\x20the\x20lanes"),nonZero:c(o,"plus\x20lens\x20\x60all\x60\x20when\x20\x60DISPATCH\x60\x20names\x20\x60all\x60"),loopReview:c(l,"and\x20from\x20its\x20\x60review.lenses\x60\x20when\x20they\x20were\x20not"),loopAll:c(l,"\x60dispatch.lenses\x60\x20to\x20\x60[\x22all\x22]\x60\x20when\x20this\x20iteration\x20dispatched\x20lens\x20\x60all\x60"),old:c(o,"dispatch\x20the\x20lenses\x20of\x20\x60DISPATCH\x60\x20only")})))((t,x)=>t.split(x).length-1))(r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/SKILL.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/agents/plan-critique-orchestrator.md","utf8"),r("{{repo_root}}/plugins/sdlc-utilities/skills/plan-sdlc/review-loop.md","utf8")))(require("fs").readFileSync)'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case audit-w33"
   assert:
     - type: javascript
       value: |
@@ -1450,9 +1450,9 @@
 
 - description: "plan-splice: (a) places and replaces sections"
   vars:
-    script_path: "-e"
     project_root: "file://fixtures-fs/plan-splice"
-    script_args: '((cp,fs,d,js,t)=>(fs.copyFileSync(d+"/plan.md",t+"/plan.md"),((r)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({status:r.status,err:r.stderr,out:r.stdout?JSON.parse(r.stdout):null,text:fs.readFileSync(t+"/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/plan.md","--merged",d+"/merged.json"],{encoding:"utf8"}))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case splice-a --fixture {{project_root}}"
   assert:
     - type: javascript
       value: |
@@ -1474,9 +1474,9 @@
 
 - description: "plan-splice: (b) idempotent"
   vars:
-    script_path: "-e"
     project_root: "file://fixtures-fs/plan-splice"
-    script_args: '((cp,fs,d,js,t)=>(fs.copyFileSync(d+"/plan.md",t+"/plan.md"),((run)=>((f)=>((s)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify({first:f,second:s}))))(run()))(run()))(()=>((r)=>({status:r.status,out:r.stdout?JSON.parse(r.stdout):null,text:fs.readFileSync(t+"/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/plan.md","--merged",d+"/merged.json"],{encoding:"utf8"})))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case splice-b --fixture {{project_root}}"
   assert:
     - type: javascript
       value: |
@@ -1488,9 +1488,9 @@
 
 - description: "plan-splice: (c) skips absent data"
   vars:
-    script_path: "-e"
     project_root: "file://fixtures-fs/plan-splice"
-    script_args: '((cp,fs,d,js,t)=>((b)=>((run)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({noGuardrails:run("a",b,["--no-guardrails"]),noFindings:run("b",{...b,g17Findings:{findings:[],suppressed_count:0,rendering:""}},[]),noScorecard:run("c",{...b,scorecard:null},[])}))((n,m,x)=>(fs.copyFileSync(d+"/plan.md",t+"/"+n+".md"),fs.writeFileSync(t+"/"+n+".json",JSON.stringify(m)),((r)=>({status:r.status,out:r.stdout?JSON.parse(r.stdout):null,text:fs.readFileSync(t+"/"+n+".md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/"+n+".md","--merged",t+"/"+n+".json",...x],{encoding:"utf8"})))))(JSON.parse(fs.readFileSync(d+"/merged.json","utf8"))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case splice-c --fixture {{project_root}}"
   assert:
     - type: javascript
       value: |
@@ -1506,9 +1506,9 @@
 
 - description: "plan-splice: (d) --critique-dir writes the newest guardrail table only (R77)"
   vars:
-    script_path: "-e"
     project_root: "file://fixtures-fs/plan-splice-latest"
-    script_args: '((cp,fs,d,js,t)=>((G)=>(fs.writeFileSync(t+"/plan.md",fs.readFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md","utf8").replace("##"+String.fromCharCode(32)+"Deviations",G+"\n\n##"+String.fromCharCode(32)+"Deviations")),((r)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({status:r.status,err:r.stderr,out:r.stdout?JSON.parse(r.stdout):null,text:fs.readFileSync(t+"/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/plan.md","--critique-dir",d],{encoding:"utf8"}))))("##"+String.fromCharCode(32)+"Guardrail"+String.fromCharCode(32)+"Compliance\n\n|g|s|st|r|\n|---|---|---|---|\n|x|warning|FAIL|old|"))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case splice-d --fixture {{project_root}}"
   assert:
     - type: javascript
       value: |
@@ -1528,9 +1528,9 @@
 
 - description: "plan-splice: (e) --critique-dir usage and empty cases (R77)"
   vars:
-    script_path: "-e"
     project_root: "file://fixtures-fs/plan-splice-latest"
-    script_args: '((cp,fs,d,js,t)=>(fs.mkdirSync(t+"/nulldir/iter-0",{recursive:true}),fs.writeFileSync(t+"/nulldir/iter-0/merged.json","{\"guardrailCompliancePayload\":null}"),((run)=>((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({both:run("a",["--merged","{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/merged.json","--critique-dir",d]),neither:run("b",[]),missing:run("c",["--critique-dir",t+"/nope"]),nullOnly:run("d",["--critique-dir",t+"/nulldir"]),noG:run("e",["--critique-dir",d,"--no-guardrails"]),noGMissing:run("f",["--critique-dir",t+"/nope","--no-guardrails"])}))((n,x)=>(fs.copyFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md",t+"/"+n+".md"),((r)=>({status:r.status,err:r.stderr,stdout:r.stdout,out:r.stdout?JSON.parse(r.stdout):null,same:fs.readFileSync(t+"/"+n+".md","utf8")===fs.readFileSync("{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md","utf8")}))(cp.spawnSync("node",[js,"splice","--plan",t+"/"+n+".md",...x],{encoding:"utf8"}))))))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"))'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case splice-e --fixture {{project_root}}"
   assert:
     - type: javascript
       value: |
@@ -1546,9 +1546,9 @@
 
 - description: "plan-splice: (f) --critique-dir fails closed on a bad newest merged.json, skips a non-directory iter entry (R77)"
   vars:
-    script_path: "-e"
     project_root: "file://fixtures-fs/plan-splice-latest"
-    script_args: '((cp,fs,d,js,t,P)=>((orig)=>((mk,run)=>((a,b,c)=>(fs.writeFileSync(a+"/iter-2/merged.json","{x"),fs.rmSync(b+"/iter-2/merged.json"),fs.mkdirSync(b+"/iter-2/merged.json"),fs.writeFileSync(c+"/iter-9","x"),((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({invalid:run("a",a),unreadable:run("b",b),notDir:run("c",c)})))(mk("a"),mk("b"),mk("c")))((n)=>(fs.cpSync(d,t+"/"+n,{recursive:true}),t+"/"+n),(n,cd)=>(fs.copyFileSync(P,t+"/"+n+".md"),((r)=>({status:r.status,err:r.stderr,stdout:r.stdout,out:r.stdout?JSON.parse(r.stdout):null,same:fs.readFileSync(t+"/"+n+".md","utf8")===orig}))(cp.spawnSync("node",[js,"splice","--plan",t+"/"+n+".md","--critique-dir",cd],{encoding:"utf8"})))))(fs.readFileSync(P,"utf8")))(require("child_process"),require("fs"),"{{project_root}}","{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js",require("fs").mkdtempSync(require("os").tmpdir()+"/plan-splice-"),"{{repo_root}}/tests/promptfoo/fixtures-fs/plan-splice/plan.md")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case splice-f --fixture {{project_root}}"
   assert:
     - type: javascript
       value: |
@@ -1561,8 +1561,8 @@
 
 - description: "plan-prepare: (lightweight) no explore pack (A5, P8)"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({exitCode:r.status,explorePack:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")).explorePack})))(cp.spawnSync("node",[js,"--output-file","--lightweight"],{encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/plan.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case lightweight-no-explore"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/plan-prepare-github-remote"
   assert:
@@ -1584,8 +1584,8 @@
 
 - description: "plan-sdlc/rerun-sentinels: orchestrator and review-loop name R76"
   vars:
-    script_path: "-e"
-    script_args: '((fs,root)=>console.log(JSON.stringify({o:fs.readFileSync(root+"/agents/plan-critique-orchestrator.md","utf8"),l:fs.readFileSync(root+"/skills/plan-sdlc/review-loop.md","utf8")})))(require("fs"),"{{repo_root}}/plugins/sdlc-utilities")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"
+    script_args: "--case rerun-sentinels"
   assert:
     - type: javascript
       value: |

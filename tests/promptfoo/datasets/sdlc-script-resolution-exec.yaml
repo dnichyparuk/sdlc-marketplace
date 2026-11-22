@@ -5,8 +5,8 @@
 
 - description: "script-resolution: (args-rule) EXPLICIT_FLAG_SKILLS lists the six request-text skills and the SKILL.md sentence names them"
   vars:
-    script_path: "-e"
-    script_args: '((r)=>((j,m,s)=>console.log(JSON.stringify({list:j&&j[1],sentence:s})))(r(".claude/skills/validate-plugin-consistency/check-consistency.js").match(/EXPLICIT_FLAG_SKILLS\x20=\x20\[([^\]]*)\]/),0,["error-report-sdlc","github-sdlc","harden-sdlc","jira-sdlc","plan-sdlc","received-review-sdlc"].every((n)=>r(".claude/skills/validate-plugin-consistency/SKILL.md").includes("`"+n+"`"))))((p)=>require("fs").readFileSync("{{repo_root}}/"+p,"utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-script-resolution-case.js"
+    script_args: "--case args-rule-skills"
   assert:
     - type: javascript
       value: |
@@ -195,8 +195,8 @@
 
 - description: "script-resolution: (R-subagent-brief) ship dispatch prompt and six step agents carry the plugin root line"
   vars:
-    script_path: "-e"
-    script_args: '((r=(p)=>require("fs").readFileSync("{{repo_root}}/"+p,"utf8"),c=(t,n)=>t.split(n).length-1,S="never~derive~the~plugin~root~from~the~skill\x27s~base~directory~(ship-sdlc~R-subagent-brief).".split("~").join("\x20"),T="the~`sdlc~plugin~root:`~line~the~skill~names,~not~one~of~the~other~occurrences~the~skill~tells~you~to~ignore".split("~").join("\x20"))=>console.log(JSON.stringify({s:c(r("plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md"),"\\nsdlc\x20plugin\x20root:\x20<PLUGIN_ROOT>\\n"),a:["commit","review","received-review","version","pr","execute"].map((n)=>c(r("plugins/sdlc-utilities/agents/ship-step-"+n+".md"),S)),b:["commit","review","received-review","version","pr","execute"].map((n)=>c(r("plugins/sdlc-utilities/agents/ship-step-"+n+".md"),T))})))()'
+    script_path: "repo://tests/promptfoo/scripts/run-script-resolution-case.js"
+    script_args: "--case subagent-brief-root-line"
   assert:
     - type: javascript
       value: |

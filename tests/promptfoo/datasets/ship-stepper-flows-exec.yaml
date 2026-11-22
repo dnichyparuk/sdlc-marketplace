@@ -1599,7 +1599,7 @@
         const got = o.steps.find(s => s.name === 'review').args;
         return /^--committed --auto --plan "[^"]*plan-3-tasks\.md"$/.test(got) ? true : `FAIL: ${got}`;
 
-# R89: the latest successful execute summary reaches pr as --testing-file. The -e script seeds a ledger whose
+# R89: the latest successful execute summary reaches pr as --testing-file. The wrapper case seeds a ledger whose
 # steps before pr are completed, records an execute row, then runs `ship.js --after confirm_pipeline`.
 - description: "ship-lean: (pr testing) a the execute summary is passed to pr as --testing-file"
   vars:

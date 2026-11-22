@@ -326,8 +326,8 @@
 
 - description: "plan-format PF11: valid header subject passes"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Commit:**\x20`docs(#9242):\x20plan-sdlc\x20-\x20probe\x20subject`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-valid"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -336,8 +336,8 @@
 
 - description: "plan-format PF11: a 73-character subject fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Commit:**\x20`docs(#9242):\x20plan-sdlc\x20-\x20"+"x".repeat(48)+"`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-73-chars"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -346,8 +346,8 @@
 
 - description: "plan-format PF11: a subject with $ fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Commit:**\x20`docs(#9242):\x20plan-sdlc\x20-\x20cost\x20$5`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-dollar"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -356,8 +356,8 @@
 
 - description: "plan-format PF11: a subject outside commit.subjectPattern fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Commit:**\x20`plan-sdlc\x20probe\x20subject`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-pattern"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -366,8 +366,8 @@
 
 - description: "plan-format PF11: two header fields fail"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Commit:**\x20`docs(#9242):\x20plan-sdlc\x20-\x20a`\n**Commit:**\x20`docs(#9242):\x20plan-sdlc\x20-\x20b`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-two-fields"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -376,8 +376,8 @@
 
 - description: "plan-format PF11: a field without backticks fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Commit:**\x20docs(#9242):\x20plan-sdlc\x20-\x20probe","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-no-backticks"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -386,8 +386,8 @@
 
 - description: "plan-format PF11: a **Commit:** line below the header is not read"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"","\n**Commit:**\x20not\x20a\x20subject\n")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-below-header"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -396,8 +396,8 @@
 
 - description: "plan-format PF11: a subject with an inner backtick fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Commit:**\x20`docs(#9242):\x20plan-sdlc\x20-\x20a`b`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-inner-backtick"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -406,8 +406,8 @@
 
 - description: "plan-format PF11: a subject with a double quote fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Commit:**\x20`docs(#9242):\x20plan-sdlc\x20-\x20say\x20\x22hi\x22`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-double-quote"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -416,8 +416,8 @@
 
 - description: "plan-format PF11: a subject with a backslash fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Commit:**\x20`docs(#9242):\x20plan-sdlc\x20-\x20a\\b`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf11-backslash"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -426,8 +426,8 @@
 
 - description: "plan-format: PF14 valid Fix commit subject passes"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Fix\x20commit:**\x20`fix(#9242):\x20plan-sdlc\x20-\x20probe\x20subject`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf14-valid"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -436,8 +436,8 @@
 
 - description: "plan-format: PF14 a 73-character Fix commit subject fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Fix\x20commit:**\x20`docs(#9242):\x20plan-sdlc\x20-\x20"+"x".repeat(48)+"`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf14-73-chars"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -446,8 +446,8 @@
 
 - description: "plan-format: PF14 a duplicate Fix commit field fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,o,H,T)=>((d)=>(fs.mkdirSync(path.join(d,".sdlc"),{recursive:true}),fs.writeFileSync(path.join(d,".sdlc","config.json"),JSON.stringify({commit:o})),((t)=>fs.writeFileSync(path.join(d,"plans","c.md"),[t[0],"",H].concat(t.slice(1)).join("\n")+T))(fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").split("\n")),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(d,"plans","c.md"),"--json"],{encoding:"utf8"}).stdout)))(process.cwd()))(require("child_process"),require("fs"),require("path"),{subjectPattern:"^(feat|fix|refactor|chore|docs|test|ci)\\(#\\d+\\):\x20.+\x20-\x20.+$"},"**Fix\x20commit:**\x20`fix(#9242):\x20plan-sdlc\x20-\x20a`\n**Fix\x20commit:**\x20`fix(#9242):\x20plan-sdlc\x20-\x20b`","")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf14-duplicate"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-valid-plan"
   assert:
@@ -507,8 +507,8 @@
 
 - description: "plan-format: PF13 delete entry of a missing file passes"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,os,n)=>((d,t)=>(fs.writeFileSync(path.join(t,"c.md"),fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").replace("mention\x20the\x20helper",n)),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(t,"c.md"),"--json","--root",d],{encoding:"utf8"}).stdout),fs.rmSync(t,{recursive:true})))(process.cwd(),fs.mkdtempSync(path.join(os.tmpdir(),"pf13-"))))(require("child_process"),require("fs"),require("path"),require("os"),"delete")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf13-delete-missing"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
   assert:
@@ -517,8 +517,8 @@
 
 - description: "plan-format: PF13 deleted entry of a missing file passes with --final"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,os,n)=>((d,t)=>(fs.writeFileSync(path.join(t,"c.md"),fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").replace("mention\x20the\x20helper",n)),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(t,"c.md"),"--json","--root",d,"--final"],{encoding:"utf8"}).stdout),fs.rmSync(t,{recursive:true})))(process.cwd(),fs.mkdtempSync(path.join(os.tmpdir(),"pf13-"))))(require("child_process"),require("fs"),require("path"),require("os"),"deleted")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf13-deleted-final"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
   assert:
@@ -527,8 +527,8 @@
 
 - description: "plan-format: PF13 non-delete note of a missing file fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,os,n)=>((d,t)=>(fs.writeFileSync(path.join(t,"c.md"),fs.readFileSync(path.join(d,"plans","test-plan.md"),"utf8").replace("mention\x20the\x20helper",n)),process.stdout.write(cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/ci/validate-plan-format.js","--project-root",d,"--file",path.join(t,"c.md"),"--json","--root",d],{encoding:"utf8"}).stdout),fs.rmSync(t,{recursive:true})))(process.cwd(),fs.mkdtempSync(path.join(os.tmpdir(),"pf13-"))))(require("child_process"),require("fs"),require("path"),require("os"),"update\x20the\x20delete\x20helper")'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf13-note-missing"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
   assert:
@@ -576,8 +576,8 @@
 
 - description: "plan-format-compact: (b) plan-parse sees every task"
   vars:
-    script_path: "-e"
-    script_args: '((p,r)=>((t)=>console.log(JSON.stringify({ids:p.parsePlan(t).tasks.map(x=>x.id||x.number),nums:p.extractTasks(t).map(x=>x.number),compact:p.parsePlan(t).tasks.slice(1).every(x=>x.contract&&x.notes)})))(r("{{repo_root}}/tests/promptfoo/fixtures-fs/project-plan-compact-lightweight/plans/plan.md","utf8")))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/plan-parse.js"),require("fs").readFileSync)'
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case compact-parse"
   assert:
     - type: javascript
       value: |

@@ -654,8 +654,8 @@
 
 - description: "execute-prepare: (sel9) --auto --resume uses the selection recorded in the state file"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,js)=>((f)=>((s)=>(s.selection={tasks:[2,3],fromWave:null,taskIds:[2,3]},fs.writeFileSync(f,JSON.stringify(s)),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),before,after:fs.readFileSync(f,"utf8")})))(fs.readFileSync(f,"utf8"),cp.spawnSync("node",[js,"--auto","--resume","--project-root",process.cwd()],{cwd:process.cwd(),encoding:"utf8"}))))(JSON.parse(fs.readFileSync(f,"utf8"))))(path.join(process.cwd(),".sdlc","execution","execute-feat-resume-20260101T000000Z.json")))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/execute.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-execute-prepare-case.js"
+    script_args: "--case sel9-resume-selection"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
   assert:
@@ -664,8 +664,8 @@
 
 - description: "execute-prepare: (sel10) --resume with a different --tasks reports invalidFlag and leaves the state file unchanged"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,path,js)=>((f)=>((s)=>(s.selection={tasks:[2,3],fromWave:null,taskIds:[2,3]},fs.writeFileSync(f,JSON.stringify(s)),((before,r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")),before,after:fs.readFileSync(f,"utf8")})))(fs.readFileSync(f,"utf8"),cp.spawnSync("node",[js,"--resume","--tasks","4","--project-root",process.cwd()],{cwd:process.cwd(),encoding:"utf8"}))))(JSON.parse(fs.readFileSync(f,"utf8"))))(path.join(process.cwd(),".sdlc","execution","execute-feat-resume-20260101T000000Z.json")))(require("child_process"),require("fs"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/execute.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-execute-prepare-case.js"
+    script_args: "--case sel10-invalid-flag"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-execute-prepare-resume-planpath"
   assert:
@@ -674,8 +674,8 @@
 
 - description: "execute-prepare: (sel11) state init records --selection, records null without it, and rejects a non-object"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((run)=>console.log(JSON.stringify({a:run(["--selection","{\"tasks\":[2,3],\"fromWave\":null,\"taskIds\":[2,3]}"]),b:run([]),c:run(["--selection","[1]"])})))((extra)=>((r)=>({status:r.status,file:r.status===0?JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8")):null,removed:r.status===0?(fs.unlinkSync(r.stdout.trim()),true):false,stderr:r.stderr}))(cp.spawnSync("node",[js,"init","--branch","main","--quality","balanced","--total-tasks","2","--planned-task-ids","[\"2\",\"3\"]"].concat(extra),{cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-execute-prepare-case.js"
+    script_args: "--case sel11-state-init"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-execute-prepare"
   assert:
@@ -684,8 +684,8 @@
 
 - description: "execute-prepare: (#9241) SKILL.md has no PARSE_EXIT echo and a separate rm call"
   vars:
-    script_path: "-e"
-    script_args: '((s)=>((c)=>console.log(JSON.stringify({parseExit:c("PARSE_EXIT="),rm:c("\x20\x20\x20```bash\x0a\x20\x20\x20rm\x20-f\x20\x22\x3cSUMMARY_FILE\x3e\x22\x0a\x20\x20\x20```")})))((t)=>s.split(t).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-execute-prepare-case.js"
+    script_args: "--case skill-text-9241"
   assert:
     - type: javascript
       value: |

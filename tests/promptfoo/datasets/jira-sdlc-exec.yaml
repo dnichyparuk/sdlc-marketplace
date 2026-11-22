@@ -223,8 +223,8 @@
 
 - description: "mcp-failure: record-occurrence returns 1 on first call"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,p,id)=>((run)=>((a,b)=>(fs.rmSync(p.join(os.tmpdir(),"sdlc-mcp-session-"+id),{recursive:true,force:true}),console.log(JSON.stringify({first:a,second:b}))))(run(),run()))(()=>cp.spawnSync("node",["{{repo_root}}/plugins/sdlc-utilities/scripts/lib/mcp-failure.js","--record-occurrence","--class","hook-block","--key","test-key-wave4"],{cwd:process.cwd(),encoding:"utf8",env:{...process.env,SDLC_SESSION_ID:id}}).stdout.trim()))(require("child_process"),require("fs"),require("os"),require("path"),"w-b-"+process.pid+"-"+Date.now())'
+    script_path: "repo://tests/promptfoo/scripts/run-jira-sdlc-case.js"
+    script_args: "--case record-occurrence-first"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
   assert:
@@ -586,8 +586,8 @@
 
 - description: "jira-sdlc/skill-text A6 C16: no $ARGUMENTS in a bash fence, <FLAGS> in the check call, the allow-list rule present"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>((c,a)=>console.log(JSON.stringify({inFence:a.n,call:c("--output-file\x20<FLAGS>\x20--check"),rule:c("**Flags\x20(A6,\x20C16).**"),notFlag:c("Not\x20a\x20jira-sdlc\x20flag,\x20read\x20as\x20request\x20text:")})))((s)=>t.split(s).length-1,t.split("\n").reduce((a,l)=>(a.f?(l==="```"?a.f=0:a.n+=l.split("$ARGUMENTS").length-1):l.startsWith("```bash")&&(a.f=1),a),{f:0,n:0})))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/jira-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-jira-sdlc-case.js"
+    script_args: "--case skill-text-a6-c16"
   assert:
     - type: javascript
       value: |

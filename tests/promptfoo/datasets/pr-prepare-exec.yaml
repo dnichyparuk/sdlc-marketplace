@@ -4,7 +4,7 @@
 # Note: pr.js calls gh CLI which fails without a remote.
 # Tests assert on fields populated before remote operations (flags, prConfig).
 # Every case sets script_stub_bin to the stub gh (fixtures-fs/stub-bin-gh), so no case,
-# and no child an -e case spawns, reaches the real gh (`gh auth switch` is global state).
+# and no child that run-pr-prepare-case.js spawns, reaches the real gh (`gh auth switch` is global state).
 
 # Issue #406 — cwd-aware git state: pr-prepare must read the linked worktree's
 # current branch (not the main worktree's branch) when invoked from a linked
@@ -206,13 +206,13 @@
     - type: contains
       value: 'url-not-found'
 
-# #9205: without --file the validator never waits on stdin. The program keeps the child's stdin
+# #9205: without --file the validator never waits on stdin. The wrapper case keeps the child's stdin
 # open and prints when the child's exit event fires (the producer-side fact); no timer.
 - description: "pr.js --validate-body: no --file and an open stdin pipe exits 2 at once without reading stdin (#9205)"
   vars:
-    script_path: "-e"
+    script_path: "repo://tests/promptfoo/scripts/run-pr-prepare-case.js"
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_args: '((cp,js)=>((c,e)=>(c.stderr.on("data",(d)=>e.push(String(d))),c.on("exit",(code)=>(console.log(JSON.stringify({code:code,stderr:e.join("")})),c.stdin.destroy()))))(cp.spawn("node",[js,"--validate-body","--json"],{cwd:process.cwd(),stdio:["pipe","pipe","pipe"]}),[]))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_args: "--case validate-body-open-stdin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
   assert:
@@ -224,9 +224,9 @@
 
 - description: "pr.js --validate-body: --file - reads the body from stdin (#9205)"
   vars:
-    script_path: "-e"
+    script_path: "repo://tests/promptfoo/scripts/run-pr-prepare-case.js"
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(cp.spawnSync("node",[js,"--validate-body","--file","-","--json"],{cwd:process.cwd(),encoding:"utf8",input:fs.readFileSync("body-clean.md","utf8")})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_args: "--case validate-body-file-stdin"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
     script_env: '{"SDLC_LINKS_OFFLINE":"1"}'
@@ -239,9 +239,9 @@
 
 - description: "pr.js --validate-body: a --file path that cannot be read exits 2 with a message, not a stack trace (#9205)"
   vars:
-    script_path: "-e"
+    script_path: "repo://tests/promptfoo/scripts/run-pr-prepare-case.js"
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr})))(cp.spawnSync("node",[js,"--validate-body","--file","no-such-body.md","--json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_args: "--case validate-body-unreadable"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
     script_env: '{"SDLC_LINKS_OFFLINE":"1"}'
@@ -597,9 +597,9 @@
 # R21: pr.footer appended by --validate-body (#9429). Temp dir with .sdlc/config.json; runs twice, reports both.
 - description: "pr.js --validate-body: footer (a) appends the configured footer once"
   vars:
-    script_path: "-e"
+    script_path: "repo://tests/promptfoo/scripts/run-pr-prepare-case.js"
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_args: '((cp,fs,os,js)=>((d)=>((run)=>(fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({pr:{footer:"Made\x20with\x20care"}})),fs.writeFileSync(d+"/body.md","Body\x20text\n"),((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({first:run()})))(()=>((r)=>({status:r.status,out:JSON.parse(r.stdout),file:fs.readFileSync(d+"/body.md","utf8")}))(cp.spawnSync("node",[js,"--validate-body","--file",d+"/body.md","--json"],{cwd:d,encoding:"utf8",env:{...process.env,SDLC_LINKS_OFFLINE:"1"}}))))(fs.mkdtempSync(os.tmpdir()+"/pr-footer-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_args: "--case footer-once"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
   assert:
@@ -612,9 +612,9 @@
 
 - description: "pr.js --validate-body: footer (b) a second run appends nothing"
   vars:
-    script_path: "-e"
+    script_path: "repo://tests/promptfoo/scripts/run-pr-prepare-case.js"
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_args: '((cp,fs,os,js)=>((d)=>((run)=>(fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({pr:{footer:"Made\x20with\x20care"}})),fs.writeFileSync(d+"/body.md","Body\x20text\n"),((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({first:run(),second:run()})))(()=>((r)=>({status:r.status,out:JSON.parse(r.stdout),file:fs.readFileSync(d+"/body.md","utf8")}))(cp.spawnSync("node",[js,"--validate-body","--file",d+"/body.md","--json"],{cwd:d,encoding:"utf8",env:{...process.env,SDLC_LINKS_OFFLINE:"1"}}))))(fs.mkdtempSync(os.tmpdir()+"/pr-footer-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_args: "--case footer-twice"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
   assert:
@@ -628,9 +628,9 @@
 
 - description: "pr.js --validate-body: footer (c) no footer key leaves the body unchanged"
   vars:
-    script_path: "-e"
+    script_path: "repo://tests/promptfoo/scripts/run-pr-prepare-case.js"
     script_stub_bin: "{{repo_root}}/tests/promptfoo/fixtures-fs/stub-bin-gh/bin"
-    script_args: '((cp,fs,os,js)=>((d)=>((run)=>(fs.mkdirSync(d+"/.sdlc"),fs.writeFileSync(d+"/.sdlc/config.json",JSON.stringify({pr:{}})),fs.writeFileSync(d+"/body.md","Body\x20text\n"),((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({first:run()})))(()=>((r)=>({status:r.status,out:JSON.parse(r.stdout),file:fs.readFileSync(d+"/body.md","utf8")}))(cp.spawnSync("node",[js,"--validate-body","--file",d+"/body.md","--json"],{cwd:d,encoding:"utf8",env:{...process.env,SDLC_LINKS_OFFLINE:"1"}}))))(fs.mkdtempSync(os.tmpdir()+"/pr-footer-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/pr.js")'
+    script_args: "--case footer-none"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-pr-link-validate"
   assert:

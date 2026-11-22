@@ -93,35 +93,10 @@
     - type: contains
       value: "3 of 3 builds failed"
 
-# The -e script reads both configs as text (no YAML parser). argv: -- <repo root>.
+# scripts/run-fast-tier-guard.js reads both configs as text (no YAML parser) and finds the repo root from its own path.
 - description: "fast-tier: every fast-tier dataset is in the full exec config and the fast config matches its provider, transform and cleanup"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.FAST_TIER_GUARD) -- {{repo_root}}"
-    script_env:
-      FAST_TIER_GUARD: |
-        const fs = require('fs');
-        const path = require('path');
-        const dir = path.join(process.argv[1], 'tests', 'promptfoo');
-        const read = (f) => fs.readFileSync(path.join(dir, f), 'utf8').split('\n').filter((l) => l.trim() && !/^\s*#/.test(l));
-        const fast = read('promptfooconfig-exec-fast.yaml');
-        const full = read('promptfooconfig-exec.yaml');
-        const datasets = (lines) => lines.map((l) => (l.match(/^\s*-\s*file:\/\/(datasets\/\S+)\s*$/) || [])[1]).filter(Boolean);
-        const block = (lines, key) => {
-          const i = lines.findIndex((l) => l.startsWith(key + ':'));
-          if (i < 0) return null;
-          let j = i + 1;
-          while (j < lines.length && /^\s/.test(lines[j])) j++;
-          return lines.slice(i, j).join('\n');
-        };
-        const fastSets = datasets(fast);
-        const fullSets = new Set(datasets(full));
-        const out = {
-          fastCount: fastSets.length,
-          missing: fastSets.filter((d) => !fullSets.has(d)),
-          mismatched: ['providers', 'defaultTest', 'extensions'].filter((k) => block(fast, k) === null || block(fast, k) !== block(full, k)),
-        };
-        console.log(JSON.stringify(out));
+    script_path: "repo://tests/promptfoo/scripts/run-fast-tier-guard.js"
   assert:
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.fastCount >= 12 && r.missing.length === 0 && r.mismatched.length === 0"

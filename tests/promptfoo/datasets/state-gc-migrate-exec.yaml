@@ -282,8 +282,8 @@
 
 - description: "state/execute.js wave-committed sets committedSha on a completed wave (#392)"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((run)=>((b)=>((r)=>((a)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr,before:b,after:a})))(run(["read","--branch","feat/commit-waves-state"]).stdout))(run(["wave-committed","--branch","feat/commit-waves-state","--wave","1","--sha","abc1234567890abc1234567890abc1234567890a"])))(run(["read","--branch","feat/commit-waves-state"]).stdout))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-state-gc-migrate-case.js"
+    script_args: "--case wave-committed-sets-sha"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-execute-commit-waves"
   assert:
@@ -306,8 +306,8 @@
 
 - description: "state/execute.js wave-committed is idempotent on identical sha — re-running is a no-op (#392)"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((run)=>((b)=>((r)=>((a)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr,before:b,after:a})))(run(["read","--branch","feat/commit-waves-already"]).stdout))(run(["wave-committed","--branch","feat/commit-waves-already","--wave","1","--sha","abc1234567890abc1234567890abc1234567890a"])))(run(["read","--branch","feat/commit-waves-already"]).stdout))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/execute.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-state-gc-migrate-case.js"
+    script_args: "--case wave-committed-idempotent"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-execute-commit-waves-already-committed"
   assert:
@@ -363,8 +363,8 @@
 
 - description: "state-exact-branch: state/ship.js read picks the fix/a, fix-a and fix ledgers by exact branch (R111)"
   vars:
-    script_path: "-e"
-    script_args: '((fs,cp,d,js)=>(fs.utimesSync(d+"/ship-fix-a-20261101T000000Z.json",2000,2000),fs.utimesSync(d+"/ship-fix-a-20261102T000000Z.json",3000,3000),fs.utimesSync(d+"/ship-fix-20261103T000000Z.json",1000,1000),((run)=>console.log(JSON.stringify({slash:run("fix/a"),dash:run("fix-a"),fix:run("fix")})))((b)=>((r)=>({status:r.status,branch:r.status===0?JSON.parse(r.stdout).branch:r.stderr}))(cp.spawnSync("node",[js,"read","--branch",b],{encoding:"utf8",env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d,SDLC_BRANCH_OVERRIDE:b})})))))(require("fs"),require("child_process"),((t)=>(require("fs").cpSync(process.cwd()+"/.sdlc/execution",t,{recursive:true}),t))(require("fs").mkdtempSync(require("os").tmpdir()+"/seb-")),"{{repo_root}}/plugins/sdlc-utilities/scripts/state/ship.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-state-gc-migrate-case.js"
+    script_args: "--case exact-read"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/state-exact-branch"
   assert:
@@ -378,8 +378,8 @@
 
 - description: "state-exact-branch: file names keep the slug format, slugifyBranch('fix/a') is fix-a (R111)"
   vars:
-    script_path: "-e"
-    script_args: '((s,d)=>(process.env.SDLC_STATE_DIR_OVERRIDE=d,console.log(JSON.stringify({slug:s.slugifyBranch("fix/a"),file:s.initState("ship","fix/a",{branch:"fix/a"}).split("/").pop()}))))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js"),((t)=>(require("fs").cpSync(process.cwd()+"/.sdlc/execution",t,{recursive:true}),t))(require("fs").mkdtempSync(require("os").tmpdir()+"/seb-")))'
+    script_path: "repo://tests/promptfoo/scripts/run-state-gc-migrate-case.js"
+    script_args: "--case exact-slug"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/state-exact-branch"
   assert:
@@ -390,8 +390,8 @@
 
 - description: "state-exact-branch: readState and detectResumeState return the same exact-branch file twice, skip ship-summary (R111)"
   vars:
-    script_path: "-e"
-    script_args: '((fs,s,d)=>(process.env.SDLC_STATE_DIR_OVERRIDE=d,process.env.SDLC_BRANCH_OVERRIDE="fix/a",fs.utimesSync(d+"/ship-fix-a-20261101T000000Z.json",2000,2000),fs.utimesSync(d+"/ship-fix-a-20261102T000000Z.json",3000,3000),fs.utimesSync(d+"/ship-fix-20261103T000000Z.json",1000,1000),fs.writeFileSync(d+"/ship-summary-x.json","{}"),console.log(JSON.stringify({read:[s.readState("ship","fix-a"),s.readState("ship","fix-a")].map((r)=>r&&r.filePath.split("/").pop()),any:[s.detectResumeState({prefix:"ship"}),s.detectResumeState({prefix:"ship"})].map((r)=>r.stateFile.split("/").pop()),slash:s.detectResumeState({prefix:"ship",branch:"fix/a"}).stateFile.split("/").pop()}))))(require("fs"),require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js"),((t)=>(require("fs").cpSync(process.cwd()+"/.sdlc/execution",t,{recursive:true}),t))(require("fs").mkdtempSync(require("os").tmpdir()+"/seb-")))'
+    script_path: "repo://tests/promptfoo/scripts/run-state-gc-migrate-case.js"
+    script_args: "--case exact-read-twice"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/state-exact-branch"
   assert:
@@ -405,8 +405,8 @@
 
 - description: "state-exact-branch: pruneStateFiles('ship','fix-a','fix/a') twice removes the fix/a file once, keeps fix-a (R111)"
   vars:
-    script_path: "-e"
-    script_args: '((fs,s,d)=>(process.env.SDLC_STATE_DIR_OVERRIDE=d,console.log(JSON.stringify({first:s.pruneStateFiles("ship","fix-a","fix/a"),second:s.pruneStateFiles("ship","fix-a","fix/a"),left:fs.readdirSync(d).sort()}))))(require("fs"),require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js"),((t)=>(require("fs").cpSync(process.cwd()+"/.sdlc/execution",t,{recursive:true}),t))(require("fs").mkdtempSync(require("os").tmpdir()+"/seb-")))'
+    script_path: "repo://tests/promptfoo/scripts/run-state-gc-migrate-case.js"
+    script_args: "--case exact-prune-twice"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/state-exact-branch"
   assert:
@@ -421,8 +421,8 @@
 
 - description: "state-exact-branch: gcStateFiles sweeps ship-summary and review-rounds files of gone branches, keeps live ones (R109)"
   vars:
-    script_path: "-e"
-    script_args: '((fs,s,d)=>(process.env.SDLC_STATE_DIR_OVERRIDE=d,["ship-summary-gone.json","ship-summary-live.json","review-rounds-gone.json"].forEach((n)=>fs.writeFileSync(d+"/"+n,"{}")),console.log(JSON.stringify({r:s.gcStateFiles({ttlDays:0,knownBranches:["live"]}),left:fs.readdirSync(d).sort()}))))(require("fs"),require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/state.js"),require("fs").mkdtempSync(require("os").tmpdir()+"/gcs-"))'
+    script_path: "repo://tests/promptfoo/scripts/run-state-gc-migrate-case.js"
+    script_args: "--case exact-gc-sweep"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/state-exact-branch"
   assert:
