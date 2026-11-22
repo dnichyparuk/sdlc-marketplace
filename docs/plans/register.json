@@ -168,14 +168,15 @@
       "key": "W-E6",
       "aliases": ["E6"],
       "title": "Final lows fix wave",
-      "status": "In progress",
+      "status": "Done",
       "dependsOn": ["W-E5"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-E6", "role": "brief" },
-        { "path": "docs/plans/2026-11-22-w-e6-final-lows-fix-wave.md", "role": "executable" }
+        { "path": "docs/archived/plans/2026-11-22-w-e6-final-lows-fix-wave.md", "role": "executable" }
       ],
-      "decisions": ["PD-4"]
+      "decisions": ["PD-4"],
+      "closedBy": "PR #140, 71bb076"
     },
     {
       "key": "W-END",
