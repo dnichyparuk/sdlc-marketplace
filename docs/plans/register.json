@@ -168,11 +168,12 @@
       "key": "W-E6",
       "aliases": ["E6"],
       "title": "Final lows fix wave",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": ["W-E5"],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-E6", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-E6", "role": "brief" },
+        { "path": "docs/plans/2026-11-22-w-e6-final-lows-fix-wave.md", "role": "executable" }
       ],
       "decisions": ["PD-4"]
     },
