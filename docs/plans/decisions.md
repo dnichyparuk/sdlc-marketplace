@@ -30,3 +30,10 @@ Append-only. The log wins over the text of a plan.
 - **Rejected options:** a spec edit for (b), which would pull in the user doc, the site copy and all companions under R71(d); fixing only A1 and A2.
 - **Made obsolete or amended:** PD-2's "five fix waves" count: the fix waves are W-E1 to W-E6, and `W-END` depends on all six.
 
+
+## PD-5: The W-END gate closes; the deferred-lows policy ends
+
+- **Date and owner:** 2026-11-22, owner sign-off. Evidence, the owner's words: "whenever everything done, we can wrap up w-end" and "ensure all stats are collected before wrapping up".
+- **Decision:** (a) The `W-END` gate closes on the merge of its planning PR. (b) The programme's deferred-lows policy (PD-1, PD-3) ends; the orchestration profile returns to per-wave handling of lows through a separate skill PR, not part of that planning PR. (c) The 7 residual lows (lean-w45:8, :10, :11, :12 and lean-w48:8, :9, :10) were fixed by W-E6; lean-w45:9 is the accepted gap of PD-4; lean-w45:7, lean-w48:7 and lean-w36:11 were closed under PD-4. (d) The `docs/TODO/lows-lean-w*.md` notes and `docs/TODO/lean-skill-pr-b-9464.md` are archived by the gate close.
+- **Rejected options:** a second audit; a further fix wave.
+- **Made obsolete or amended:** PD-1's and PD-3's "stays open and homed to `W-END` until the gate": the gate is now closed. PD-1 to PD-4 text is unchanged.

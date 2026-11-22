@@ -183,15 +183,16 @@
       "kind": "gate",
       "aliases": ["END"],
       "title": "Programme post-merge audit",
-      "status": "Not started",
+      "status": "Done",
       "owner": "owner",
       "dependsOn": ["W-E1", "W-E2", "W-E3", "W-E4", "W-E5", "W-E6"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-END", "role": "brief" }
       ],
-      "todos": ["docs/TODO/lows-lean-w39.md", "docs/TODO/lean-skill-pr-b-9464.md", "docs/TODO/lows-lean-w40.md", "docs/TODO/archive/end-recover-counts-only-lows.md", "docs/TODO/archive/script-runner-eisdir-plan-splice.md", "docs/TODO/archive/review-severity-drift-fix-round.md", "docs/TODO/lows-lean-w43.md", "docs/TODO/lows-lean-w45.md", "docs/TODO/lows-lean-w34.md", "docs/TODO/lows-lean-w36.md", "docs/TODO/lows-lean-w35.md", "docs/TODO/lows-lean-w42.md", "docs/TODO/lows-lean-w48.md"],
-      "decisions": ["PD-1", "PD-2", "PD-3", "PD-4"]
+      "todos": ["docs/TODO/archive/lows-lean-w39.md", "docs/TODO/archive/lean-skill-pr-b-9464.md", "docs/TODO/archive/lows-lean-w40.md", "docs/TODO/archive/end-recover-counts-only-lows.md", "docs/TODO/archive/script-runner-eisdir-plan-splice.md", "docs/TODO/archive/review-severity-drift-fix-round.md", "docs/TODO/archive/lows-lean-w43.md", "docs/TODO/archive/lows-lean-w45.md", "docs/TODO/archive/lows-lean-w34.md", "docs/TODO/archive/lows-lean-w36.md", "docs/TODO/archive/lows-lean-w35.md", "docs/TODO/archive/lows-lean-w42.md", "docs/TODO/archive/lows-lean-w48.md"],
+      "decisions": ["PD-1", "PD-2", "PD-3", "PD-4"],
+      "closedBy": "owner sign-off 2026-11-22 (PD-5), PR #142"
     }
   ]
 }

@@ -1,5 +1,7 @@
 # Deferred lows of lean-w45 (unit W-E1, PR #129, merge bb344de)
 
+> ARCHIVED / IMPLEMENTED — owner sign-off 2026-11-22 (PD-5), PR #142
+
 Source: the ship report and the review of PR #129 (wave lean-w45).
 
 | Severity | Path:line | Title | Text | Wave/PR |

@@ -21,7 +21,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-E4` (E4) | - | `-e` programs to wrappers, batch A | [programme](./programme.md) (brief; §W-E4)<br>[2026-11-22-w-e4-e-programs-to-wrappers-batch-a](../archived/plans/2026-11-22-w-e4-e-programs-to-wrappers-batch-a.md) (executable) | Done | 27/27 | W-E2, W-E3 | PR #135, 1432562 |
 | `W-E5` (E5) | - | `-e` programs to wrappers, batch B | [programme](./programme.md) (brief; §W-E5)<br>[2026-11-22-w-e5-e-programs-to-wrappers-batch-b](../archived/plans/2026-11-22-w-e5-e-programs-to-wrappers-batch-b.md) (executable) | Done | 71/71 | W-E4 | PR #137, f6aeee3 |
 | `W-E6` (E6) | - | Final lows fix wave | [programme](./programme.md) (brief; §W-E6)<br>[2026-11-22-w-e6-final-lows-fix-wave](../archived/plans/2026-11-22-w-e6-final-lows-fix-wave.md) (executable) | Done | 17/17 | W-E5 | PR #140, 71bb076 |
-| `W-END` (END; gate, owner: owner) | - | Programme post-merge audit | [programme](./programme.md) (brief; §W-END) | Not started | 0/0 | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | - |
+| `W-END` (END; gate, owner: owner) | - | Programme post-merge audit | [programme](./programme.md) (brief; §W-END) | Done | 0/0 | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | owner sign-off 2026-11-22 (PD-5), PR #142 |
 
 **Order** (topological; ready = not started, hard dependencies closed, nothing waited on):
 
@@ -38,22 +38,11 @@ Executable plans of this repository and the generated programme status. The regi
 | 9 | `W-E4` | Done | W-E2, W-E3 | done |
 | 10 | `W-E5` | Done | W-E4 | done |
 | 11 | `W-E6` | Done | W-E5 | done |
-| 12 | `W-END` | Not started | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | ready |
+| 12 | `W-END` | Done | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | done |
 
-Longest dependency chain among open waves (dependsOn only; no effort estimates): W-END (1 wave).
+Longest dependency chain among open waves (dependsOn only; no effort estimates): none.
 
 **Open TODO notes** (home of each note):
 
-| TODO | Wave | Wave status |
-| --- | --- | --- |
-| [lean-skill-pr-b-9464](../TODO/lean-skill-pr-b-9464.md) | `W-END` | Not started |
-| [lows-lean-w34](../TODO/lows-lean-w34.md) | `W-END` | Not started |
-| [lows-lean-w35](../TODO/lows-lean-w35.md) | `W-END` | Not started |
-| [lows-lean-w36](../TODO/lows-lean-w36.md) | `W-END` | Not started |
-| [lows-lean-w39](../TODO/lows-lean-w39.md) | `W-END` | Not started |
-| [lows-lean-w40](../TODO/lows-lean-w40.md) | `W-END` | Not started |
-| [lows-lean-w42](../TODO/lows-lean-w42.md) | `W-END` | Not started |
-| [lows-lean-w43](../TODO/lows-lean-w43.md) | `W-END` | Not started |
-| [lows-lean-w45](../TODO/lows-lean-w45.md) | `W-END` | Not started |
-| [lows-lean-w48](../TODO/lows-lean-w48.md) | `W-END` | Not started |
+none
 <!-- plan-register:end -->

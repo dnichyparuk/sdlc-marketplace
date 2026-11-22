@@ -1,5 +1,7 @@
 # Deferred lows: lean-w36 (PR #113)
 
+> ARCHIVED / IMPLEMENTED — owner sign-off 2026-11-22 (PD-5), PR #142
+
 Deferred review lows of lean-w36, homed to the END gate `W-END` (decision PD-1 in `docs/plans/decisions.md`). This programme only.
 
 Impact: the END audit re-checks every row on HEAD (STILL PRESENT / FIXED / NOT A DEFECT, with file:line), outside its 15-defect cap.

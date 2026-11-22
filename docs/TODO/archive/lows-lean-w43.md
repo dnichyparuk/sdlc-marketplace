@@ -1,5 +1,7 @@
 # Deferred lows of lean-w43 (unit W-F, PR #125, merge bb03139)
 
+> ARCHIVED / IMPLEMENTED — owner sign-off 2026-11-22 (PD-5), PR #142
+
 Source: the ship report and the review of PR #125 (wave lean-w43).
 
 | Severity | Path:line | Title | Text | Wave/PR |
