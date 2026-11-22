@@ -240,11 +240,12 @@
       "key": "W-F1",
       "aliases": ["F1"],
       "title": "pr-sdlc explicit gh refs and plan-critique lane constant",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": ["W-E9"],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-F1", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-F1", "role": "brief" },
+        { "path": "docs/plans/2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and.md", "role": "executable" }
       ],
       "todos": ["docs/TODO/archive/pr-step-gh-in-main-checkout.md"],
       "decisions": ["PD-9"]

@@ -13,9 +13,9 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-029](./TK-029-pr-gh-explicit-refs/ticket.md) | task | pr-sdlc passes explicit base and head to gh | — | scheduled | W-F1 M1 | — |
-| [TK-030](./TK-030-plan-critique-lane-const/ticket.md) | task | plan-critique lane name constant | — | scheduled | W-F1 M1 | — |
-| [TK-031](./TK-031-ship-todowrite-citation/ticket.md) | task | ship SKILL cites R-todowrite-visibility | — | scheduled | W-F1 M1 | — |
+| [TK-029](./TK-029-pr-gh-explicit-refs/ticket.md) | task | pr-sdlc passes explicit base and head to gh | — | planned | W-F1 M1 | 2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#1, 2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#2, 2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#3 |
+| [TK-030](./TK-030-plan-critique-lane-const/ticket.md) | task | plan-critique lane name constant | — | planned | W-F1 M1 | 2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#4 |
+| [TK-031](./TK-031-ship-todowrite-citation/ticket.md) | task | ship SKILL cites R-todowrite-visibility | — | planned | W-F1 M1 | 2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and#5 |
 
 **Open, backlog** (0):
 

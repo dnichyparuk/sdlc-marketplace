@@ -156,7 +156,7 @@ Scope (owner 2026-11-22, "collect proposed items into a wave and dispatch"; deci
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | TK-029, TK-030, TK-031 | | 1 light wave, about 3 tasks |
+| M1 | TK-029, TK-030, TK-031 | `2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and` | 1 light wave, about 3 tasks |
 
 ## W-END: Programme post-merge audit
 

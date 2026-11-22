@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.14] - 2026-11-22
+
+### Fixed
+- pr-sdlc: `gh pr create` and `gh pr edit` now pass the base and head branches from pr-context explicitly, so gh no longer infers the head branch from the current checkout; the E7 retry repeats the same refs (W-F1).
+
 ## [0.57.13] - 2026-11-22
 
 ### Fixed
