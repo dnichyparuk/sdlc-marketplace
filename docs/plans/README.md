@@ -19,7 +19,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-E2` (E2) | - | Spec, doc and test traceability | [programme](./programme.md) (brief; §W-E2)<br>[2026-11-21-w-e2-spec-doc-and-test-traceability](../archived/plans/2026-11-21-w-e2-spec-doc-and-test-traceability.md) (executable) | Done | 30/30 | W-F | PR #131, 25c3ffc |
 | `W-E3` (E3) | - | Test-tooling hygiene | [programme](./programme.md) (brief; §W-E3)<br>[2026-11-21-w-e3-test-tooling-hygiene](../archived/plans/2026-11-21-w-e3-test-tooling-hygiene.md) (executable) | Done | 44/44 | W-F | PR #133, d128590 |
 | `W-E4` (E4) | - | `-e` programs to wrappers, batch A | [programme](./programme.md) (brief; §W-E4)<br>[2026-11-22-w-e4-e-programs-to-wrappers-batch-a](../archived/plans/2026-11-22-w-e4-e-programs-to-wrappers-batch-a.md) (executable) | Done | 27/27 | W-E2, W-E3 | PR #135, 1432562 |
-| `W-E5` (E5) | - | `-e` programs to wrappers, batch B | [programme](./programme.md) (brief; §W-E5)<br>[2026-11-22-w-e5-e-programs-to-wrappers-batch-b](./2026-11-22-w-e5-e-programs-to-wrappers-batch-b.md) (executable) | In progress | 0/71 | W-E4 | - |
+| `W-E5` (E5) | - | `-e` programs to wrappers, batch B | [programme](./programme.md) (brief; §W-E5)<br>[2026-11-22-w-e5-e-programs-to-wrappers-batch-b](../archived/plans/2026-11-22-w-e5-e-programs-to-wrappers-batch-b.md) (executable) | Done | 71/71 | W-E4 | PR #137, f6aeee3 |
 | `W-END` (END; gate, owner: owner) | - | Programme post-merge audit | [programme](./programme.md) (brief; §W-END) | Not started | 0/0 | W-E1, W-E2, W-E3, W-E4, W-E5 | - |
 
 **Order** (topological; ready = not started, hard dependencies closed, nothing waited on):
@@ -35,16 +35,15 @@ Executable plans of this repository and the generated programme status. The regi
 | 7 | `W-E2` | Done | W-F | done |
 | 8 | `W-E3` | Done | W-F | done |
 | 9 | `W-E4` | Done | W-E2, W-E3 | done |
-| 10 | `W-E5` | In progress | W-E4 | in progress |
-| 11 | `W-END` | Not started | W-E1, W-E2, W-E3, W-E4, W-E5 | waiting: W-E5 (In progress) |
+| 10 | `W-E5` | Done | W-E4 | done |
+| 11 | `W-END` | Not started | W-E1, W-E2, W-E3, W-E4, W-E5 | ready |
 
-Longest dependency chain among open waves (dependsOn only; no effort estimates): W-E5 → W-END (2 waves).
+Longest dependency chain among open waves (dependsOn only; no effort estimates): W-END (1 wave).
 
 **Open TODO notes** (home of each note):
 
 | TODO | Wave | Wave status |
 | --- | --- | --- |
-| [end-e-programs-to-wrappers](../TODO/end-e-programs-to-wrappers.md) | `W-E4` | Done |
 | [lean-skill-pr-b-9464](../TODO/lean-skill-pr-b-9464.md) | `W-END` | Not started |
 | [lows-lean-w34](../TODO/lows-lean-w34.md) | `W-END` | Not started |
 | [lows-lean-w35](../TODO/lows-lean-w35.md) | `W-END` | Not started |
