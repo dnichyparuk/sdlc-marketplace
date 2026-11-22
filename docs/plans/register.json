@@ -18,7 +18,10 @@
       "dir": "docs/TODO",
       "archiveDir": "docs/TODO/archive",
       "unhomed": {
-        "docs/TODO/pr-step-gh-in-main-checkout.md": "no open unit; backlog"
+        "docs/TODO/cost-tiers-wave-wait-60s-timeout-row.md": "backlog; owner has not named a unit (audit lean-w52, 2026-11-22)",
+        "docs/TODO/pr-step-gh-in-main-checkout.md": "no open unit; backlog",
+        "docs/TODO/ship-doc-deferred-monitor-wording.md": "backlog; owner has not named a unit (audit lean-w52, 2026-11-22)",
+        "docs/TODO/ship-spec-r92-acceptance-and-skill-citation.md": "backlog; owner has not named a unit (audit lean-w52, 2026-11-22)"
       }
     },
     "decisionLogs": [
