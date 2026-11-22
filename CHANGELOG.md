@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.10] - 2026-11-22
+
+### Changed
+- execute-plan-sdlc: the 60 s `--timeout` cap is explained by the case where a listed worker returns during the call without writing its reporting phase (W-E6, PD-4).
+- received-review-sdlc: the reply example in the user doc shows the intentionally-skipped and deferred summary lines (W-E6, PD-4).
+- plan-sdlc: `plan.js splice` reads `--critique-dir` once per run (W-E6, PD-4).
+- tests: the subagent-brief case pins the plugin-root phrase in all six step agents, `prepare()` throws on a failed spawn, and the no-git-fallback case removes its temp directory (W-E6, PD-4).
+
 ## [0.57.9] - 2026-11-22
 
 ### Changed
