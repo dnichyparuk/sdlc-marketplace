@@ -13,9 +13,9 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-023](./TK-023-ship-mktemp-read-first/ticket.md) | task | Ship reads the empty mktemp file before Write (F-193) | — | scheduled | W-E8 M1 | — |
-| [TK-024](./TK-024-ship-todowrite-monitor/ticket.md) | task | Ship guards TodoWrite and loads a deferred Monitor (F-194) | — | scheduled | W-E8 M1 | — |
-| [TK-025](./TK-025-plan-copyrules-site/ticket.md) | task | Plan copy rules require the site byte copies (F-179) | — | scheduled | W-E8 M1 | — |
+| [TK-023](./TK-023-ship-mktemp-read-first/ticket.md) | task | Ship reads the empty mktemp file before Write (F-193) | — | planned | W-E8 M1 | 2026-11-22-w-e8-ship-skill-tool-handling-and-copy#2 |
+| [TK-024](./TK-024-ship-todowrite-monitor/ticket.md) | task | Ship guards TodoWrite and loads a deferred Monitor (F-194) | — | planned | W-E8 M1 | 2026-11-22-w-e8-ship-skill-tool-handling-and-copy#1, 2026-11-22-w-e8-ship-skill-tool-handling-and-copy#3 |
+| [TK-025](./TK-025-plan-copyrules-site/ticket.md) | task | Plan copy rules require the site byte copies (F-179) | — | planned | W-E8 M1 | 2026-11-22-w-e8-ship-skill-tool-handling-and-copy#4 |
 
 **Open, backlog** (0):
 

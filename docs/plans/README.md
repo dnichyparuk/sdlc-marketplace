@@ -23,7 +23,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-E6` (E6) | - | Final lows fix wave | [programme](./programme.md) (brief; §W-E6)<br>[2026-11-22-w-e6-final-lows-fix-wave](../archived/plans/2026-11-22-w-e6-final-lows-fix-wave.md) (executable) | Done | 17/17 | W-E5 | PR #140, 71bb076 |
 | `W-END` (END; gate, owner: owner) | - | Programme post-merge audit | [programme](./programme.md) (brief; §W-END) | Done | 0/0 | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | owner sign-off 2026-11-22 (PD-5), PR #142 |
 | `W-E7` (E7) | - | Guardrail table re-run fix | [programme](./programme.md) (brief; §W-E7)<br>[2026-11-22-w-e7-guardrail-table-re-run-fix](../archived/plans/2026-11-22-w-e7-guardrail-table-re-run-fix.md) (executable) | Done | 14/14 | W-END | PR #144, dfd3dbc |
-| `W-E8` (E8) | - | Ship skill tool-handling and copy rules fix | [programme](./programme.md) (brief; §W-E8) | Not started | 0/0 | W-E7 | - |
+| `W-E8` (E8) | - | Ship skill tool-handling and copy rules fix | [programme](./programme.md) (brief; §W-E8)<br>[2026-11-22-w-e8-ship-skill-tool-handling-and-copy](./2026-11-22-w-e8-ship-skill-tool-handling-and-copy.md) (executable) | In progress | 0/22 | W-E7 | - |
 
 **Order** (topological; ready = not started, hard dependencies closed, nothing waited on):
 
@@ -42,7 +42,7 @@ Executable plans of this repository and the generated programme status. The regi
 | 11 | `W-E6` | Done | W-E5 | done |
 | 12 | `W-END` | Done | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | done |
 | 13 | `W-E7` | Done | W-END | done |
-| 14 | `W-E8` | Not started | W-E7 | ready |
+| 14 | `W-E8` | In progress | W-E7 | in progress |
 
 Longest dependency chain among open waves (dependsOn only; no effort estimates): W-E8 (1 wave).
 
