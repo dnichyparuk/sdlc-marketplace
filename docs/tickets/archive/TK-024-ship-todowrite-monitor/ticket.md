@@ -3,6 +3,9 @@ id: TK-024
 type: task
 title: Ship guards TodoWrite and loads a deferred Monitor (F-194)
 created: 2026-11-22
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-e8-ship-skill-tool-handling-and-copy#1, 2026-11-22-w-e8-ship-skill-tool-handling-and-copy#3]
 ---
 
 # TK-024: Ship guards TodoWrite and loads a deferred Monitor (F-194)

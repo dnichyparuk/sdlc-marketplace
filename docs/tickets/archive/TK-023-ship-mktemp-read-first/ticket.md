@@ -3,6 +3,9 @@ id: TK-023
 type: task
 title: Ship reads the empty mktemp file before Write (F-193)
 created: 2026-11-22
+resolution: done
+closed: 2026-11-22
+by: [2026-11-22-w-e8-ship-skill-tool-handling-and-copy#2]
 ---
 
 # TK-023: Ship reads the empty mktemp file before Write (F-193)

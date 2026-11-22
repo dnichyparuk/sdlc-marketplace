@@ -1,5 +1,7 @@
 # W-E8 Ship Skill Tool-Handling and Copy Rules Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #146, 50bd5fc
+
 **Commit:** `fix(W-E8): ship-sdlc - tool-handling guards and plan copy rules`
 **Goal:** Make ship-sdlc's Step 5 loop follow the harness tool contracts (Read before Write, optional TodoWrite, deferred Monitor) and make plan-sdlc's copy check require the site byte copies of docs.
 **Architecture:** Four small tasks in three execute waves. Spec first: Task 1 writes the spec and doc sentences, in wave 1 with the copy rules config (Task 4). Wave 2 holds the mktemp Read fix with its new text-probe script (Task 2). Wave 3 holds the TodoWrite guard and deferred Monitor load (Task 3), which shares SKILL.md and the probe files with Task 2.
@@ -142,13 +144,13 @@ Openspec / spec (Task 1):
 **Notes:** Spec first: Tasks 2 and 3 implement these sentences in SKILL.md. The companions and `skills-meta.ts` are listed for the copy rule only; the Research Findings grep shows none of them states the rule.
 
 **Acceptance criteria:**
-- [ ] R-todowrite-visibility item 8 in `docs/specs/ship-sdlc.md` ends with the sentence "When the session has no TodoWrite tool, the main thread skips the call, still prints the marker and emits no todo."
-- [ ] R92 in `docs/specs/ship-sdlc.md` carries the sentence that names `ToolSearch` and `select:Monitor,TaskStop`.
-- [ ] P-STEP-2 in `docs/specs/ship-sdlc.md` carries the sentence on reading the empty `mktemp` file once before the Write.
-- [ ] The `### Issue trail` table ends with the new row.
-- [ ] `docs/skills/ship-sdlc.md` carries both new sentences.
-- [ ] `cmp docs/specs/ship-sdlc.md site/src/content-source/specs/ship-sdlc.md` and `cmp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md` exit 0.
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` and `node .claude/skills/validate-skill-docs/check-docs-consistency.js` exit 0.
+- [x] R-todowrite-visibility item 8 in `docs/specs/ship-sdlc.md` ends with the sentence "When the session has no TodoWrite tool, the main thread skips the call, still prints the marker and emits no todo."
+- [x] R92 in `docs/specs/ship-sdlc.md` carries the sentence that names `ToolSearch` and `select:Monitor,TaskStop`.
+- [x] P-STEP-2 in `docs/specs/ship-sdlc.md` carries the sentence on reading the empty `mktemp` file once before the Write.
+- [x] The `### Issue trail` table ends with the new row.
+- [x] `docs/skills/ship-sdlc.md` carries both new sentences.
+- [x] `cmp docs/specs/ship-sdlc.md site/src/content-source/specs/ship-sdlc.md` and `cmp docs/skills/ship-sdlc.md site/src/content-source/skills/ship-sdlc.md` exit 0.
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` and `node .claude/skills/validate-skill-docs/check-docs-consistency.js` exit 0.
 
 **Contract:**
 - shape (openspec): MODIFY three requirements and ADD one appendix row in `docs/specs/ship-sdlc.md`; no new id, no renumbering. The edits:
@@ -213,11 +215,11 @@ Openspec / spec (Task 1):
 **Notes:** The wording mirrors pr-sdlc (`plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md:456`) so the rule reads the same across skills. It depends on Task 1, which states the rule in P-STEP-2 first (spec-first guardrail).
 
 **Acceptance criteria:**
-- [ ] SKILL.md Step 5 item 6 contains "Read that empty file once (the Write tool refuses a file that was not read)" exactly once and no longer contains "note the printed path; write".
-- [ ] `node tests/promptfoo/scripts/check-ship-tool-handling-sentinels.js` prints `{"ok":true,"counts":{"mktempRead":1,"mktempOld":0}}` and exits 0.
-- [ ] `node tests/promptfoo/scripts/check-ship-tool-handling-sentinels.js --x` writes a usage line to stderr, prints nothing on stdout and exits 2.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern ship-sdlc/tool-handling` passes (1 case).
-- [ ] `ship-sdlc-exec.yaml` has 6 cases (`grep -c '^- description:' tests/promptfoo/datasets/ship-sdlc-exec.yaml`, was 5).
+- [x] SKILL.md Step 5 item 6 contains "Read that empty file once (the Write tool refuses a file that was not read)" exactly once and no longer contains "note the printed path; write".
+- [x] `node tests/promptfoo/scripts/check-ship-tool-handling-sentinels.js` prints `{"ok":true,"counts":{"mktempRead":1,"mktempOld":0}}` and exits 0.
+- [x] `node tests/promptfoo/scripts/check-ship-tool-handling-sentinels.js --x` writes a usage line to stderr, prints nothing on stdout and exits 2.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern ship-sdlc/tool-handling` passes (1 case).
+- [x] `ship-sdlc-exec.yaml` has 6 cases (`grep -c '^- description:' tests/promptfoo/datasets/ship-sdlc-exec.yaml`, was 5).
 
 **Contract:**
 - shape (code): SKILL.md edit, at the start of Step 5 item 6:
@@ -284,13 +286,13 @@ Openspec / spec (Task 1):
 **Notes:** It depends on Task 1 (spec first) and on Task 2, which edits the same three files. The availability check is not a deny or block rule: it removes no command a worker runs. Its gap, accepted: the main thread decides from its own tool list whether a tool is present or deferred; no script checks this.
 
 **Acceptance criteria:**
-- [ ] SKILL.md items 2 and 3 each contain "when that tool is available (skip the call when it is not)" (2 hits) and say the marker is echoed either way.
-- [ ] SKILL.md no longer contains "call `TodoWrite` with it and echo" (0 hits).
-- [ ] SKILL.md's `dispatch_execute` bullet contains "`select:Monitor,TaskStop`" exactly once, before "start it before the Agent call".
-- [ ] `node tests/promptfoo/scripts/check-ship-tool-handling-sentinels.js` prints `{"ok":true,"counts":{"mktempRead":1,"mktempOld":0,"todoGuard":2,"todoOld":0,"deferredLoad":1}}` and exits 0.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern ship-sdlc/tool-handling` passes (2 cases).
-- [ ] `ship-sdlc-exec.yaml` has 7 cases (`grep -c '^- description:' tests/promptfoo/datasets/ship-sdlc-exec.yaml`, was 6 after Task 2).
-- [ ] `node tests/promptfoo/scripts/check-handback-sentinels.js` still exits 0 (`wave-watch` stays in SKILL.md).
+- [x] SKILL.md items 2 and 3 each contain "when that tool is available (skip the call when it is not)" (2 hits) and say the marker is echoed either way.
+- [x] SKILL.md no longer contains "call `TodoWrite` with it and echo" (0 hits).
+- [x] SKILL.md's `dispatch_execute` bullet contains "`select:Monitor,TaskStop`" exactly once, before "start it before the Agent call".
+- [x] `node tests/promptfoo/scripts/check-ship-tool-handling-sentinels.js` prints `{"ok":true,"counts":{"mktempRead":1,"mktempOld":0,"todoGuard":2,"todoOld":0,"deferredLoad":1}}` and exits 0.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern ship-sdlc/tool-handling` passes (2 cases).
+- [x] `ship-sdlc-exec.yaml` has 7 cases (`grep -c '^- description:' tests/promptfoo/datasets/ship-sdlc-exec.yaml`, was 6 after Task 2).
+- [x] `node tests/promptfoo/scripts/check-handback-sentinels.js` still exits 0 (`wave-watch` stays in SKILL.md).
 
 **Contract:**
 - shape (code): SKILL.md edits in Step 5:
@@ -352,9 +354,9 @@ Openspec / spec (Task 1):
 **Notes:** Implements plan-sdlc R71(d) through setup-sdlc R28 config; no spec change. Three rules, not one (Key Decisions).
 
 **Acceptance criteria:**
-- [ ] `plan.copyRules` has 4 rules; the first is unchanged.
-- [ ] `node -e "const {validateCopyRules}=require('./plugins/sdlc-utilities/scripts/lib/plan-parse');const r=validateCopyRules(require('./.sdlc/config.json').plan.copyRules,process.cwd());console.log(JSON.stringify(r));process.exit(r.errors.length?1:0)"` prints `{"errors":[],"warnings":[]}` and exits 0.
-- [ ] `node -e "JSON.parse(require('fs').readFileSync('.sdlc/config.json','utf8'))"` exits 0.
+- [x] `plan.copyRules` has 4 rules; the first is unchanged.
+- [x] `node -e "const {validateCopyRules}=require('./plugins/sdlc-utilities/scripts/lib/plan-parse');const r=validateCopyRules(require('./.sdlc/config.json').plan.copyRules,process.cwd());console.log(JSON.stringify(r));process.exit(r.errors.length?1:0)"` prints `{"errors":[],"warnings":[]}` and exits 0.
+- [x] `node -e "JSON.parse(require('fs').readFileSync('.sdlc/config.json','utf8'))"` exits 0.
 
 **Contract:** shape (code): config delta, the three objects appended after the existing rule in `plan.copyRules`, 2-space JSON indent as in the file:
 
