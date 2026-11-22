@@ -497,7 +497,7 @@ This is idempotent — the command succeeds silently if the label already exists
    gh pr create --base '<baseBranch>' --head '<currentBranch>' --title '<title>' --body-file '<BODY_FILE>' [--draft] [--label '<l1>' --label '<l2>'] 2> '<ERR_FILE>'
    ```
 
-   Substitute `baseBranch` and `currentBranch` from pr-context; never let `gh` take the branch from the working directory (implements R-gh-explicit-refs). If no labels were approved, omit the `--label` flags entirely. Substitute the title and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Take the command's exit code from the tool result as `GH_EXIT` (a tool result without an error is exit code 0). On `GH_EXIT` 0 the PR is created: read `<ERR_FILE>` with the Read tool; when it is not empty, print its text under the line `gh pr create warnings:`; then go to step 4. <!-- E9 -->
+   Substitute `baseBranch` and `currentBranch` from pr-context; never let `gh` take the branch from the working directory (implements R-gh-explicit-refs). If no labels were approved, omit the `--label` flags entirely. Substitute the title, each label, `baseBranch` and `currentBranch` as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Take the command's exit code from the tool result as `GH_EXIT` (a tool result without an error is exit code 0). On `GH_EXIT` 0 the PR is created: read `<ERR_FILE>` with the Read tool; when it is not empty, print its text under the line `gh pr create warnings:`; then go to step 4. <!-- E9 -->
 
 3. **Post-failure account-switch recovery (implements spec E7, issue #184):** If `GH_EXIT` is non-zero, invoke the recovery helper exactly once with the captured stderr file:
 
@@ -528,7 +528,7 @@ The retry runs at most once per pipeline invocation. The recovery helper is the 
 
 **Update mode:**
 
-Run each command below as its own plain Bash call, in this order. Substitute the title and each label as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Substitute `currentBranch` from pr-context (implements R-gh-explicit-refs).
+Run each command below as its own plain Bash call, in this order. Substitute the title, each label, `baseBranch` and `currentBranch` as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Substitute `currentBranch` from pr-context (implements R-gh-explicit-refs).
 
 ```bash
 gh pr edit '<currentBranch>' --title '<title>' --body-file '<BODY_FILE>' [--add-label '<l1>,<l2>']
