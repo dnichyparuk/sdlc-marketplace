@@ -8,6 +8,8 @@
  * review.js uses after Task 1 exported it) and emits a JSON fragment matching
  * the manifest field shape.
  *
+ * The expected value comes from plugin-json-version.js.
+ *
  * Usage:
  *   node run-review-plugin-version.js
  *
@@ -31,8 +33,15 @@ const configVersionPath = path.join(
 
 const { getPluginVersion } = require(configVersionPath);
 
-const pluginJsonPath = path.join(REPO_ROOT, 'plugins', 'sdlc-utilities', '.claude-plugin', 'plugin.json');
-const expected = JSON.parse(require('fs').readFileSync(pluginJsonPath, 'utf8')).version;
+const { readPluginJsonVersion } = require('./plugin-json-version');
+
+let expected;
+try {
+  expected = readPluginJsonVersion();
+} catch (err) {
+  process.stderr.write(`run-review-plugin-version: ${err.message}\n`);
+  process.exit(1);
+}
 
 const version = getPluginVersion();
 process.stdout.write(JSON.stringify({ plugin_version: version, expected }) + '\n');

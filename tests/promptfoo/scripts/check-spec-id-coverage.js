@@ -23,6 +23,7 @@ if (!fs.existsSync(MARKER)) {
 //  - ids cited only inside assertion values are not counted;
 //  - a case moved to another dataset needs a deliberate --update;
 //  - flag keys from a script_args value that spans several lines are not seen;
+//  - a missing exec config is an error, not skipped;
 //  - --update can hide a drop, so a baseline diff in a PR must be reviewed.
 // --update [--scan-dir <promptfooDir>] writes the baseline from a scan of <promptfooDir> (default tests/promptfoo).
 // --probe-drop proves that a dropped dataset, assertion, id and flag are reported and that growth is not.
@@ -70,7 +71,9 @@ function caseFlags(block) {
 function scanCoverage(promptfooDir) {
   const names = [];
   for (const config of EXEC_CONFIGS) {
-    for (const line of fs.readFileSync(path.join(promptfooDir, config), 'utf8').split('\n')) {
+    const configFile = path.join(promptfooDir, config);
+    if (!fs.existsSync(configFile)) throw new Error(`exec config not found: ${configFile}`);
+    for (const line of fs.readFileSync(configFile, 'utf8').split('\n')) {
       if (line.trimStart().startsWith('#')) continue;
       for (const m of line.matchAll(DATASET_RE)) {
         if (!names.includes(m[1])) names.push(m[1]);
@@ -197,7 +200,10 @@ function probeDrop() {
       'datasets/d.yaml': [...plainCase('cites D4'), ...plainCase('grows'), ...plainCase('grows more'), ''],
     });
     const current = scanCoverage(root);
-    return summary(current, compareCoverage(readBaseline(baselineFile), current));
+    const result = summary(current, compareCoverage(readBaseline(baselineFile), current));
+    fs.rmSync(path.join(root, 'promptfooconfig-exec.yaml'));
+    const missingConfig = (() => { try { scanCoverage(root); return null; } catch (err) { return err.message; } })();
+    return { ...result, missingConfig };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

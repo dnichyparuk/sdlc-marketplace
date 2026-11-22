@@ -81,6 +81,18 @@
     - type: javascript
       value: "const r = JSON.parse(output.split('\\n')[0]); r.scanned === 3 && r.memo === 3 && r.perCase === 0 && r.mismatches.length === 0"
 
+- description: "fixture-memo: (e) a failing build is reported after every build settled"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-fixture-memo.js"
+    script_args: "--fixture fixture-memo-probe --cases 3"
+    script_env: '{"FIXTURE_MEMO_FAIL": "1"}'
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
+    - type: contains
+      value: "3 of 3 builds failed"
+
 # The -e script reads both configs as text (no YAML parser). argv: -- <repo root>.
 - description: "fast-tier: every fast-tier dataset is in the full exec config and the fast config matches its provider, transform and cleanup"
   vars:

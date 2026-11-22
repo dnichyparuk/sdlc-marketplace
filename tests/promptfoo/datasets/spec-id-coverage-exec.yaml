@@ -20,4 +20,4 @@
     script_args: "--probe-drop"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.drops.map(d => d.kind).join(',') === 'asserts,dataset,flag,id' && !r.drops.some(d => d.dataset === 'datasets/d.yaml')"
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.drops.map(d => d.kind).join(',') === 'asserts,dataset,flag,id' && !r.drops.some(d => d.dataset === 'datasets/d.yaml') && r.missingConfig.startsWith('exec config not found:')"

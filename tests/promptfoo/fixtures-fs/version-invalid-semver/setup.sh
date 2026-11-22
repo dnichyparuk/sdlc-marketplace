@@ -6,9 +6,10 @@ git init -q -b main
 git config user.email "test@test.com"
 git config user.name "Test"
 # File-mode config and a package.json version that is not semver on purpose: version.js must reject '1.2'.
-mkdir -p .claude
-cat > .claude/sdlc.json <<'EOF'
+mkdir -p .sdlc
+cat > .sdlc/config.json <<'EOF'
 {
+  "schemaVersion": 4,
   "version": {
     "mode": "file",
     "versionFile": "package.json",

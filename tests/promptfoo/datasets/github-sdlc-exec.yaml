@@ -1123,6 +1123,22 @@
 
 # ── C17 dataset check ─────────────────────────────────────────────────────────
 
+- description: "github-sdlc/stub: in-process gh takes the options-only call form and turns a stub error into status 1"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-github-case.js"
+    script_args: "--no-git --script tests/promptfoo/scripts/gh-inprocess-forms.js"
+    script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
+    script_home: "fixtures-fs/stub-bin-gh-issues"
+    script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
+  assert:
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const j = o.json;
+        const ok = o.exit === 0 && j && j.optionsForm.stdoutType === 'string' && j.optionsForm.status === 1
+          && j.answerThrows.status === 1 && j.answerThrows.stderr.startsWith('gh-inprocess:');
+        return ok ? true : `FAIL ${output}`;
+
 - description: "github-sdlc/c17-dataset-check: every case sets the stub bin, a home and offline links"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-github-case.js"

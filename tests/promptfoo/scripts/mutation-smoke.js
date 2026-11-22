@@ -10,6 +10,7 @@
 // Modes:
 //   --list                          print the mutations
 //   --check                         verify every mutation still applies and has a case (read-only)
+//   --probe                         self-test of the apply check and the verdict (read-only, no promptfoo)
 //   --run --owner [--only <id>]     run the mutations in a temp copy (starts promptfoo)
 //
 // Threat model: an accidental start by CI, a git hook or an agent. The guard is against
@@ -59,6 +60,7 @@ const MUTATIONS = [
     replace: '  wave.committedSha = newSha;',
     dataset: SD + 'state-gc-migrate-exec.yaml',
     filter: 'wave-committed',
+    expectSurvive: true,
     why: 'the matched cases check exit paths and error text; the success case asserts only that no "Error:" appears, so this mutation is expected to SURVIVE and points at a weak case',
   },
   {
@@ -159,10 +161,32 @@ function check() {
   return { ok: problems.length === 0, mutations: MUTATIONS.length, problems };
 }
 
+// The mutated text, or null when m.find is not in text (the mutation does not apply).
+function applyMutation(text, m) {
+  return text.includes(m.find) ? text.replace(m.find, () => m.replace) : null;
+}
+
+// True when no result has an error and each was killed exactly when it was not expected to survive.
+function verdict(results) {
+  return results.every(r => !r.error && r.killed === !r.expectSurvive);
+}
+
+function probe() {
+  const m = { find: 'a', replace: 'b' };
+  const r = (killed, expectSurvive, error) => ({ id: 'probe', killed, expectSurvive, ...(error ? { error } : {}) });
+  return {
+    applied: applyMutation('xay', m) === 'xby',
+    notApplied: applyMutation('xyz', m) === null,
+    expectedOutcomes: verdict([r(true, false), r(false, true)]),
+    unexpectedSurvivor: verdict([r(false, false)]),
+    unexpectedKill: verdict([r(true, true)]),
+    findMissing: verdict([r(false, true, 'find-missing')]),
+  };
+}
+
 function run(only) {
   const todo = only ? MUTATIONS.filter(m => m.id === only) : MUTATIONS;
-  if (todo.length === 0) return { ok: false, results: [], error: `unknown --only id: ${only}` };
-  const copy = fs.mkdtempSync(os.tmpdir() + '/mutation-smoke-');
+  const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'mutation-smoke-'));
   try {
     const skip = [path.join(REPO_ROOT, '.git'), path.join(REPO_ROOT, '.sdlc', 'execution')];
     fs.cpSync(REPO_ROOT, copy, {
@@ -173,21 +197,27 @@ function run(only) {
     for (const m of todo) {
       const target = path.join(copy, m.file);
       const original = fs.readFileSync(target, 'utf8');
-      fs.writeFileSync(target, original.replace(m.find, () => m.replace));
+      const expectSurvive = Boolean(m.expectSurvive);
+      const mutated = applyMutation(original, m);
+      if (mutated === null) {
+        results.push({ id: m.id, killed: false, expectSurvive, error: 'find-missing' });
+        continue;
+      }
+      fs.writeFileSync(target, mutated);
       try {
         const r = spawnSync('npx', ['--yes', PROMPTFOO, 'eval', '-c', 'promptfooconfig-exec.yaml',
           '-j', '1', '--no-cache', '--filter-pattern', m.filter],
         { cwd: path.join(copy, 'tests', 'promptfoo'), encoding: 'utf8', timeout: 600000 });
         if (r.error || r.signal) {
-          results.push({ id: m.id, killed: false, exitCode: r.status, error: r.error ? r.error.message : `signal ${r.signal}` });
+          results.push({ id: m.id, killed: false, expectSurvive, exitCode: r.status, error: r.error ? r.error.message : `signal ${r.signal}` });
         } else {
-          results.push({ id: m.id, killed: r.status !== 0, exitCode: r.status });
+          results.push({ id: m.id, killed: r.status !== 0, expectSurvive, exitCode: r.status });
         }
       } finally {
         fs.writeFileSync(target, original);
       }
     }
-    return { ok: results.every(r => r.killed), results };
+    return { ok: verdict(results), results };
   } finally {
     fs.rmSync(copy, { recursive: true, force: true });
   }
@@ -198,10 +228,12 @@ try {
   let result;
   let code = 0;
   if (argv.includes('--list')) {
-    result = { mutations: MUTATIONS.map(({ id, file, dataset, filter }) => ({ id, file, dataset, filter })) };
+    result = { mutations: MUTATIONS.map(({ id, file, dataset, filter, expectSurvive }) => ({ id, file, dataset, filter, expectSurvive: Boolean(expectSurvive) })) };
   } else if (argv.includes('--check')) {
     result = check();
     if (!result.ok) code = 1;
+  } else if (argv.includes('--probe')) {
+    result = probe();
   } else if (argv.includes('--run')) {
     const i = argv.indexOf('--only');
     if (i >= 0 && (argv[i + 1] === undefined || argv[i + 1].startsWith('--'))) {
@@ -219,7 +251,7 @@ try {
       if (!result.ok) code = 1;
     }
   } else {
-    process.stderr.write('Usage: mutation-smoke.js (--list | --check | --run --owner [--only <id>])\n');
+    process.stderr.write('Usage: mutation-smoke.js (--list | --check | --probe | --run --owner [--only <id>])\n');
     process.exit(2);
   }
   process.stdout.write(JSON.stringify(result) + '\n');

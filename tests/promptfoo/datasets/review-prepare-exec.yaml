@@ -85,6 +85,25 @@
         const o = JSON.parse(output);
         return o.plugin_version === o.expected && /^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$/.test(o.expected);
 
+- description: "plugin-json-version: reads the version of the real plugin.json"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/plugin-json-version.js"
+  assert:
+    - type: javascript
+      value: "/^[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?$/.test(JSON.parse(output.split('\\n')[0]).version)"
+
+- description: "plugin-json-version: an unreadable plugin.json exits 1 and names the file"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/plugin-json-version.js"
+    project_root: "file://fixtures-fs/plugin-json-bad"
+    script_args: "--file {{project_root}}/plugin.json"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 1"
+    - type: contains
+      value: "plugin.json unreadable:"
+
 - description: "review-prepare (#490): linked-worktree (worktree-linked-ahead) — changed_files_count & current_branch reflect wt1, not the main worktree"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/skill/review.js"
