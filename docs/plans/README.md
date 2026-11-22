@@ -50,5 +50,8 @@ Longest dependency chain among open waves (dependsOn only; no effort estimates):
 
 | TODO | Wave | Wave status |
 | --- | --- | --- |
+| [cost-tiers-wave-wait-60s-timeout-row](../TODO/cost-tiers-wave-wait-60s-timeout-row.md) | unhomed | backlog; owner has not named a unit (audit lean-w52, 2026-11-22) |
 | [pr-step-gh-in-main-checkout](../TODO/pr-step-gh-in-main-checkout.md) | unhomed | no open unit; backlog |
+| [ship-doc-deferred-monitor-wording](../TODO/ship-doc-deferred-monitor-wording.md) | unhomed | backlog; owner has not named a unit (audit lean-w52, 2026-11-22) |
+| [ship-spec-r92-acceptance-and-skill-citation](../TODO/ship-spec-r92-acceptance-and-skill-citation.md) | unhomed | backlog; owner has not named a unit (audit lean-w52, 2026-11-22) |
 <!-- plan-register:end -->
