@@ -17,7 +17,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-F` (F) | - | Suite coverage gaps, tiers and structure | [programme](./programme.md) (brief; §W-F)<br>[2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure](../archived/plans/2026-11-21-w-f-suite-coverage-gaps-tiers-and-structure.md) (executable) | Done | 51/51 | W-D2 | PR #125, bb03139 |
 | `W-E1` (E1) | - | Plugin contract and script fixes | [programme](./programme.md) (brief; §W-E1)<br>[2026-11-21-w-e1-plugin-contract-and-script-fixes](../archived/plans/2026-11-21-w-e1-plugin-contract-and-script-fixes.md) (executable) | Done | 38/38 | W-F | PR #129, bb344de |
 | `W-E2` (E2) | - | Spec, doc and test traceability | [programme](./programme.md) (brief; §W-E2)<br>[2026-11-21-w-e2-spec-doc-and-test-traceability](../archived/plans/2026-11-21-w-e2-spec-doc-and-test-traceability.md) (executable) | Done | 30/30 | W-F | PR #131, 25c3ffc |
-| `W-E3` (E3) | - | Test-tooling hygiene | [programme](./programme.md) (brief; §W-E3)<br>[2026-11-21-w-e3-test-tooling-hygiene](./2026-11-21-w-e3-test-tooling-hygiene.md) (executable) | In progress | 0/44 | W-F | - |
+| `W-E3` (E3) | - | Test-tooling hygiene | [programme](./programme.md) (brief; §W-E3)<br>[2026-11-21-w-e3-test-tooling-hygiene](../archived/plans/2026-11-21-w-e3-test-tooling-hygiene.md) (executable) | Done | 44/44 | W-F | PR #133, d128590 |
 | `W-E4` (E4) | - | `-e` programs to wrappers, batch A | [programme](./programme.md) (brief; §W-E4) | Not started | 0/0 | W-E2, W-E3 | - |
 | `W-E5` (E5) | - | `-e` programs to wrappers, batch B | [programme](./programme.md) (brief; §W-E5) | Not started | 0/0 | W-E4 | - |
 | `W-END` (END; gate, owner: owner) | - | Programme post-merge audit | [programme](./programme.md) (brief; §W-END) | Not started | 0/0 | W-E1, W-E2, W-E3, W-E4, W-E5 | - |
@@ -33,12 +33,12 @@ Executable plans of this repository and the generated programme status. The regi
 | 5 | `W-F` | Done | W-D2 | done |
 | 6 | `W-E1` | Done | W-F | done |
 | 7 | `W-E2` | Done | W-F | done |
-| 8 | `W-E3` | In progress | W-F | in progress |
-| 9 | `W-E4` | Not started | W-E2, W-E3 | waiting: W-E3 (In progress) |
+| 8 | `W-E3` | Done | W-F | done |
+| 9 | `W-E4` | Not started | W-E2, W-E3 | ready |
 | 10 | `W-E5` | Not started | W-E4 | waiting: W-E4 (Not started) |
-| 11 | `W-END` | Not started | W-E1, W-E2, W-E3, W-E4, W-E5 | waiting: W-E3 (In progress), W-E4 (Not started), W-E5 (Not started) |
+| 11 | `W-END` | Not started | W-E1, W-E2, W-E3, W-E4, W-E5 | waiting: W-E4 (Not started), W-E5 (Not started) |
 
-Longest dependency chain among open waves (dependsOn only; no effort estimates): W-E3 → W-E4 → W-E5 → W-END (4 waves).
+Longest dependency chain among open waves (dependsOn only; no effort estimates): W-E4 → W-E5 → W-END (3 waves).
 
 **Open TODO notes** (home of each note):
 
@@ -47,11 +47,11 @@ Longest dependency chain among open waves (dependsOn only; no effort estimates):
 | [end-e-programs-to-wrappers](../TODO/end-e-programs-to-wrappers.md) | `W-E4` | Not started |
 | [lean-skill-pr-b-9464](../TODO/lean-skill-pr-b-9464.md) | `W-END` | Not started |
 | [lows-lean-w34](../TODO/lows-lean-w34.md) | `W-END` | Not started |
-| [lows-lean-w35](../TODO/lows-lean-w35.md) | `W-E3` | In progress |
+| [lows-lean-w35](../TODO/lows-lean-w35.md) | `W-END` | Not started |
 | [lows-lean-w36](../TODO/lows-lean-w36.md) | `W-END` | Not started |
 | [lows-lean-w39](../TODO/lows-lean-w39.md) | `W-END` | Not started |
 | [lows-lean-w40](../TODO/lows-lean-w40.md) | `W-END` | Not started |
-| [lows-lean-w42](../TODO/lows-lean-w42.md) | `W-E2` | Done |
+| [lows-lean-w42](../TODO/lows-lean-w42.md) | `W-END` | Not started |
 | [lows-lean-w43](../TODO/lows-lean-w43.md) | `W-END` | Not started |
 | [lows-lean-w45](../TODO/lows-lean-w45.md) | `W-END` | Not started |
 <!-- plan-register:end -->
