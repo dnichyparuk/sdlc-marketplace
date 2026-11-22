@@ -1582,6 +1582,15 @@
     - type: javascript
       value: "const r = JSON.parse(output); r.material === false && JSON.stringify(r.rerun) === JSON.stringify(['lens:all', 'static-structural']) && JSON.stringify(r.dispatch.lanes) === JSON.stringify(['static-structural']) && r.review.route === 'single'"
 
+- description: "plan-diff: (rerun) a warning guardrail FAIL re-runs only the guardrail lane (R67 (b), R77, TK-022)"
+  vars:
+    script_path: "repo://plugins/sdlc-utilities/scripts/skill/plan.js"
+    project_root: "file://fixtures-fs/plan-diff-material"
+    script_args: "diff-material --before {{project_root}}/before-5.md --after {{project_root}}/before-5.md --prev-dir {{project_root}}/prev-guardrail-warning"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output); r.material === false && JSON.stringify(r.rerun) === JSON.stringify(['guardrail-compliance']) && JSON.stringify(r.dispatch.lanes) === JSON.stringify(['guardrail-compliance']) && JSON.stringify(r.recheckLanes) === JSON.stringify(['guardrail-compliance'])"
+
 - description: "plan-sdlc/rerun-sentinels: orchestrator and review-loop name R76"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-plan-prepare-case.js"

@@ -22,7 +22,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-E5` (E5) | - | `-e` programs to wrappers, batch B | [programme](./programme.md) (brief; §W-E5)<br>[2026-11-22-w-e5-e-programs-to-wrappers-batch-b](../archived/plans/2026-11-22-w-e5-e-programs-to-wrappers-batch-b.md) (executable) | Done | 71/71 | W-E4 | PR #137, f6aeee3 |
 | `W-E6` (E6) | - | Final lows fix wave | [programme](./programme.md) (brief; §W-E6)<br>[2026-11-22-w-e6-final-lows-fix-wave](../archived/plans/2026-11-22-w-e6-final-lows-fix-wave.md) (executable) | Done | 17/17 | W-E5 | PR #140, 71bb076 |
 | `W-END` (END; gate, owner: owner) | - | Programme post-merge audit | [programme](./programme.md) (brief; §W-END) | Done | 0/0 | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | owner sign-off 2026-11-22 (PD-5), PR #142 |
-| `W-E7` (E7) | - | Guardrail table re-run fix | [programme](./programme.md) (brief; §W-E7) | Not started | 0/0 | W-END | - |
+| `W-E7` (E7) | - | Guardrail table re-run fix | [programme](./programme.md) (brief; §W-E7)<br>[2026-11-22-w-e7-guardrail-table-re-run-fix](./2026-11-22-w-e7-guardrail-table-re-run-fix.md) (executable) | In progress | 0/14 | W-END | - |
 
 **Order** (topological; ready = not started, hard dependencies closed, nothing waited on):
 
@@ -40,7 +40,7 @@ Executable plans of this repository and the generated programme status. The regi
 | 10 | `W-E5` | Done | W-E4 | done |
 | 11 | `W-E6` | Done | W-E5 | done |
 | 12 | `W-END` | Done | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | done |
-| 13 | `W-E7` | Not started | W-END | ready |
+| 13 | `W-E7` | In progress | W-END | in progress |
 
 Longest dependency chain among open waves (dependsOn only; no effort estimates): W-E7 (1 wave).
 

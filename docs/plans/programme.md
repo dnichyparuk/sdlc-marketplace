@@ -126,7 +126,7 @@ Scope (owner 2026-11-22, "run one more plugin fix wave"; decision PD-6): fix F-1
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | TK-022 | | 1 light wave, about 3 tasks |
+| M1 | TK-022 | `2026-11-22-w-e7-guardrail-table-re-run-fix` | 1 light wave, about 3 tasks |
 
 ## W-END: Programme post-merge audit
 

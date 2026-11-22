@@ -138,7 +138,7 @@ node "<PLUGIN_ROOT>/scripts/skill/plan.js" diff-material --before "<ITER_DIR>/pl
 
 Set `materialChangeDetected` to its `material` value and keep its `dispatch`, `affectedLanes` and `review` for the next round (`review.lenses` are the lenses of a non-material round, and its `dispatch.lanes` are the lanes that round re-dispatches, R76); on a non-zero exit set `materialChangeDetected` to `true`, `affectedLanes` to `["*"]`, `dispatch.lanes` to every Step 3 lane and `dispatch.lenses` to `["all"]` when this iteration dispatched lens `all`, otherwise every `lensReviewers[]` entry (E9). The script fires on a task added or removed, a task's Files, Contract or Depends on changed, a Key Decision added, removed or changed (matched by its title or first words; changed means the same key with a different body, whitespace aside), an OpenSpec task mapping changed, or a Deviations row added or removed (R64's conservative superset). Wording, formatting and metadata-only fixes produce `material: false`. <!-- R64 -->
 
-`affectedLanes` and `dispatch` already include the `rerun` entries: each lane or lens whose result in `<ITER_DIR>` held a blocking issue, so a result older than the fix is re-dispatched, not carried (R64, R67).
+`affectedLanes` and `dispatch` already include the `rerun` entries: each lane or lens whose result in `<ITER_DIR>` held a blocking issue, and the guardrail-compliance lane when its result held any issue, so a result older than the fix is re-dispatched, not carried (R64, R67).
 
 Re-dispatch the reviewer (back to Step 5 loop): the next critique round. On the fallback path, when `materialChangeDetected` is true, the merged dispatch of the fallback section activates — see "Material change detection and merged re-dispatch" in Step 5.
 
