@@ -201,7 +201,7 @@
     - type: javascript
       value: |
         const o = JSON.parse(output);
-        if (o.s === 1 && JSON.stringify(o.a) === '[1,1,1,1,1,1]' && JSON.stringify(o.b) === '[0,1,1,1,0,0]') return true;
+        if (o.s === 1 && JSON.stringify(o.a) === '[1,1,1,1,1,1]' && JSON.stringify(o.b) === '[0,1,1,1,0,0]' && JSON.stringify(o.c) === '[1,1,1,1,1,1]') return true;
         return { pass: false, score: 0, reason: output };
 
 - description: "ask-auto-branch: passes a guarded site and a prohibition line"

@@ -251,6 +251,8 @@ After implementing fixes, the skill presents a mandatory reply step:
 Review feedback processing complete:
 - 2 comments addressed (code changes implemented)
 - 1 comment pushed back (with technical reasoning)
+- 0 comments intentionally skipped (agree, won't fix)
+- 0 comments deferred (needs discussion or below threshold)
 
 Should I reply to all addressed review comments on the PR and resolve the threads?
   yes       — post replies and resolve threads

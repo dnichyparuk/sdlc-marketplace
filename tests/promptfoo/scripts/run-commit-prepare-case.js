@@ -97,7 +97,11 @@ function spawnCommit(args, env) {
 // commit.js --output-file <args>: its exit status and the manifest it wrote.
 function prepare(args) {
   const r = spawnCommit(['--output-file', ...args]);
-  return { status: r.status, out: JSON.parse(readText(r.stdout.trim())) };
+  const file = (r.stdout || '').trim();
+  if (r.error || !file) {
+    throw new Error(`commit.js --output-file failed (status ${r.status})${r.error ? `: ${r.error.message}` : ''}\n${r.stderr || ''}`);
+  }
+  return { status: r.status, out: JSON.parse(readText(file)) };
 }
 
 // commit.js --check-message <file> --manifest <manifest>: exit status, stdout and stderr.
