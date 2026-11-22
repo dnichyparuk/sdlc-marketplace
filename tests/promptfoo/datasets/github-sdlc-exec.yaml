@@ -194,47 +194,21 @@
         return ok ? true : `FAIL ${output}`;
 
 # ── in-process stub gh (scripts/gh-inprocess.js) vs the binary (--gh-subprocess) ──
-# Each case runs `node -e` with the PARITY_HARNESS script (defined once below, reused by YAML alias). Its argv:
-#   -- <repo root> <payloads-apply.json key | -> <run-github-case.js args>
+# Each case runs scripts/run-github-harness.js parity. Its argv:
+#   parity <payloads-apply.json key | -> <run-github-case.js args>
 # It writes that payload to a temp file for @INPUT@, runs run-github-case.js with those args and again with
 # --gh-subprocess first, and prints { inProcess, subprocess }: each { exit, json, calls, ms } (ms: wall time),
 # with the run's temp folder replaced by <tmp>.
 
 - description: "github-sdlc/stub: in-process and subprocess gh give the same view result"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.PARITY_HARNESS) -- {{repo_root}} - -- --view 7 --repo acme/widgets"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "parity - -- --view 7 --repo acme/widgets"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
-      PARITY_HARNESS: &parity_harness |
-        const cp = require('child_process');
-        const fs = require('fs');
-        const os = require('os');
-        const path = require('path');
-        const [root, key, ...rest] = process.argv.slice(1);
-        const pf = path.join(root, 'tests', 'promptfoo');
-        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'github-parity-'));
-        const input = path.join(tmp, 'input.json');
-        if (key !== '-') {
-          const { payloads } = JSON.parse(fs.readFileSync(path.join(pf, 'fixtures-fs', 'github-sdlc-inputs', 'payloads-apply.json'), 'utf8'));
-          fs.writeFileSync(input, JSON.stringify(payloads[key], null, 2));
-        }
-        const run = (mode) => {
-          const start = Date.now();
-          const r = cp.spawnSync(process.execPath, [path.join(pf, 'scripts', 'run-github-case.js'), ...mode,
-            ...rest.map((a) => a.replace('@INPUT@', input))], { encoding: 'utf8' });
-          const ms = Date.now() - start;
-          const o = JSON.parse(r.stdout);
-          const caseTmp = path.dirname(path.dirname(o.outputFile.path));
-          const { exit, json, calls } = JSON.parse(JSON.stringify(o).split(caseTmp).join('<tmp>'));
-          return { exit, json, calls, ms };
-        };
-        const out = { inProcess: run([]), subprocess: run(['--gh-subprocess']) };
-        fs.rmSync(tmp, { recursive: true, force: true });
-        process.stdout.write(JSON.stringify(out));
   assert:
     - type: javascript
       value: |
@@ -245,15 +219,14 @@
 
 - description: "github-sdlc/stub: in-process and subprocess gh give the same apply dry-run commands"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.PARITY_HARNESS) -- {{repo_root}} edit-title -- --apply --input @INPUT@ --dry-run"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "parity edit-title -- --apply --input @INPUT@ --dry-run"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      PARITY_HARNESS: *parity_harness
   assert:
     - type: javascript
       value: |
@@ -268,8 +241,8 @@
 # through execGh, and that 2nd call sleeps as long as the 3 s timeout: in-process it times out at once.
 - description: "github-sdlc/stub: an in-process auth timeout returns at once as timed out"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.PARITY_HARNESS) -- {{repo_root}} - -- --check --repo acme/widgets"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "parity - -- --check --repo acme/widgets"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -279,7 +252,6 @@
       GH_STUB_FAIL: "timeout@auth status --hostname github.com#2"
       GH_STUB_SLEEP_MS: "3000"
       SDLC_GH_TIMEOUT_MS: "3000"
-      PARITY_HARNESS: *parity_harness
   assert:
     - type: javascript
       value: |
@@ -1018,8 +990,8 @@
 
 - description: "github-sdlc/refresh C15: refresh acme/a then acme/b, then --load --repo acme/b returns only b-only"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,path,r)=>{const[h]=[fs.mkdtempSync(path.join(os.tmpdir(),"github-c15-"))];const[env]=[Object.assign({},process.env,{HOME:h})];const[run]=[(...a)=>{const[x]=[cp.spawnSync("node",[r+"/plugins/sdlc-utilities/scripts/skill/github.js",...a],{cwd:h,env,encoding:"utf8"})];try{return{exit:x.status,json:JSON.parse(x.stdout)}}catch(e){return{exit:x.status,json:null,stderr:x.stderr}}}];const[a,b,l]=[run("--refresh","--repo","acme/a"),run("--refresh","--repo","acme/b"),run("--load","--repo","acme/b")];const[f]=[(n)=>fs.existsSync(path.join(h,".sdlc-cache/github/github_com/acme",n))];const[out]=[{a,b,l,files:[f("a.json"),f("b.json")]}];fs.rmSync(h,{recursive:true,force:true});console.log(JSON.stringify(out))})(require("child_process"),require("fs"),require("os"),require("path"),"{{repo_root}}")'
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "--case refresh-c15"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/stub-bin-gh-issues"
     script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
@@ -1082,8 +1054,8 @@
 
 - description: "github-sdlc/skill-text A14 C21: no $ARGUMENTS in a bash fence, <FLAGS> in the Step 1 calls, the allow-list rule present"
   vars:
-    script_path: "-e"
-    script_args: 'const[fs,r]=[require("fs"),"{{repo_root}}"];const[t]=[fs.readFileSync(r+"/plugins/sdlc-utilities/skills/github-sdlc/SKILL.md","utf8")];const[fence]=[[...t.matchAll(/^```bash[^\n]*\n([\s\S]*?)^```/gm)].map((m)=>m[1]).join("\n")];const[n]=[(s)=>t.split(s).length-1];console.log(JSON.stringify({inFence:fence.split("$ARGUMENTS").length-1,flagsCalls:n("<FLAGS>\x20--output-file"),rule:n("**Flags\x20(A14,\x20C21).**"),notFlag:n("Not\x20a\x20github-sdlc\x20flag,\x20read\x20as\x20request\x20text:")}))'
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "--case skill-text-a14"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/stub-bin-gh-issues"
     script_env: '{"SDLC_LINKS_OFFLINE": "1", "GH_TOKEN": ""}'
@@ -2088,8 +2060,8 @@
 # github-sdlc-inputs/payloads-apply.json is both the stub scenario of these cases (GH_STUB_DATA, relative to
 # scenarios/: it extends live.json with the write routes, a create read-back and a comment read-back on issue 5)
 # and, under `payloads`, their inputs. The runner's --payload reads payloads-core.json only, so each case runs
-# `node -e` with the APPLY_HARNESS script (defined once below, reused by YAML alias). Its argv:
-#   -- <repo root> <payload keys, comma-separated> <run-github-case.js args>
+# scripts/run-github-harness.js apply. Its argv:
+#   apply <payload keys, comma-separated> <run-github-case.js args>
 # For each key it writes payloads[key] to a temp file, replaces @INPUT@ with that path, @HASH:<k>@ with
 # github.js payloadHash(payloads[k]) and @HASH@ with the hash of the current key's payload, runs run-github-case.js, and adds `bodies`: the text of every body file
 # a --dry-run listed (those files are kept by --dry-run; the harness removes them). It prints a JSON array, one
@@ -2097,43 +2069,14 @@
 
 - description: "github-sdlc/apply A10 R21: --dry-run on a comment lists one issue comment argv whose body file holds the body byte for byte; no write"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@ --dry-run"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment -- --apply --input @INPUT@ --dry-run"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: &apply_harness |
-        const fs = require('fs');
-        const os = require('os');
-        const path = require('path');
-        const [root, keys, ...rest] = process.argv.slice(1);
-        const pf = path.join(root, 'tests', 'promptfoo');
-        const fixture = path.join(pf, 'fixtures-fs', 'github-sdlc-inputs', 'payloads-apply.json');
-        const { payloads } = JSON.parse(fs.readFileSync(fixture, 'utf8'));
-        const { payloadHash } = require(path.join(root, 'plugins', 'sdlc-utilities', 'scripts', 'skill', 'github.js'));
-        const { runCase } = require(path.join(pf, 'scripts', 'run-github-case.js'));
-        const entry = (key) => {
-          if (!(key in payloads)) throw new Error(`no payload "${key}" in ${fixture}`);
-          return payloads[key];
-        };
-        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'github-apply-'));
-        const runs = keys.split(',').map((key, i) => {
-          const input = path.join(tmp, `payload-${i}.json`);
-          fs.writeFileSync(input, JSON.stringify(entry(key), null, 2));
-          const args = rest.map((a) => a.replace('@INPUT@', input).replace(/@HASH:([^@]+)@/, (_, k) => payloadHash(entry(k)))
-            .replace('@HASH@', payloadHash(entry(key))));
-          const o = runCase(args);
-          const files = ((o.json && o.json.commands) || []).flat().filter((a) => a.startsWith('--body-file=/'))
-            .map((a) => a.slice('--body-file='.length));
-          o.bodies = files.map((f) => fs.readFileSync(f, 'utf8'));
-          for (const f of files) fs.rmSync(path.dirname(f), { recursive: true, force: true });
-          return o;
-        });
-        fs.rmSync(tmp, { recursive: true, force: true });
-        process.stdout.write(JSON.stringify(runs));
   assert:
     - type: javascript
       value: |
@@ -2147,15 +2090,14 @@
 
 - description: "github-sdlc/apply G7 C8: an unknown label and a placeholder marker each exit 1 with no gh write"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-unknown-label,comment-placeholder -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply edit-unknown-label,comment-placeholder -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2168,15 +2110,14 @@
 
 - description: "github-sdlc/apply G10: --apply --auto on a comment holding a placeholder marker still exits 1 with no gh write"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment-placeholder -- --apply --input @INPUT@ --expect-hash @HASH@ --auto"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment-placeholder -- --apply --input @INPUT@ --expect-hash @HASH@ --auto"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2187,15 +2128,14 @@
 
 - description: "github-sdlc/apply A12 R36: the checked payload passes --expect-hash; with the title changed it is hashMismatch, exit 1, no gh call"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create,create-retitled -- --apply --input @INPUT@ --expect-hash @HASH:create@ --dry-run"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply create,create-retitled -- --apply --input @INPUT@ --expect-hash @HASH:create@ --dry-run"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2207,15 +2147,14 @@
 
 - description: "github-sdlc/apply R36: --apply without --expect-hash refuses a comment and a create, exit 1, no gh call"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment,create -- --apply --input @INPUT@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment,create -- --apply --input @INPUT@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2228,15 +2167,14 @@
 
 - description: "github-sdlc/apply R36: --apply --auto without --expect-hash refuses a plain comment, exit 1, no gh call"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@ --auto"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment -- --apply --input @INPUT@ --auto"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2247,15 +2185,14 @@
 
 - description: "github-sdlc/apply R36: a real --apply with the hash of another payload is hashMismatch, exit 1, no gh call"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create-retitled -- --apply --input @INPUT@ --expect-hash @HASH:create@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply create-retitled -- --apply --input @INPUT@ --expect-hash @HASH:create@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2265,15 +2202,14 @@
 
 - description: "github-sdlc/apply R36 C2:--apply --auto on a create is notAutoApprovable with autoBlockers, exit 1, no issue create call"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@ --expect-hash @HASH:create@ --auto"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply create -- --apply --input @INPUT@ --expect-hash @HASH:create@ --auto"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2284,8 +2220,8 @@
 
 - description: "github-sdlc/apply R37: issue 12 open at the check and closed at the re-check fails the close with noOpState, no issue close call"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} close -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply close -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2293,7 +2229,6 @@
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
       GH_STUB_SEQ: "state12=open,closed"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2307,15 +2242,14 @@
 
 - description: "github-sdlc/apply R37: a clean close runs the state read and the live query of issue 12 directly before issue close"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} close -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply close -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2329,15 +2263,14 @@
 
 - description: "github-sdlc/apply R23: --dry-run on a three-item bulk lists three commands in input order"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} bulk-three -- --apply --input @INPUT@ --dry-run"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply bulk-three -- --apply --input @INPUT@ --dry-run"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2350,8 +2283,8 @@
 
 - description: "github-sdlc/apply R23 E10: a bulk whose item 2 fails reports applied 1, failed 2, notRun 3, exit 1"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} bulk-three -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply bulk-three -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2359,7 +2292,6 @@
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
       GH_STUB_FAIL: "422@issue comment 7"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2373,15 +2305,14 @@
 
 - description: "github-sdlc/apply R17 C18: label create runs before issue create; a title holding $(touch pwned) stays one argv element and creates no file"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create-labels --dump pwned -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply create-labels --dump pwned -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2395,15 +2326,14 @@
 
 - description: "github-sdlc/apply C16: no --dry-run output of the comment and title payloads holds a milestones POST or a project field-create argv"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment,comment-3,comment-4,comment-7,comment-8,comment-12,comment-placeholder,edit-title -- --apply --input @INPUT@ --dry-run"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment,comment-3,comment-4,comment-7,comment-8,comment-12,comment-placeholder,edit-title -- --apply --input @INPUT@ --dry-run"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2416,15 +2346,14 @@
 
 - description: "github-sdlc/apply C16: no --dry-run output of the edit, state, project, create and bulk payloads holds a milestones POST or a project field-create argv"
   vars:
-    script_path: "-e"
-    script_args: 'eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-type,edit-unknown-label,assign-bob,close,project-status-7,create,create-retitled,create-labels,bulk-three --config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --apply --input @INPUT@ --dry-run'
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: 'apply edit-type,edit-unknown-label,assign-bob,close,project-status-7,create,create-retitled,create-labels,bulk-three --config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --apply --input @INPUT@ --dry-run'
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
       SDLC_LINKS_OFFLINE: "1"
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2437,8 +2366,8 @@
 
 - description: "github-sdlc/apply E7: a 422 on issue create is class validation with no retry inside --apply"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply create -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2446,7 +2375,6 @@
       GH_TOKEN: ""
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
       GH_STUB_FAIL: "422@issue create"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2459,8 +2387,8 @@
 
 - description: "github-sdlc/apply E4 R30 C7 R32: a 403 with accounts alice*,acme recovers the account once, retries once, logs it, no auth switch"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment --dump .sdlc/learnings/log.md -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment --dump .sdlc/learnings/log.md -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2469,7 +2397,6 @@
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
       GH_STUB_ACCOUNTS: "alice*,acme"
       GH_STUB_FAIL: "403@issue comment#1"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2486,8 +2413,8 @@
 
 - description: "github-sdlc/apply E4 C7: a 403 then a 422 after the account change is not tried a third time"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2496,7 +2423,6 @@
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
       GH_STUB_ACCOUNTS: "alice*,acme"
       GH_STUB_FAIL: "403@issue comment#1;422@issue comment#1"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2509,8 +2435,8 @@
 
 - description: "github-sdlc/apply E8: scopes.project null and a scope failure on project item-edit give the gh auth refresh -s project hint, no retry"
   vars:
-    script_path: "-e"
-    script_args: 'eval(process.env.APPLY_HARNESS) -- {{repo_root}} project-status-7 --config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --apply --input @INPUT@ --expect-hash @HASH@'
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: 'apply project-status-7 --config {"github":{"projects":[{"owner":"acme","number":2}]}} -- --apply --input @INPUT@ --expect-hash @HASH@'
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2519,7 +2445,6 @@
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
       GH_STUB_ACCOUNTS: "alice*,acme"
       GH_STUB_FAIL: "scope@project item-edit"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2532,8 +2457,8 @@
 
 - description: "github-sdlc/apply E9: a timeout on a comment is outcome unknown with one issue comment call and one comment read-back"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2543,7 +2468,6 @@
       SDLC_GH_TIMEOUT_MS: "1000"
       GH_STUB_SLEEP_MS: "2500"
       GH_STUB_FAIL: "timeout@issue comment"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2558,8 +2482,8 @@
 
 - description: "github-sdlc/apply E9 R32: a timeout on an edit is retried once, applied and logged"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} edit-title --dump .sdlc/learnings/log.md -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply edit-title --dump .sdlc/learnings/log.md -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2569,7 +2493,6 @@
       SDLC_GH_TIMEOUT_MS: "1000"
       GH_STUB_SLEEP_MS: "2500"
       GH_STUB_FAIL: "timeout@issue edit#1"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2582,8 +2505,8 @@
 
 - description: "github-sdlc/apply E9: a timeout on issue create is outcome unknown and the read-back finds the open issue"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} create -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply create -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2593,7 +2516,6 @@
       SDLC_GH_TIMEOUT_MS: "1000"
       GH_STUB_SLEEP_MS: "2500"
       GH_STUB_FAIL: "timeout@issue create"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2606,8 +2528,8 @@
 
 - description: "github-sdlc/apply R31: one apply per class gives the expected failure.class (secondary rate limit is rate-limit)"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment-3,comment-4,comment,comment-7,comment-8,comment-12,edit-type,assign-bob,edit-title -- --apply --input @INPUT@ --expect-hash @HASH@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment-3,comment-4,comment,comment-7,comment-8,comment-12,edit-type,assign-bob,edit-title -- --apply --input @INPUT@ --expect-hash @HASH@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2617,7 +2539,6 @@
       SDLC_GH_TIMEOUT_MS: "1000"
       GH_STUB_SLEEP_MS: "2500"
       GH_STUB_FAIL: "401@issue comment 3;403@issue comment 4;rate-limit@issue comment 5;404@issue comment 7;422@issue comment 8;secondary-rate-limit@issue comment 12;timeout@issue edit 5 --repo=github.com/acme/widgets --title"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |
@@ -2630,8 +2551,8 @@
 
 - description: "github-sdlc/apply C13 C20 R32: the acting token appears in no output, output file, cache or log after an account change and a pat failure"
   vars:
-    script_path: "-e"
-    script_args: "eval(process.env.APPLY_HARNESS) -- {{repo_root}} comment --dump .sdlc/learnings/log.md --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --apply --input @INPUT@ --expect-hash @HASH@ --output-file @OUT@"
+    script_path: "repo://tests/promptfoo/scripts/run-github-harness.js"
+    script_args: "apply comment --dump .sdlc/learnings/log.md --dump ~/.sdlc-cache/github/github_com/acme/widgets.json -- --apply --input @INPUT@ --expect-hash @HASH@ --output-file @OUT@"
     script_stub_bin: "fixtures-fs/stub-bin-gh-issues/bin"
     script_home: "fixtures-fs/github-sdlc-home"
     script_env:
@@ -2640,7 +2561,6 @@
       GH_STUB_DATA: "../../github-sdlc-inputs/payloads-apply.json"
       GH_STUB_ACCOUNTS: "alice*,acme"
       GH_STUB_FAIL: "403@issue comment#1;pat@issue comment#1"
-      APPLY_HARNESS: *apply_harness
   assert:
     - type: javascript
       value: |

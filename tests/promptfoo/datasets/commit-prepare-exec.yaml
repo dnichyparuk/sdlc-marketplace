@@ -1,5 +1,5 @@
-# Script execution tests for skill/commit.js (commit-sdlc prepare).
-# These tests run commit.js directly against fixture directories (no LLM).
+# Script execution tests for skill/commit.js (commit-sdlc prepare), run directly or through
+# tests/promptfoo/scripts/run-commit-prepare-case.js against fixture directories (no LLM).
 
 # Issue #406 — cwd-aware git state: commit-prepare must read the linked worktree's
 # staged files (not the main worktree's empty index) when invoked from a linked
@@ -459,12 +459,12 @@
 
 # W8.24 — commit-sdlc takes the planned subject (A7–A9, R-subject-verbatim, R-message-file,
 # R-expected-subject, R-subject-precheck, R-script-prune). Spaced values cannot pass through
-# script_args (split on whitespace), so these cases spawn commit.js with an argv array from a
-# whitespace-free `node -e` one-liner (\x20 = space, \x27 = ', \x22 = ").
+# script_args (split on whitespace), so these cases run run-commit-prepare-case.js, which
+# spawns commit.js with an argv array.
 - description: "commit-subject: (a) --subject with spaces appears verbatim as flags.subject"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--subject","docs(#1):\x20x\x20-\x20y"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case subject-spaces"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
   assert:
@@ -476,8 +476,8 @@
 
 - description: "commit-subject: (b) an empty --subject gives an errors[] entry and exit 1"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--subject",""],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case subject-empty"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
   assert:
@@ -489,8 +489,8 @@
 
 - description: "commit-subject: (c) a 73-character --subject gives exit 1"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--subject","docs(#1):\x20"+"a".repeat(63)],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case subject-73-chars"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
   assert:
@@ -502,8 +502,8 @@
 
 - description: "commit-subject: message-file — the file path is absolute in flags; a different --subject or a path with $ is rejected before drafting"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,pa,js)=>((t)=>((run)=>(fs.writeFileSync(t+"/msg.txt","docs(#1):\x20x\x20-\x20y\n\nWhy\x20it\x20changed.\n"),((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({alone:run(["--message-file",pa.relative(process.cwd(),t+"/msg.txt")]),clash:run(["--message-file",pa.relative(process.cwd(),t+"/msg.txt"),"--subject","docs(#1):\x20other\x20-\x20z"]),badpath:run(["--message-file","m\x24x.txt"])})))((a)=>((r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))}))(cp.spawnSync("node",[js,"--output-file",...a],{cwd:process.cwd(),encoding:"utf8"}))))(fs.mkdtempSync(os.tmpdir()+"/commit-subject-")))(require("child_process"),require("fs"),require("os"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case subject-message-file"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
   assert:
@@ -520,8 +520,8 @@
 
 - description: "commit-subject: expected-subject gate — the SKILL.md subject gate exits 3 on a different first line and 0 on the same"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os)=>((t)=>((js)=>(fs.writeFileSync(t+"/e.json",JSON.stringify({flags:{expectedSubject:"docs(#1):\x20x\x20-\x20y"},commitConfig:null})),fs.writeFileSync(t+"/g.json",JSON.stringify({flags:{subject:"docs(#1):\x20x\x20-\x20y"},commitConfig:null})),fs.writeFileSync(t+"/f.json",JSON.stringify({flags:{messageFile:t+"/same.msg"},commitConfig:null})),fs.writeFileSync(t+"/other.msg","docs(#1):\x20other\x20-\x20z\n\nBody.\n"),fs.writeFileSync(t+"/same.msg","docs(#1):\x20x\x20-\x20y\n\nBody.\n"),((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({found:js.includes("f.expectedSubject")&&js.includes("process.argv[2]"),differ:cp.spawnSync("node",["-e",js,t+"/e.json",t+"/other.msg"]).status,same:cp.spawnSync("node",["-e",js,t+"/e.json",t+"/same.msg"]).status,given:cp.spawnSync("node",["-e",js,t+"/g.json",t+"/other.msg"]).status,file:cp.spawnSync("node",["-e",js,t+"/f.json",t+"/other.msg"]).status})))(((p)=>p.length>1?p[1].split("\x27\x20\x22<COMMIT_CONTEXT_FILE>\x22")[0]:"")(fs.readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md","utf8").split("node\x20-e\x20\x27"))))(fs.mkdtempSync(os.tmpdir()+"/commit-gate-")))(require("child_process"),require("fs"),require("os"))'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case subject-gate"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
   assert:
@@ -536,8 +536,8 @@
 
 - description: "commit-subject: length before draft — a 73-character --expected-subject or message-file first line, or a --subject with a double quote, or an --expected-subject with a backtick, gives exit 1"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,pa,js)=>((t)=>((run)=>(fs.writeFileSync(t+"/long.txt","docs(#1):\x20"+"a".repeat(63)+"\n\nBody.\n"),((o)=>(fs.rmSync(t,{recursive:true,force:true}),console.log(JSON.stringify(o))))({expected:run(["--expected-subject","docs(#1):\x20"+"a".repeat(63)]),file:run(["--message-file",pa.relative(process.cwd(),t+"/long.txt")]),quote:run(["--subject","docs(#1):\x20a\x22b\x20-\x20y"]),tick:run(["--expected-subject","docs(#1):\x20a\x60b\x20-\x20y"])})))((a)=>((r)=>({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))}))(cp.spawnSync("node",[js,"--output-file",...a],{cwd:process.cwd(),encoding:"utf8"}))))(fs.mkdtempSync(os.tmpdir()+"/commit-subject-")))(require("child_process"),require("fs"),require("os"),require("path"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case subject-length-before-draft"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-no-config"
   assert:
@@ -556,8 +556,8 @@
 
 - description: "commit-subject: prune — the script deletes this branch's earlier .msg files and keeps foreign ones"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,js)=>((d)=>(["commit-main-20240101T000000Z.msg","commit-otherbranch-20240101T000000Z.msg","review-main-20240101T000000Z.msg","commit-main-notes.msg"].forEach((n)=>fs.writeFileSync(d+"/"+n,"x\n")),((r)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({status:r.status,manifest:fs.existsSync(r.stdout.trim()),left:fs.readdirSync(d).filter((n)=>n.endsWith(".msg")).sort()}))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8",env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d})}))))(fs.mkdtempSync(os.tmpdir()+"/commit-prune-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case subject-prune"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-on-default-branch"
   assert:
@@ -571,8 +571,8 @@
 
 - description: "commit-subject: prune out — the script deletes this branch's earlier out/ .msg files and keeps foreign ones"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,os,js)=>((d)=>(fs.mkdirSync(d+"/out",{recursive:true}),["commit-context-main-20240101T000000Z-ab12.msg","commit-context-otherbranch-20240101T000000Z-ab12.msg","review-main-20240101T000000Z-ab12.msg","commit-context-main-notes.msg"].forEach((n)=>fs.writeFileSync(d+"/out/"+n,"x\n")),((r)=>((o)=>(fs.rmSync(d,{recursive:true,force:true}),console.log(JSON.stringify(o))))({status:r.status,manifest:fs.existsSync(r.stdout.trim()),left:fs.readdirSync(d+"/out").filter((n)=>n.endsWith(".msg")).sort()}))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8",env:Object.assign({},process.env,{SDLC_STATE_DIR_OVERRIDE:d})}))))(fs.mkdtempSync(os.tmpdir()+"/commit-prune-")))(require("child_process"),require("fs"),require("os"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case subject-prune-out"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-on-default-branch"
   assert:
@@ -588,8 +588,8 @@
 # ([{key,value}], value null for a key-only entry). requiredTrailers itself stays unchanged.
 - description: "commit-trailers: (a) a valued entry reaches the manifest unchanged"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-valued"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-trailers"
   assert:
@@ -611,8 +611,8 @@
 
 - description: "commit-trailers: (c) a malformed entry is an error"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>(fs.writeFileSync(process.cwd()+"/.claude/sdlc.json",JSON.stringify({commit:{requiredTrailers:["Bad\x20Key:\x20x"]}})),((r)=>console.log(JSON.stringify({status:r.status,out:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file"],{cwd:process.cwd(),encoding:"utf8"}))))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-malformed"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-trailers"
   assert:
@@ -624,8 +624,8 @@
 
 - description: "commit-trailers: the orchestrator copies resolved values"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>console.log(JSON.stringify({a:t.includes("**\x60commitConfig.trailers\x60**"),b:t.includes("copied\x20verbatim"),c:t.includes("Never\x20invent\x20a\x20value"),d:t.includes("Use\x20an\x20empty\x20string\x20as\x20the\x20value\x20placeholder\x20when\x20no\x20value\x20is\x20known")})))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/agents/commit-orchestrator.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-orchestrator-copies"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-commit-trailers"
   assert:
@@ -636,8 +636,8 @@
 
 - description: "commit-trailers: (G10+) LF message passes"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","ok-lf.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-lf"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/commit-check-message"
   assert:
@@ -648,8 +648,8 @@
 
 - description: "commit-trailers: (G10+) CRLF message passes"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","ok-crlf.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-crlf"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/commit-check-message"
   assert:
@@ -660,8 +660,8 @@
 
 - description: "commit-trailers: (G10+) second model trailer fails as duplicate"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","dup-model.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-dup-model"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/commit-check-message"
   assert:
@@ -672,8 +672,8 @@
 
 - description: "commit-trailers: (G10+) lowercase duplicate fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","dup-lowercase.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-dup-lowercase"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/commit-check-message"
   assert:
@@ -684,8 +684,8 @@
 
 - description: "commit-trailers: (G10+) missing trailer fails"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","missing.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-missing"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/commit-check-message"
   assert:
@@ -696,8 +696,8 @@
 
 - description: "commit-trailers: (G10+) no config passes"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","missing.txt","--manifest","manifest-null.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-no-config"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/commit-check-message"
   assert:
@@ -708,8 +708,8 @@
 
 - description: "commit-trailers: (G10+) no trailers key passes"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","missing.txt","--manifest","manifest-no-trailers.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-no-trailers-key"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/commit-check-message"
   assert:
@@ -720,8 +720,8 @@
 
 - description: "commit-trailers: (G10+) unreadable file exits 2"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout,err:r.stderr})))(cp.spawnSync("node",[js,"--check-message","absent.txt","--manifest","manifest.json"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/commit.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-unreadable"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/commit-check-message"
   assert:
@@ -732,8 +732,8 @@
 
 - description: "commit-trailers: (config) repo config resolves the Sonnet 5.5 trailer"
   vars:
-    script_path: "-e"
-    script_args: '((fs,lib,root)=>((cfg,errs)=>console.log(JSON.stringify({errs:errs,list:cfg.commit.requiredTrailers,trailers:lib.resolveTrailers(cfg.commit.requiredTrailers,errs)})))(JSON.parse(fs.readFileSync(root+"/.sdlc/config.json","utf8")),[]))(require("fs"),require("{{repo_root}}/plugins/sdlc-utilities/scripts/lib/commit-message.js"),"{{repo_root}}")'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case trailers-repo-config"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/commit-check-message"
   assert:
@@ -745,8 +745,8 @@
 
 - description: "commit-skill-text: (G10+) trailer gate step and R19 rule appear once, the inline trailer loop is gone"
   vars:
-    script_path: "-e"
-    script_args: '((fs,r)=>((c)=>console.log(JSON.stringify({gate:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"0b.\x20**Trailer\x20gate\x20(G10,\x20R17):**"),cmd:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"--check-message\x20\x22<MSG_FILE>\x22"),r19s:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"Add\x20no\x20attribution\x20line\x20of\x20your\x20own"),r19o:c(r("plugins/sdlc-utilities/agents/commit-orchestrator.md"),"Add\x20no\x20attribution\x20line\x20of\x20your\x20own"),loop:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"lines.some(l"),crlf:c(r("plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md"),"split(/\\r?\\n/)[0]")})))((t,s)=>t.split(s).length-1))(require("fs"),(p)=>require("fs").readFileSync("{{repo_root}}/"+p,"utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case skill-text-trailer-gate"
   assert:
     - type: javascript
       value: |
@@ -755,8 +755,8 @@
 
 - description: "commit-skill-text: (R18) the fallback sentence appears once"
   vars:
-    script_path: "-e"
-    script_args: '((s)=>((c)=>console.log(JSON.stringify({fallback:c("draft\x20`MESSAGE`\x20in\x20this\x20context\x20with\x20the\x20same\x20rules,\x20and\x20continue\x20to\x20Step\x205\x20(R18)."),errors:c("If\x20the\x20manifest\x27s\x20`errors[]`\x20is\x20non-empty,\x20surface\x20those\x20errors\x20and\x20stop."),old:c("If\x20`MESSAGE`\x20is\x20empty,\x20the\x20orchestrator\x20detected")})))((t)=>s.split(t).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case skill-text-fallback"
   assert:
     - type: javascript
       value: |
@@ -765,8 +765,8 @@
 
 - description: "commit-skill-text: (R16, R20) the soft-reset uses wipSquash.forkPoint, no symbolic-ref call, and the Exit 2 given-subject sentence appears once"
   vars:
-    script_path: "-e"
-    script_args: '((s)=>((c)=>console.log(JSON.stringify({sym:c("git\x20symbolic-ref\x20--short\x20HEAD"),fork:c("wipSquash.forkPoint"),mb:c("git\x20merge-base"),up:c("@{upstream}"),exit2:c("offer\x20only\x20**cancel**\x20(R16)")})))((t)=>s.split(t).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/commit-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-commit-prepare-case.js"
+    script_args: "--case skill-text-soft-reset"
   assert:
     - type: javascript
       value: |

@@ -128,7 +128,7 @@
       ]
     },
     "datasets/fixture-guard-exec.yaml": {
-      "asserts": 11,
+      "asserts": 13,
       "ids": [
         "W8"
       ]
@@ -138,7 +138,7 @@
       "ids": []
     },
     "datasets/github-sdlc-exec.yaml": {
-      "asserts": 150,
+      "asserts": 151,
       "ids": [
         "A1",
         "A10",
@@ -285,7 +285,7 @@
       ]
     },
     "datasets/jira-sdlc-exec.yaml": {
-      "asserts": 88,
+      "asserts": 90,
       "ids": [
         "A6",
         "C16",
@@ -349,7 +349,7 @@
       "ids": []
     },
     "datasets/mutation-smoke-exec.yaml": {
-      "asserts": 11,
+      "asserts": 12,
       "ids": []
     },
     "datasets/openspec-enrich-exec.yaml": {
@@ -493,7 +493,7 @@
       ]
     },
     "datasets/review-prepare-exec.yaml": {
-      "asserts": 48,
+      "asserts": 51,
       "ids": [
         "R3"
       ]
@@ -800,17 +800,6 @@
     }
   },
   "flags": {
-    "-e --apply": 25,
-    "-e --auto": 3,
-    "-e --check": 1,
-    "-e --config": 2,
-    "-e --dry-run": 6,
-    "-e --dump": 4,
-    "-e --expect-hash": 18,
-    "-e --input": 25,
-    "-e --output-file": 1,
-    "-e --repo": 2,
-    "-e --view": 1,
     "branch-guard-test.js --current": 5,
     "branch-guard-test.js --expected": 4,
     "branch-guard-test.js --op": 6,
@@ -969,6 +958,7 @@
     "mutation-smoke.js --list": 1,
     "mutation-smoke.js --only": 2,
     "mutation-smoke.js --owner": 3,
+    "mutation-smoke.js --probe": 1,
     "mutation-smoke.js --run": 4,
     "openspec-enrich.js --project-root": 7,
     "openspec-enrich.js --remove": 1,
@@ -1015,6 +1005,7 @@
     "plan.js g17-prepare": 6,
     "plan.js merge-lanes": 19,
     "plan.js tier": 4,
+    "plugin-json-version.js --file": 1,
     "pr-recover-gh-account.js --accounts-file": 9,
     "pr-recover-gh-account.js --dry-run": 9,
     "pr-recover-gh-account.js --error-file": 9,
@@ -1058,14 +1049,15 @@
     "run-claude-cli-limit-stub.js exit": 1,
     "run-claude-cli-limit-stub.js limit": 1,
     "run-claude-cli-limit-stub.js ok": 1,
+    "run-commit-prepare-case.js --case": 23,
     "run-execute-cleanup-verify.js --fixture": 5,
     "run-execute-cleanup-verify.js --seed": 5,
     "run-execute-wave-done-usage.js --branch": 1,
     "run-execute-wave-done-usage.js --project-root": 1,
     "run-execute-wave-done-usage.js --usage": 1,
     "run-execute-wave-done-usage.js --wave": 1,
-    "run-fixture-memo.js --cases": 3,
-    "run-fixture-memo.js --fixture": 3,
+    "run-fixture-memo.js --cases": 4,
+    "run-fixture-memo.js --fixture": 4,
     "run-fixture-memo.js --fixtures": 1,
     "run-fixture-memo.js --scan": 1,
     "run-github-case.js --analyze": 6,
@@ -1093,7 +1085,7 @@
     "run-github-case.js --json": 1,
     "run-github-case.js --load": 2,
     "run-github-case.js --no-gh-path": 5,
-    "run-github-case.js --no-git": 3,
+    "run-github-case.js --no-git": 4,
     "run-github-case.js --operation": 8,
     "run-github-case.js --origin": 10,
     "run-github-case.js --output-file": 1,
@@ -1107,7 +1099,7 @@
     "run-github-case.js --refresh": 12,
     "run-github-case.js --repo": 73,
     "run-github-case.js --schema-sync": 1,
-    "run-github-case.js --script": 10,
+    "run-github-case.js --script": 11,
     "run-github-case.js --search": 3,
     "run-github-case.js --sections": 7,
     "run-github-case.js --set-key": 1,
@@ -1124,14 +1116,28 @@
     "run-github-case.js --validate-links": 5,
     "run-github-case.js --version": 1,
     "run-github-case.js --view": 12,
+    "run-github-harness.js --apply": 25,
+    "run-github-harness.js --auto": 3,
+    "run-github-harness.js --case": 2,
+    "run-github-harness.js --check": 1,
+    "run-github-harness.js --config": 2,
+    "run-github-harness.js --dry-run": 6,
+    "run-github-harness.js --dump": 4,
+    "run-github-harness.js --expect-hash": 18,
+    "run-github-harness.js --input": 25,
+    "run-github-harness.js --output-file": 1,
+    "run-github-harness.js --repo": 2,
+    "run-github-harness.js --view": 1,
+    "run-github-harness.js apply": 24,
+    "run-github-harness.js parity": 3,
     "run-headless-case-stub.js --kind": 7,
     "run-headless-case-stub.js --mode": 5,
     "run-headless-case-stub.js --scenario": 15,
     "run-headless-case-stub.js --tier": 1,
     "run-headless-case-stub.js --variant": 7,
-    "run-jira-cache.js --home": 5,
-    "run-jira-cache.js --project": 5,
-    "run-jira-cache.js --scenario": 5,
+    "run-jira-cache.js --home": 6,
+    "run-jira-cache.js --project": 6,
+    "run-jira-cache.js --scenario": 6,
     "run-manifest-cross-process.js --mode": 4,
     "run-openspec-step.js --change": 12,
     "run-openspec-step.js --changes": 1,
@@ -1158,6 +1164,7 @@
     "run-received-review-manifest-fields.js --field": 3,
     "run-received-review-manifest-fields.js --thread-index": 1,
     "run-received-review-manifest-fields.js --with-expected": 2,
+    "run-received-review-prepare-case.js --case": 23,
     "run-review-consolidate-twice.js --findings": 1,
     "run-review-consolidate-twice.js --manifest": 1,
     "run-review-manifest-split.js --project-root": 1,
@@ -1176,6 +1183,7 @@
     "run-ship-detect-resume.js --project-root": 4,
     "run-ship-detect-resume.js --scenario": 4,
     "run-ship-detect-resume.js --state-rel": 4,
+    "run-ship-hooks-case.js --case": 24,
     "run-ship-prepare-ledger.js --case": 20,
     "run-ship-prepare-plan-fields.js --case": 18,
     "run-ship-prepare-summary.js --case": 11,

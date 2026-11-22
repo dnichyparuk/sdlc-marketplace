@@ -134,16 +134,16 @@
 
 - description: "rr-output-file: --output-file is a no-op that does not consume the next argument"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs(["node","x","--output-file","--pr","7"])))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case output-file-noop"
   assert:
     - type: javascript
       value: "JSON.parse(output).prNumber === 7"
 
 - description: "rr-skill-text: one own-checks line, no banners, opener list or trust block"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>((c)=>console.log(JSON.stringify({own:c("Steps\x205-9\x20are\x20your\x20own\x20checks"),internal:c("INTERNAL"),openers:c("Forbidden\x20openers"),trust:c("Source\x20trust"),gratitude:c("Express\x20gratitude"),r18:c("Apply\x20the\x20R18\x20bypass\x20rule\x20and\x20the\x20`--auto`\x20interaction\x20from\x20Configuration")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case skill-text-own-checks"
   assert:
     - type: javascript
       value: |
@@ -152,8 +152,8 @@
 
 - description: "rr-comment-file: (a) findings parsed with severity, path and line"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,manifest:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case comment-file-parsed"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-comment-file"
   assert:
@@ -174,8 +174,8 @@
 
 - description: "rr-comment-file: (b) an unreadable path exits 2"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stderr:r.stderr})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","missing.md"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case comment-file-unreadable"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-comment-file"
     script_capture_stderr: true
@@ -187,8 +187,8 @@
 
 - description: "received-review-prepare (R37): in a linked worktree projectRoot is the worktree, localRoot the main checkout; --project-root sets both"
   vars:
-    script_path: "-e"
-    script_args: '((p,a,b)=>console.log(JSON.stringify({wt:a.projectRoot.endsWith("/worktrees/wt1"),main:!a.localRoot.includes("/worktrees/"),both:b.projectRoot===b.localRoot&&b.localRoot.endsWith("/zz")})))(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs,require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs(["node","x"]),require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs(["node","x","--project-root","/tmp/zz"]))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case r37-worktree-roots"
     script_cwd: "{{project_root}}/worktrees/wt1"
     project_root: "file://fixtures-fs/project-linked-worktree-config"
   assert:
@@ -215,8 +215,8 @@
 
 - description: "rr-comment-file: (c) parseArgs carries commentFile"
   vars:
-    script_path: "-e"
-    script_args: 'console.log(JSON.stringify(require("{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js").parseArgs(["node","x","--comment-file","x.md","--auto"])))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case comment-file-parse-args"
   assert:
     - type: javascript
       value: |
@@ -230,8 +230,8 @@
 
 - description: "rr-scope: (a) --plan writes allowedFiles"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,manifest:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case scope-plan-allowed-files"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
@@ -254,8 +254,8 @@
 
 - description: "rr-scope: (b) no --plan gives null allowedFiles"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((r)=>console.log(JSON.stringify({status:r.status,manifest:JSON.parse(fs.readFileSync(r.stdout.trim(),"utf8"))})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case scope-no-plan-null"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
@@ -277,8 +277,8 @@
 
 - description: "rr-verify: (a) SKILL.md Step 3 carries the R34 doc-versus-spec rule"
   vars:
-    script_path: "-e"
-    script_args: '((fs)=>console.log(fs.readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8")))(require("fs"))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case verify-r34-rule"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
@@ -290,8 +290,8 @@
 
 - description: "rr-scope: (c) invalid --min-severity is an error (and an unreadable --plan)"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((run)=>((a,b)=>console.log(JSON.stringify({a:{status:a.status,stdout:a.stdout,stderr:a.stderr},b:{status:b.status,stdout:b.stdout,stderr:b.stderr}})))(run(["--min-severity","severe"]),run(["--plan","missing-plan.md"])))((x)=>cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md",...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case scope-invalid-min-severity"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
@@ -304,8 +304,8 @@
 
 - description: "rr-scope: (c2) --min-severity without a value is an error"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stdout:r.stdout,stderr:r.stderr})))(cp.spawnSync("node",[js,"--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--min-severity"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case scope-min-severity-no-value"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
@@ -316,8 +316,8 @@
 
 - description: "rr-scope: (d) check-scope passes on allowed paths"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((run)=>((m)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(run(["--check-scope","--manifest",m,"--fixed","F1,F2"])))(run(["--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"]).stdout.trim()))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case scope-check-allowed"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
@@ -328,8 +328,8 @@
 
 - description: "rr-scope: (e) check-scope fails on an outside path"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((run)=>((m)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(run(["--check-scope","--manifest",m,"--fixed","F1"])))(run(["--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"]).stdout.trim()))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case scope-check-outside"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope-outside"
   assert:
@@ -340,8 +340,8 @@
 
 - description: "rr-scope: (e2) check-scope matches a directory Files entry by prefix"
   vars:
-    script_path: "-e"
-    script_args: '((cp,fs,js)=>((run)=>((m)=>((j)=>(j.allowedFiles=["src","x.js"],fs.writeFileSync(m,JSON.stringify(j)),((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(run(["--check-scope","--manifest",m,"--fixed","F1"]))))(JSON.parse(fs.readFileSync(m,"utf8"))))(run(["--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"]).stdout.trim()))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),require("fs"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case scope-check-prefix"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope-outside"
   assert:
@@ -352,8 +352,8 @@
 
 - description: "rr-scope: (f) check-scope fails on a below-threshold fixed id"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((run)=>((m)=>((r)=>console.log(JSON.stringify({status:r.status,out:r.stdout.trim()})))(run(["--check-scope","--manifest",m,"--fixed","F1,F3"])))(run(["--output-file","--project-root",process.cwd(),"--comment-file","review-comment.md","--plan","plan.md","--min-severity","medium"]).stdout.trim()))((x)=>cp.spawnSync("node",[js,...x],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case scope-check-below-threshold"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
@@ -364,8 +364,8 @@
 
 - description: "rr-scope: (g) check-scope exit 2 on an unreadable manifest"
   vars:
-    script_path: "-e"
-    script_args: '((cp,js)=>((r)=>console.log(JSON.stringify({status:r.status,stdout:r.stdout,stderr:r.stderr})))(cp.spawnSync("node",[js,"--check-scope","--manifest","missing-manifest.json","--fixed","F1"],{cwd:process.cwd(),encoding:"utf8"})))(require("child_process"),"{{repo_root}}/plugins/sdlc-utilities/scripts/skill/received-review.js")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case scope-check-unreadable-manifest"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
@@ -376,8 +376,8 @@
 
 - description: "rr-skill-text: comment-file source and the no-PR skip rule"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>((c)=>console.log(JSON.stringify({hint:c("argument-hint:\x20\x22[--pr\x20\x3cnumber\x3e]\x20[--auto]\x20[--comment-file\x20\x3cpath\x3e]\x20[--plan\x20\x3cpath\x3e]\x20[--min-severity\x20\x3clevel\x3e]\x22"),src:c("When\x20\x60manifest.source\x60\x20is\x20\x60comment-file\x60"),nopr:c("When\x20\x60manifest.pr\x60\x20is\x20null"),fence:c("node\x20\x22\x3cPLUGIN_ROOT\x3e/scripts/skill/received-review.js\x22\x20--output-file\x20\x3cFLAGS\x3e"),post:c("With\x20\x60manifest.pr\x60\x20null\x20(\x60comment-file\x60\x20source,\x20R27),\x20post\x20nothing"),s12:c("show\x20the\x20summary\x20in\x20item\x201;\x20no\x20consent\x20gate,\x20no\x20posting\x20(R27).\x20Then\x20apply\x20the\x20R35\x20open-decisions\x20stop\x20from\x20Step\x2011\x20when\x20it\x20applies.")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case skill-text-comment-file-source"
   assert:
     - type: javascript
       value: |
@@ -386,8 +386,8 @@
 
 - description: "received-review-prepare/skill-text A7 C20: no $ARGUMENTS in a fence, <FLAGS> in the prepare call, the allow-list rule present"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>((c,a)=>console.log(JSON.stringify({inFence:a.n,call:c("--output-file\x20<FLAGS>\n"),rule:c("**Flags\x20(A7,\x20C20).**"),notFlag:c("Not\x20a\x20received-review-sdlc\x20flag,\x20read\x20as\x20request\x20text:"),old:c("Replace\x20`--pr\x20<PR_NUMBER>`"),stop:c("stop\x20and\x20report\x20it\x20as\x20an\x20invalid\x20value"),minSev:c("`--min-severity`\x20takes\x20only\x20`critical`,\x20`high`,\x20`medium`\x20or\x20`low`;\x20any\x20other\x20value\x20is\x20reported\x20the\x20same\x20way")})))((s)=>t.split(s).length-1,t.split("\n").reduce((a,l)=>(a.f?(l.startsWith("```")?a.f=0:a.n+=l.split("$ARGUMENTS").length-1):l.startsWith("```")&&(a.f=1),a),{f:0,n:0})))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case skill-text-a7-c20"
   assert:
     - type: javascript
       value: |
@@ -397,8 +397,8 @@
 
 - description: "rr-skill-text: (scope) fix-scope and scope-check blocks appear once"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>((c)=>console.log(JSON.stringify({fix:c("**Fix\x20scope\x20(R28,\x20R29):**"),chk:c("**Scope\x20check\x20(R30,\x20G13):**"),cmd:c("--check-scope\x20--manifest")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case skill-text-scope-blocks"
   assert:
     - type: javascript
       value: |
@@ -407,8 +407,8 @@
 
 - description: "rr-skill-text: (comment-file) R31 and R32 lines appear once"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>((c)=>console.log(JSON.stringify({r31:c("**Comment-file\x20mode\x20(R31):**"),r32:c("PR:\x20none\x20(comment-file\x20\x3cbasename\x20of\x20manifest.comment_file\x3e))\x20(R32)"),src:c("When\x20\x60manifest.source\x60\x20is\x20\x60comment-file\x60")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case skill-text-r31-r32"
   assert:
     - type: javascript
       value: |
@@ -417,8 +417,8 @@
 
 - description: "rr-skill-text: (auto) the needs-discussion auto line appears twice"
   vars:
-    script_path: "-e"
-    script_args: '((t)=>((c)=>console.log(JSON.stringify({auto:c("when\x20\x60flags.auto\x60\x20is\x20true\x20(the\x20boolean\x20resolved\x20in\x20Step\x201),\x20ask\x20nothing;"),verdict:c("the\x20verdict\x20\x22needs\x20discussion\x22\x20(C19)")})))((s)=>t.split(s).length-1))(require("fs").readFileSync("{{repo_root}}/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"))'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case skill-text-auto-line"
   assert:
     - type: javascript
       value: |
@@ -427,8 +427,8 @@
 
 - description: "rr-skill-text: (R38) removed-phrase rule in SKILL.md Step 11 and ship-step-received-review"
   vars:
-    script_path: "-e"
-    script_args: '((fs,r)=>((s,a)=>((c)=>console.log(JSON.stringify({step:c(s,"**Removed\x20phrases\x20(R38).**"),agent:c(a,"(received-review-sdlc\x20R38)")})))((t,x)=>t.split(x).length-1))(fs.readFileSync(r+"/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"),fs.readFileSync(r+"/plugins/sdlc-utilities/agents/ship-step-received-review.md","utf8")))(require("fs"),"{{repo_root}}")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case skill-text-r38"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
@@ -439,8 +439,8 @@
 
 - description: "rr-refusal: (a) R36 refusal rule in SKILL.md Step 11, the DO NOT list and ship-step-received-review"
   vars:
-    script_path: "-e"
-    script_args: '((fs,r)=>((s,a)=>((c)=>console.log(JSON.stringify({step:c(s,"**A\x20refusal\x20is\x20a\x20stop\x20(R36).**"),dont:c(s,"or\x20run\x20an\x20owner-only\x20command\x20as\x20a\x20fix\x20check\x20(R36)"),agent:c(a,"(received-review-sdlc\x20R36)")})))((t,x)=>t.split(x).length-1))(fs.readFileSync(r+"/plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md","utf8"),fs.readFileSync(r+"/plugins/sdlc-utilities/agents/ship-step-received-review.md","utf8")))(require("fs"),"{{repo_root}}")'
+    script_path: "repo://tests/promptfoo/scripts/run-received-review-prepare-case.js"
+    script_args: "--case refusal-r36"
     script_cwd: "{{project_root}}"
     project_root: "file://fixtures-fs/project-received-review-scope"
   assert:
