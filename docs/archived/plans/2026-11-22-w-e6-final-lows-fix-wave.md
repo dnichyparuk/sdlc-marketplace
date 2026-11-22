@@ -1,5 +1,7 @@
 # W-E6 Final Lows Fix Wave Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #140, 71bb076
+
 **Commit:** `chore(W-E6): lows - fix the seven final deferred lows`
 **Goal:**
 
@@ -128,9 +130,9 @@ No item was dropped.
 **Notes:** Fixes `docs/TODO/lows-lean-w45.md` line 11 ("Stale 60 s timeout rationale"). Implements R92 (docs/specs/execute-plan-sdlc.md), no behaviour change: the 60 s cap stays. The old reason predates the wait listing only unreturned workers; the cap now matters when a listed worker returns during the call without writing `reporting`. The check-only files are the copy-rule companions; none states the reason (greps in Research Findings).
 
 **Acceptance criteria:**
-- [ ] Both files carry the new sentence below exactly once, and neither contains "a marker a returned worker never wrote".
-- [ ] `git grep -n "at most 60" -- plugins/sdlc-utilities/skills/execute-plan-sdlc` shows the same sentence text in both files (line wrapping in the template may differ).
-- [ ] The targeted run passes: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "execute-plan-sdlc/(handback|dispatch-resilience)"`.
+- [x] Both files carry the new sentence below exactly once, and neither contains "a marker a returned worker never wrote".
+- [x] `git grep -n "at most 60" -- plugins/sdlc-utilities/skills/execute-plan-sdlc` shows the same sentence text in both files (line wrapping in the template may differ).
+- [x] The targeted run passes: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "execute-plan-sdlc/(handback|dispatch-resilience)"`.
 
 **Contract:** shape (code): one sentence replaced in two prose files, as rendered below; names: sentence "When some workers have already returned, pass `--timeout` of at most 60 so the call returns soon when a listed worker returns during the call without writing its `reporting` phase."; sync: SKILL.md and wave-runner-template.md carry the same text
 
@@ -167,9 +169,9 @@ No item was dropped.
 **Notes:** Fixes `docs/TODO/lows-lean-w45.md` line 8 ("Step 12 summary gains a deferred line not shown in the reference doc"). Docs only; SKILL.md is unchanged, so the copy rule does not fire.
 
 **Acceptance criteria:**
-- [ ] The example block shows four summary lines in the SKILL.md order (addressed, pushed back, intentionally skipped, deferred), as rendered below.
-- [ ] `cmp docs/skills/received-review-sdlc.md site/src/content-source/skills/received-review-sdlc.md` exits 0.
-- [ ] `node .claude/skills/validate-skill-docs/check-docs-consistency.js` exits 0.
+- [x] The example block shows four summary lines in the SKILL.md order (addressed, pushed back, intentionally skipped, deferred), as rendered below.
+- [x] `cmp docs/skills/received-review-sdlc.md site/src/content-source/skills/received-review-sdlc.md` exits 0.
+- [x] `node .claude/skills/validate-skill-docs/check-docs-consistency.js` exits 0.
 
 **Contract:** shape (docs): two lines added to one fenced example, as rendered below; names: `- 0 comments intentionally skipped (agree, won't fix)`, `- 0 comments deferred (needs discussion or below threshold)`; sync: site copy by `cp`
 
@@ -196,9 +198,9 @@ No item was dropped.
 **Notes:** Fixes `docs/TODO/lows-lean-w45.md` line 10 ("Critique dir is read twice; the bare readCritiqueDir call discards its result"). `latestGuardrailMerged` already starts with `readCritiqueDir`, so the R67(f) usage error and its order (before the plan file is read) stay the same on both paths.
 
 **Acceptance criteria:**
-- [ ] On one `splice --critique-dir` run, `readCritiqueDir` runs exactly once (directly under `--no-guardrails`, through `latestGuardrailMerged` otherwise).
-- [ ] An unreadable `--critique-dir` is still a usage error (exit 1) with and without `--no-guardrails`.
-- [ ] The targeted run passes: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "plan-splice"`.
+- [x] On one `splice --critique-dir` run, `readCritiqueDir` runs exactly once (directly under `--no-guardrails`, through `latestGuardrailMerged` otherwise).
+- [x] An unreadable `--critique-dir` is still a usage error (exit 1) with and without `--no-guardrails`.
+- [x] The targeted run passes: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "plan-splice"`.
 
 **Contract:** shape (code): edit inside `runSplice(flags)` as rendered below, no signature change; names: `runSplice`, `readCritiqueDir`, `latestGuardrailMerged`; sync: none
 
@@ -228,10 +230,10 @@ No item was dropped.
 **Notes:** Fixes `docs/TODO/lows-lean-w45.md` line 12 ("The R-subagent-brief case now pins only the shared tail of the plugin-root sentence for the commit, pr and execute agents"). Tests only. No case or `assert` entry is added: `spec-id-coverage.json` stays at 33 asserts for this dataset and the wrapper still has 2 cases.
 
 **Acceptance criteria:**
-- [ ] The wrapper prints `{"s":…,"a":[…],"b":[…],"c":[…]}`, `c` being the count of the phrase in `ship-step-<n>.md` for `STEPS` order (commit, review, received-review, version, pr, execute).
-- [ ] The case passes only when `s === 1`, `a` is `[1,1,1,1,1,1]`, `b` is `[0,1,1,1,0,0]` and `c` is `[1,1,1,1,1,1]`.
-- [ ] The wrapper header comment no longer says the output is byte-compatible for this case (it now adds `c`).
-- [ ] The targeted run passes: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "subagent-brief"`.
+- [x] The wrapper prints `{"s":…,"a":[…],"b":[…],"c":[…]}`, `c` being the count of the phrase in `ship-step-<n>.md` for `STEPS` order (commit, review, received-review, version, pr, execute).
+- [x] The case passes only when `s === 1`, `a` is `[1,1,1,1,1,1]`, `b` is `[0,1,1,1,0,0]` and `c` is `[1,1,1,1,1,1]`.
+- [x] The wrapper header comment no longer says the output is byte-compatible for this case (it now adds `c`).
+- [x] The targeted run passes: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "subagent-brief"`.
 
 **Contract:**
 - shape (code): wrapper output gains key `c`; dataset assertion gains one clause, as rendered below.
@@ -271,10 +273,10 @@ No item was dropped.
 **Notes:** Fixes `docs/TODO/lows-lean-w48.md` lines 8 ("prepare() parses stdout without handling a failed spawn"), 9 ("w25-no-git-fallback leaks its nogit- temp dir on every run") and 10 ("Stale comment on the claimSession implicit-resume case"). Tests only. The check never looks at the exit status, because `commit.js` exits 1 with a manifest path on stdout in the `subject-empty` case. The write stays inside `claimCase()` (scope item A4(d)). No case is added or removed.
 
 **Acceptance criteria:**
-- [ ] `prepare()` throws an `Error` whose message holds the status, the spawn error message (when set) and stderr, when `r.error` is set or `r.stdout` is empty after trim; otherwise it returns `{ status, out }` as before.
-- [ ] `w25-no-git-fallback` prints the same JSON as before and removes the `nogit-` directory in a `finally` block, also when `print` or a hook run throws.
-- [ ] The comment above "claimSession (R73, #505): implicit resume reclaims sessionId …" no longer says "the same expression below" or "a separate script_args", and says that the write and the spawn happen inside `claimCase()` in `run-ship-hooks-case.js`.
-- [ ] The targeted runs pass: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^commit-(subject|trailers):"` and `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern "no .git anywhere|implicit resume reclaims"`.
+- [x] `prepare()` throws an `Error` whose message holds the status, the spawn error message (when set) and stderr, when `r.error` is set or `r.stdout` is empty after trim; otherwise it returns `{ status, out }` as before.
+- [x] `w25-no-git-fallback` prints the same JSON as before and removes the `nogit-` directory in a `finally` block, also when `print` or a hook run throws.
+- [x] The comment above "claimSession (R73, #505): implicit resume reclaims sessionId …" no longer says "the same expression below" or "a separate script_args", and says that the write and the spawn happen inside `claimCase()` in `run-ship-hooks-case.js`.
+- [x] The targeted runs pass: `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern "^commit-(subject|trailers):"` and `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern "no .git anywhere|implicit resume reclaims"`.
 
 **Contract:**
 - shape (code): two helper edits and one YAML comment, as rendered below; no new flag, case or output key.
