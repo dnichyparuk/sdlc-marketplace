@@ -37,3 +37,10 @@ Append-only. The log wins over the text of a plan.
 - **Decision:** (a) The `W-END` gate closes on the merge of its planning PR. (b) The programme's deferred-lows policy (PD-1, PD-3) ends; the orchestration profile returns to per-wave handling of lows through a separate skill PR, not part of that planning PR. (c) The 7 residual lows (lean-w45:8, :10, :11, :12 and lean-w48:8, :9, :10) were fixed by W-E6; lean-w45:9 is the accepted gap of PD-4; lean-w45:7, lean-w48:7 and lean-w36:11 were closed under PD-4. (d) The `docs/TODO/lows-lean-w*.md` notes and `docs/TODO/lean-skill-pr-b-9464.md` are archived by the gate close.
 - **Rejected options:** a second audit; a further fix wave.
 - **Made obsolete or amended:** PD-1's and PD-3's "stays open and homed to `W-END` until the gate": the gate is now closed. PD-1 to PD-4 text is unchanged.
+
+## PD-6: One more plugin fix wave W-E7 for F-141 only
+
+- **Date and owner:** 2026-11-22, owner request ("run one more plugin fix wave") plus architect-accepted (strong).
+- **Decision:** one light fix wave `W-E7` for F-141 only (the guardrail lane re-run on a warning FAIL, ticket TK-022). F-144 (#9446) and F-146 (#9451) are already fixed by wave W-D2 (commit 1e3e3d7, tickets TK-010 and TK-012 closed, no recurrence in 7 later waves). F-170 stays NOT A DEFECT per PD-2(b), and no rule that fixes lows early is added.
+- **Rejected options:** a wave for the three fixed items; a fix-lows-early rule.
+- **Made obsolete or amended:** none.

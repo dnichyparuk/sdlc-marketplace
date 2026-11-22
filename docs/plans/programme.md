@@ -118,6 +118,16 @@ Scope (owner 2026-11-22, "dispatch one more low-fi wave to clean up them"; archi
 
 Verification is exec-only. Release: a patch bump. Details: PD-4 and `docs/TODO/lows-lean-w45.md`, `docs/TODO/lows-lean-w48.md`.
 
+## W-E7: Guardrail table re-run fix
+
+Scope (owner 2026-11-22, "run one more plugin fix wave"; decision PD-6): fix F-141 only, ticket TK-022. Light wave, patch bump, exec-only verification. Key `W-E7` stands for the fix wave "END7". After W-END (Done).
+
+### Milestones
+
+| Milestone | Tickets | Plan(s) | Estimate |
+| --- | --- | --- | --- |
+| M1 | TK-022 | | 1 light wave, about 3 tasks |
+
 ## W-END: Programme post-merge audit
 
 > END (owner 2026-11-19, 'accepted with optimisations'): after F, ONE post-merge audit of the programme; its brief carries, as context, every deferred low of every wave (`ledger.js backlog` + review-archive texts, incl. the placement architect's file:line list for lean-w34/w35/w36: plan-critique-orchestrator.md :41/:104, spec R75 rerun lanes, ship.js:526, pr-sdlc SKILL.md:456; mutation-smoke.js :164/:165/:172/:187, check-dataset-asserts.js:175, check-spec-id-coverage.js:73; ship-step-received-review.md:21, received-review SKILL.md:612) plus #9450's wider prefix-match note. Confirmed defects and still-present lows go to the fix waves W-E1 to W-E5 (END audit result, 2026-11-21); the gate then re-checks them and closes the programme. No low becomes a wave before END; new lows from H1..F also accumulate in the backlog.
