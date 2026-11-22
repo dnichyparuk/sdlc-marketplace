@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.7] - 2026-11-22
+
+### Fixed
+- tests: mutation-smoke gains a `--probe` mode that checks the apply step and verdict logic without starting promptfoo, and marks the known-weak wave-committed mutation as expected to survive; check-dataset-asserts names an unreadable or invalid allowlist file instead of failing with a raw parse error (W-E3).
+
 ## [0.57.6] - 2026-11-21
 
 ### Fixed
