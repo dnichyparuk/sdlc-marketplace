@@ -1,6 +1,6 @@
 # sdlc-marketplace programme
 
-The waves after lean-w37, in order: H2, B, D1, D2, F, the five END fix waves E1 to E5 (keys `W-E1` to `W-E5`), then the END gate. Each `##` section is the brief of one wave (unit) of `docs/plans/register.json`.
+The waves after lean-w37, in order: H2, B, D1, D2, F, the six END fix waves E1 to E6 (keys `W-E1` to `W-E6`), then the END gate. Each `##` section is the brief of one wave (unit) of `docs/plans/register.json`.
 
 | Kind of status | Lives in |
 | --- | --- |
@@ -107,10 +107,21 @@ Scope (owner decision 2026-11-21): convert 99 inline `script_path: "-e"` program
 
 Scope (owner decision 2026-11-21): convert 80 inline `script_path: "-e"` programs: plan-prepare 21, plan-format 17, review-prepare 9, state-gc 7, pr-prepare 6 and the nine small datasets (20). Key `W-E5` stands for the fix wave "END5". After W-E4. Details and acceptance: `docs/TODO/end-e-programs-to-wrappers.md`.
 
+## W-E6: Final lows fix wave
+
+Scope (owner 2026-11-22, "dispatch one more low-fi wave to clean up them"; architect report section 4, items A1 to A4; decision PD-4): fix the seven still-present lows. Light wave, no spec edit. Key `W-E6` stands for the fix wave "END6". After W-E5.
+
+- A1 (lean-w45:11): in `plugins/sdlc-utilities/skills/execute-plan-sdlc/wave-runner-template.md:103-105` and `plugins/sdlc-utilities/skills/execute-plan-sdlc/SKILL.md:390` keep the 60 s `--timeout` cap and replace the stale reason with the same text in both places (the call returns soon when a listed worker returns during the call without writing its `reporting` phase); remove "a marker a returned worker never wrote". Implements R92, no behaviour change.
+- A2 (lean-w45:8): in `docs/skills/received-review-sdlc.md:250-253` and `site/src/content-source/skills/received-review-sdlc.md` (same lines, files stay byte-identical) add the K and D lines so the example matches `received-review-sdlc/SKILL.md:553-558`. Docs only.
+- A3 (lean-w45:10): in `plugins/sdlc-utilities/scripts/skill/plan.js:489-490` read the critique dir once (the `--no-guardrails` branch keeps the R67(f) usage-error behaviour).
+- A4 (lean-w45:12, lean-w48:8, :9, :10), tests only: (a) `tests/promptfoo/scripts/run-script-resolution-case.js` and `datasets/sdlc-script-resolution-exec.yaml:196-205`: count the phrase "use that path wherever the skill substitutes `<PLUGIN_ROOT>`" in the six step agents and assert `c=[1,1,1,1,1,1]`; (b) `tests/promptfoo/scripts/run-commit-prepare-case.js:98-100` `prepare()`: when `r.error` is set or stdout is empty, throw with stderr and status; (c) `tests/promptfoo/scripts/run-ship-hooks-case.js:348-354`: remove the `nogit-` temp dir in a try/finally; (d) `tests/promptfoo/datasets/ship-hooks-exec.yaml:558-565`: reword the stale comment (the write and the spawn happen inside `claimCase`; do not move the write out of it).
+
+Verification is exec-only. Release: a patch bump. Details: PD-4 and `docs/TODO/lows-lean-w45.md`, `docs/TODO/lows-lean-w48.md`.
+
 ## W-END: Programme post-merge audit
 
 > END (owner 2026-11-19, 'accepted with optimisations'): after F, ONE post-merge audit of the programme; its brief carries, as context, every deferred low of every wave (`ledger.js backlog` + review-archive texts, incl. the placement architect's file:line list for lean-w34/w35/w36: plan-critique-orchestrator.md :41/:104, spec R75 rerun lanes, ship.js:526, pr-sdlc SKILL.md:456; mutation-smoke.js :164/:165/:172/:187, check-dataset-asserts.js:175, check-spec-id-coverage.js:73; ship-step-received-review.md:21, received-review SKILL.md:612) plus #9450's wider prefix-match note. Confirmed defects and still-present lows go to the fix waves W-E1 to W-E5 (END audit result, 2026-11-21); the gate then re-checks them and closes the programme. No low becomes a wave before END; new lows from H1..F also accumulate in the backlog.
 
 > END brief: brief.js audit --prs 110-<F PR> (with --context-file from `plan-register show END --brief` once skill PR A is installed), launch prompt adds 're-check the unmarked rows of the END gate's homed lows notes in full on HEAD: STILL PRESENT / FIXED / NOT A DEFECT with file:line, outside the 15-defect cap; marked rows (PD-3): mechanical check (cited SHA is an ancestor of HEAD, `git show --stat <sha> -- <path>` not empty) plus a spot check of 3 marked rows from different waves, and if one fails re-check every marked row of that wave; NOT A DEFECT marks get the full re-check'.
 
-Homed notes: see the register. The gate depends on W-E1 to W-E5 and closes the programme once they are merged. Decisions PD-1, PD-2 and PD-3.
+Homed notes: see the register. The gate depends on W-E1 to W-E6 (W-END depends on W-E6 as well) and closes the programme once they are merged. Decisions PD-1, PD-2, PD-3 and PD-4.
