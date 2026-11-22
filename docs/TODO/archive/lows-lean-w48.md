@@ -1,5 +1,7 @@
 # Deferred lows of lean-w48 (unit W-E4, PR #135, merge 1432562)
 
+> ARCHIVED / IMPLEMENTED — owner sign-off 2026-11-22 (PD-5), PR #142
+
 Source: the ship report and the review of PR #135 (wave lean-w48).
 
 | Severity | Path:line | Title | Text | Wave/PR |

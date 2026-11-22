@@ -1,5 +1,7 @@
 # Deferred lows of lean-w42 (unit W-D2, PR #123, merge 1e3e3d7)
 
+> ARCHIVED / IMPLEMENTED — owner sign-off 2026-11-22 (PD-5), PR #142
+
 Source: review-rounds-fix-lean-w42-w-d2-ship-execute-and-plan-follow-ups.json (rounds 1-2), the fix-round-3 review of 363c58d, and the ship report; re-rated LOW by an isolated architect on 2026-11-20 (owner agreed to keep them for END).
 
 | Severity | Path:line | Title | Text | Wave/PR |

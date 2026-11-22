@@ -1,5 +1,7 @@
 # Deferred lows: lean-w40 (PR #119)
 
+> ARCHIVED / IMPLEMENTED — owner sign-off 2026-11-22 (PD-5), PR #142
+
 Deferred review lows of lean-w40, homed to the END gate `W-END` (decision PD-1 in `docs/plans/decisions.md`). This programme only.
 
 - low | tests/promptfoo/scripts/run-review-plugin-version.js:35 (also :34) | Duplicated plugin.json read, inline require('fs'), unguarded JSON.parse | The same plugin.json path build and `JSON.parse(require('fs').readFileSync(...)).version` appears here and in run-received-review-manifest-fields.js (line 130). If plugin.json is missing or malformed… | lean-w40/PR #119 — FIXED by W-E3 (PR #133, d128590, Task 6)
