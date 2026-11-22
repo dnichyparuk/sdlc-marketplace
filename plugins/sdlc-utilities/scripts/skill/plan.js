@@ -486,8 +486,10 @@ function runSplice(flags) {
   const planPath = requireFlag(flags, 'plan');
   if ((flags.merged === undefined) === (flags['critique-dir'] === undefined)) throw usageError('give exactly one of --merged or --critique-dir');
   if (flags['critique-dir'] !== undefined) {
-    readCritiqueDir(flags['critique-dir']);
-    const latest = flags.noGuardrails === true ? null : latestGuardrailMerged(flags['critique-dir']);
+    // One directory read: latestGuardrailMerged starts with readCritiqueDir (R67 (f) usage error).
+    let latest = null;
+    if (flags.noGuardrails === true) readCritiqueDir(flags['critique-dir']);
+    else latest = latestGuardrailMerged(flags['critique-dir']);
     const planText = readPlanFile(planPath);
     if (!latest) return { written: [], replaced: [], source: null };
     const { text, written, replaced } = splicePlan(planText, latest.merged, { only: ['Guardrail Compliance'] });

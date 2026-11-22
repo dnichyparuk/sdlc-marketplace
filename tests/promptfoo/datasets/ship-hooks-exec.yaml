@@ -558,12 +558,12 @@
 #    stamped for session A, ship.js invoked with no --resume flag under
 #    session B (implicitResume auto-fires since fresh && !cli.resume) — the
 #    on-disk sessionId must flip to B.
-#    "fresh" here comes only from the fs.writeFileSync() call happening
-#    milliseconds before the ship.js spawn in the same expression below —
-#    resume.fresh is an mtime check, and nothing else in this case touches
-#    the file's mtime. Do not reorder or split the write out from the spawn
-#    (e.g. into a separate script_args or an earlier setup step): doing so
-#    lets the mtime age past the freshness window, implicitResume never
+#    "fresh" here comes only from claimCase() in run-ship-hooks-case.js: it
+#    writes the state file milliseconds before it spawns ship.js, in the same
+#    function. resume.fresh is an mtime check, and nothing else in this case
+#    touches the file's mtime. Keep the write inside claimCase(), right
+#    before the spawn; moving it to an earlier setup step lets the mtime age
+#    past the freshness window, implicitResume never
 #    fires, claimSession() is never called, and this case fails on the
 #    `after !== 'sess-B'` assertion below for a reason unrelated to
 #    claimSession itself (a maintenance trap, not a correctness one).

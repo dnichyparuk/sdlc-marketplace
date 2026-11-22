@@ -20,7 +20,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-E3` (E3) | - | Test-tooling hygiene | [programme](./programme.md) (brief; §W-E3)<br>[2026-11-21-w-e3-test-tooling-hygiene](../archived/plans/2026-11-21-w-e3-test-tooling-hygiene.md) (executable) | Done | 44/44 | W-F | PR #133, d128590 |
 | `W-E4` (E4) | - | `-e` programs to wrappers, batch A | [programme](./programme.md) (brief; §W-E4)<br>[2026-11-22-w-e4-e-programs-to-wrappers-batch-a](../archived/plans/2026-11-22-w-e4-e-programs-to-wrappers-batch-a.md) (executable) | Done | 27/27 | W-E2, W-E3 | PR #135, 1432562 |
 | `W-E5` (E5) | - | `-e` programs to wrappers, batch B | [programme](./programme.md) (brief; §W-E5)<br>[2026-11-22-w-e5-e-programs-to-wrappers-batch-b](../archived/plans/2026-11-22-w-e5-e-programs-to-wrappers-batch-b.md) (executable) | Done | 71/71 | W-E4 | PR #137, f6aeee3 |
-| `W-E6` (E6) | - | Final lows fix wave | [programme](./programme.md) (brief; §W-E6) | Not started | 0/0 | W-E5 | - |
+| `W-E6` (E6) | - | Final lows fix wave | [programme](./programme.md) (brief; §W-E6)<br>[2026-11-22-w-e6-final-lows-fix-wave](./2026-11-22-w-e6-final-lows-fix-wave.md) (executable) | In progress | 0/17 | W-E5 | - |
 | `W-END` (END; gate, owner: owner) | - | Programme post-merge audit | [programme](./programme.md) (brief; §W-END) | Not started | 0/0 | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | - |
 
 **Order** (topological; ready = not started, hard dependencies closed, nothing waited on):
@@ -37,8 +37,8 @@ Executable plans of this repository and the generated programme status. The regi
 | 8 | `W-E3` | Done | W-F | done |
 | 9 | `W-E4` | Done | W-E2, W-E3 | done |
 | 10 | `W-E5` | Done | W-E4 | done |
-| 11 | `W-E6` | Not started | W-E5 | ready |
-| 12 | `W-END` | Not started | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | waiting: W-E6 (Not started) |
+| 11 | `W-E6` | In progress | W-E5 | in progress |
+| 12 | `W-END` | Not started | W-E1, W-E2, W-E3, W-E4, W-E5, W-E6 | waiting: W-E6 (In progress) |
 
 Longest dependency chain among open waves (dependsOn only; no effort estimates): W-E6 → W-END (2 waves).
 

@@ -5,8 +5,8 @@
  * datasets/sdlc-script-resolution-exec.yaml.
  *
  * Each case reads skill text under the repo root (absolute paths, not the cwd) and prints one JSON
- * line that the case's assertions read. Both cases were `node -e` programs before; the output is
- * byte-compatible with them.
+ * line that the case's assertions read. Both cases were `node -e` programs before; the
+ * args-rule-skills output is byte-compatible with them, subagent-brief-root-line adds key `c`.
  *
  * Args:
  *   --case <name>   One of the names below. Usage errors (no --case, an unknown name, an unknown flag)
@@ -67,11 +67,13 @@ const CASES = {
   'subagent-brief-root-line'() {
     const never = "never derive the plugin root from the skill's base directory (ship-sdlc R-subagent-brief).";
     const keep = 'the `sdlc plugin root:` line the skill names, not one of the other occurrences the skill tells you to ignore';
+    const root = 'use that path wherever the skill substitutes `<PLUGIN_ROOT>`';
     const agent = (n) => read('plugins/sdlc-utilities/agents/ship-step-' + n + '.md');
     console.log(JSON.stringify({
       s: count(read('plugins/sdlc-utilities/skills/ship-sdlc/SKILL.md'), '\\nsdlc plugin root: <PLUGIN_ROOT>\\n'),
       a: STEPS.map((n) => count(agent(n), never)),
       b: STEPS.map((n) => count(agent(n), keep)),
+      c: STEPS.map((n) => count(agent(n), root)),
     }));
   },
 };

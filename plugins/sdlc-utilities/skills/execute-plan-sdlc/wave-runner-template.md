@@ -101,8 +101,8 @@ per-Agent wall-clock deadline (`maxTurns` is a turn budget, not a clock).
    exits non-zero or prints no JSON, it is a failed call, not a timeout: read its stderr and retry it
    once with corrected arguments, then repeat the call as above (each failed call is retried
    once); when the deadline has passed, go to step 4. When some workers have already
-   returned, pass `--timeout` of at most 60 so the call does not block on a marker a returned
-   worker never wrote.
+   returned, pass `--timeout` of at most 60 so the call returns soon when a listed worker
+   returns during the call without writing its `reporting` phase.
 3. Use the call's `inFlight` list as the termination target in step 4: a background task ID is in
    flight while its worker has not returned and any plan task ID it covers is in `inFlight`. A
    worker that has returned is never in flight, never a `TaskStop` target and never reported as

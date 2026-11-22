@@ -347,10 +347,14 @@ const CASES = {
 
   'w25-no-git-fallback'() {
     const noGitDir = fs.mkdtempSync(os.tmpdir() + '/nogit-');
-    print({
-      gitStatus: cp.spawnSync('git', ['rev-parse', '--git-dir'], { cwd: noGitDir, encoding: 'utf8' }).status,
-      runs: W25_HOOK_CALLS.map(({ hook, payload }) => runHook(hook, payload, { cwd: noGitDir })).map(shortRecord),
-    });
+    try {
+      print({
+        gitStatus: cp.spawnSync('git', ['rev-parse', '--git-dir'], { cwd: noGitDir, encoding: 'utf8' }).status,
+        runs: W25_HOOK_CALLS.map(({ hook, payload }) => runHook(hook, payload, { cwd: noGitDir })).map(shortRecord),
+      });
+    } finally {
+      fs.rmSync(noGitDir, { recursive: true, force: true });
+    }
   },
 
   'hook-runner-temp-cwd'() {
