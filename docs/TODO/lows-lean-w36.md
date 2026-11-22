@@ -8,4 +8,4 @@ Source: `.sdlc/orchestration/programme-lows.md`, written by lean-sdlc-w37-main o
 
 Format: severity | path:line | title | one-line text | wave/PR. No line number where the source had none.
 
-- note | plugins/sdlc-utilities/agents/ship-step-received-review.md:21; plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md:612 | END-line file:line list for the lean-w36 lows (titles not recorded) | — | lean-w36 / #113
+- note | plugins/sdlc-utilities/agents/ship-step-received-review.md:21; plugins/sdlc-utilities/skills/received-review-sdlc/SKILL.md:612 | END-line file:line list for the lean-w36 lows (titles not recorded) | — | lean-w36 / #113 — NOT A DEFECT per PD-4
