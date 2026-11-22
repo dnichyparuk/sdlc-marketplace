@@ -58,3 +58,10 @@ Append-only. The log wins over the text of a plan.
 - **Decision:** one light fix wave `W-E9` for the three doc and spec lows left open after W-E8: F-196 (ship-sdlc doc wording of the deferred Monitor rule), F-197 (ship-sdlc spec R92 and P-STEP-2 Acceptance lines, SKILL.md:278 spec citation) and F-198 (cost-tiers 60 s `--timeout` row). Doc and spec text only; the note `pr-step-gh-in-main-checkout` stays in the backlog.
 - **Rejected options:** a wave that includes the gh-in-main-checkout note; leaving the lows to the next audit.
 - **Made obsolete or amended:** none.
+
+## PD-9: Light fix wave W-F1 for the proposed items (pr-sdlc gh refs, lane constant, ship citation)
+
+- **Date and owner:** 2026-11-22, owner request ("collect proposed items into a wave and dispatch"); scope validated by an isolated Opus architect.
+- **Decision:** one light fix wave `W-F1` for three proposed items: F-195 (pr-sdlc passes explicit `--base` and `--head` to `gh pr create` and names the branch in `gh pr edit`; the TODO note `pr-step-gh-in-main-checkout` is promoted into it), the deferred low of lean-w51 (a named constant for the `guardrail-compliance` rerun lane in `plan-critique.js`, no behaviour change) and the optional low of W-E8 (ship-sdlc SKILL.md item 3 cites `R-todowrite-visibility`). Patch bump, exec-only verification. F-183 is left out: it needs an owner decision between options and becomes its own later wave.
+- **Rejected options:** adding F-183 to this wave; a `ship-step-pr` change that runs `gh` from the worktree instead of passing refs.
+- **Made obsolete or amended:** the backlog placement of the note `pr-step-gh-in-main-checkout` in PD-8.
