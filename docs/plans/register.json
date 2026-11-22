@@ -18,10 +18,7 @@
       "dir": "docs/TODO",
       "archiveDir": "docs/TODO/archive",
       "unhomed": {
-        "docs/TODO/cost-tiers-wave-wait-60s-timeout-row.md": "backlog; owner has not named a unit (audit lean-w52, 2026-11-22)",
-        "docs/TODO/pr-step-gh-in-main-checkout.md": "no open unit; backlog",
-        "docs/TODO/ship-doc-deferred-monitor-wording.md": "backlog; owner has not named a unit (audit lean-w52, 2026-11-22)",
-        "docs/TODO/ship-spec-r92-acceptance-and-skill-citation.md": "backlog; owner has not named a unit (audit lean-w52, 2026-11-22)"
+        "docs/TODO/pr-step-gh-in-main-checkout.md": "no open unit; backlog"
       }
     },
     "decisionLogs": [
@@ -226,6 +223,18 @@
       ],
       "decisions": ["PD-7"],
       "closedBy": "PR #146, 50bd5fc"
+    },
+    {
+      "key": "W-E9",
+      "aliases": ["E9"],
+      "title": "Audit follow-up doc fixes",
+      "status": "Not started",
+      "dependsOn": ["W-E8"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-E9", "role": "brief" }
+      ],
+      "decisions": ["PD-8"]
     }
   ]
 }
