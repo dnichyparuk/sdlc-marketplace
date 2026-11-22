@@ -136,7 +136,7 @@ Scope (owner 2026-11-22, "define one more fix wave to address remaining findings
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | TK-023, TK-024, TK-025 | - | 1 light wave, about 3 tasks |
+| M1 | TK-023, TK-024, TK-025 | `2026-11-22-w-e8-ship-skill-tool-handling-and-copy` | 1 light wave, about 3 tasks |
 
 ## W-END: Programme post-merge audit
 

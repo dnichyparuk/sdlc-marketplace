@@ -212,11 +212,12 @@
       "key": "W-E8",
       "aliases": ["E8"],
       "title": "Ship skill tool-handling and copy rules fix",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": ["W-E7"],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-E8", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-E8", "role": "brief" },
+        { "path": "docs/plans/2026-11-22-w-e8-ship-skill-tool-handling-and-copy.md", "role": "executable" }
       ],
       "decisions": ["PD-7"]
     }

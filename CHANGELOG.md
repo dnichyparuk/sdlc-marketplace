@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.12] - 2026-11-22
+
+### Fixed
+- ship-sdlc: the step loop reads the empty mktemp result file once before writing it, calls TodoWrite only when that tool is available, and loads a deferred Monitor and TaskStop with one ToolSearch call before the execute wave-watch; the project's plan copy rules also require the site byte copies of docs, specs and skill docs (W-E8).
+
 ## [0.57.11] - 2026-11-22
 
 ### Fixed

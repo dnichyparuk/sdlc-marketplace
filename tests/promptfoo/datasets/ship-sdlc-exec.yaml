@@ -58,3 +58,23 @@
   assert:
     - type: javascript
       value: "const j = JSON.parse(output); j.todos.filter(t => t.content.startsWith('Task ')).length === 3 && j.marker.includes('execute: 3 plan tasks queued') && j.todos.find(t => t.content.startsWith('Task 1:')).status === 'in_progress'"
+
+- description: "ship-sdlc/tool-handling: mktemp result file is read once before the Write (P-STEP-2, plan-sdlc R71(a))"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-ship-tool-handling-sentinels.js"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.counts.mktempRead === 1 && r.counts.mktempOld === 0) return true;
+        return { pass: false, score: 0, reason: output };
+
+- description: "ship-sdlc/tool-handling: TodoWrite is guarded and a deferred Monitor is loaded with ToolSearch (R-todowrite-visibility, R92)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-ship-tool-handling-sentinels.js"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        if (r.ok === true && r.counts.todoGuard === 2 && r.counts.todoOld === 0 && r.counts.deferredLoad === 1) return true;
+        return { pass: false, score: 0, reason: output };
