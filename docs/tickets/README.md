@@ -13,9 +13,9 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-026](./TK-026-ship-doc-monitor-wording/ticket.md) | task | Ship doc words the deferred Monitor rule like the spec (F-196) | — | scheduled | W-E9 M1 | — |
-| [TK-027](./TK-027-cost-tiers-timeout-row/ticket.md) | task | Cost tiers wave wait table gets the 60 s timeout row (F-198) | — | scheduled | W-E9 M1 | — |
-| [TK-028](./TK-028-ship-spec-acceptance/ticket.md) | task | Ship spec R92 and P-STEP-2 Acceptance lines, SKILL.md:278 cites P-STEP-2 (F-197) | — | scheduled | W-E9 M1 | — |
+| [TK-026](./TK-026-ship-doc-monitor-wording/ticket.md) | task | Ship doc words the deferred Monitor rule like the spec (F-196) | — | planned | W-E9 M1 | 2026-11-22-w-e9-audit-follow-up-doc-fixes#2 |
+| [TK-027](./TK-027-cost-tiers-timeout-row/ticket.md) | task | Cost tiers wave wait table gets the 60 s timeout row (F-198) | — | planned | W-E9 M1 | 2026-11-22-w-e9-audit-follow-up-doc-fixes#3 |
+| [TK-028](./TK-028-ship-spec-acceptance/ticket.md) | task | Ship spec R92 and P-STEP-2 Acceptance lines, SKILL.md:278 cites P-STEP-2 (F-197) | — | planned | W-E9 M1 | 2026-11-22-w-e9-audit-follow-up-doc-fixes#1 |
 
 **Open, backlog** (0):
 

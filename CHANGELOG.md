@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.13] - 2026-11-22
+
+### Fixed
+- ship-sdlc: the user doc names Monitor or TaskStop as the deferred tools loaded before the execute wave-watch, the spec names the exec cases that test R92 and P-STEP-2, and SKILL.md cites P-STEP-2 on the mktemp step (W-E9).
+- docs: the cost-tiers wave wait table lists the 60 s `--timeout` row for execute-plan-sdlc (W-E9).
+
 ## [0.57.12] - 2026-11-22
 
 ### Fixed
