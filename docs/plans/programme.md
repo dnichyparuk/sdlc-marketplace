@@ -148,6 +148,16 @@ Scope (owner 2026-11-22; decision PD-8): three doc and spec fixes from the post-
 | --- | --- | --- | --- |
 | M1 | TK-026, TK-027, TK-028 | `2026-11-22-w-e9-audit-follow-up-doc-fixes` | 1 light wave, about 3 tasks |
 
+## W-F1: pr-sdlc explicit gh refs and plan-critique lane constant
+
+Scope (owner 2026-11-22, "collect proposed items into a wave and dispatch"; decision PD-9): three small plugin fixes. pr-sdlc passes the resolved base branch and the current branch explicitly to `gh pr create` and `gh pr edit`, so a run from the main checkout neither fails with head equal to base nor opens a PR for the wrong branch (F-195; new requirement in `docs/specs/pr-sdlc.md`, sentinel script and exec cases); `plan-critique.js` names the `guardrail-compliance` rerun lane in a constant, no behaviour change (deferred low of lean-w51); ship-sdlc SKILL.md item 3 of the TodoWrite guard cites `R-todowrite-visibility` (optional low of W-E8). F-183 is left out (owner decision pending; its own later wave). Light wave, patch bump, exec-only verification. Key `W-F1` stands for the fix wave "F1". After W-E9 (Done).
+
+### Milestones
+
+| Milestone | Tickets | Plan(s) | Estimate |
+| --- | --- | --- | --- |
+| M1 | TK-029, TK-030, TK-031 | | 1 light wave, about 3 tasks |
+
 ## W-END: Programme post-merge audit
 
 > END (owner 2026-11-19, 'accepted with optimisations'): after F, ONE post-merge audit of the programme; its brief carries, as context, every deferred low of every wave (`ledger.js backlog` + review-archive texts, incl. the placement architect's file:line list for lean-w34/w35/w36: plan-critique-orchestrator.md :41/:104, spec R75 rerun lanes, ship.js:526, pr-sdlc SKILL.md:456; mutation-smoke.js :164/:165/:172/:187, check-dataset-asserts.js:175, check-spec-id-coverage.js:73; ship-step-received-review.md:21, received-review SKILL.md:612) plus #9450's wider prefix-match note. Confirmed defects and still-present lows go to the fix waves W-E1 to W-E5 (END audit result, 2026-11-21); the gate then re-checks them and closes the programme. No low becomes a wave before END; new lows from H1..F also accumulate in the backlog.

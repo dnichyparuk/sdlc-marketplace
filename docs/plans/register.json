@@ -17,9 +17,7 @@
     "todos": {
       "dir": "docs/TODO",
       "archiveDir": "docs/TODO/archive",
-      "unhomed": {
-        "docs/TODO/pr-step-gh-in-main-checkout.md": "no open unit; backlog"
-      }
+      "unhomed": {}
     },
     "decisionLogs": [
       { "path": "docs/plans/decisions.md", "idPattern": "^PD-\\d+$" }
@@ -237,6 +235,19 @@
       ],
       "decisions": ["PD-8"],
       "closedBy": "PR #150, 57f9dd9"
+    },
+    {
+      "key": "W-F1",
+      "aliases": ["F1"],
+      "title": "pr-sdlc explicit gh refs and plan-critique lane constant",
+      "status": "Not started",
+      "dependsOn": ["W-E9"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-F1", "role": "brief" }
+      ],
+      "todos": ["docs/TODO/archive/pr-step-gh-in-main-checkout.md"],
+      "decisions": ["PD-9"]
     }
   ]
 }
