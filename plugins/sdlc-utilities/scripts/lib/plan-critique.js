@@ -222,7 +222,7 @@ function diffMaterial(beforeText, afterText, { full = false, prevDir = null } = 
   return { material, triggers, details, ...sets, rerun, dispatch, recheckLanes: dispatch.lanes, review: afterRoute };
 }
 
-/** Lanes and lenses whose previous result in prevDir is blocking or unreadable: they must be re-dispatched (R67). */
+/** Lanes and lenses whose previous result in prevDir is blocking (for guardrail-compliance: any issue) or unreadable: they must be re-dispatched (R67 (b), R77). */
 function rerunFrom(prevDir, afterRoute) {
   let files;
   try { files = fs.readdirSync(prevDir); }
@@ -235,7 +235,7 @@ function rerunFrom(prevDir, afterRoute) {
   for (const { name } of LANE_DEFS) {
     if (!files.includes(`${name}.json`)) continue;
     if (dirty(`${name}.json`, v => isObject(v) && Array.isArray(v.issues),
-      v => v.laneStatus !== 'ok' || v.issues.some(i => isObject(i) && i.blocking === true))) out.add(name);
+      v => v.laneStatus !== 'ok' || v.issues.some(i => isObject(i) && (i.blocking === true || name === 'guardrail-compliance')))) out.add(name);
   }
   for (const lens of LENS_NAMES) {
     if (!files.includes(`lens-${lens}.json`)) continue;

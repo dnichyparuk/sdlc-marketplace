@@ -43,7 +43,7 @@ When `ROUND` is `step5`, `BEFORE_PLAN` is `none` and `CARRY` is not `none` (iter
 node "<PLAN_JS>" diff-material --before "<PLAN_FILE_PATH>" --after "<PLAN_FILE_PATH>" --prev-dir "<CARRY>"
 ```
 
-Then dispatch the lenses `DISPATCH` names plus the lanes of its `dispatch.lanes` (the Step 3 lanes whose result blocked; nothing is material). A non-zero exit: dispatch `DISPATCH` plus every lane of `lanes[]`, and pass no `--carry` (E9). <!-- R76 -->
+Then dispatch the lenses `DISPATCH` names plus the lanes of its `dispatch.lanes` (the Step 3 lanes whose result blocked, and the guardrail-compliance lane when its result held any issue; nothing is material). A non-zero exit: dispatch `DISPATCH` plus every lane of `lanes[]`, and pass no `--carry` (E9). <!-- R76 -->
 
 When `ROUND` is `step5` and `BEFORE_PLAN` is not `none`, run:
 
@@ -52,7 +52,7 @@ node "<PLAN_JS>" diff-material --before "<BEFORE_PLAN>" --after "<PLAN_FILE_PATH
 ```
 
 - `material: true`: dispatch `dispatch.lanes` and `dispatch.lenses` from its JSON (merged re-dispatch, R64).
-- `material: false`: dispatch the lenses of its `review.lenses` (the review route of the plan as it is now, R36) plus the lanes of its `dispatch.lanes` (the lanes whose result blocked, R76). <!-- R76 -->
+- `material: false`: dispatch the lenses of its `review.lenses` (the review route of the plan as it is now, R36) plus the lanes of its `dispatch.lanes` (the lanes whose result blocked, and the guardrail-compliance lane when its result held any issue, R76). <!-- R76 -->
 - Non-zero exit: count it as material and dispatch every lane of `lanes[]`, plus lens `all` when `DISPATCH` names `all`, otherwise every `lensReviewers[]` entry, and pass no `--carry` (E9).
 
 In every other round, dispatch what `DISPATCH` names.

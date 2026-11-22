@@ -1,0 +1,1 @@
+{"gateIds":["G14"],"issues":[{"gateId":"G14","severity":"warning","taskRef":null,"message":"Guardrail 'explicit-non-goals' violated: no non-goals section","blocking":false}],"passes":[],"laneStatus":"ok","guardrailCompliancePayload":"| Guardrail | Severity | Status | Rationale |\n|---|---|---|---|\n| explicit-non-goals | warning | FAIL | No non-goals section |"}

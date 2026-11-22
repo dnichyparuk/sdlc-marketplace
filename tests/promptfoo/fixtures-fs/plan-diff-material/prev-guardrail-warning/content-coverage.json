@@ -1,0 +1,1 @@
+{"gateIds":["G5"],"issues":[{"gateId":"G5","taskRef":"Task 1","message":"Acceptance criterion could name the exit code","severity":"warning","blocking":false}],"passes":[],"laneStatus":"ok"}
