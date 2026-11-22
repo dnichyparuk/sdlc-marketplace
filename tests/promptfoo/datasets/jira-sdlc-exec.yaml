@@ -629,6 +629,17 @@
         const c = JSON.parse(o.calls[1].stdout);
         return c.exists === false && c.cachePath === null ? true : `FAIL: without --cache-dir ${output}`;
 
+- description: "jira-cache: a missing --home exits 2 before any temp folder is made"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-jira-cache.js"
+    script_args: "--scenario clear --home /nonexistent-jira-home --project SAVETEST"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: "context.metadata.exitCode === 2"
+    - type: contains
+      value: "--home not found: /nonexistent-jira-home"
+
 - description: "jira-cache: --clear deletes the cache file, then --check reports it missing"
   vars:
     script_path: "repo://tests/promptfoo/scripts/run-jira-cache.js"

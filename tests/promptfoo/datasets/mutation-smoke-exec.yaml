@@ -15,7 +15,7 @@
     script_args: "--list"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output.split('\\n')[0]); r.mutations.length >= 10 && r.mutations.every(m => m.id && m.file && m.dataset && m.filter)"
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.mutations.length >= 10 && r.mutations.every(m => m.id && m.file && m.dataset && m.filter) && r.mutations.filter(m => m.expectSurvive === true).map(m => m.id).join() === 'execute-wave-committed-no-write'"
 
 - description: "mutation-smoke: (c) --run without --owner is refused with exit 2"
   vars:
@@ -68,3 +68,11 @@
       value: "context.metadata.exitCode === 2"
     - type: contains
       value: "unknown --only id: no-such-id"
+
+- description: "mutation-smoke: (h) --probe proves the apply check and the expected-survivor verdict"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/mutation-smoke.js"
+    script_args: "--probe"
+  assert:
+    - type: javascript
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.applied === true && r.notApplied === true && r.expectedOutcomes === true && r.unexpectedSurvivor === false && r.unexpectedKill === false && r.findMissing === false"

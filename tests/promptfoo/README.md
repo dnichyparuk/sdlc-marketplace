@@ -113,10 +113,11 @@ Exec cases that check the suite itself. After a baseline changes, refresh it wit
 ```bash
 node tests/promptfoo/scripts/mutation-smoke.js --list
 node tests/promptfoo/scripts/mutation-smoke.js --check
+node tests/promptfoo/scripts/mutation-smoke.js --probe
 node tests/promptfoo/scripts/mutation-smoke.js --run --owner [--only <id>]
 ```
 
-`--list` prints the mutations. `--check` verifies, read-only, that every mutation still applies and has a case. `--run --owner` runs them.
+`--list` prints the mutations. `--check` verifies, read-only, that every mutation still applies and has a case. `--run --owner` runs them. `--probe` runs a read-only self-test of the apply check and the verdict. `--run` reports `ok: true` when every mutation is killed, except the ones marked `expectSurvive`, which must survive; a mutation that no longer applies is an error.
 
 ## Headless runner (credentialed, owner-initiated)
 

@@ -13,4 +13,4 @@
     script_args: "--probe"
   assert:
     - type: javascript
-      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.findings.map(f => f.rule).sort().join(',') === 'empty-regex,key-only-contains,negative-only' && r.allowed === 1 && r.stale.length === 1"
+      value: "const r = JSON.parse(output.split('\\n')[0]); r.ok === false && r.findings.map(f => f.rule).sort().join(',') === 'empty-regex,key-only-contains,negative-only' && r.allowed === 1 && r.stale.length === 1 && r.unreadable.startsWith('allowlist has no entries array:') && r.invalid.startsWith('allowlist unreadable:')"

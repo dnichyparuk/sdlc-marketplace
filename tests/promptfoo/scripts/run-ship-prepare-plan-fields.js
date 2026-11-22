@@ -108,9 +108,13 @@ function writeSubjectPattern(sdlcDir) {
 
 // Runs `body(tmpDir)` in a fresh temp dir named <prefix>*, removes the dir, then prints the result.
 function inTempDir(prefix, body) {
-  const tmpDir = fs.mkdtempSync(os.tmpdir() + '/' + prefix);
-  const result = body(tmpDir);
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  let result;
+  try {
+    result = body(tmpDir);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
   print(result);
 }
 
@@ -174,11 +178,15 @@ const CASES = {
     }
     const tmpDir = fs.mkdtempSync(os.tmpdir() + '/ship-commit-');
     const plan = tmpDir + '/plan.md';
-    fs.writeFileSync(plan, `# Plan\n\n${DOCS_COMMIT}\n`);
-    fs.chmodSync(plan, 0);
-    const result = statusReport(ship(['--has-plan', '--plan', plan]));
-    fs.chmodSync(plan, 0o644);
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    let result;
+    try {
+      fs.writeFileSync(plan, `# Plan\n\n${DOCS_COMMIT}\n`);
+      fs.chmodSync(plan, 0);
+      result = statusReport(ship(['--has-plan', '--plan', plan]));
+    } finally {
+      if (fs.existsSync(plan)) fs.chmodSync(plan, 0o644);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
     print(result);
   },
 

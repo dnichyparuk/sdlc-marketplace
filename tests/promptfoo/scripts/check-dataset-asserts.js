@@ -31,7 +31,7 @@ if (!fs.existsSync(MARKER)) {
 //  - a missing exec config or dataset file is skipped (the dataset and case floors of the exec case catch a loss).
 // --update writes the allowlist from the current findings (review the diff). --probe proves that each rule
 // reports its case, that a positive control and an allowlisted case are not reported, and that an unused entry
-// is stale.
+// is stale, and that an unreadable allowlist names its file.
 const PROMPTFOO_DIR = path.join(REPO_ROOT, 'tests/promptfoo');
 const ALLOWLIST = 'tests/promptfoo/baselines/dataset-asserts-allow.json';
 const EXEC_CONFIGS = ['promptfooconfig-exec.yaml', 'promptfooconfig-exec-hooks.yaml'];
@@ -172,7 +172,13 @@ function writeAllowlist(file, entries) {
 
 function readAllowlist(file) {
   if (!fs.existsSync(file)) throw new Error(`allowlist not found: ${file}; run with --update`);
-  const entries = JSON.parse(fs.readFileSync(file, 'utf8')).entries;
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (err) {
+    throw new Error(`allowlist unreadable: ${file}: ${err.message}`);
+  }
+  const entries = data && data.entries;
   if (!Array.isArray(entries)) throw new Error(`allowlist has no entries array: ${file}`);
   return entries;
 }
@@ -209,7 +215,14 @@ function probe() {
       { rule: 'negative-only', dataset: 'datasets/a.yaml', description: 'probe allowlisted negative only' },
       { rule: 'negative-only', dataset: 'datasets/a.yaml', description: 'probe no such case' },
     ]);
-    return summary(lintDatasets(root), readAllowlist(allowFile));
+    const caught = (fn) => { try { fn(); return null; } catch (err) { return err.message; } };
+    fs.writeFileSync(path.join(root, 'baselines/null.json'), 'null');
+    fs.writeFileSync(path.join(root, 'baselines/invalid.json'), '{');
+    const extra = {
+      unreadable: caught(() => readAllowlist(path.join(root, 'baselines/null.json'))),
+      invalid: caught(() => readAllowlist(path.join(root, 'baselines/invalid.json'))),
+    };
+    return { ...summary(lintDatasets(root), readAllowlist(allowFile)), ...extra };
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

@@ -17,7 +17,7 @@
  * jira.js prints the path of a JSON output file; "stdout" holds that file's content.
  *
  * Usage errors (missing or unknown --scenario, missing --home or --project,
- * unknown flag): exit 2, message on stderr, nothing on stdout.
+ * unknown flag, a --home that does not exist): exit 2, message on stderr, nothing on stdout.
  */
 
 'use strict';
@@ -49,10 +49,10 @@ if (!scenario) usage('--scenario is required');
 if (!SCENARIOS.includes(scenario)) usage(`unknown scenario: ${scenario}`);
 if (!home) usage('--home is required');
 if (!project) usage('--project is required');
+if (!fs.existsSync(path.resolve(home))) usage(`--home not found: ${home}`);
 
 const jiraScript = path.resolve(__dirname, '..', '..', '..', 'plugins', 'sdlc-utilities', 'scripts', 'skill', 'jira.js');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-cache-wrap-'));
-fs.cpSync(path.resolve(home), tmp, { recursive: true });
 
 const calls = [];
 function run(args, stdin) {
@@ -73,38 +73,42 @@ function run(args, stdin) {
 const cacheRel = '.sdlc-cache/jira/mycompany_atlassian_net/' + project + '.json';
 const checks = [cacheRel];
 
-switch (scenario) {
-  case 'clear':
-    run(['--clear']);
-    run(['--check']);
-    break;
-  case 'cache-dir': {
-    // The cache leaves HOME, so only --cache-dir can find it.
-    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-cache-dir-'));
-    fs.renameSync(path.join(tmp, '.sdlc-cache'), path.join(outside, '.sdlc-cache'));
-    const dir = path.join(outside, '.sdlc-cache', 'jira', 'mycompany_atlassian_net');
-    run(['--check', '--cache-dir', dir]);
-    run(['--check']);
-    fs.rmSync(outside, { recursive: true, force: true });
-    break;
+let outside = null;
+try {
+  fs.cpSync(path.resolve(home), tmp, { recursive: true });
+  switch (scenario) {
+    case 'clear':
+      run(['--clear']);
+      run(['--check']);
+      break;
+    case 'cache-dir': {
+      // The cache leaves HOME, so only --cache-dir can find it.
+      outside = fs.mkdtempSync(path.join(os.tmpdir(), 'jira-cache-dir-'));
+      fs.renameSync(path.join(tmp, '.sdlc-cache'), path.join(outside, '.sdlc-cache'));
+      const dir = path.join(outside, '.sdlc-cache', 'jira', 'mycompany_atlassian_net');
+      run(['--check', '--cache-dir', dir]);
+      run(['--check']);
+      break;
+    }
+    case 'save-field':
+      // --save-field reads its JSON from stdin.
+      run(['--save-field', 'savedNote'], JSON.stringify({ text: 'hello-roundtrip' }));
+      run(['--load']);
+      break;
+    case 'init-templates':
+      run(['--init-templates']);
+      checks.push('.sdlc/jira-templates/Task.md');
+      break;
+    case 'copy-template':
+      run(['--copy-template', '--type', 'Custom', '--from', 'Bug']);
+      checks.push('.sdlc/jira-templates/Custom.md');
+      break;
   }
-  case 'save-field':
-    // --save-field reads its JSON from stdin.
-    run(['--save-field', 'savedNote'], JSON.stringify({ text: 'hello-roundtrip' }));
-    run(['--load']);
-    break;
-  case 'init-templates':
-    run(['--init-templates']);
-    checks.push('.sdlc/jira-templates/Task.md');
-    break;
-  case 'copy-template':
-    run(['--copy-template', '--type', 'Custom', '--from', 'Bug']);
-    checks.push('.sdlc/jira-templates/Custom.md');
-    break;
+
+  const files = {};
+  for (const rel of checks) files[rel] = fs.existsSync(path.join(tmp, rel));
+  console.log(JSON.stringify({ scenario, calls, files }));
+} finally {
+  fs.rmSync(tmp, { recursive: true, force: true });
+  if (outside) fs.rmSync(outside, { recursive: true, force: true });
 }
-
-const files = {};
-for (const rel of checks) files[rel] = fs.existsSync(path.join(tmp, rel));
-
-fs.rmSync(tmp, { recursive: true, force: true });
-console.log(JSON.stringify({ scenario, calls, files }));

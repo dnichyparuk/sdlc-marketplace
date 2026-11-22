@@ -26,6 +26,7 @@ const configVersionPath = path.join(LIB, 'config-version.js');
 const receivedReviewPath = path.join(REPO_ROOT, 'plugins', 'sdlc-utilities', 'scripts', 'skill', 'received-review.js');
 
 const { getPluginVersion } = require(configVersionPath);
+const { readPluginJsonVersion } = require('./plugin-json-version');
 const { inferHardenSurfaceHint } = require(receivedReviewPath);
 
 // Test comment bodies indexed by --thread-index (issue #429 inference tests)
@@ -54,14 +55,19 @@ if (!field) {
 }
 
 // Emit the raw field text, or {value, expected} when --with-expected is set,
-// where expected is the version read straight from plugin.json.
+// where expected is the version read by plugin-json-version.js.
 function emitField(value) {
   if (!withExpected) {
     process.stdout.write(value);
     return;
   }
-  const pluginJsonPath = path.join(REPO_ROOT, 'plugins', 'sdlc-utilities', '.claude-plugin', 'plugin.json');
-  const expected = JSON.parse(require('fs').readFileSync(pluginJsonPath, 'utf8')).version;
+  let expected;
+  try {
+    expected = readPluginJsonVersion();
+  } catch (err) {
+    process.stderr.write(`run-received-review-manifest-fields: ${err.message}\n`);
+    process.exit(1);
+  }
   process.stdout.write(JSON.stringify({ value, expected }));
 }
 

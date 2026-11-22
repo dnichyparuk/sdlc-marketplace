@@ -11,6 +11,7 @@
  *                                  a fresh build with a template copy. Prints
  *                                  { scanned, memo, perCase, mismatches: [{ fixture, diff }] };
  *                                  exit 0 when mismatches is empty, else 1.
+ * A failed build exits 2 after every build settled.
  * A usage error prints `Error: <reason>` on stderr and exits 2.
  * Every folder the run made is removed before it exits.
  */
@@ -56,10 +57,15 @@ const tryOr = (fn, fallback = null) => { try { return fn(); } catch (_) { return
 const caseVars = (name) => ({ project_root: `file://fixtures-fs/${name}` });
 
 async function runFixture(name, cases) {
-  const results = await Promise.all(Array.from({ length: cases }, () => transformVars(caseVars(name))));
+  // Wait for every build: an early return would let the cleanup run while sibling builds still register folders.
+  const settled = await Promise.allSettled(Array.from({ length: cases }, () => transformVars(caseVars(name))));
+  const failed = settled.filter((s) => s.status === 'rejected');
+  if (failed.length) throw new Error(`${failed.length} of ${cases} builds failed: ${failed[0].reason.message}`);
+  const results = settled.map((s) => s.value);
   const roots = results.map((r) => r.project_root);
   const buildIds = roots.map((r) => tryOr(() => fs.readFileSync(path.join(r, 'build-id'), 'utf8').trim()));
-  const templates = await Promise.all([...(globalThis.__sdlcFixtureTemplates ?? new Map()).values()]);
+  const templates = (await Promise.allSettled([...(globalThis.__sdlcFixtureTemplates ?? new Map()).values()]))
+    .map((s) => (s.status === 'fulfilled' ? s.value : null));
   return {
     roots,
     distinctRoots: new Set(roots).size,

@@ -5,7 +5,8 @@
 // but only when the stub binary is the first `gh` on the call's PATH; any other call goes to the
 // real spawnSync (so a PATH without gh still fails with ENOENT). A timeout answer whose sleep is at
 // least the call's `timeout` returns at once as a timed-out result. Shell calls (execSync('gh ...'))
-// are not intercepted and still run the binary.
+// are not intercepted and still run the binary. Both spawnSync(cmd, args, options) and
+// spawnSync(cmd, options) are handled; an error inside the stub returns status 1 with the message on stderr.
 const fs = require('fs');
 const path = require('path');
 const cp = require('child_process');
@@ -42,9 +43,20 @@ function result(r, encoding) {
 }
 
 cp.spawnSync = function spawnSync(cmd, args, opts = {}) {
+  if (args !== null && args !== undefined && !Array.isArray(args) && typeof args === 'object') {
+    opts = args; // spawnSync(cmd, options)
+    args = [];
+  }
+  opts = opts || {};
   const env = opts.env || process.env;
   if (cmd !== 'gh' || firstGhOnPath(env.PATH) !== STUB_GH) return real.apply(this, arguments);
-  const r = answer(args || [], env, opts.input);
+  let r;
+  try {
+    r = answer(args || [], env, opts.input);
+  } catch (err) {
+    // The stub binary would crash with exit 1; return that instead of throwing into the caller.
+    return result({ stdout: '', stderr: `gh-inprocess: ${err.message}\n`, status: 1 }, opts.encoding);
+  }
   if (opts.timeout && r.sleepMs >= opts.timeout) return timedOut(args || [], opts.encoding);
   if (r.sleepMs) sleepSync(r.sleepMs);
   return result(r, opts.encoding);
