@@ -128,6 +128,16 @@ Scope (owner 2026-11-22, "run one more plugin fix wave"; decision PD-6): fix F-1
 | --- | --- | --- | --- |
 | M1 | TK-022 | `2026-11-22-w-e7-guardrail-table-re-run-fix` | 1 light wave, about 3 tasks |
 
+## W-E8: Ship skill tool-handling and copy rules fix
+
+Scope (owner 2026-11-22, "define one more fix wave to address remaining findings and defects", then "accepted"; decision PD-7): three tickets. Ship reads the empty mktemp file before Write (F-193); ship guards TodoWrite and loads a deferred Monitor (F-194); the plan copy rules require the site byte copies (F-179). Light wave, patch bump, exec-only verification. Key `W-E8` stands for the fix wave "END8". After W-E7 (Done).
+
+### Milestones
+
+| Milestone | Tickets | Plan(s) | Estimate |
+| --- | --- | --- | --- |
+| M1 | TK-023, TK-024, TK-025 | - | 1 light wave, about 3 tasks |
+
 ## W-END: Programme post-merge audit
 
 > END (owner 2026-11-19, 'accepted with optimisations'): after F, ONE post-merge audit of the programme; its brief carries, as context, every deferred low of every wave (`ledger.js backlog` + review-archive texts, incl. the placement architect's file:line list for lean-w34/w35/w36: plan-critique-orchestrator.md :41/:104, spec R75 rerun lanes, ship.js:526, pr-sdlc SKILL.md:456; mutation-smoke.js :164/:165/:172/:187, check-dataset-asserts.js:175, check-spec-id-coverage.js:73; ship-step-received-review.md:21, received-review SKILL.md:612) plus #9450's wider prefix-match note. Confirmed defects and still-present lows go to the fix waves W-E1 to W-E5 (END audit result, 2026-11-21); the gate then re-checks them and closes the programme. No low becomes a wave before END; new lows from H1..F also accumulate in the backlog.

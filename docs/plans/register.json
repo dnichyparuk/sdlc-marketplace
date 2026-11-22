@@ -198,14 +198,27 @@
       "key": "W-E7",
       "aliases": ["E7"],
       "title": "Guardrail table re-run fix",
-      "status": "In progress",
+      "status": "Done",
       "dependsOn": ["W-END"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-E7", "role": "brief" },
-        { "path": "docs/plans/2026-11-22-w-e7-guardrail-table-re-run-fix.md", "role": "executable" }
+        { "path": "docs/archived/plans/2026-11-22-w-e7-guardrail-table-re-run-fix.md", "role": "executable" }
       ],
-      "decisions": ["PD-6"]
+      "decisions": ["PD-6"],
+      "closedBy": "PR #144, dfd3dbc"
+    },
+    {
+      "key": "W-E8",
+      "aliases": ["E8"],
+      "title": "Ship skill tool-handling and copy rules fix",
+      "status": "Not started",
+      "dependsOn": ["W-E7"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-E8", "role": "brief" }
+      ],
+      "decisions": ["PD-7"]
     }
   ]
 }
