@@ -70,6 +70,8 @@ None.
 - R2: When `customTemplate` is present, parse its `## Heading` sections and use those instead of the default 8 sections
 - R11: In update mode, existing labels are preserved; only new labels are added via `--add-label`
 - R13: OpenSpec enrichment: `skill/pr.js` reports `openspec: { detected, changeName, proposalPath, designPath }`, computed with `lib/openspec.js::detectActiveChanges` (`detected`: `openspec/config.yaml` exists; `changeName`: the change matched by the current branch, else the only active change, else null; each path is absolute, or null when the file does not exist). When `openspec.detected` is true, use proposal.md (`proposalPath`) for Business Context/Benefits and design.md (`designPath`, when non-null) for Technical Design; when `changeName` is non-null, the description carries the line `**OpenSpec:** openspec/changes/<changeName>/`. The skill does not search the project for OpenSpec files itself.
+- R-gh-explicit-refs: SKILL.md names both branches in every `gh` publish call. `gh pr create` passes `--base '<baseBranch>' --head '<currentBranch>'`, with both values from pr-context (R-basebranch-config-cascade, R14); the E7 retry re-runs it with the same arguments, so with the same refs; `gh pr edit` names the branch as its first argument: `gh pr edit '<currentBranch>' …`. The skill never lets `gh` infer the branch from the working directory, so a run from a checkout on another branch neither fails with head equal to base nor publishes another branch. `origin` is assumed to be the base repository (no fork support).
+  - Acceptance: exec cases whose descriptions start with `pr-gh-refs:` in `tests/promptfoo/datasets/pr-prepare-exec.yaml` (sentinel `tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js`).
 
 ### Step-emitter contract
 
@@ -222,3 +224,4 @@ None.
 | R20 | code spans and fences are not links, #9371 |
 | R21 | pr.footer appended by --validate-body, #9429 |
 | R15 | reserved, multicast, broadcast and site-local ranges; response bodies cancelled, #9375 |
+| R-gh-explicit-refs | explicit gh base and head refs, F-195 (TK-029) |

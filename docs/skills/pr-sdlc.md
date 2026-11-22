@@ -309,6 +309,8 @@ PR title validation is configured in `.sdlc/config.json` under the `pr` key. All
 
 Configure `pr.defaultBranch` via `/setup-sdlc` (pr section) for repos where the default branch is `develop`, `release/*`, or any non-standard name — this prevents the git auto-detect from resolving to the wrong base on every PR.
 
+The skill passes the resolved base branch and the current branch to `gh` explicitly (`gh pr create --base <base> --head <branch>`, `gh pr edit <branch>`), so running it from a checkout on another branch never opens or edits the wrong PR. The `origin` remote is assumed to be the base repository.
+
 ### Preflight (issue #234, fixes #380)
 
 Before any GitHub API call, `skill/pr.js` runs a gh-auth + active-account preflight:

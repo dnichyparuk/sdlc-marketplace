@@ -640,3 +640,26 @@
         if (o.status !== 0) return `FAIL: exit ${o.status}`;
         if (o.out.footerAppended !== false) return `FAIL: footerAppended ${o.out.footerAppended}`;
         return o.file === 'Body text\n' ? true : `FAIL: file ${JSON.stringify(o.file)}`;
+
+- description: "pr-gh-refs: SKILL.md passes --base and --head to gh pr create and names the branch in gh pr edit (R-gh-explicit-refs)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js"
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output);
+        const c = r.counts;
+        if (r.ok === true && c.createCalls === 1 && c.createWithRefs === 1 && c.editCalls === 1 && c.editWithBranch === 1 && c.retryRefs === 1) return true;
+        return { pass: false, score: 0, reason: output };
+
+- description: "pr-gh-refs: a gh call without the refs fails the sentinel (R-gh-explicit-refs)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js"
+    script_args: "--file tests/promptfoo/fixtures-fs/pr-gh-refs-missing/SKILL.md"
+    script_show_exit: true
+  assert:
+    - type: javascript
+      value: |
+        const r = JSON.parse(output.split('\n')[0]);
+        if (r.ok === false && r.counts.createWithRefs === 0 && r.counts.editWithBranch === 0 && output.includes('[exit 1]')) return true;
+        return { pass: false, score: 0, reason: output };

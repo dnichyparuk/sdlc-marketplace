@@ -11,6 +11,9 @@ const LANE_DEFS = [
   { name: 'guardrail-compliance', gateIds: ['G14'] },
 ];
 
+// Lanes rerun on any previous issue, not only a blocking one (R67 (b)).
+const ANY_ISSUE_RERUN_LANES = new Set(['guardrail-compliance']);
+
 // ---------------------------------------------------------------------------
 // diff-material (R64, R67): which plan edits change scope
 // ---------------------------------------------------------------------------
@@ -235,7 +238,7 @@ function rerunFrom(prevDir, afterRoute) {
   for (const { name } of LANE_DEFS) {
     if (!files.includes(`${name}.json`)) continue;
     if (dirty(`${name}.json`, v => isObject(v) && Array.isArray(v.issues),
-      v => v.laneStatus !== 'ok' || v.issues.some(i => isObject(i) && (i.blocking === true || name === 'guardrail-compliance')))) out.add(name);
+      v => v.laneStatus !== 'ok' || v.issues.some(i => isObject(i) && (i.blocking === true || ANY_ISSUE_RERUN_LANES.has(name))))) out.add(name);
   }
   for (const lens of LENS_NAMES) {
     if (!files.includes(`lens-${lens}.json`)) continue;
