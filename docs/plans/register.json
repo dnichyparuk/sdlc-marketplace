@@ -17,9 +17,7 @@
     "todos": {
       "dir": "docs/TODO",
       "archiveDir": "docs/TODO/archive",
-      "unhomed": {
-        "docs/TODO/pr-gh-refs-review-lows.md": "awaiting owner scheduling"
-      }
+      "unhomed": {}
     },
     "decisionLogs": [
       { "path": "docs/plans/decisions.md", "idPattern": "^PD-\\d+$" }
@@ -252,6 +250,19 @@
       "todos": ["docs/TODO/archive/pr-step-gh-in-main-checkout.md"],
       "decisions": ["PD-9"],
       "closedBy": "PR #153, 3edc184"
+    },
+    {
+      "key": "W-F2",
+      "aliases": ["F2"],
+      "title": "pr-gh-refs review lows cleanup",
+      "status": "Not started",
+      "dependsOn": ["W-F1"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-F2", "role": "brief" }
+      ],
+      "todos": ["docs/TODO/archive/pr-gh-refs-review-lows.md"],
+      "decisions": ["PD-10"]
     }
   ]
 }
