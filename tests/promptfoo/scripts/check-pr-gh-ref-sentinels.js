@@ -9,11 +9,9 @@ const DEFAULT_FILE = 'plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md';
 
 const args = process.argv.slice(2);
 let file = DEFAULT_FILE;
-if (args.length === 0) {
-  // default file
-} else if (args.length === 2 && args[0] === '--file') {
+if (args.length === 2 && args[0] === '--file') {
   file = args[1];
-} else {
+} else if (args.length !== 0) {
   process.stderr.write(USAGE);
   process.exit(2);
 }

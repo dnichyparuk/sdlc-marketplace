@@ -26,7 +26,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-E8` (E8) | - | Ship skill tool-handling and copy rules fix | [programme](./programme.md) (brief; §W-E8)<br>[2026-11-22-w-e8-ship-skill-tool-handling-and-copy](../archived/plans/2026-11-22-w-e8-ship-skill-tool-handling-and-copy.md) (executable) | Done | 22/22 | W-E7 | PR #146, 50bd5fc |
 | `W-E9` (E9) | - | Audit follow-up doc fixes | [programme](./programme.md) (brief; §W-E9)<br>[2026-11-22-w-e9-audit-follow-up-doc-fixes](../archived/plans/2026-11-22-w-e9-audit-follow-up-doc-fixes.md) (executable) | Done | 12/12 | W-E8 | PR #150, 57f9dd9 |
 | `W-F1` (F1) | - | pr-sdlc explicit gh refs and plan-critique lane constant | [programme](./programme.md) (brief; §W-F1)<br>[2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and](../archived/plans/2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and.md) (executable) | Done | 19/19 | W-E9 | PR #153, 3edc184 |
-| `W-F2` (F2) | - | pr-gh-refs review lows cleanup | [programme](./programme.md) (brief; §W-F2) | Not started | 0/0 | W-F1 | - |
+| `W-F2` (F2) | - | pr-gh-refs review lows cleanup | [programme](./programme.md) (brief; §W-F2)<br>[2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup](./2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup.md) (executable) | In progress | 0/6 | W-F1 | - |
 
 **Order** (topological; ready = not started, hard dependencies closed, nothing waited on):
 
@@ -48,7 +48,7 @@ Executable plans of this repository and the generated programme status. The regi
 | 14 | `W-E8` | Done | W-E7 | done |
 | 15 | `W-E9` | Done | W-E8 | done |
 | 16 | `W-F1` | Done | W-E9 | done |
-| 17 | `W-F2` | Not started | W-F1 | ready |
+| 17 | `W-F2` | In progress | W-F1 | in progress |
 
 Longest dependency chain among open waves (dependsOn only; no effort estimates): W-F2 (1 wave).
 

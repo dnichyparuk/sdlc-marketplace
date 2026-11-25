@@ -528,7 +528,7 @@ The retry runs at most once per pipeline invocation. The recovery helper is the 
 
 **Update mode:**
 
-Run each command below as its own plain Bash call, in this order. Substitute the title, each label, `baseBranch` and `currentBranch` as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Substitute `currentBranch` from pr-context (implements R-gh-explicit-refs).
+Run each command below as its own plain Bash call, in this order. Substitute the title, each label and `currentBranch` as a single-quoted literal (write any `'` inside it as `'\''`; never put it inside double quotes). Substitute `currentBranch` from pr-context (implements R-gh-explicit-refs).
 
 ```bash
 gh pr edit '<currentBranch>' --title '<title>' --body-file '<BODY_FILE>' [--add-label '<l1>,<l2>']
