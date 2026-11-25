@@ -1,6 +1,6 @@
 # Deferred LOW review findings of PR #153 (W-F1, lean-w55)
 
-Status: Open
+Status: Promoted (BG-001, TK-032). The usage-error item (exit 2, not 1) is not promoted: exit 2 for usage errors is a documented convention (W-E3 plan docs/archived/plans/2026-11-21-w-e3-test-tooling-hygiene.md:78,98; plan-brief rule F-151).
 
 Plugin and test defects (lean-w55, unit W-F1, PR #153, merge 3edc184). Three LOW findings of the review were deferred. None blocks the merged change.
 

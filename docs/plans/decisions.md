@@ -65,3 +65,10 @@ Append-only. The log wins over the text of a plan.
 - **Decision:** one light fix wave `W-F1` for three proposed items: F-195 (pr-sdlc passes explicit `--base` and `--head` to `gh pr create` and names the branch in `gh pr edit`; the TODO note `pr-step-gh-in-main-checkout` is promoted into it), the deferred low of lean-w51 (a named constant for the `guardrail-compliance` rerun lane in `plan-critique.js`, no behaviour change) and the optional low of W-E8 (ship-sdlc SKILL.md item 3 cites `R-todowrite-visibility`). Patch bump, exec-only verification. F-183 is left out: it needs an owner decision between options and becomes its own later wave.
 - **Rejected options:** adding F-183 to this wave; a `ship-step-pr` change that runs `gh` from the worktree instead of passing refs.
 - **Made obsolete or amended:** the backlog placement of the note `pr-step-gh-in-main-checkout` in PD-8.
+
+## PD-10: Light fix wave W-F2 for the remaining review lows
+
+- **Date and owner:** 2026-11-25, owner request ("wrap remaining lows onto a wave and kick it off"); architect check 2026-11-25 (item 1 and item 3 valid, item 2 obsolete convention).
+- **Decision:** one light fix wave `W-F2` for the two valid lows of the W-F1 review note `pr-gh-refs-review-lows`: the empty if-branch in `check-pr-gh-ref-sentinels.js` (BG-001, no behaviour change) and the `baseBranch` mention in the pr-sdlc update-mode quoting rule (TK-032). Patch bump, exec-only verification.
+- **Rejected options:** changing the usage-error exit code from 2 to 1 (exit 2 is a documented convention, W-E3 and F-151); leaving the lows to the end audit.
+- **Made obsolete or amended:** none.

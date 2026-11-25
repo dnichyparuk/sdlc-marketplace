@@ -158,6 +158,16 @@ Scope (owner 2026-11-22, "collect proposed items into a wave and dispatch"; deci
 | --- | --- | --- | --- |
 | M1 | TK-029, TK-030, TK-031 | `2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and` | 1 light wave, about 3 tasks |
 
+## W-F2: pr-gh-refs review lows cleanup
+
+Scope (owner 2026-11-25, "wrap remaining lows onto a wave and kick it off"; decision PD-10): two lows left open by the W-F1 review, both from the TODO note `pr-gh-refs-review-lows` (archived, promoted). BG-001: the sentinel script `tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js` (lines 12-13) has an empty if-branch; restructure the argument handling with no behaviour change, the `pr-gh-refs:` exec cases still pass 2 of 2. TK-032: `plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md:531` names `baseBranch` in the update-mode quoting rule, but the only command there has no such placeholder; remove it from that sentence. The note's third item (usage error exits 2, not 1) is dropped: exit 2 is a documented convention (W-E3 plan lines 78 and 98; rule F-151). Light wave, patch bump, exec-only verification. After W-F1 (Done).
+
+### Milestones
+
+| Milestone | Tickets | Plan(s) | Estimate |
+| --- | --- | --- | --- |
+| M1 | BG-001, TK-032 | | 1 light wave, about 2 tasks |
+
 ## W-END: Programme post-merge audit
 
 > END (owner 2026-11-19, 'accepted with optimisations'): after F, ONE post-merge audit of the programme; its brief carries, as context, every deferred low of every wave (`ledger.js backlog` + review-archive texts, incl. the placement architect's file:line list for lean-w34/w35/w36: plan-critique-orchestrator.md :41/:104, spec R75 rerun lanes, ship.js:526, pr-sdlc SKILL.md:456; mutation-smoke.js :164/:165/:172/:187, check-dataset-asserts.js:175, check-spec-id-coverage.js:73; ship-step-received-review.md:21, received-review SKILL.md:612) plus #9450's wider prefix-match note. Confirmed defects and still-present lows go to the fix waves W-E1 to W-E5 (END audit result, 2026-11-21); the gate then re-checks them and closes the programme. No low becomes a wave before END; new lows from H1..F also accumulate in the backlog.
