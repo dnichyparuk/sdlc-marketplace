@@ -166,7 +166,7 @@ Scope (owner 2026-11-25, "wrap remaining lows onto a wave and kick it off"; deci
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | BG-001, TK-032 | | 1 light wave, about 2 tasks |
+| M1 | BG-001, TK-032 | `2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup` | 1 light wave, about 2 tasks |
 
 ## W-END: Programme post-merge audit
 

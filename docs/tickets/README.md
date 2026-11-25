@@ -13,8 +13,8 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [TK-032](./TK-032-pr-update-basebranch/ticket.md) | task | pr-sdlc update mode drops baseBranch from quoting rule | — | scheduled | W-F2 M1 | — |
-| [BG-001](./BG-001-sentinel-empty-branch/ticket.md) | defect | sentinel script has an empty if-branch | — | scheduled | W-F2 M1 | — |
+| [TK-032](./TK-032-pr-update-basebranch/ticket.md) | task | pr-sdlc update mode drops baseBranch from quoting rule | — | planned | W-F2 M1 | 2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup#2 |
+| [BG-001](./BG-001-sentinel-empty-branch/ticket.md) | defect | sentinel script has an empty if-branch | — | planned | W-F2 M1 | 2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup#1 |
 
 **Open, backlog** (0):
 
