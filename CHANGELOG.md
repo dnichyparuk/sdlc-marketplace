@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.15] - 2026-11-25
+
+### Fixed
+- pr-sdlc: the update-mode quoting rule no longer names the base branch, which the update command does not use, and the pr gh-ref sentinel check drops its empty argument branch and exits 2 with usage on any other argument (W-F2).
+
 ## [0.57.14] - 2026-11-22
 
 ### Fixed
