@@ -255,15 +255,16 @@
       "key": "W-F2",
       "aliases": ["F2"],
       "title": "pr-gh-refs review lows cleanup",
-      "status": "In progress",
+      "status": "Done",
       "dependsOn": ["W-F1"],
       "after": [],
       "plans": [
         { "path": "docs/plans/programme.md", "section": "W-F2", "role": "brief" },
-        { "path": "docs/plans/2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup.md", "role": "executable" }
+        { "path": "docs/archived/plans/2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup.md", "role": "executable" }
       ],
       "todos": ["docs/TODO/archive/pr-gh-refs-review-lows.md"],
-      "decisions": ["PD-10"]
+      "decisions": ["PD-10"],
+      "closedBy": "PR #156, 3bd572d"
     }
   ]
 }

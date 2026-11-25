@@ -3,6 +3,9 @@ id: TK-032
 type: task
 title: pr-sdlc update mode drops baseBranch from quoting rule
 created: 2026-11-25
+resolution: done
+closed: 2026-11-25
+by: [2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup#2]
 ---
 
 # TK-032: pr-sdlc update mode drops baseBranch from quoting rule
