@@ -4,6 +4,9 @@ type: defect
 title: sentinel script has an empty if-branch
 created: 2026-11-25
 links: [todo:pr-gh-refs-review-lows]
+resolution: done
+closed: 2026-11-25
+by: [2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup#1]
 ---
 
 # BG-001: sentinel script has an empty if-branch

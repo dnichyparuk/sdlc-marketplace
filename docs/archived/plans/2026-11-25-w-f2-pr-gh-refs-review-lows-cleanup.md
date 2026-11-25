@@ -1,5 +1,7 @@
 # W-F2 pr-gh-refs Review Lows Cleanup Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #156, 3bd572d
+
 **Commit:** `fix(W-F2): pr-sdlc - sentinel arg branch and update-mode quoting`
 **Goal:** Close the two low review findings that W-F1 (PR #153) left open: remove an empty if-branch from the pr-gh-refs sentinel script (BG-001) and remove a stale `baseBranch` name from the pr-sdlc update-mode quoting sentence (TK-032).
 **Architecture:** Two independent one-file edits with no behaviour change. Task 1 restructures the argument check of `tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js`; Task 2 edits one sentence of `plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md`. Both run in one execute wave and are verified by the two `pr-gh-refs:` exec cases.
@@ -107,9 +109,9 @@ Both items were re-verified at HEAD `46b085e` (the wave ships on `main` from thi
 **Notes:** Source row: `docs/TODO/archive/pr-gh-refs-review-lows.md`, first finding (empty if-branch; its line 42 citation is stale, the branch is at lines 12-13).
 
 **Acceptance criteria:**
-- [ ] The argument check of `tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js` has no empty branch and no `// default file` comment (BG-001 A1).
-- [ ] `node tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js --bogus` exits 2, prints the usage line on stderr and prints nothing on stdout.
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern pr-gh-refs:` passes 2 of 2, with `tests/promptfoo/datasets/pr-prepare-exec.yaml` unchanged (BG-001 A2).
+- [x] The argument check of `tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js` has no empty branch and no `// default file` comment (BG-001 A1).
+- [x] `node tests/promptfoo/scripts/check-pr-gh-ref-sentinels.js --bogus` exits 2, prints the usage line on stderr and prints nothing on stdout.
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern pr-gh-refs:` passes 2 of 2, with `tests/promptfoo/datasets/pr-prepare-exec.yaml` unchanged (BG-001 A2).
 
 **Contract:**
 - shape (code): replace lines 12-19 of the script. Before → after:
@@ -152,9 +154,9 @@ Both items were re-verified at HEAD `46b085e` (the wave ships on `main` from thi
 **Notes:** Source row: `docs/TODO/archive/pr-gh-refs-review-lows.md`, third finding (update-mode quoting rule names `baseBranch`); the create-mode sentence at line 500 is correct and stays.
 
 **Acceptance criteria:**
-- [ ] The update-mode sentence (the line after `**Update mode:**`) in `plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md` no longer names `baseBranch` (TK-032 A1).
-- [ ] `git grep -n -F 'each label, `baseBranch`' -- plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md` gives exactly one hit, the create-mode line (was 2).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern pr-gh-refs:` passes 2 of 2.
+- [x] The update-mode sentence (the line after `**Update mode:**`) in `plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md` no longer names `baseBranch` (TK-032 A1).
+- [x] `git grep -n -F 'each label, `baseBranch`' -- plugins/sdlc-utilities/skills/pr-sdlc/SKILL.md` gives exactly one hit, the create-mode line (was 2).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern pr-gh-refs:` passes 2 of 2.
 
 **Contract:**
 - shape (code): one sentence edit at `SKILL.md:531`. Before → after:
