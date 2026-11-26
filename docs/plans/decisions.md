@@ -72,3 +72,11 @@ Append-only. The log wins over the text of a plan.
 - **Decision:** one light fix wave `W-F2` for the two valid lows of the W-F1 review note `pr-gh-refs-review-lows`: the empty if-branch in `check-pr-gh-ref-sentinels.js` (BG-001, no behaviour change) and the `baseBranch` mention in the pr-sdlc update-mode quoting rule (TK-032). Patch bump, exec-only verification.
 - **Rejected options:** changing the usage-error exit code from 2 to 1 (exit 2 is a documented convention, W-E3 and F-151); leaving the lows to the end audit.
 - **Made obsolete or amended:** none.
+
+## PD-11: Light fix wave W-F3 for the post-tool-validate false reports
+
+- **Date and owner:** 2026-11-26, owner request ("create tickets and put them into the plan") for finding F-5 of the lift-fixed-price lean ledger; architect check 2026-11-26 (both causes re-verified at f68086c in this repository and in lift-fixed-price).
+- **Decision:** one light fix wave `W-F3` for the TODO note `post-tool-validate-non-plan-files` (archived, promoted). BG-002: the post-tool-validate hook validates only files with a `### Task N:` heading, through a new `--if-plan` flag of `validate-plan-format.js` that skips a file in which both task parsers see no task; the validator without the flag is unchanged. BG-003: PF5 counts ticked checkboxes. Patch bump, exec-only verification.
+- **Rejected options:** a `**Goal:**` header test (3 of the 8 false reports in lift-fixed-price, two briefs and the plan guidelines, carry `**Goal:**`); a `plan.validateIgnore` glob list in the project config (a new config key, setup and docs surface, opt-in per project, and not needed for any measured case); the heading test inside the hook (a second, fence-unaware parser next to the two of `lib/plan-parse.js`).
+- **Open for the owner:** whether the hook should also skip archived plans (lift-fixed-price keeps 22 old-format archived plans that fail PF3, PF4, PF6, PF7 or PF12 and still report on Edit after BG-003); not in W-F3.
+- **Made obsolete or amended:** none.

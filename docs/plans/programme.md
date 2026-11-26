@@ -168,6 +168,16 @@ Scope (owner 2026-11-25, "wrap remaining lows onto a wave and kick it off"; deci
 | --- | --- | --- | --- |
 | M1 | BG-001, TK-032 | `2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup` | 1 light wave, about 2 tasks |
 
+## W-F3: post-tool-validate false reports on non-plan files
+
+Scope (owner 2026-11-26, "create tickets and put them into the plan"; decision PD-11): finding F-5 of the lift-fixed-price lean ledger, from the TODO note `post-tool-validate-non-plan-files` (archived, promoted). BG-002: `hooks/post-tool-validate.js:66` validates every `plans/*.md` as a plan, so the programme README, decision logs, briefs and guidelines report PF1, PF2 and PF6 after each Edit; the validator gets `--if-plan` (exit 0 with no output when neither task parser sees a `### Task N:` heading) and the hook passes it. BG-003: PF5 (`validate-plan-format.js:367`) counts only `- [ ]`, so every executed or archived plan fails; count ticked items too. Exec cases in `post-tool-validate-exec.yaml` and the validator dataset; spec wording in docs/specs/plan-sdlc.md (CI validation contract). Light wave, patch bump, exec-only verification. After W-F2 (Done).
+
+### Milestones
+
+| Milestone | Tickets | Plan(s) | Estimate |
+| --- | --- | --- | --- |
+| M1 | BG-002, BG-003 | | 1 light wave, about 2 tasks |
+
 ## W-END: Programme post-merge audit
 
 > END (owner 2026-11-19, 'accepted with optimisations'): after F, ONE post-merge audit of the programme; its brief carries, as context, every deferred low of every wave (`ledger.js backlog` + review-archive texts, incl. the placement architect's file:line list for lean-w34/w35/w36: plan-critique-orchestrator.md :41/:104, spec R75 rerun lanes, ship.js:526, pr-sdlc SKILL.md:456; mutation-smoke.js :164/:165/:172/:187, check-dataset-asserts.js:175, check-spec-id-coverage.js:73; ship-step-received-review.md:21, received-review SKILL.md:612) plus #9450's wider prefix-match note. Confirmed defects and still-present lows go to the fix waves W-E1 to W-E5 (END audit result, 2026-11-21); the gate then re-checks them and closes the programme. No low becomes a wave before END; new lows from H1..F also accumulate in the backlog.

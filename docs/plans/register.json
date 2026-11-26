@@ -265,6 +265,19 @@
       "todos": ["docs/TODO/archive/pr-gh-refs-review-lows.md"],
       "decisions": ["PD-10"],
       "closedBy": "PR #156, 3bd572d"
+    },
+    {
+      "key": "W-F3",
+      "aliases": ["F3"],
+      "title": "post-tool-validate false reports on non-plan files",
+      "status": "Not started",
+      "dependsOn": ["W-F2"],
+      "after": [],
+      "plans": [
+        { "path": "docs/plans/programme.md", "section": "W-F3", "role": "brief" }
+      ],
+      "todos": ["docs/TODO/archive/post-tool-validate-non-plan-files.md"],
+      "decisions": ["PD-11"]
     }
   ]
 }
