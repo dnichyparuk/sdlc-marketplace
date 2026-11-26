@@ -4,6 +4,9 @@ type: defect
 title: PF5 does not count ticked acceptance checkboxes
 created: 2026-11-26
 links: [todo:post-tool-validate-non-plan-files]
+resolution: done
+closed: 2026-11-26
+by: [2026-11-26-w-f3-post-tool-validate-false-reports-on#2]
 ---
 
 # BG-003: PF5 does not count ticked acceptance checkboxes

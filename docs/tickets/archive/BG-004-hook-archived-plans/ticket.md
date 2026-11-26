@@ -4,6 +4,9 @@ type: defect
 title: post-tool-validate validates archived plans
 created: 2026-11-26
 links: [todo:post-tool-validate-non-plan-files]
+resolution: done
+closed: 2026-11-26
+by: [2026-11-26-w-f3-post-tool-validate-false-reports-on#3]
 ---
 
 # BG-004: post-tool-validate validates archived plans
