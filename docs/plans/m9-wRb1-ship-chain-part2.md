@@ -752,7 +752,7 @@ All facts were read at base `d37c57f` (plugin 0.45.0) in this checkout. Paths ar
 
 **Contract:**
 - shape (code):
-  ```diff
+  ````diff
        … node -e "…" < "<SUMMARY_FILE>"
   -    echo "PARSE_EXIT=$?"
   -    rm -f "<SUMMARY_FILE>"
@@ -763,7 +763,7 @@ All facts were read at base `d37c57f` (plugin 0.45.0) in this checkout. Paths ar
   +  ```
   - If no JSON line was printed or `PARSE_EXIT` is not 0, …
   + If no JSON line was printed or the parse call's exit code (from the tool result) is not 0, …
-  ```
+  ````
 - names: E15 (amended).
 - mirror: the "Run this as one plain Bash call" wording at `commit-sdlc/SKILL.md:245`.
 - decisions: none beyond the item.
