@@ -1,5 +1,7 @@
 # W-F3 post-tool-validate False Reports Implementation Plan
 
+> ARCHIVED / IMPLEMENTED — PR #159, c0a349a
+
 **Commit:** `fix(W-F3): plan-sdlc - quiet post-tool-validate on non-plan files`
 **Goal:** Stop the post-tool-validate hook from reporting false plan-format failures: skip files under `plans/` that hold no task heading (BG-002), count ticked acceptance checkboxes in PF5 and read its label only at column 0 (BG-003), and skip plans under an `archive` or `archived` directory below the project root (BG-004).
 **Architecture:** `validate-plan-format.js` gets a `--if-plan` flag (exit 0, no output, when neither task parser sees a task) and a fixed PF5 regex. `hooks/post-tool-validate.js` passes `--if-plan` for a `plans/*.md` path and exits 0 before the validator for a path with an archive segment below `process.cwd()`. Tests are exec-only: new cases of the wrapper `run-plan-format-case.js` in the validator dataset and a new hook wrapper `run-post-tool-validate-plans.js` in the hook dataset.
@@ -125,12 +127,12 @@ All three items were re-verified at HEAD `ff121f9`, the base this wave ships on,
 **Notes:** Seven files, but three are test wrappers and two are datasets of the same change. Splitting the validator from the hook would leave a wave where the hook passes a flag that the validator ignores. The argv wrapper must change in this task because its case would otherwise turn red (Research Findings).
 
 **Acceptance criteria:**
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-plan-format.js --file docs/plans/README.md --if-plan` exits 0 with empty stdout; without `--if-plan` it exits 1 and the JSON shows PF2 fail (BG-002 A1, A4).
-- [ ] `node plugins/sdlc-utilities/scripts/ci/validate-plan-format.js --help` names `--if-plan` (BG-002 A5, usage part).
-- [ ] The hook passes `--if-plan` only on the plan path; the dimension and PR-template argument lists are unchanged (BG-002 A2).
-- [ ] For each of `docs/plans/README.md`, `docs/plans/decisions.md`, `docs/plans/programme.md` and `docs/plans/PLAN_GUIDELINES.md`, the command `echo '{"tool_input":{"file_path":"'"$PWD"'/docs/plans/README.md"}}' | node plugins/sdlc-utilities/hooks/post-tool-validate.js` (file name substituted) exits 0 with empty stderr, run from the repository root (BG-002 A6).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern post-tool-validate` passes 4 of 4 (1 existing + 3 new) (BG-002 A3).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern plan-format` passes every case (46 existing + 2 new), and `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern post-tool-validate-argv` passes 1 of 1.
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-plan-format.js --file docs/plans/README.md --if-plan` exits 0 with empty stdout; without `--if-plan` it exits 1 and the JSON shows PF2 fail (BG-002 A1, A4).
+- [x] `node plugins/sdlc-utilities/scripts/ci/validate-plan-format.js --help` names `--if-plan` (BG-002 A5, usage part).
+- [x] The hook passes `--if-plan` only on the plan path; the dimension and PR-template argument lists are unchanged (BG-002 A2).
+- [x] For each of `docs/plans/README.md`, `docs/plans/decisions.md`, `docs/plans/programme.md` and `docs/plans/PLAN_GUIDELINES.md`, the command `echo '{"tool_input":{"file_path":"'"$PWD"'/docs/plans/README.md"}}' | node plugins/sdlc-utilities/hooks/post-tool-validate.js` (file name substituted) exits 0 with empty stderr, run from the repository root (BG-002 A6).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern post-tool-validate` passes 4 of 4 (1 existing + 3 new) (BG-002 A3).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern plan-format` passes every case (46 existing + 2 new), and `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern post-tool-validate-argv` passes 1 of 1.
 
 **Contract:**
 - shape (code): validator flag table, before → after:
@@ -211,11 +213,11 @@ All three items were re-verified at HEAD `ff121f9`, the base this wave ships on,
 **Notes:** Depends on Task 1 only because both edit the validator, the wrapper and the dataset (one owner per file per wave, F-43). The failure message stays word for word, so the existing assertion `has no checkbox items` at `tests/promptfoo/datasets/plan-format-exec.yaml:165` keeps passing.
 
 **Acceptance criteria:**
-- [ ] PF5 counts `- [ ]`, `- [x]` and `- [X]` in the Acceptance criteria block; the message for a block with no checkbox is unchanged (BG-003 A1).
-- [ ] Case `pf5-ticked` (every item ticked) passes PF5; case `pf5-plain` (plain `- ` items) fails PF5 with `has no checkbox items` (BG-003 A2).
-- [ ] Case `pf5-midline` (a prose line ending with `**Acceptance criteria:**` before the real label) passes PF5 (BG-003 A5).
-- [ ] Every file of `docs/archived/plans` passes: `for f in docs/archived/plans/*.md; do node plugins/sdlc-utilities/scripts/ci/validate-plan-format.js --file "$f" --json > /dev/null || echo "FAIL $f"; done` prints nothing; the same loop over `docs/plans/2026-*.md` prints nothing (BG-003 A3).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern plan-format` passes every case (48 after Task 1 + 3 new; each new case description starts with `plan-format:` so that the filter runs it).
+- [x] PF5 counts `- [ ]`, `- [x]` and `- [X]` in the Acceptance criteria block; the message for a block with no checkbox is unchanged (BG-003 A1).
+- [x] Case `pf5-ticked` (every item ticked) passes PF5; case `pf5-plain` (plain `- ` items) fails PF5 with `has no checkbox items` (BG-003 A2).
+- [x] Case `pf5-midline` (a prose line ending with `**Acceptance criteria:**` before the real label) passes PF5 (BG-003 A5).
+- [x] Every file of `docs/archived/plans` passes: `for f in docs/archived/plans/*.md; do node plugins/sdlc-utilities/scripts/ci/validate-plan-format.js --file "$f" --json > /dev/null || echo "FAIL $f"; done` prints nothing; the same loop over `docs/plans/2026-*.md` prints nothing (BG-003 A3).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec.yaml -j 1 --no-cache --filter-pattern plan-format` passes every case (48 after Task 1 + 3 new; each new case description starts with `plan-format:` so that the filter runs it).
 
 **Contract:**
 - shape (code): `checkPF5` at `plugins/sdlc-utilities/scripts/ci/validate-plan-format.js:363-367`, before → after:
@@ -251,11 +253,11 @@ All three items were re-verified at HEAD `ff121f9`, the base this wave ships on,
 **Notes:** Threat model (F-73): a best-effort filter against noise, not a security check; a false skip only hides a report on a closed record. Accepted gaps: the match is case-sensitive (`Archive` is validated); symlinks are not resolved; a hook run from a subdirectory of the project sees only the segments below that directory; a path outside `process.cwd()` is always validated.
 
 **Acceptance criteria:**
-- [ ] The hook exits 0 with empty stdout and stderr for `<root>/docs/archived/plans/x.md` and `<root>/plans/archive/x.md`, each holding a plan that fails PF1 (BG-004 A1).
-- [ ] With cwd `<tmp>/x/archive/proj`, the path `<tmp>/x/archive/proj/docs/plans/p.md` holding a failing plan exits 2; with cwd `<tmp>/proj`, the path `<tmp>/archived/plans/p.md` (outside the root) exits 2 (BG-004 A2).
-- [ ] `<root>/docs/plans-archived-notes/plans/p.md` and `<root>/archives/plans/p.md` with a failing plan exit 2 (BG-004 A3).
-- [ ] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern post-tool-validate` passes 10 of 10 (4 after Task 1 + 6 new) (BG-004 A4).
-- [ ] The hook header comment states the skip rule (BG-004 A5).
+- [x] The hook exits 0 with empty stdout and stderr for `<root>/docs/archived/plans/x.md` and `<root>/plans/archive/x.md`, each holding a plan that fails PF1 (BG-004 A1).
+- [x] With cwd `<tmp>/x/archive/proj`, the path `<tmp>/x/archive/proj/docs/plans/p.md` holding a failing plan exits 2; with cwd `<tmp>/proj`, the path `<tmp>/archived/plans/p.md` (outside the root) exits 2 (BG-004 A2).
+- [x] `<root>/docs/plans-archived-notes/plans/p.md` and `<root>/archives/plans/p.md` with a failing plan exit 2 (BG-004 A3).
+- [x] `cd tests/promptfoo && npx --yes promptfoo@0.123.1 eval -c promptfooconfig-exec-hooks.yaml -j 1 --no-cache --filter-pattern post-tool-validate` passes 10 of 10 (4 after Task 1 + 6 new) (BG-004 A4).
+- [x] The hook header comment states the skip rule (BG-004 A5).
 
 **Contract:**
 - shape (code): in `plugins/sdlc-utilities/hooks/post-tool-validate.js`, move `const projectRoot = process.cwd();` above the validator selection and add, after the `if (!isDimension && !isPrTemplate && !isPlan)` exit:
@@ -297,9 +299,9 @@ All three items were re-verified at HEAD `ff121f9`, the base this wave ships on,
 **Notes:** Implements BG-002 A5 (spec part) and BG-003 A4; covers the BG-004 rule so the hook behaviour is in the spec (Deviations table); no Ticket line because it serves three tickets. The copy-rule companions were grepped (`checkbox`, `PF5`, `post-tool-validate`, `archived`) and state none of the changed rules.
 
 **Acceptance criteria:**
-- [ ] The PF5 line reads "`Acceptance criteria` present, its label at the start of a line, with ≥1 checkbox, unticked or ticked (`- [ ]`, `- [x]` or `- [X]`)" and keeps the rest of the line (BG-003 A4).
-- [ ] One sentence after the PF15 line describes `--if-plan` and the hook skip rule; no PF id is added or renumbered (BG-002 A5).
-- [ ] `cmp docs/specs/plan-sdlc.md site/src/content-source/specs/plan-sdlc.md` exits 0, and `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
+- [x] The PF5 line reads "`Acceptance criteria` present, its label at the start of a line, with ≥1 checkbox, unticked or ticked (`- [ ]`, `- [x]` or `- [X]`)" and keeps the rest of the line (BG-003 A4).
+- [x] One sentence after the PF15 line describes `--if-plan` and the hook skip rule; no PF id is added or renumbered (BG-002 A5).
+- [x] `cmp docs/specs/plan-sdlc.md site/src/content-source/specs/plan-sdlc.md` exits 0, and `node plugins/sdlc-utilities/scripts/ci/validate-spec-shape.js --root . --strict` exits 0.
 
 **Contract:** shape (openspec): MODIFY the PF5 line to start `- PF5: Task body valid (\`Acceptance criteria\` present, its label at the start of a line, with ≥1 checkbox, unticked or ticked (\`- [ ]\`, \`- [x]\` or \`- [X]\`); optional \`Notes\` block …` (rest unchanged); ADD after PF15 the line `With \`--if-plan\`, a file in which neither task parser finds a \`### Task N:\` heading exits 0 with no output and no check runs; without the flag every file is checked. The post-tool-validate hook passes \`--if-plan\` for a \`plans/*.md\` path and does not run the validator for a path with a directory segment named \`archive\` or \`archived\` below the project root.`; names: `PF5`, `--if-plan`; sync: `site/src/content-source/specs/plan-sdlc.md` via `cp docs/specs/plan-sdlc.md site/src/content-source/specs/plan-sdlc.md`
 
