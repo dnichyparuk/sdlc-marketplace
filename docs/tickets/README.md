@@ -13,9 +13,9 @@ tickets with `tickets new`, close them with `tickets close`, and keep this index
 
 | Ticket | Type | Title | Parent | State | Scheduled in | Implemented by |
 | --- | --- | --- | --- | --- | --- | --- |
-| [BG-002](./BG-002-hook-non-plan-files/ticket.md) | defect | post-tool-validate validates non-plan files under plans/ | — | scheduled | W-F3 M1 | — |
-| [BG-003](./BG-003-pf5-ticked-checkboxes/ticket.md) | defect | PF5 does not count ticked acceptance checkboxes | — | scheduled | W-F3 M1 | — |
-| [BG-004](./BG-004-hook-archived-plans/ticket.md) | defect | post-tool-validate validates archived plans | — | scheduled | W-F3 M1 | — |
+| [BG-002](./BG-002-hook-non-plan-files/ticket.md) | defect | post-tool-validate validates non-plan files under plans/ | — | planned | W-F3 M1 | 2026-11-26-w-f3-post-tool-validate-false-reports-on#1 |
+| [BG-003](./BG-003-pf5-ticked-checkboxes/ticket.md) | defect | PF5 does not count ticked acceptance checkboxes | — | planned | W-F3 M1 | 2026-11-26-w-f3-post-tool-validate-false-reports-on#2 |
+| [BG-004](./BG-004-hook-archived-plans/ticket.md) | defect | post-tool-validate validates archived plans | — | planned | W-F3 M1 | 2026-11-26-w-f3-post-tool-validate-false-reports-on#3 |
 
 **Open, backlog** (0):
 

@@ -33,7 +33,12 @@
  *   pf13-delete-missing: plan-format: PF13 delete entry of a missing file passes
  *   pf13-deleted-final: plan-format: PF13 deleted entry of a missing file passes with --final
  *   pf13-note-missing: plan-format: PF13 non-delete note of a missing file fails
+ *   pf5-ticked: plan-format: PF5 counts ticked checkboxes (every "- [ ]" becomes "- [x]")
+ *   pf5-plain: plan-format: PF5 fails plain "- " items with no checkbox
+ *   pf5-midline: plan-format: PF5 ignores a prose line ending with the label before the real label
  *   compact-parse: plan-format-compact: (b) plan-parse sees every task
+ *   if-plan-no-task: plan-format: --if-plan skips a file with no task; without it PF2 fails
+ *   if-plan-plan: plan-format: --if-plan still validates a plan (PF1 fails without a Goal)
  */
 
 'use strict';
@@ -96,8 +101,51 @@ const PF13_CASES = {
   'pf13-note-missing': ['update the delete helper', []],
 };
 
+// PF5 cases: each maps the text of plans/test-plan.md to the plan under test.
+const PF5_CASES = {
+  'pf5-ticked': (text) => text.split('- [ ]').join('- [x]'),
+  'pf5-plain': (text) => text.split('- [ ] ').join('- '),
+  'pf5-midline': (text) => text.replace('**Acceptance criteria:**', 'See the note below for **Acceptance criteria:**\nplain prose line\n\n**Acceptance criteria:**'),
+};
+
+function pf5Case(transform) {
+  const d = process.cwd();
+  const t = fs.mkdtempSync(path.join(os.tmpdir(), 'pf5-'));
+  fs.writeFileSync(path.join(t, 'c.md'), transform(fs.readFileSync(path.join(d, 'plans', 'test-plan.md'), 'utf8')));
+  process.stdout.write(validate(['--project-root', d, '--file', path.join(t, 'c.md'), '--json', '--root', d]));
+  fs.rmSync(t, { recursive: true });
+}
+
+function runValidate(args) {
+  const r = cp.spawnSync('node', [VALIDATE, ...args], { encoding: 'utf8' });
+  return { exitCode: r.status, stdout: r.stdout };
+}
+
 function validate(args) {
-  return cp.spawnSync('node', [VALIDATE, ...args], { encoding: 'utf8' }).stdout;
+  return runValidate(args).stdout;
+}
+
+// --if-plan cases: a temp file with no task heading, and a plan without its Goal line.
+function ifPlanNoTask() {
+  const d = process.cwd();
+  const t = fs.mkdtempSync(path.join(os.tmpdir(), 'ifplan-'));
+  const f = path.join(t, 'notes.md');
+  fs.writeFileSync(f, '# Notes\n\nNo task here.\n');
+  const withFlag = runValidate(['--project-root', d, '--file', f, '--if-plan', '--json']);
+  const without = runValidate(['--project-root', d, '--file', f, '--json']);
+  const pf2 = JSON.parse(without.stdout).checks.find((c) => c.id === 'PF2');
+  console.log(JSON.stringify({ withFlag, withoutFlag: { exitCode: without.exitCode, pf2: pf2 && pf2.status } }));
+  fs.rmSync(t, { recursive: true });
+}
+
+function ifPlanPlan() {
+  const d = process.cwd();
+  const t = fs.mkdtempSync(path.join(os.tmpdir(), 'ifplan-'));
+  const f = path.join(t, 'c.md');
+  const text = fs.readFileSync(path.join(d, 'plans', 'test-plan.md'), 'utf8');
+  fs.writeFileSync(f, text.split('\n').filter((l) => !l.startsWith('**Goal:**')).join('\n'));
+  process.stdout.write(validate(['--project-root', d, '--file', f, '--if-plan', '--json']));
+  fs.rmSync(t, { recursive: true });
 }
 
 function headerCase(header, tail) {
@@ -127,9 +175,12 @@ const CASES = {
       compact: p.parsePlan(t).tasks.slice(1).every((x) => x.contract && x.notes),
     }));
   },
+  'if-plan-no-task': ifPlanNoTask,
+  'if-plan-plan': ifPlanPlan,
 };
 for (const [name, [header, tail]] of Object.entries(HEADER_CASES)) CASES[name] = () => headerCase(header, tail);
 for (const [name, [replacement, extraArgs]] of Object.entries(PF13_CASES)) CASES[name] = () => pf13Case(replacement, extraArgs);
+for (const [name, transform] of Object.entries(PF5_CASES)) CASES[name] = () => pf5Case(transform);
 
 function parseCase(argv) {
   let name = null;

@@ -27,7 +27,7 @@ Executable plans of this repository and the generated programme status. The regi
 | `W-E9` (E9) | - | Audit follow-up doc fixes | [programme](./programme.md) (brief; §W-E9)<br>[2026-11-22-w-e9-audit-follow-up-doc-fixes](../archived/plans/2026-11-22-w-e9-audit-follow-up-doc-fixes.md) (executable) | Done | 12/12 | W-E8 | PR #150, 57f9dd9 |
 | `W-F1` (F1) | - | pr-sdlc explicit gh refs and plan-critique lane constant | [programme](./programme.md) (brief; §W-F1)<br>[2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and](../archived/plans/2026-11-22-w-f1-pr-sdlc-explicit-gh-refs-and.md) (executable) | Done | 19/19 | W-E9 | PR #153, 3edc184 |
 | `W-F2` (F2) | - | pr-gh-refs review lows cleanup | [programme](./programme.md) (brief; §W-F2)<br>[2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup](../archived/plans/2026-11-25-w-f2-pr-gh-refs-review-lows-cleanup.md) (executable) | Done | 6/6 | W-F1 | PR #156, 3bd572d |
-| `W-F3` (F3) | - | post-tool-validate false reports on non-plan files | [programme](./programme.md) (brief; §W-F3) | Not started | 0/0 | W-F2 | - |
+| `W-F3` (F3) | - | post-tool-validate false reports on non-plan files | [programme](./programme.md) (brief; §W-F3)<br>[2026-11-26-w-f3-post-tool-validate-false-reports-on](./2026-11-26-w-f3-post-tool-validate-false-reports-on.md) (executable) | In progress | 0/19 | W-F2 | - |
 
 **Order** (topological; ready = not started, hard dependencies closed, nothing waited on):
 
@@ -50,7 +50,7 @@ Executable plans of this repository and the generated programme status. The regi
 | 15 | `W-E9` | Done | W-E8 | done |
 | 16 | `W-F1` | Done | W-E9 | done |
 | 17 | `W-F2` | Done | W-F1 | done |
-| 18 | `W-F3` | Not started | W-F2 | ready |
+| 18 | `W-F3` | In progress | W-F2 | in progress |
 
 Longest dependency chain among open waves (dependsOn only; no effort estimates): W-F3 (1 wave).
 

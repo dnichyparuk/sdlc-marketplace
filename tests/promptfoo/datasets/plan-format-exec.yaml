@@ -535,6 +535,36 @@
     - type: javascript
       value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF13" && x.status === "fail" && x.details.some(d => d.taskRef === "Task 1" && d.message.includes("README.md")))'
 
+- description: "plan-format: PF5 counts ticked checkboxes"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf5-ticked"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF5" && x.status === "pass")'
+
+- description: "plan-format: PF5 fails plain items with no checkbox"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf5-plain"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF5" && x.status === "fail" && x.message.includes("has no checkbox items"))'
+
+- description: "plan-format: PF5 ignores a label mentioned mid-line"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case pf5-midline"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-plan-shared-modify-ordered"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF5" && x.status === "pass")'
+
 - description: "plan-format-lean: (a) PF15 fails a plan whose fence hides a task"
   vars:
     script_path: "repo://plugins/sdlc-utilities/scripts/ci/validate-plan-format.js"
@@ -602,3 +632,23 @@
   assert:
     - type: javascript
       value: 'JSON.parse(output.slice(0, output.lastIndexOf("}") + 1)).checks.some(x => x.id === "PF7" && x.status === "fail" && x.message.includes("Task 1: compact **Contract:** needs shape and names"))'
+
+- description: "plan-format: --if-plan skips a file with no task; without it PF2 fails"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case if-plan-no-task"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-valid-plan"
+  assert:
+    - type: javascript
+      value: 'const o = JSON.parse(output); o.withFlag.exitCode === 0 && o.withFlag.stdout === "" && o.withoutFlag.exitCode === 1 && o.withoutFlag.pf2 === "fail"'
+
+- description: "plan-format: --if-plan still validates a plan (PF1 fails without a Goal)"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-plan-format-case.js"
+    script_args: "--case if-plan-plan"
+    script_cwd: "{{project_root}}"
+    project_root: "file://fixtures-fs/project-valid-plan"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(output).checks.some(x => x.id === "PF1" && x.status === "fail")'

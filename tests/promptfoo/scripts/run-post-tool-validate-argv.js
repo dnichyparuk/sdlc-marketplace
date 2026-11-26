@@ -56,7 +56,7 @@ const runs = [];
 
 names.forEach((name, i) => {
   const planFile = path.join(plansDir, name);
-  fs.writeFileSync(planFile, '# not a plan\n');
+  fs.writeFileSync(planFile, '# P\n\n### Task 1: x\n');
   const payloadFile = path.join(tmp, `payload-${i + 1}.json`);
   fs.writeFileSync(payloadFile, JSON.stringify({ tool_name: 'Write', tool_input: { file_path: planFile } }));
   const fd = fs.openSync(payloadFile, 'r');
