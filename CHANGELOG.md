@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.16] - 2026-11-26
+
+### Fixed
+- plan-sdlc: the post-tool-validate hook no longer reports plan-format failures for Markdown files under plans/ that are not plans or for archived plans; `validate-plan-format.js` gains `--if-plan`, and PF5 counts ticked checkboxes (W-F3).
+
 ## [0.57.15] - 2026-11-25
 
 ### Fixed
