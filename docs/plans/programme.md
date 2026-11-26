@@ -170,13 +170,13 @@ Scope (owner 2026-11-25, "wrap remaining lows onto a wave and kick it off"; deci
 
 ## W-F3: post-tool-validate false reports on non-plan files
 
-Scope (owner 2026-11-26, "create tickets and put them into the plan"; decision PD-11): finding F-5 of the lift-fixed-price lean ledger, from the TODO note `post-tool-validate-non-plan-files` (archived, promoted). BG-002: `hooks/post-tool-validate.js:66` validates every `plans/*.md` as a plan, so the programme README, decision logs, briefs and guidelines report PF1, PF2 and PF6 after each Edit; the validator gets `--if-plan` (exit 0 with no output when neither task parser sees a `### Task N:` heading) and the hook passes it. BG-003: PF5 (`validate-plan-format.js:367`) counts only `- [ ]`, so every executed or archived plan fails; count ticked items too. Exec cases in `post-tool-validate-exec.yaml` and the validator dataset; spec wording in docs/specs/plan-sdlc.md (CI validation contract). Light wave, patch bump, exec-only verification. After W-F2 (Done).
+Scope (owner 2026-11-26, "create tickets and put them into the plan"; decision PD-11): finding F-5 of the lift-fixed-price lean ledger, from the TODO note `post-tool-validate-non-plan-files` (archived, promoted). BG-002: `hooks/post-tool-validate.js:66` validates every `plans/*.md` as a plan, so the programme README, decision logs, briefs and guidelines report PF1, PF2 and PF6 after each Edit; the validator gets `--if-plan` (exit 0 with no output when neither task parser sees a `### Task N:` heading) and the hook passes it. BG-003: PF5 (`validate-plan-format.js:367`) counts only `- [ ]`, so every executed or archived plan fails; count ticked items too, and anchor its label match at column 0. BG-004 (owner 2026-11-26): the hook skips plans under an `archive` or `archived` directory segment below the project root. Exec cases in `post-tool-validate-exec.yaml` and the validator dataset; spec wording in docs/specs/plan-sdlc.md (CI validation contract). Light wave, patch bump, exec-only verification. After W-F2 (Done).
 
 ### Milestones
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | BG-002, BG-003 | | 1 light wave, about 2 tasks |
+| M1 | BG-002, BG-003, BG-004 | | 1 light wave, about 3 tasks |
 
 ## W-END: Programme post-merge audit
 

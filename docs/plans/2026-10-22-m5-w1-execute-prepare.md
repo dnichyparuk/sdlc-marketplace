@@ -292,7 +292,7 @@ test ! -e plugins/sdlc-utilities/scripts/lib/plan-parse.js && echo absent
       verify: string|null,                             // raw **Verify:** value
       contract: string|null,                           // verbatim lines after **Contract:** up to the next "**…:**" label or task end
       notes: string|null,                              // text after **Notes:** up to the next "**…:**" label
-      acceptance: string[],                            // text of each "- [ ] " / "- [x] " line under **Acceptance criteria:**
+      acceptance: string[],                            // text of each "- [ ] " / "- [x] " line under the **Acceptance criteria:** label
       openspecTask: { change, ref, line: number, title } | null,       // **openspec-task:** sub-list
       body: string                                     // the cut task body (internal byte estimate; not emitted by execute.js)
     } ]

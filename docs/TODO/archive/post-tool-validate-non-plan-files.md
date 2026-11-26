@@ -1,6 +1,6 @@
 # post-tool-validate reports false PF failures on files that are not executable plans
 
-Status: Promoted (BG-002, BG-003). The `plan.validateIgnore` glob list of the proposal is not promoted: the task-heading test removes every false report measured, with no new config key (decision PD-11).
+Status: Promoted (BG-002, BG-003, BG-004). The `plan.validateIgnore` glob list of the proposal is not promoted: the task-heading test removes every false report measured, with no new config key (decision PD-11).
 
 Plugin defect (finding F-5 of the lift-fixed-price lean ledger, wave lean-w2, 2026-11-26; owner request 2026-11-26 "create tickets and put them into the plan"). Re-verified at f68086c in this repository and in lift-fixed-price.
 
@@ -23,3 +23,12 @@ Evidence: this repository, 16 of 16 `docs/archived/plans/*.md` fail with PF5 onl
 ## Proposal in the finding
 
 Exit 0 unless the file has the plan header (`**Goal:**`) or a `### Task N:` heading, or add a `plan.validateIgnore` glob list to the project config.
+
+## Archived plans are validated on every Edit (owner decision 2026-11-26)
+
+After BG-003, an archived plan in the current format passes, but an old-format archived plan still fails other checks (lift-fixed-price: 22 archived plans with task headings fail PF3, PF4, PF6, PF7 or PF12, besides PF5). An archived plan is a closed record; nothing executes it, so a format report on it has no use. Owner answer 2026-11-26: the hook skips archived plans too.
+
+## PF5 finds the label anywhere in a line (found 2026-11-26)
+
+`checkPF5` (`validate-plan-format.js:363`) matches `**Acceptance criteria:**` with no line anchor. In `docs/plans/2026-10-22-m5-w1-execute-prepare.md` Task 1, a code comment inside the indented Contract fence ended with that label, so PF5 read the lines after the comment as the criteria block and failed, though the task has a real block with a checkbox. The plan was reworded (2026-11-26) to pass; the validator cause goes to BG-003.
+
