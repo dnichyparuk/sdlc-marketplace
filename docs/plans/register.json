@@ -270,11 +270,12 @@
       "key": "W-F3",
       "aliases": ["F3"],
       "title": "post-tool-validate false reports on non-plan files",
-      "status": "Not started",
+      "status": "In progress",
       "dependsOn": ["W-F2"],
       "after": [],
       "plans": [
-        { "path": "docs/plans/programme.md", "section": "W-F3", "role": "brief" }
+        { "path": "docs/plans/programme.md", "section": "W-F3", "role": "brief" },
+        { "path": "docs/plans/2026-11-26-w-f3-post-tool-validate-false-reports-on.md", "role": "executable" }
       ],
       "todos": ["docs/TODO/archive/post-tool-validate-non-plan-files.md"],
       "decisions": ["PD-11"]

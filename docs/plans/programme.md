@@ -176,7 +176,7 @@ Scope (owner 2026-11-26, "create tickets and put them into the plan"; decision P
 
 | Milestone | Tickets | Plan(s) | Estimate |
 | --- | --- | --- | --- |
-| M1 | BG-002, BG-003, BG-004 | | 1 light wave, about 3 tasks |
+| M1 | BG-002, BG-003, BG-004 | `2026-11-26-w-f3-post-tool-validate-false-reports-on` | 1 light wave, about 3 tasks |
 
 ## W-END: Programme post-merge audit
 
