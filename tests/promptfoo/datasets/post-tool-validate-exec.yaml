@@ -9,3 +9,75 @@
   assert:
     - type: javascript
       value: "JSON.parse(output).exitCode === 2"
+
+- description: "post-tool-validate-plans: a plans/README.md with no task heading exits 0 with no output"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-plans.js"
+    script_args: "--case readme-no-task"
+  assert:
+    - type: javascript
+      value: 'const o = JSON.parse(JSON.parse(output).stdout); o.exitCode === 0 && o.stdout === "" && o.stderr === ""'
+
+- description: "post-tool-validate-plans: a task heading only inside a code fence exits 0"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-plans.js"
+    script_args: "--case fenced-task-only"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(JSON.parse(output).stdout).exitCode === 0'
+
+- description: "post-tool-validate-plans: a plan with a task and no Goal exits 2 and names PF1"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-plans.js"
+    script_args: "--case plan-no-goal"
+  assert:
+    - type: javascript
+      value: 'const o = JSON.parse(JSON.parse(output).stdout); o.exitCode === 2 && o.stderr.includes("PF1")'
+
+- description: "post-tool-validate-plans: a failing plan under docs/archived/plans is skipped"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-plans.js"
+    script_args: "--case archived-docs"
+  assert:
+    - type: javascript
+      value: 'const o = JSON.parse(JSON.parse(output).stdout); o.exitCode === 0 && o.stdout === "" && o.stderr === ""'
+
+- description: "post-tool-validate-plans: a failing plan under plans/archive is skipped"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-plans.js"
+    script_args: "--case archive-plans"
+  assert:
+    - type: javascript
+      value: 'const o = JSON.parse(JSON.parse(output).stdout); o.exitCode === 0 && o.stdout === "" && o.stderr === ""'
+
+- description: "post-tool-validate-plans: an archive segment above the project root is still validated"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-plans.js"
+    script_args: "--case archive-above-root"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(JSON.parse(output).stdout).exitCode === 2'
+
+- description: "post-tool-validate-plans: a plan outside the project root is validated"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-plans.js"
+    script_args: "--case outside-root"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(JSON.parse(output).stdout).exitCode === 2'
+
+- description: "post-tool-validate-plans: a plans-archived-notes segment is still validated"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-plans.js"
+    script_args: "--case archived-substring"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(JSON.parse(output).stdout).exitCode === 2'
+
+- description: "post-tool-validate-plans: an archives segment is still validated"
+  vars:
+    script_path: "repo://tests/promptfoo/scripts/run-post-tool-validate-plans.js"
+    script_args: "--case archives-segment"
+  assert:
+    - type: javascript
+      value: 'JSON.parse(JSON.parse(output).stdout).exitCode === 2'

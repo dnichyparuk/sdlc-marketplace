@@ -14,6 +14,7 @@
  *   --final                 Also enforce PF9 (Verification Scorecard)
  *   --template <path>       Active plan template; enables PF10 (under --final only)
  *   --root <dir>            Active worktree root; enables PF13 (Modify paths exist)
+ *   --if-plan               Exit 0 with no output when the file has no task heading
  *
  * Exit codes: 0 = all pass, 1 = issues found, 2 = script error
  *
@@ -57,6 +58,7 @@ Options:
   --final                 Also enforce PF9 (Verification Scorecard)
   --template <path>       Active plan template; enables PF10 (under --final only)
   --root <dir>            Active worktree root; enables PF13 (Modify paths exist)
+  --if-plan               Exit 0 with no output when the file has no task heading
   -h, --help              Print this usage and exit
 
 Exit codes: 0 = all pass, 1 = issues found, 2 = script error
@@ -75,6 +77,7 @@ function parseArgs(argv) {
   let requireScorecard = false;
   let templatePath = null;
   let rootDir = null;
+  let ifPlan = false;
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -95,10 +98,12 @@ function parseArgs(argv) {
       templatePath = path.resolve(args[++i]);
     } else if (a === '--root' && args[i + 1]) {
       rootDir = path.resolve(args[++i]);
+    } else if (a === '--if-plan') {
+      ifPlan = true;
     }
   }
 
-  return { projectRoot, filePath, outputFormat, requireScorecard, templatePath, rootDir };
+  return { projectRoot, filePath, outputFormat, requireScorecard, templatePath, rootDir, ifPlan };
 }
 
 // ---------------------------------------------------------------------------
@@ -360,11 +365,11 @@ function checkPF5(tasks) {
     const prefix = `Task ${task.number}`;
 
     // Check Acceptance criteria with at least one checkbox
-    const acMatch = task.body.match(/\*\*Acceptance criteria:\*\*\s*\n([\s\S]*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n---|\n## |$)/);
+    const acMatch = task.body.match(/(?:^|\n)\*\*Acceptance criteria:\*\*\s*\n([\s\S]*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n---|\n## |$)/);
     if (!acMatch) {
       issues.push(`${prefix}: missing **Acceptance criteria:**`);
     } else {
-      const checkboxCount = (acMatch[1].match(/- \[ \]/g) || []).length;
+      const checkboxCount = (acMatch[1].match(/- \[[ xX]\]/g) || []).length;
       if (checkboxCount === 0) {
         issues.push(`${prefix}: **Acceptance criteria:** has no checkbox items (expected at least one "- [ ]")`);
       }
@@ -634,7 +639,7 @@ function formatMarkdown(report) {
 
 if (require.main === module) {
   try {
-    const { projectRoot, filePath, outputFormat, requireScorecard, templatePath, rootDir } = parseArgs(process.argv);
+    const { projectRoot, filePath, outputFormat, requireScorecard, templatePath, rootDir, ifPlan } = parseArgs(process.argv);
 
     if (!filePath) {
       process.stderr.write('validate-plan-format.js error: --file <path> is required\n');
@@ -652,6 +657,8 @@ if (require.main === module) {
     }
 
     const content = fs.readFileSync(filePath, 'utf8');
+    // BG-002: with --if-plan, a file in which neither task parser sees a task is not a plan.
+    if (ifPlan && extractTasks(content).length === 0 && extractTasksRaw(content).length === 0) process.exit(0);
     const tasks   = extractTasks(content);
 
     const checks = [

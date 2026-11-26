@@ -12,7 +12,9 @@
  *   .claude/review-dimensions/*.ya?ml → validate-dimensions.js (legacy, deprecated; dropped in 0.21.x)
  *   .sdlc/pr-template.md              → validate-pr-template.js (canonical, issue #260)
  *   .claude/pr-template.md            → validate-pr-template.js (legacy, deprecated)
- *   plans/*.md                        → validate-plan-format.js
+ *   plans/*.md                        → validate-plan-format.js --if-plan (a file with no task heading passes)
+ *   A plans/*.md path with a directory segment named exactly "archive" or "archived" below the
+ *   project root (process.cwd()) exits 0 without running the validator.
  *
  * Exit codes:
  *   0 = clean or no match (always safe to continue)
@@ -73,6 +75,18 @@ if (!isDimension && !isPrTemplate && !isPlan) {
   process.exit(0);
 }
 
+// Use the project root from cwd (where Claude runs the hook)
+// KEEP: hook entry point — do not change to resolveSdlcRoot()
+const projectRoot = process.cwd();
+
+// BG-004: an archived plan is a closed record; skip it (segments below the project root only).
+const ARCHIVE_SEGMENTS = new Set(['archive', 'archived']);
+if (isPlan) {
+  const rel = path.relative(projectRoot, path.resolve(projectRoot, filePath));
+  const inside = rel !== '' && rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel);
+  if (inside && path.dirname(rel).split(/[/\\]+/).some((s) => ARCHIVE_SEGMENTS.has(s))) process.exit(0);
+}
+
 // ---------------------------------------------------------------------------
 // Locate validator scripts (../scripts/ relative to this hook file)
 // ---------------------------------------------------------------------------
@@ -88,17 +102,13 @@ if (isDimension) {
   validatorScript = path.join(scriptsDir, 'ci', 'validate-plan-format.js');
 }
 
-// Use the project root from cwd (where Claude runs the hook)
-// KEEP: hook entry point — do not change to resolveSdlcRoot()
-const projectRoot = process.cwd();
-
 // ---------------------------------------------------------------------------
 // Run validator
 // ---------------------------------------------------------------------------
 
 try {
   const args = [validatorScript, '--project-root', projectRoot, '--markdown'];
-  if (isPlan) args.push('--file', filePath);
+  if (isPlan) args.push('--file', filePath, '--if-plan');
   execFileSync('node', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   // Exit 0 from validator — all good
   process.exit(0);
